@@ -5,7 +5,7 @@ import { Fragment, memo, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, EyeOff, FolderOpen } from "lucide-react";
 import type { ClientUsageSessionRow, SessionRunState } from "../../services/api/clientUsage";
-import { formatNumber, formatPercent, formatRelativeTime } from "../../utils/formatters";
+import { formatNumber, formatRelativeTime } from "../../utils/formatters";
 import { ClientIcon, clientName } from "./ClientIcon";
 import { SessionCost } from "./SessionCost";
 import { SessionDetail } from "./SessionDetail";
@@ -30,7 +30,7 @@ const STATE_DOT: Record<SessionRunState, string> = {
 
 const rowKey = (r: ClientUsageSessionRow) => `${r.clientCode}:${r.sessionId}`;
 
-export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onOpenDir, onHide, ctxRatioOf, installed, transcriptOn, onCarry, onNeedTranscript }: {
+export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onOpenDir, onHide, installed, transcriptOn, onCarry, onNeedTranscript }: {
   rows: ClientUsageSessionRow[];
   /** 正在执行区的会话（已排序，且是 rows 的子集）。 */
   pinned: ClientUsageSessionRow[];
@@ -40,8 +40,6 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
   onResume: (r: ClientUsageSessionRow) => void;
   onOpenDir: (workdir: string) => void;
   onHide: (r: ClientUsageSessionRow) => void;
-  /** context-mode 压缩比（0-100）；无数据的会话（含非 claude_code）返回 undefined 不显示。 */
-  ctxRatioOf: (r: ClientUsageSessionRow) => number | undefined;
   /** 换客户端继续（票 10）：本机已安装客户端码、原文开关、点选回调、未开原文时的引导。 */
   installed: string[];
   transcriptOn: boolean;
@@ -75,7 +73,6 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
       onResume={onResume}
       onOpenDir={onOpenDir}
       onHide={onHide}
-      ctxRatio={ctxRatioOf(r)}
       installed={installed}
       transcriptOn={transcriptOn}
       onCarry={onCarry}
@@ -145,7 +142,7 @@ function OpenDirButton({ workdir, testId, onOpenDir }: { workdir: string; testId
   );
 }
 
-const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, resuming, onToggle, onResume, onOpenDir, onHide, ctxRatio, installed, transcriptOn, onCarry, onNeedTranscript }: {
+const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, resuming, onToggle, onResume, onOpenDir, onHide, installed, transcriptOn, onCarry, onNeedTranscript }: {
   r: ClientUsageSessionRow;
   inPinned: boolean;
   isOpen: boolean;
@@ -155,7 +152,6 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
   onResume: (r: ClientUsageSessionRow) => void;
   onOpenDir: (workdir: string) => void;
   onHide: (r: ClientUsageSessionRow) => void;
-  ctxRatio?: number;
   installed: string[];
   transcriptOn: boolean;
   onCarry: (r: ClientUsageSessionRow, to: string) => void;
@@ -204,7 +200,6 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
             {/* 每段 bdi 各自隔离方向：RTL 下数字与拉丁名不与相邻段混排（票 13） */}
             {inPinned && r.workdir && <><bdi dir="ltr" title={r.workdir}>{projectName(r.workdir)}</bdi>{" · "}</>}
             <bdi>{clientName(r.clientCode)}</bdi> · <bdi>{t("sessions.calls", "{{n}} calls", { n: r.calls })}</bdi> · <bdi>{t("sessions.duration", "lasted {{d}}", { d: duration })}</bdi>
-            {ctxRatio != null && <>{" · "}<bdi className="font-mono tabular-nums" title={t("sessions.ctxTitle", "context-mode context compression ratio")} data-testid="sessions-row-ctx" data-pct={String(ctxRatio)}>{t("sessions.ctxRatio", "Compressed {{pct}}", { pct: formatPercent(ctxRatio) })}</bdi></>}
           </div>
         </div>
         {inPinned && <SessionSparkline clientCode={r.clientCode} sessionId={r.sessionId} lastCallMs={r.lastCallMs} />}
@@ -256,7 +251,7 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
         )}
       </div>
     </div>
-    {isOpen && <SessionDetail clientCode={r.clientCode} sessionId={r.sessionId} sidechainCalls={r.sidechainCalls} ctxRatio={ctxRatio} />}
+    {isOpen && <SessionDetail clientCode={r.clientCode} sessionId={r.sessionId} sidechainCalls={r.sidechainCalls} />}
     </Fragment>
   );
 });

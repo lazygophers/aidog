@@ -4,35 +4,37 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown } from "lucide-react";
-import { StackedAreaChart } from "../charts";
+import { LineChart, StackedAreaChart } from "../charts";
 import { clientUsageApi, type ClientUsageAgentGroup, type ClientUsageSessionDetail } from "../../services/api/clientUsage";
+import { contextCompressApi } from "../../services/api/contextCompress";
 import { formatNumber, formatPercent } from "../../utils/formatters";
 import { SessionCost } from "./SessionCost";
 
-type Load = { state: "loading" } | { state: "error"; error: string } | { state: "ready"; detail: ClientUsageSessionDetail };
-type Part = "chain" | "agents";
+type Load<T> = { state: "loading" } | { state: "error"; error: string } | { state: "ready"; detail: T };
+type Part = "chain" | "agents" | "interactions";
 
 /** 折叠块：首次展开才调 fetch，之后收起 / 展开只切显示。 */
-function LazyBlock({ title, testId, fetch, children }: {
+function LazyBlock<T = never>({ title, testId, fetch, content, children }: {
   title: string;
   testId: string;
-  fetch: () => Promise<ClientUsageSessionDetail>;
-  children: (d: ClientUsageSessionDetail) => ReactNode;
+  fetch?: () => Promise<T>;
+  content?: () => ReactNode;
+  children?: (d: T) => ReactNode;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [load, setLoad] = useState<Load | null>(null);
+  const [load, setLoad] = useState<Load<T> | null>(null);
   const toggle = () => {
     setOpen(!open);
     // 只在展开时读；已读到（或在读）不重复请求，失败的下次展开重试。
-    if (open || (load && load.state !== "error")) return;
+    if (!fetch || open || (load && load.state !== "error")) return;
     setLoad({ state: "loading" });
     fetch().then(
       (detail) => setLoad({ state: "ready", detail }),
       (e) => setLoad({ state: "error", error: String(e) }),
     );
   };
-  const state = !open ? "closed" : (load?.state ?? "loading");
+  const state = !open ? "closed" : (fetch ? (load?.state ?? "loading") : "ready");
   return (
     <div data-testid={`${testId}-block`} data-state={state}>
       <button
@@ -49,14 +51,16 @@ function LazyBlock({ title, testId, fetch, children }: {
       {open && load?.state === "error" && (
         <p role="alert" className="break-all text-sm text-destructive">{t("sessions.detailError", "Failed to load details: {{error}}", { error: load.error })}</p>
       )}
-      {open && load?.state === "ready" && children(load.detail)}
+      {open && (fetch
+        ? load?.state === "ready" && children?.(load.detail)
+        : content?.())}
     </div>
   );
 }
 
-export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRatio }: { clientCode: string; sessionId: string; sidechainCalls?: number; ctxRatio?: number }) {
+export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0 }: { clientCode: string; sessionId: string; sidechainCalls?: number }) {
   const { t } = useTranslation();
-  const [load, setLoad] = useState<Load>({ state: "loading" });
+  const [load, setLoad] = useState<Load<ClientUsageSessionDetail>>({ state: "loading" });
 
   useEffect(() => {
     let alive = true;
@@ -77,6 +81,10 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRa
     output: { label: t("sessions.seriesOutput", "Output"), color: "var(--chart-4)" },
   }), [t]);
   const points = load.state === "ready" ? load.detail.points : [];
+  const contextConfig = useMemo(() => ({
+    context: { label: t("sessions.contextTokens", "Prompt tokens per call"), color: "var(--data-primary)" },
+  }), [t]);
+  const contextData = useMemo(() => points.map((p) => ({ x: p.callTimeMs, context: p.inputTokens })), [points]);
   const data = useMemo(() => {
     const rows = points.map((p) => ({
       x: p.callTimeMs, input: p.inputTokens, output: p.outputTokens, cacheRead: p.cacheReadTokens, cacheWrite: p.cacheWriteTokens,
@@ -97,18 +105,44 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRa
         <p role="alert" className="break-all text-sm text-destructive">{t("sessions.detailError", "Failed to load details: {{error}}", { error: load.error })}</p>
       )}
       {state === "empty" && <p className="text-sm text-muted-foreground">{t("sessions.detailEmpty", "No call records for this session within the retention period")}</p>}
-      {state === "ready" && (
+      {load.state === "ready" && (
         <>
-          {ctxRatio != null && (
-            <p className="text-sm text-muted-foreground" title={t("sessions.ctxTitle", "context-mode context compression ratio")} data-testid="session-detail-ctx" data-pct={String(ctxRatio)}>
-              {t("sessions.ctxRatio", "Compressed {{pct}}", { pct: formatPercent(ctxRatio) })}
-            </p>
-          )}
           {/* 图例下留白：bare 模式图例紧贴 Y 轴顶刻度，加内边距让 Recharts 量高时把绘图区下推。 */}
           <div data-testid="session-detail-chart" data-points={String(points.length)} data-rows={String(data.length)} className="[&_.recharts-legend-wrapper]:pb-3">
             <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t("sessions.detailChart", "Token usage")}</h4>
             <StackedAreaChart bare config={config} data={data} height={200} valueFormat={formatNumber} />
           </div>
+          <div data-testid="session-detail-context-chart" data-points={String(contextData.length)}>
+            <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t("sessions.contextChart", "Context tokens per call")}</h4>
+            <LineChart config={contextConfig} data={contextData} height={180} valueFormat={formatNumber} />
+          </div>
+          <LazyBlock title="sqz" testId="session-detail-sqz" content={() =>
+            <p className="text-sm text-muted-foreground">{t("sessions.toolSessionUnavailable", "The source does not identify this session; session totals are unavailable.")}</p>
+          } />
+          <LazyBlock title="rtk" testId="session-detail-rtk" content={() =>
+            <p className="text-sm text-muted-foreground">{t("sessions.toolSessionUnavailable", "The source does not identify this session; session totals are unavailable.")}</p>
+          } />
+          <LazyBlock title="context-mode" testId="session-detail-context-mode" fetch={async () =>
+            (await contextCompressApi.contextModeSessions()).find((r) => r.session_id === sessionId)?.reduction_pct
+          }>
+            {(ratio) => ratio == null
+              ? <p className="text-sm text-muted-foreground">{t("sessions.toolSessionUnavailable", "The source does not identify this session; session totals are unavailable.")}</p>
+              : <p className="text-sm text-muted-foreground" data-testid="session-detail-context-mode-value" data-pct={String(ratio)}>{t("sessions.ctxRatio", "Compressed {{pct}}", { pct: formatPercent(ratio) })}</p>}
+          </LazyBlock>
+          <LazyBlock title={t("sessions.detailHistory", "Interactions")} testId="session-detail-history" fetch={fetchPart("interactions")}>
+            {(d) => d.interactions.length === 0
+              ? <p className="text-sm text-muted-foreground">{t("sessions.detailHistoryEmpty", "No interactions found in the source files.")}</p>
+              : <ol className="max-h-[32rem] list-none space-y-3 overflow-y-auto rounded-md border p-3" data-testid="session-detail-history-list">
+                {d.interactions.map((item, i) => (
+                  <li key={`${item.timestamp}:${i}`} className="min-w-0 border-b pb-3 last:border-0 last:pb-0" data-testid="session-detail-interaction" data-role={item.role}>
+                    <div className="mb-1 flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
+                      <span dir="ltr">{item.role}</span><time dir="ltr">{item.timestamp}</time>
+                    </div>
+                    <pre dir="auto" className="whitespace-pre-wrap break-words font-sans text-sm">{item.content}</pre>
+                  </li>
+                ))}
+              </ol>}
+          </LazyBlock>
           <LazyBlock title={t("sessions.detailChain", "Model chain")} testId="session-detail-chain" fetch={fetchPart("chain")}>
             {(d) => (
               <ol className="flex flex-wrap items-center gap-1.5" data-testid="session-detail-chain">

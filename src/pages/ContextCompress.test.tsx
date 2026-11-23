@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "../test/render";
 
-const api = vi.hoisted(() => ({ status: vi.fn(), install: vi.fn(), setRtk: vi.fn(), setSqz: vi.fn(), stats: vi.fn(), statsCached: vi.fn() }));
+const api = vi.hoisted(() => ({ status: vi.fn(), install: vi.fn(), setRtk: vi.fn(), setSqz: vi.fn(), stats: vi.fn(), statsCached: vi.fn(), contextModeSessions: vi.fn() }));
 vi.mock("../services/api/contextCompress", () => ({ contextCompressApi: api }));
 
 import { ContextCompress, DailyTooltip } from "./ContextCompress";
@@ -57,6 +57,10 @@ beforeEach(() => {
   api.setSqz.mockResolvedValue({ ...STATUS, sqz_enabled: true, sqz_missing: [] });
   api.install.mockResolvedValue(STATUS);
   api.statsCached.mockResolvedValue(null);
+  api.contextModeSessions.mockResolvedValue([
+    { session_id: "session-a", reduction_pct: 50, tokens_saved: 1200, total_calls: 4 },
+    { session_id: "session-b", reduction_pct: 75, tokens_saved: 2400, total_calls: 8 },
+  ]);
   api.stats.mockResolvedValue({
     rtk: RTK_SUMMARY,
     sqz: { totalCompressions: 50, tokensIn: 2000, tokensOut: 1400, tokensSaved: 600, avgReduction: 30 },
@@ -323,7 +327,7 @@ describe("ContextCompress", () => {
       rtk: null, sqz: null, rtk_daily: [], sqz_daily: [],
       context_mode: { total_calls: 77, kept_out: 540204, total_processed: 1072399, tokens_saved: 135051, dollars_saved: 0.68, tokens_saved_lifetime: 12560640, dollars_saved_lifetime: 62.8, sessions: 32 },
     });
-    render(<ContextCompress />);
+    const { container } = render(<ContextCompress />);
     const trigger = await screen.findByTestId("cc-tab-ctxmode");
     fireEvent.mouseDown(trigger, { button: 0 });
     fireEvent.click(trigger);
@@ -333,6 +337,9 @@ describe("ContextCompress", () => {
     expect(screen.getByTestId("cc-stat-ctxmode-savedTotal").textContent).toBe(fmt(12560640));
     expect(screen.getByTestId("cc-stat-ctxmode-dollarsTotal").textContent).toContain("62.8");
     expect(screen.getByTestId("cc-stat-ctxmode-calls").textContent).toBe(fmt(77));
+    // 每会话压缩比图：与 rtk / sqz 每日图同款卡片结构（ChartCard + Bar）
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="cc-chart-ctxmode"] .recharts-bar-rectangle').length).toBe(2));
+    expect(screen.getByTestId("cc-legend-ctxmode").textContent).toContain("contextCompress.statsColRatio");
 
     api.stats.mockResolvedValue({ rtk: null, sqz: null, rtk_daily: [], sqz_daily: [], context_mode: null });
     fireEvent.click(screen.getByTestId("cc-stats-refresh"));

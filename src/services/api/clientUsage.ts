@@ -110,10 +110,17 @@ export interface ClientUsageAgentGroup {
   unpricedCalls: number;
 }
 
+export interface ClientUsageTranscriptEntry {
+  timestamp: string;
+  role: string;
+  content: string;
+}
+
 export interface ClientUsageSessionDetail {
   modelChain: ClientUsageModelSegment[];
   points: ClientUsageTokenPoint[];
   agents: ClientUsageAgentGroup[];
+  interactions: ClientUsageTranscriptEntry[];
 }
 
 /** 回收站行（票 09）：会话行 + 隐藏时刻。 */
@@ -151,7 +158,7 @@ export const clientUsageApi = {
   sessions: (fromMs: number, toMs: number, clientCode?: string, limit?: number) =>
     invoke<ClientUsageSessionRow[]>("client_usage_sessions", { fromMs, toMs, clientCode, limit }),
   /** part（票 12）：只读时间序列 / 模型链 / 主线与子代理分组之一，缺省全部。 */
-  sessionDetail: (clientCode: string, sessionId: string, part?: "points" | "chain" | "agents") =>
+  sessionDetail: (clientCode: string, sessionId: string, part?: "points" | "chain" | "agents" | "interactions") =>
     invoke<ClientUsageSessionDetail>("client_usage_session_detail", { clientCode, sessionId, part }),
   /** 从列表隐藏 / 恢复（票 09）：只记标记，不删客户端文件。 */
   sessionHide: (clientCode: string, sessionId: string) =>

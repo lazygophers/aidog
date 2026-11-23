@@ -7,7 +7,7 @@ import { Switch } from "../components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { ChartContainer, type ChartConfig } from "../components/ui/chart";
 import { ChartCard, ChartsTooltip, PRIMARY_COLOR, niceTicks, useDrawIn } from "../components/charts";
-import { contextCompressApi, type ContextCompressStats, type ContextCompressStatus, type RtkSetResult } from "../services/api/contextCompress";
+import { contextCompressApi, type ContextCompressStats, type ContextCompressStatus, type ContextModeSessionRatio, type RtkSetResult } from "../services/api/contextCompress";
 import { formatDateTime, formatInteger, formatNumber, formatPercent } from "../utils/formatters";
 
 type Range = "30" | "90" | "all";
@@ -54,6 +54,7 @@ export function ContextCompress() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<ContextCompressStatus | null>(null);
   const [stats, setStats] = useState<ContextCompressStats | null>(null);
+  const [contextSessions, setContextSessions] = useState<ContextModeSessionRatio[]>([]);
   const [statsState, setStatsState] = useState<"loading" | "ok" | "error">("loading");
   const [statsError, setStatsError] = useState("");
   const [error, setError] = useState("");
@@ -71,7 +72,12 @@ export function ContextCompress() {
     setRefreshing(true);
     setStatsError("");
     try {
-      setStats(await contextCompressApi.stats());
+      const [nextStats, sessions] = await Promise.all([
+        contextCompressApi.stats(),
+        contextCompressApi.contextModeSessions().catch(() => []),
+      ]);
+      setStats(nextStats);
+      setContextSessions(sessions);
       setFetchedAt(Date.now());
       setStatsState("ok");
     } catch (e) {
@@ -248,7 +254,7 @@ export function ContextCompress() {
     ["out", "contextCompress.statsOut", formatInteger(sqz.tokensOut), "total"],
   ];
 
-  // context-mode：无按日数据，只出聚合卡；全部为累计口径。
+  // context-mode：无按日数据，聚合卡全为累计口径；图表用每会话压缩比（sessions API，与 Claude Code 会话 UUID 一致）。
   const cm = stats?.context_mode;
   const ctxTiles: [string, string, string, "range" | "total"][] | null = statsState === "ok" && cm ? [
     ["pct", "contextCompress.statsPct", cm.total_processed > 0 ? formatPercent(cm.kept_out / cm.total_processed * 100) : "—", "total"],
@@ -256,6 +262,37 @@ export function ContextCompress() {
     ["dollarsTotal", "contextCompress.statsDollarsLifetime", formatNumber(cm.dollars_saved_lifetime), "total"],
     ["calls", "contextCompress.statsCalls", formatInteger(cm.total_calls), "total"],
   ] : null;
+  const contextSessionChart = (() => {
+    const data = contextSessions.map(session => ({
+      date: session.session_id,
+      compressed: session.tokens_saved,
+      pct: session.reduction_pct,
+    }));
+    const yTicks = niceTicks(0, Math.max(0, ...data.map(row => row.compressed)), 5);
+    return <div className="mt-3 space-y-2" data-testid="cc-chart-ctxmode">
+      <h3 className="text-sm font-medium">{t("sessions.ctxTitle")}</h3>
+      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground" data-testid="cc-legend-ctxmode">
+        <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: COLORS.compressed }} />{t("contextCompress.statsSaved")}</span>
+        <span className="flex items-center gap-1.5"><span className="h-0.5 w-3" style={{ background: COLORS.pct }} />{t(SERIES.pct)}</span>
+      </div>
+      <ChartCard empty={data.length === 0}>
+        <ChartContainer config={chartConfig} className="w-full" style={{ height: 220 }}>
+          <ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
+            <CartesianGrid vertical={false} strokeDasharray="3 3" />
+            <XAxis dataKey="date" tickFormatter={(id: string) => id.slice(0, 8)} tickLine={false} axisLine={false} tickMargin={8}
+              interval={data.length > 15 ? Math.ceil(data.length / 12) : 0} />
+            <YAxis yAxisId="tokens" width={56} tickLine={false} axisLine={false} tickFormatter={(v: number) => formatNumber(v)}
+              {...(yTicks.length > 0 && { ticks: yTicks, domain: [yTicks[0], yTicks[yTicks.length - 1]] as [number, number] })} />
+            <YAxis yAxisId="pct" orientation="right" width={44} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]}
+              tickLine={false} axisLine={false} tickFormatter={(v: number) => `${v}%`} />
+            <ChartsTooltip content={<DailyTooltip />} />
+            <Bar yAxisId="tokens" dataKey="compressed" fill={`var(--color-compressed)`} radius={[4, 4, 0, 0]} {...drawIn} />
+            <Line yAxisId="pct" type="monotone" dataKey="pct" stroke="var(--color-pct)" strokeWidth={2} dot={data.length <= 60} {...drawIn} />
+          </ComposedChart>
+        </ChartContainer>
+      </ChartCard>
+    </div>;
+  })();
 
   return (
     <section className="space-y-5" data-testid="context-compress-page">
@@ -304,7 +341,7 @@ export function ContextCompress() {
         </TabsContent>
         <TabsContent value="ctxmode" className="space-y-4">
           <p className="text-sm text-muted-foreground">{t("contextCompress.ctxDesc")}</p>
-          {card("ctxmode", ctxTiles, <p className="text-sm text-muted-foreground">{t("contextCompress.ctxNoDaily")}</p>)}
+          {card("ctxmode", ctxTiles, contextSessionChart)}
         </TabsContent>
       </Tabs>
     </section>
