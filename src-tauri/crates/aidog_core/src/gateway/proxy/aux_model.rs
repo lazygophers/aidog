@@ -27,6 +27,8 @@ pub(crate) struct AuxSpec {
     pub multipart: bool,
     /// 2xx 响应为二进制音频（speech）：日志落 `[binary N bytes]` 占位，响应原样回客户端。
     pub binary_response: bool,
+    /// 客户端可要求流式（`stream:true` → SSE 中间图转发，票 05）；其余种类恒非流式。
+    pub stream_capable: bool,
 }
 
 /// embedding：`usage.prompt_tokens` → input，output 恒 0（OpenAI 规范无输出 token）。
@@ -43,6 +45,7 @@ pub(crate) const EMBEDDING: AuxSpec = AuxSpec {
     extract_units: None,
     multipart: false,
     binary_response: false,
+    stream_capable: false,
 };
 
 /// rerank：Jina `usage.total_tokens`（记 input）→ SiliconFlow `meta.tokens` →
@@ -83,6 +86,7 @@ pub(crate) const RERANK: AuxSpec = AuxSpec {
     extract_units: Some(rerank_search_units),
     multipart: false,
     binary_response: false,
+    stream_capable: false,
 };
 
 /// image：OpenAI Images usage（gpt-image 系 `usage.input_tokens` / `output_tokens`；旧形态
@@ -118,6 +122,20 @@ pub(crate) const IMAGE: AuxSpec = AuxSpec {
     extract_units: Some(image_units),
     multipart: false,
     binary_response: false,
+    stream_capable: true,
+};
+
+/// image edits：`/v1/images/edits` 图生图编辑（票 05）。multipart 入站原样透传
+///（与音频转写同形），仅 `model` part 改写为槽位模型。
+pub(crate) const IMAGE_EDITS: AuxSpec = AuxSpec {
+    kind: RequestKind::Image,
+    api_path: "/images/edits",
+    label: "image_edits",
+    extract_usage: image_usage,
+    extract_units: Some(image_units),
+    multipart: true,
+    binary_response: false,
+    stream_capable: true,
 };
 
 /// audio 请求无 token usage（计费走 char / second 计数，issue #167）。
@@ -154,6 +172,7 @@ pub(crate) const AUDIO_SPEECH: AuxSpec = AuxSpec {
     extract_units: Some(speech_units),
     multipart: false,
     binary_response: true,
+    stream_capable: false,
 };
 
 pub(crate) const AUDIO_TRANSCRIPTIONS: AuxSpec = AuxSpec {
@@ -164,6 +183,7 @@ pub(crate) const AUDIO_TRANSCRIPTIONS: AuxSpec = AuxSpec {
     extract_units: Some(asr_units),
     multipart: true,
     binary_response: false,
+    stream_capable: false,
 };
 
 pub(crate) const AUDIO_TRANSLATIONS: AuxSpec = AuxSpec {
@@ -174,6 +194,7 @@ pub(crate) const AUDIO_TRANSLATIONS: AuxSpec = AuxSpec {
     extract_units: Some(asr_units),
     multipart: true,
     binary_response: false,
+    stream_capable: false,
 };
 
 /// 音频端点 path → AuxSpec（handler.rs 分流用；后缀判定，容忍 `/proxy` 前缀与尾 `/`）。
@@ -193,20 +214,193 @@ pub(crate) fn audio_spec(path: &str) -> Option<&'static AuxSpec> {
 /// multipart/form-data 取文本字段值：定位 `name="<field>"`，跳过首个空行读到下一边界。
 /// 音频入站只取 model 名用于路由与日志，body 原样透传，不做完整 multipart 解析。
 fn multipart_form_field(bytes: &[u8], field: &str) -> String {
+    multipart_form_value_span(bytes, field)
+        .map(|(s, e)| String::from_utf8_lossy(&bytes[s..e]).trim().to_string())
+        .unwrap_or_default()
+}
+
+/// multipart part 值段定位（与 [`multipart_form_field`] 同判定）：返回值段 [start, end) 字节区间。
+fn multipart_form_value_span(bytes: &[u8], field: &str) -> Option<(usize, usize)> {
     fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         haystack.windows(needle.len()).position(|w| w == needle)
     }
     let marker = format!("name=\"{field}\"");
-    let Some(p) = find(bytes, marker.as_bytes()) else {
-        return String::new();
-    };
+    let p = find(bytes, marker.as_bytes())?;
     let rest = &bytes[p + marker.len()..];
-    let Some(s) = find(rest, b"\r\n\r\n") else {
-        return String::new();
-    };
+    let s = find(rest, b"\r\n\r\n")?;
     let body = &rest[s + 4..];
     let e = find(body, b"\r\n--").unwrap_or(body.len());
-    String::from_utf8_lossy(&body[..e]).trim().to_string()
+    Some((p + marker.len() + s + 4, p + marker.len() + s + 4 + e))
+}
+
+/// 从 Content-Type 解析 multipart boundary（容忍引号 / 尾随参数）。
+fn boundary_from_content_type(content_type: &str) -> Option<String> {
+    let p = content_type.to_ascii_lowercase().find("boundary=")?;
+    let raw = &content_type[p + "boundary=".len()..];
+    let end = raw.find(';').unwrap_or(raw.len());
+    Some(raw[..end].trim().trim_matches('"').to_string())
+}
+
+// ══ 票 05：图片编辑与流式 ══
+
+/// 编辑请求单文件上限：<50MB（官方 openai-python images.py edit() 文档串
+/// "each image should be a png, webp, or jpg file less than 50MB"，2026-11-24 取证）。
+const IMAGE_EDIT_MAX_FILE_BYTES: usize = 50 * 1024 * 1024;
+/// 参考图张数上限：官方 "You can provide up to 16 images"（同上文档串）。
+/// Codex 客户端侧另有 ≤5 张引用上限（research/codex-生图.md §3），是客户端形态不是端点契约。
+const IMAGE_EDIT_MAX_IMAGES: usize = 16;
+/// mask / markup 上限：<4MB 且须为 PNG（官方 mask 文档串："less than 4MB" / markup "transparent PNG"）。
+const IMAGE_EDIT_MAX_MASK_BYTES: usize = 4 * 1024 * 1024;
+
+/// 编辑表单官方约束校验：image ≤16 张、png/webp/jpg、单文件 <50MB；mask/markup png <4MB。
+/// 违规返回错误文案（400），合法 None。
+fn validate_image_edit_form(bytes: &[u8], content_type: Option<&str>) -> Option<String> {
+    let boundary = match content_type.and_then(boundary_from_content_type) {
+        Some(b) if !b.is_empty() => b,
+        _ => return Some("multipart boundary missing".to_string()),
+    };
+    let delim = format!("\r\n--{boundary}");
+    let mut images = 0usize;
+    // 迭代 part：定位每个 delim，part = 头段（到 \r\n\r\n）+ 值段（到下一 delim）。
+    let mut cursor = 0usize;
+    while let Some(off) = find_sub(&bytes[cursor..], delim.as_bytes()) {
+        let start = cursor + off + delim.len();
+        // part 头结束（跳过可选的尾随 \r\n——终结边界后无头段）
+        let Some(hdr_end) = find_sub(&bytes[start..], b"\r\n\r\n") else {
+            break;
+        };
+        let headers = String::from_utf8_lossy(&bytes[start..start + hdr_end]).to_string();
+        let value_start = start + hdr_end + 4;
+        let value_end = find_sub(&bytes[value_start..], delim.as_bytes())
+            .map(|e| value_start + e)
+            .unwrap_or(bytes.len());
+        let (name, filename) = part_disposition(&headers);
+        let size = value_end - value_start;
+        match name.as_str() {
+            "image" | "image[]" => {
+                images += 1;
+                if !image_file_ext_ok(filename.as_deref()) {
+                    return Some(format!(
+                        "image file must be png, webp, or jpg (OpenAI Images edits contract), got {filename:?}"
+                    ));
+                }
+                if size >= IMAGE_EDIT_MAX_FILE_BYTES {
+                    return Some(format!(
+                        "image file must be less than 50MB (OpenAI Images edits contract), got {size} bytes"
+                    ));
+                }
+            }
+            "mask" | "markup" => {
+                let is_png = filename
+                    .as_deref()
+                    .and_then(|f| f.rsplit('.').next())
+                    .is_some_and(|e| e.eq_ignore_ascii_case("png"));
+                if !is_png {
+                    return Some("mask/markup must be a PNG file (OpenAI Images edits contract)".to_string());
+                }
+                if size >= IMAGE_EDIT_MAX_MASK_BYTES {
+                    return Some(format!(
+                        "mask/markup must be less than 4MB (OpenAI Images edits contract), got {size} bytes"
+                    ));
+                }
+            }
+            _ => {}
+        }
+        cursor = value_end;
+        if cursor >= bytes.len() {
+            break;
+        }
+    }
+    if images > IMAGE_EDIT_MAX_IMAGES {
+        return Some(format!(
+            "up to {IMAGE_EDIT_MAX_IMAGES} images per edit request (OpenAI Images edits contract), got {images}"
+        ));
+    }
+    None
+}
+
+fn find_sub(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return None;
+    }
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+/// 从 part 头段取 (name, filename)。
+fn part_disposition(headers: &str) -> (String, Option<String>) {
+    let mut name = String::new();
+    let mut filename = None;
+    for line in headers.lines() {
+        let lower = line.to_ascii_lowercase();
+        if let Some(p) = lower.find("name=\"") {
+            let rest = &line[p + 6..];
+            if let Some(e) = rest.find('"') {
+                name = rest[..e].to_string();
+            }
+        }
+        if let Some(p) = lower.find("filename=\"") {
+            let rest = &line[p + 10..];
+            if let Some(e) = rest.find('"') {
+                filename = Some(rest[..e].to_string());
+            }
+        }
+    }
+    (name, filename)
+}
+
+fn image_file_ext_ok(filename: Option<&str>) -> bool {
+    filename
+        .and_then(|f| f.rsplit('.').next())
+        .map(|e| ["png", "jpg", "jpeg", "webp"].iter().any(|x| e.eq_ignore_ascii_case(x)))
+        .unwrap_or(true) // 无文件名（部分客户端直传字节）不在端点可判范围，交上游校验
+}
+
+/// multipart 表单 `model` part 值改写为槽位模型，其余字节原样保留（票 05：
+/// 编辑路由用 image 槽位，body 不可整体重序列化）。
+fn rewrite_multipart_model(bytes: &[u8], boundary: &str, new_model: &str) -> Vec<u8> {
+    let _ = boundary;
+    match multipart_form_value_span(bytes, "model") {
+        Some((s, e)) => {
+            let mut out = Vec::with_capacity(bytes.len() - (e - s) + new_model.len());
+            out.extend_from_slice(&bytes[..s]);
+            out.extend_from_slice(new_model.as_bytes());
+            out.extend_from_slice(&bytes[e..]);
+            out
+        }
+        None => bytes.to_vec(),
+    }
+}
+
+/// 客户端要求流式（JSON `stream:true`；multipart 表单 `stream` = true/1）。
+fn image_stream_requested(spec: &AuxSpec, req: &AuxRequest<'_>) -> bool {
+    if spec.multipart {
+        matches!(
+            multipart_form_field(req.bytes, "stream").to_ascii_lowercase().as_str(),
+            "true" | "1"
+        )
+    } else {
+        req.value.get("stream").and_then(Value::as_bool).unwrap_or(false)
+    }
+}
+
+/// 官方契约：GIF/SVG 输出不支持流式与 partial（openai-python images.py：GIF "does not
+/// support streaming, partial images"；SVG "not support streaming"，2026-11-24 取证）。
+/// 用户拍板（票 00）：不能提供中间图时明确报不支持，不静默降级。
+/// 冲突返回 output_format 值，无冲突（含非流式请求）None。
+fn image_stream_format_conflict(spec: &AuxSpec, req: &AuxRequest<'_>) -> Option<String> {
+    if !image_stream_requested(spec, req) {
+        return None;
+    }
+    let fmt = if spec.multipart {
+        multipart_form_field(req.bytes, "output_format")
+    } else {
+        req.value
+            .get("output_format")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
+    matches!(fmt.as_str(), "gif" | "svg").then_some(fmt)
 }
 
 /// 辅助模型请求主入口（handler.rs 在 count_tokens / 决策分流旁调用）。
@@ -228,7 +422,6 @@ pub(crate) async fn handle_aux_model(
     } = ctx;
     log.source_protocol = spec.label.to_string();
     log.target_protocol = spec.label.to_string();
-    log.is_stream = false;
 
     let req_value: Value = if spec.multipart {
         // multipart（音频转写 / 翻译）body 非 JSON：只取 model 字段做路由，body 原样透传。
@@ -262,6 +455,37 @@ pub(crate) async fn handle_aux_model(
             .to_string()
     };
     log.model = requested_model.clone();
+    let incoming = AuxRequest {
+        value: &req_value,
+        bytes,
+        model: &requested_model,
+        content_type,
+    };
+    if spec.label == "image_edits"
+        && let Some(err) = validate_image_edit_form(bytes, content_type)
+    {
+        log.response_body = err.clone();
+        log.status_code = 400;
+        log.done = true;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(state, log, log_settings).await;
+        let mut r = (StatusCode::BAD_REQUEST, err).into_response();
+        inject_trace_header(&mut r);
+        return r;
+    }
+    if matches!(spec.label, "images" | "image_edits")
+        && let Some(fmt) = image_stream_format_conflict(spec, &incoming)
+    {
+        let err = format!("streaming is unsupported for output_format={fmt}");
+        log.response_body = err.clone();
+        log.status_code = 400;
+        log.done = true;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(state, log, log_settings).await;
+        let mut r = (StatusCode::BAD_REQUEST, err).into_response();
+        inject_trace_header(&mut r);
+        return r;
+    }
 
     let sched_settings = aidog_db::get_scheduling_settings(&state.db).await;
     let sched_ctx = ScheduleCtx {
@@ -428,6 +652,7 @@ async fn aux_attempt(
 ) -> AttemptOutcome {
     let (route, log_settings, group) = (scope.route, scope.log_settings, scope.group);
     let (is_last_candidate, has_next_model) = (scope.is_last_candidate, scope.has_next_model);
+    let stream_requested = spec.stream_capable && image_stream_requested(spec, req);
     // endpoint：OpenAI 系优先，否则回退平台主 base_url（零端点平台）。
     // supported_protocols 约束（4dbbc7c4 同族）：模型支持子集内硬序，无数据（None→空集）全回落。
     let supported = aidog_db::model_supported_protocols(
@@ -453,7 +678,17 @@ async fn aux_attempt(
     //（模型名由路由层 target_model 决定，body 不可重序列化）。
     let actual_model = route.target_model.clone();
     let upstream_body: Vec<u8> = if spec.multipart {
-        req.bytes.to_vec()
+        if matches!(spec.kind, RequestKind::Image) {
+            // 编辑（票 05）：model part 改写为槽位模型，其余字节原样保留。
+            let boundary = req
+                .content_type
+                .and_then(boundary_from_content_type)
+                .unwrap_or_default();
+            rewrite_multipart_model(req.bytes, &boundary, &actual_model)
+        } else {
+            // 音频转写 / 翻译：无专用槽，模型名随请求直转，body 原样透传。
+            req.bytes.to_vec()
+        }
     } else {
         let mut upstream_body = req.value.clone();
         if let Some(obj) = upstream_body.as_object_mut() {
@@ -536,6 +771,52 @@ async fn aux_attempt(
         };
     }
 
+    // ── 2xx 流式分支（票 05）：客户端要求流式时上游必须回 SSE；回 JSON = 上游不能提供
+    // 中间图 → 不静默降级，按服务类失败换平台，末位 501 明确报不支持。──
+    if stream_requested {
+        if !resp_ct.contains("text/event-stream") {
+            attempts.push(ProxyAttempt {
+                kind: Some("stream_unsupported".into()),
+                error_class: Some("service".into()),
+                chain_stop: has_next_model.then(|| "service".to_string()),
+                effects: vec!["penalty_server".into()],
+                platform_id: route.platform.id,
+                platform_name: route.platform.name.clone(),
+                status_code: status.as_u16() as i32,
+                error: format!("upstream returned non-stream response for stream=true ({resp_ct})"),
+                duration_ms: scope.attempt_start.elapsed().as_millis() as i64,
+                ts: scope.attempt_ts,
+                model: Some(actual_model.clone()),
+                ..Default::default()
+            });
+            scope.state.scheduler.record_penalty(
+                route.platform.id,
+                super::scheduling::PenaltyTier::Server,
+                aidog_db::now(),
+            );
+            tracing::warn!(platform = %route.platform.name, "image stream unsupported: non-SSE 2xx, failover");
+            if !is_last_candidate {
+                return AttemptOutcome::Next { connect_failed: false };
+            }
+            log.platform_id = route.platform.id;
+            log.status_code = 501;
+            log.done = true;
+            log.upstream_status_code = status.as_u16() as i32;
+            let err_body = "image streaming not supported by upstream (no intermediate images available)";
+            log.response_body = err_body.to_string();
+            log.user_response_body = err_body.to_string();
+            log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+            log.duration_ms = scope.start.elapsed().as_millis() as i32;
+            log.retry_count = aidog_db::models::retry_count_of(attempts);
+            log.attempts = std::mem::take(attempts);
+            upsert_log(scope.state, log, log_settings).await;
+            let mut r = (StatusCode::NOT_IMPLEMENTED, err_body).into_response();
+            inject_trace_header(&mut r);
+            return AttemptOutcome::Respond(r);
+        }
+        return image_stream_respond(scope, log, attempts, resp, resp_ct).await;
+    }
+
     // ── 2xx：非流式。JSON 响应 model 回写客户端原名；二进制音频原样回客户端。──
     let body = resp.bytes().await.unwrap_or_default();
     let body_str = String::from_utf8_lossy(&body).to_string();
@@ -609,6 +890,190 @@ async fn aux_attempt(
         StatusCode::OK,
         [(axum::http::header::CONTENT_TYPE, resp_ct)],
         client_body,
+    )
+        .into_response();
+    inject_trace_header(&mut response);
+    AttemptOutcome::Respond(response)
+}
+
+// ══ 票 05：image 流式转发 ══
+
+/// SSE 流内记账累计器：事件文本（≤16MB 尾窗，对齐 STREAM_BODY_MAX_BYTES）+ completed usage。
+#[derive(Clone, Default)]
+struct ImageStreamAcc {
+    text: String,
+    scanned: usize,
+    input: i32,
+    output: i32,
+    completed: bool,
+}
+
+impl ImageStreamAcc {
+    const TEXT_CAP: usize = 16 * 1024 * 1024;
+
+    fn feed(&mut self, chunk: &[u8]) {
+        self.text.push_str(&String::from_utf8_lossy(chunk));
+        // 尾窗截断：丢弃头部一半，重扫（absorb 幂等，不会双计 usage）。
+        if self.text.len() > Self::TEXT_CAP {
+            let keep = self.text.split_off(self.text.len() / 2);
+            self.text = keep;
+            self.scanned = 0;
+        }
+        while let Some(idx) = self.text[self.scanned..].find('\n') {
+            let end = self.scanned + idx + 1;
+            let line = self.text[self.scanned..end].to_string();
+            self.scanned = end;
+            self.absorb_line(&line);
+        }
+    }
+
+    fn absorb_line(&mut self, line: &str) {
+        let Some(data) = line.strip_prefix("data:") else {
+            return;
+        };
+        let Ok(v) = serde_json::from_str::<Value>(data.trim()) else {
+            return;
+        };
+        if v.get("type").and_then(Value::as_str) != Some("image_generation.completed") {
+            return;
+        }
+        let tok = |field: &str, legacy: &str| {
+            v.pointer(&format!("/usage/{field}"))
+                .or_else(|| v.pointer(&format!("/usage/{legacy}")))
+                .and_then(Value::as_i64)
+                .unwrap_or(0) as i32
+        };
+        self.input = tok("input_tokens", "prompt_tokens");
+        self.output = tok("output_tokens", "completion_tokens");
+        self.completed = true;
+    }
+}
+
+/// 流式终态落库 guard：随响应 stream Drop（流耗尽 / 客户端断连）触发，spawn 异步收尾
+///——mitm_bypass MitmStreamGuard 同 idiom（Drop 不能 await）。
+struct ImageStreamGuard {
+    state: Arc<ProxyState>,
+    log: ProxyLog,
+    log_settings: ProxyLogSettings,
+    acc: Arc<std::sync::Mutex<ImageStreamAcc>>,
+    start: std::time::Instant,
+    actual_model: String,
+    platform_id: u64,
+    platform_type: Protocol,
+    quota_base_url: String,
+    quota_api_key: String,
+    quota_extra: String,
+    coding_plan: bool,
+}
+
+impl Drop for ImageStreamGuard {
+    fn drop(&mut self) {
+        let state = self.state.clone();
+        let mut log = std::mem::take(&mut self.log);
+        let acc = self.acc.lock().map(|a| a.clone()).unwrap_or_default();
+        log.platform_id = self.platform_id;
+        log.is_stream = true;
+        log.status_code = 200;
+        log.input_tokens = acc.input;
+        log.output_tokens = acc.output;
+        // 中断且无 completed usage → 0 units，避免把请求 n 当成已完成图数；费用未知按票 03 口径。
+        let units = i64::from(acc.completed);
+        log.tool_call_counts
+            .push((crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), units));
+        log.response_body = acc.text.clone();
+        log.user_response_body = acc.text;
+        log.done = true;
+        log.duration_ms = self.start.elapsed().as_millis() as i32;
+        log.retry_count = aidog_db::models::retry_count_of(&log.attempts);
+        if !acc.completed {
+            // 流式中断（票 03 口径）：按已收用量记账（partial 事件不带 usage → 0 = 未知），
+            // 标记落 attempts（元数据，不受原始信息开关控）；可见费用标记由票 07 接。
+            log.attempts.push(ProxyAttempt {
+                kind: Some("stream_interrupted".into()),
+                error_class: None,
+                platform_id: self.platform_id,
+                status_code: 200,
+                error: "image stream interrupted before completed event".into(),
+                duration_ms: log.duration_ms as i64,
+                ts: aidog_db::now(),
+                model: Some(self.actual_model.clone()),
+                ..Default::default()
+            });
+        }
+        let input = log.input_tokens;
+        let output = log.output_tokens;
+        spawn_estimate(
+            &state,
+            self.platform_id,
+            &self.platform_type,
+            self.quota_base_url.clone(),
+            self.quota_api_key.clone(),
+            self.actual_model.clone(),
+            self.quota_extra.clone(),
+            input,
+            output,
+            0,
+            0,
+            0,
+            self.coding_plan,
+            log.created_at,
+            0.0,
+            units,
+            true,
+            tracing::Span::current(),
+        );
+        // 终态落库走同步入队（queue_upsert_log 非阻塞；est_cost 在队列写库时按 registry 价计算）。
+        let settings = self.log_settings.clone();
+        super::log::queue_upsert_log(&state, &log, &settings);
+    }
+}
+
+/// 流式 2xx：SSE 事件原文透传（官方事件形态，不改写），流内累计 completed usage，
+/// 终态由 [`ImageStreamGuard`] 落库。
+async fn image_stream_respond(
+    scope: &super::call_scope::CallScope<'_>,
+    log: &mut ProxyLog,
+    attempts: &mut Vec<ProxyAttempt>,
+    resp: reqwest::Response,
+    resp_ct: String,
+) -> AttemptOutcome {
+    // 成功记账在响应头到达（对齐聊天 peek 后 commit）；usage 计费在流终态 guard 补写。
+    scope.succeeded(attempts, 200).await;
+    log.attempts = std::mem::take(attempts);
+    log.user_response_headers = format!(r#"{{"content-type":"{resp_ct}"}}"#);
+
+    let acc = Arc::new(std::sync::Mutex::new(ImageStreamAcc::default()));
+    let acc_stream = acc.clone();
+    let stream = resp.bytes_stream().map(move |chunk| {
+        let chunk = chunk.unwrap_or_default();
+        if let Ok(mut a) = acc_stream.lock() {
+            a.feed(&chunk);
+        }
+        Ok::<Bytes, std::io::Error>(chunk)
+    });
+    let guard = ImageStreamGuard {
+        state: scope.state.clone(),
+        log: std::mem::take(log),
+        log_settings: scope.log_settings.clone(),
+        acc,
+        start: scope.start,
+        actual_model: scope.route.target_model.clone(),
+        platform_id: scope.route.platform.id,
+        platform_type: scope.route.platform.platform_type.clone(),
+        quota_base_url: scope.route.platform.base_url.clone(),
+        quota_api_key: scope.route.platform.api_key.clone(),
+        quota_extra: scope.route.platform.extra.clone(),
+        coding_plan: scope.route.platform.endpoints.iter().any(|ep| ep.coding_plan),
+    };
+    // guard 随 stream Drop 触发终态落库（客户端断连 / 流耗尽都覆盖）。
+    let stream = stream.chain(futures::stream::poll_fn(move |_| {
+        let _ = &guard;
+        std::task::Poll::Ready(None)
+    }));
+    let mut response = (
+        StatusCode::OK,
+        [(axum::http::header::CONTENT_TYPE, resp_ct)],
+        Body::from_stream(stream),
     )
         .into_response();
     inject_trace_header(&mut response);

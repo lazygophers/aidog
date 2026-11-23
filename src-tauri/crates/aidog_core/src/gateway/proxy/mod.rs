@@ -123,7 +123,7 @@ pub(crate) use endpoint::{
     select_endpoint_for_model, select_endpoint_for_decision_model,
     select_endpoint_for_openai_family_model,
     should_fallback_passthrough, is_decision_endpoint, is_tools_endpoint,
-    is_embedding_endpoint, is_rerank_endpoint, is_image_endpoint,
+    is_embedding_endpoint, is_rerank_endpoint, is_image_endpoint, is_image_edit_endpoint,
     KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
 pub(crate) use forward::{AttemptOutcome, add_retry_after, note_retry_at, CallBudget, exhausted_status, finalize_proxy_502, forward_attempt};

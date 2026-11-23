@@ -189,8 +189,11 @@ pub(crate) async fn handle_proxy_core(
     orig_headers.remove(super::endpoint::GROUP_HEADER);
 
     // ── 读取请求体 ──
+    // 图片编辑（票 05）：官方单文件 <50MB，10MB 缺省装不下多参考图；放宽到 64MB
+    //（官方 16 张 ×50MB 的理论上限不照收，防内存放大；超限走下方读体失败 400 路径）。
+    let body_cap = if is_image_edit_endpoint(&path) { 64 * 1024 * 1024 } else { 10 * 1024 * 1024 };
     let (_parts, body) = req.into_parts();
-    let bytes = match axum::body::to_bytes(body, 10 * 1024 * 1024).await {
+    let bytes = match axum::body::to_bytes(body, body_cap).await {
         Ok(b) => b,
         Err(e) => {
             log.response_body = format!("read body error: {e}");
@@ -475,17 +478,25 @@ pub(crate) async fn handle_proxy_core(
         .await;
     }
 
-    // ── 生图请求分流（生图-模型类型 票 04，标准生成路径；编辑 / 流式见票 05）──
-    // /v1/images/generations 的 body 无 messages，进 parse_incoming_request 会本地 400。
-    // 一律用平台 image 槽位模型，出站 /images/generations（aux_model.rs，非流式）。
-    if is_image_endpoint(&path) {
+    // ── 生图请求分流（生图-模型类型 票 04 / 05）──
+    // /images/{generations,edits} 无 messages，进 parse_incoming_request 会本地 400。
+    if is_image_endpoint(&path) || is_image_edit_endpoint(&path) {
+        let spec = if is_image_edit_endpoint(&path) {
+            &super::aux_model::IMAGE_EDITS
+        } else {
+            &super::aux_model::IMAGE
+        };
+        let ct = orig_headers
+            .get(axum::http::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
         return super::aux_model::handle_aux_model(
-            &super::aux_model::IMAGE,
+            spec,
             &state,
             &mut log,
             &group,
             &bytes,
-            None,
+            ct.as_deref(),
             super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
         )
         .await;

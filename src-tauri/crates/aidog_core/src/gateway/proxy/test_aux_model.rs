@@ -156,3 +156,228 @@ fn image_spec_shape_and_extractors() {
         "无 data 无 n → 官方缺省 1 张"
     );
 }
+
+// ══ 票 05：图片编辑与流式 ══
+
+const _: () = {
+    assert!(IMAGE_EDITS.multipart && !IMAGE_EDITS.binary_response);
+};
+
+#[test]
+fn image_edit_spec_shape() {
+    assert_eq!(IMAGE_EDITS.label, "image_edits");
+    assert_eq!(IMAGE_EDITS.api_path, "/images/edits");
+}
+
+#[test]
+fn image_edit_endpoint_suffix_match() {
+    for p in ["/v1/images/edits", "/images/edits", "/proxy/v1/images/edits", "/v1/images/edits/"] {
+        assert!(is_image_edit_endpoint(p), "{p}");
+    }
+    for p in [
+        "/v1/images/editsx",
+        "/v1/images/edits/x",
+        "/v1/images/generations",
+        "/v1/chat/completions",
+    ] {
+        assert!(!is_image_edit_endpoint(p), "{p}");
+    }
+    assert!(!is_image_endpoint("/v1/images/edits"), "edits 不命中 generations 判定");
+}
+
+/// 构造 multipart 表单：parts = (name, filename: Option<&str>, body)。
+fn edit_form(parts: &[(&str, Option<&str>, &[u8])]) -> (String, Vec<u8>) {
+    const B: &str = "aidogboundaries";
+    let mut body = Vec::new();
+    for (name, filename, data) in parts {
+        body.extend_from_slice(format!("--{B}\r\n").as_bytes());
+        match filename {
+            Some(f) => body.extend_from_slice(
+                format!("Content-Disposition: form-data; name=\"{name}\"; filename=\"{f}\"\r\n\r\n")
+                    .as_bytes(),
+            ),
+            None => body.extend_from_slice(
+                format!("Content-Disposition: form-data; name=\"{name}\"\r\n\r\n").as_bytes(),
+            ),
+        }
+        body.extend_from_slice(data);
+        body.extend_from_slice(b"\r\n");
+    }
+    body.extend_from_slice(format!("--{B}--\r\n").as_bytes());
+    (
+        format!("multipart/form-data; boundary={B}"),
+        body,
+    )
+}
+
+#[test]
+fn image_edit_form_validation_official_limits() {
+    let ok = edit_form(&[
+        ("model", None, b"client-img"),
+        ("prompt", None, b"a cat"),
+        ("image[]", Some("a.png"), b"PNGDATA"),
+        ("image[]", Some("b.webp"), b"WEBPDATA"),
+        ("mask", Some("m.png"), b"MASK"),
+    ]);
+    assert_eq!(validate_image_edit_form(&ok.1, Some(ok.0.as_str())), None, "合法多参考图 + mask");
+
+    // 17 张 → 超官方 16 张上限
+    let mut parts: Vec<(&str, Option<&str>, &[u8])> = vec![("model", None, b"m"), ("prompt", None, b"p")];
+    for _ in 0..17 {
+        parts.push(("image[]", Some("a.png"), b"PNGDATA"));
+    }
+    let too_many = edit_form(&parts);
+    assert!(
+        validate_image_edit_form(&too_many.1, Some(too_many.0.as_str())).is_some(),
+        "17 张须被拒"
+    );
+
+    // 单文件 ≥50MB → 超官方上限
+    let big = edit_form(&[
+        ("model", None, b"m"),
+        ("prompt", None, b"p"),
+        ("image", Some("a.png"), &vec![0u8; 50 * 1024 * 1024]),
+    ]);
+    assert!(validate_image_edit_form(&big.1, Some(big.0.as_str())).is_some(), "50MB 须被拒");
+
+    // mask >4MB → 超官方上限；mask 非 png → 类型违规
+    let big_mask = edit_form(&[
+        ("model", None, b"m"),
+        ("prompt", None, b"p"),
+        ("image", Some("a.png"), b"PNG"),
+        ("mask", Some("m.png"), &vec![0u8; 5 * 1024 * 1024]),
+    ]);
+    assert!(validate_image_edit_form(&big_mask.1, Some(big_mask.0.as_str())).is_some(), "5MB mask 须被拒");
+    let bad_mask = edit_form(&[
+        ("model", None, b"m"),
+        ("prompt", None, b"p"),
+        ("image", Some("a.png"), b"PNG"),
+        ("mask", Some("m.jpg"), b"JPG"),
+    ]);
+    assert!(
+        validate_image_edit_form(&bad_mask.1, Some(bad_mask.0.as_str())).is_some(),
+        "mask 须为 png"
+    );
+
+    // image 非 png/webp/jpg → 类型违规
+    let bad_type = edit_form(&[
+        ("model", None, b"m"),
+        ("prompt", None, b"p"),
+        ("image", Some("a.gif"), b"GIF"),
+    ]);
+    assert!(validate_image_edit_form(&bad_type.1, Some(bad_type.0.as_str())).is_some(), "gif 参考图须被拒");
+
+    // 缺 boundary → 违规
+    assert!(validate_image_edit_form(&ok.1, Some("multipart/form-data")).is_some());
+    assert!(validate_image_edit_form(&ok.1, None).is_some());
+}
+
+#[test]
+fn image_edit_model_part_rewritten_in_place() {
+    let (ct, body) = edit_form(&[
+        ("model", None, b"client-img"),
+        ("prompt", None, b"a cat"),
+        ("image[]", Some("a.png"), b"PNGDATA-A"),
+        ("image[]", Some("b.png"), b"PNGDATA-B"),
+    ]);
+    let boundary = boundary_from_content_type(&ct).expect("boundary 解析");
+    let out = rewrite_multipart_model(&body, &boundary, "img-slot");
+    assert_eq!(multipart_form_field(&out, "model"), "img-slot");
+    assert_eq!(multipart_form_field(&out, "prompt"), "a cat", "其余 part 不动");
+    assert!(
+        out.windows(b"PNGDATA-A".len()).any(|w| w == b"PNGDATA-A")
+            && out.windows(b"PNGDATA-B".len()).any(|w| w == b"PNGDATA-B"),
+        "图片 part 字节原样保留"
+    );
+    assert!(
+        out.windows(4).any(|w| w == b"--\r\n") || out.ends_with(b"--\r\n"),
+        "终结边界保留"
+    );
+    // 客户端 model 值已被替换（不再是 client-img）
+    assert!(!out.windows(b"client-img".len()).any(|w| w == b"client-img"));
+}
+
+fn aux_req<'a>(value: &'a Value, bytes: &'a [u8], content_type: Option<&'a str>) -> AuxRequest<'a> {
+    AuxRequest { value, bytes, model: "m", content_type }
+}
+
+#[test]
+fn image_stream_request_detection() {
+    let s = serde_json::json!({"stream": true});
+    assert!(image_stream_requested(&IMAGE, &aux_req(&s, b"", None)), "JSON stream:true");
+    let ns = serde_json::json!({"stream": false});
+    assert!(!image_stream_requested(&IMAGE, &aux_req(&ns, b"", None)));
+    assert!(!image_stream_requested(&IMAGE, &aux_req(&Value::Null, b"", None)));
+
+    let (ct, body) = edit_form(&[("model", None, b"m"), ("stream", None, b"true")]);
+    assert!(
+        image_stream_requested(&IMAGE_EDITS, &aux_req(&Value::Null, &body, Some(ct.as_str()))),
+        "multipart stream=true"
+    );
+    let (ct2, body2) = edit_form(&[("model", None, b"m"), ("stream", None, b"false")]);
+    assert!(!image_stream_requested(&IMAGE_EDITS, &aux_req(&Value::Null, &body2, Some(ct2.as_str()))));
+}
+
+#[test]
+fn image_stream_format_conflict_gif_svg() {
+    let req = serde_json::json!({"stream": true, "output_format": "gif"});
+    assert_eq!(
+        image_stream_format_conflict(&IMAGE, &aux_req(&req, b"", None)).as_deref(),
+        Some("gif"),
+        "官方：GIF 不支持流式与 partial"
+    );
+    let req_svg = serde_json::json!({"stream": true, "output_format": "svg"});
+    assert_eq!(image_stream_format_conflict(&IMAGE, &aux_req(&req_svg, b"", None)).as_deref(), Some("svg"));
+    let req_png = serde_json::json!({"stream": true, "output_format": "png"});
+    assert_eq!(image_stream_format_conflict(&IMAGE, &aux_req(&req_png, b"", None)), None);
+    let no_stream = serde_json::json!({"output_format": "gif"});
+    assert_eq!(
+        image_stream_format_conflict(&IMAGE, &aux_req(&no_stream, b"", None)),
+        None,
+        "非流式请求不拦"
+    );
+
+    let (ct, body) = edit_form(&[
+        ("model", None, b"m"),
+        ("stream", None, b"true"),
+        ("output_format", None, b"svg"),
+    ]);
+    assert_eq!(
+        image_stream_format_conflict(&IMAGE_EDITS, &aux_req(&Value::Null, &body, Some(ct.as_str()))).as_deref(),
+        Some("svg"),
+        "multipart 表单同判"
+    );
+}
+
+#[test]
+fn image_stream_usage_extracts_completed_event() {
+    // 经 ImageStreamAcc::feed（流内逐行累计）验证 completed 事件 usage 提取。
+    let feed = |chunks: &[&[u8]]| {
+        let mut acc = ImageStreamAcc::default();
+        for c in chunks {
+            acc.feed(c);
+        }
+        (acc.input, acc.output, acc.completed)
+    };
+    let sse = concat!(
+        "event: image_generation.partial_image\r\n",
+        "data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"AA==\",\"partial_image_index\":0}\r\n\r\n",
+        "event: image_generation.completed\r\n",
+        "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"QQ==\",\"usage\":{\"input_tokens\":10,\"output_tokens\":50,\"total_tokens\":60}}\r\n\r\n",
+    );
+    assert_eq!(feed(&[sse.as_bytes()]), (10, 50, true));
+    // completed 事件跨 chunk 截断（usage 字段被切在两个 feed 之间）
+    let mid = sse.find("\"output_tokens\"").unwrap();
+    assert_eq!(
+        feed(&[&sse.as_bytes()[..mid], &sse.as_bytes()[mid..]]),
+        (10, 50, true),
+        "跨 chunk 截断的 completed 行仍可解析"
+    );
+    // 中断：只有 partial，无 completed → 用量 0、未完成
+    assert_eq!(
+        feed(&[b"data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"AA==\"}"]),
+        (0, 0, false)
+    );
+    assert_eq!(feed(&[b""]), (0, 0, false));
+    assert_eq!(feed(&[b"data: [DONE]"]), (0, 0, false));
+}

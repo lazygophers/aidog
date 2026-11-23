@@ -213,6 +213,11 @@ pub(crate) fn is_image_endpoint(path: &str) -> bool {
         .ends_with("/images/generations")
 }
 
+/// 图片编辑端点判定（生图-模型类型票 05）：路径以 `/images/edits` 结尾。
+pub(crate) fn is_image_edit_endpoint(path: &str) -> bool {
+    path.trim_end_matches('/').ends_with("/images/edits")
+}
+
 /// 辅助模型请求（embedding / rerank）的 endpoint 选择：OpenAI 系优先（openai → completions → responses）。
 /// 都没有返回 None → 调用方回退平台主 `base_url`。
 pub(crate) fn select_endpoint_for_openai_family(
