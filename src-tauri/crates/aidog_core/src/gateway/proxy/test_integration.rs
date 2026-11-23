@@ -13691,6 +13691,104 @@ async fn image_route_fail_no_image_platform() {
     assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
 }
 
+// ══ 票 08：MCP 生图统一分组（tools/call generate_image 走调用方分组 image 槽位链）══
+
+/// 经 POST /mcp 调 generate_image（handle_mcp 直调：loopback ConnectInfo + 分组 Bearer）。
+async fn mcp_generate_image(state: &Arc<ProxyState>, gk: &str, id: i64) -> serde_json::Value {
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert("authorization", format!("Bearer {gk}").parse().unwrap());
+    let body = serde_json::json!({"jsonrpc":"2.0","id":id,"method":"tools/call","params":{"name":"generate_image","arguments":{"prompt":"a cat","size":"1024x1024"}}});
+    let resp = handle_mcp(
+        AxumState(state.clone()),
+        headers,
+        axum::extract::ConnectInfo("127.0.0.1:50000".parse().unwrap()),
+        axum::body::Bytes::from(body.to_string()),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+/// 端到端：分组 image 槽位链转发（base_url + /images/generations、槽位覆盖 model、
+/// size 透传、平台 key 鉴权），markdown 链接回包，proxy_log 与 tool_log 各落一行。
+#[tokio::test]
+async fn mcp_generate_image_routes_caller_group_image_chain() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkmcp",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let v = mcp_generate_image(&state, "gkmcp", 9).await;
+    let text = v["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("![generated image]"), "text={text}");
+    assert!(v["result"]["isError"].is_null(), "{v}");
+
+    let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/images/generations", "base_url(/v1) + /images/generations");
+    let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
+    assert_eq!(sent["model"], "img-slot", "槽位链首覆盖 model");
+    assert_eq!(sent["prompt"], "a cat");
+    assert_eq!(sent["n"], 1);
+    assert_eq!(sent["size"], "1024x1024");
+    assert_eq!(auth, "Bearer sk-a");
+
+    // 工具日志照旧写 tool_log：trigger=mcp、调用方分组、成功。
+    let page = aidog_db::list_tool_logs(&state.db, &aidog_db::models::ToolLogFilter::default(), 10, 0)
+        .await
+        .unwrap();
+    assert_eq!(page.total, 1);
+    let row = &page.rows[0];
+    assert_eq!(
+        (row.tool.as_str(), row.trigger.as_str(), row.group_name.as_str()),
+        ("generate_image", "mcp", "gkmcp")
+    );
+    assert!(row.success, "error={}", row.error);
+
+    // 票 04 链内 proxy_log 照常落（计费 / 额度窗口依赖）：槽位模型入账。
+    let log = last_log_for(&state, "gkmcp").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(log.actual_model, "img-slot");
+}
+
+/// 分组无生图平台 → isError=true，错误文案为 aidog_i18n 的 NoImagePlatform 文本，tool_log 记失败。
+#[tokio::test]
+async fn mcp_generate_image_without_image_platform_is_clear_error() {
+    let (up, hits) = spawn_embedding_upstream(vec![]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gknoimg",
+        &[(&up, PlatformModels::default(), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let v = mcp_generate_image(&state, "gknoimg", 10).await;
+    assert_eq!(v["result"]["isError"], true, "{v}");
+    let text = v["result"]["content"][0]["text"].as_str().unwrap();
+    // i18n ErrorKey::NoImagePlatform 文本（测试 settings 缺省英文 lang）。
+    assert!(text.contains("image platform"), "text={text}");
+    assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
+
+    let page = aidog_db::list_tool_logs(&state.db, &aidog_db::models::ToolLogFilter::default(), 10, 0)
+        .await
+        .unwrap();
+    assert_eq!(page.total, 1);
+    let row = &page.rows[0];
+    assert!(!row.success, "{:?}", row);
+    assert!(!row.error.is_empty());
+}
+
 // ══ 票 05：图片编辑与流式（本地假上游，禁外呼）══
 
 /// 与 spawn_embedding_upstream 同形，但 Content-Type 由调用方指定（SSE 流式上游用）。

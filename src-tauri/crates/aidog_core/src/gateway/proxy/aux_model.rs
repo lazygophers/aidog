@@ -178,6 +178,95 @@ pub(crate) const IMAGE_EDITS: AuxSpec = AuxSpec {
     stream_capable: true,
 };
 
+/// MCP 工具 `generate_image`（生图-模型类型 票 08）：调用方分组的 image 槽位链转发，
+/// 复用 [`handle_aux_model`] 的票 04 链（路由 / 重试 / 限频 / 额度 / 计费 / proxy_log），
+/// 旧工具级 provider 配置已移除（存量 `mcp_tools` 设置里的 `image` 键由 serde 忽略）。
+/// 入参 prompt / size 组装 OpenAI images 请求体（model 由槽位链覆盖，n 固定 1）；
+/// 出参 markdown 图片链接（条目 `url` 或 `b64_json`→data URL）。工具日志照旧写 tool_log。
+pub(crate) async fn mcp_generate_image(
+    state: &Arc<ProxyState>,
+    group: &Group,
+    args: &Value,
+) -> Result<String, String> {
+    let prompt = args.get("prompt").and_then(Value::as_str).unwrap_or_default();
+    let mut body = serde_json::json!({ "model": "", "prompt": prompt, "n": 1 });
+    if let Some(s) = args
+        .get("size")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        body["size"] = serde_json::json!(s);
+    }
+    let bytes = serde_json::to_vec(&body).unwrap_or_default();
+    let created = aidog_db::now();
+    let mut log = ProxyLog {
+        id: uuid::Uuid::new_v4().simple().to_string(),
+        created_at: created,
+        updated_at: created,
+        group_key: group.group_key.clone(),
+        ..Default::default()
+    };
+    let (lang, log_settings) = {
+        let cache = state.settings_cache.read().await;
+        (cache.lang, cache.log_settings.clone())
+    };
+    let ctx = super::call_scope::ReqCtx {
+        log_settings: &log_settings,
+        start: std::time::Instant::now(),
+        lang,
+        client: super::ClientGate::On(super::client_detect::client_probe(&Default::default())),
+    };
+    let resp = handle_aux_model(&IMAGE, state, &mut log, group, &bytes, None, ctx).await;
+    let status = resp.status();
+    let body_bytes = axum::body::to_bytes(resp.into_body(), 64 * 1024 * 1024)
+        .await
+        .map_err(|e| format!("read response body error: {e}"))?;
+    let outcome = if !status.is_success() {
+        Err(String::from_utf8_lossy(&body_bytes).trim().to_string())
+    } else {
+        links_from_data(&body_bytes)
+    };
+    // 工具日志照旧（trigger=mcp，与 web_search / web_fetch 同一 tool_log 表）。
+    let tctx = crate::tool_exec::ToolCtx {
+        db: &state.db,
+        trigger: crate::tool_exec::TRIGGER_MCP,
+        group: &group.name,
+        platform: "",
+    };
+    crate::tool_exec::write_log(
+        &tctx,
+        "generate_image",
+        prompt.to_string(),
+        0,
+        &[],
+        std::time::Instant::now(),
+        &outcome,
+    )
+    .await;
+    outcome
+}
+
+/// 上游响应 `data[]` → markdown 图片链接（条目 `url`，或 `b64_json` → data URL 内嵌）。
+fn links_from_data(body: &[u8]) -> Result<String, String> {
+    let v: Value = serde_json::from_slice(body).map_err(|e| format!("response json parse error: {e}"))?;
+    let items = v["data"]
+        .as_array()
+        .ok_or_else(|| format!("响应缺少 data 数组: {}", String::from_utf8_lossy(&body[..body.len().min(200)])))?;
+    let mut links = Vec::new();
+    for item in items {
+        if let Some(u) = item["url"].as_str().filter(|u| !u.is_empty()) {
+            links.push(format!("![generated image]({u})"));
+        } else if let Some(b64) = item["b64_json"].as_str().filter(|b| !b.is_empty()) {
+            links.push(format!("![generated image](data:image/png;base64,{b64})"));
+        }
+    }
+    if links.is_empty() {
+        return Err("响应条目缺少 url / b64_json 字段，无法生成图片链接".into());
+    }
+    Ok(links.join("\n\n"))
+}
+
 /// audio 请求无 token usage（计费走 char / second 计数，issue #167）。
 fn no_usage(_body: &str) -> (i32, i32) {
     (0, 0)

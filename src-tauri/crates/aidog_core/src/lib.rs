@@ -50,7 +50,6 @@ pub mod menubar_state;
 // 票 08：内核管理面设置（绑定开关 + Bearer 凭据）。与代理的 `bind_lan` 相互独立。
 pub mod kernel_settings;
 pub mod mcp_tools;
-pub mod media;
 pub mod mcp_server;
 pub mod tool_exec;
 pub mod display_currency;

@@ -40,6 +40,19 @@ pub(crate) async fn handle_mcp(
             );
         }
     };
+    // MCP 生图统一分组（生图-模型类型 票 08）：tools/call generate_image 走调用方分组的
+    // 生图模型链（需完整 ProxyState），在协议层之外拦截；其余工具照旧走协议层。
+    if msg["method"] == "tools/call" && msg["params"]["name"] == "generate_image" {
+        let result = super::aux_model::mcp_generate_image(&state, &group, &msg["params"]["arguments"]).await;
+        let result = match result {
+            Ok(text) => serde_json::json!({"content": [{"type": "text", "text": text}]}),
+            Err(e) => serde_json::json!({"content": [{"type": "text", "text": e}], "isError": true}),
+        };
+        return json_response(
+            StatusCode::OK,
+            &serde_json::json!({"jsonrpc": "2.0", "id": msg["id"], "result": result}).to_string(),
+        );
+    }
     match crate::mcp_server::handle_request(&msg, &state.db, &group.name).await {
         Some(resp) => json_response(StatusCode::OK, &resp.to_string()),
         // 通知 / 无关消息：Streamable HTTP 规定回 202 无体。
