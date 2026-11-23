@@ -12222,6 +12222,167 @@ async fn opencode_family_members_reach_upstream_record_usage_and_forward_errors(
     }
 }
 
+/// issue 88：Compshare（优云）家族基座。成员 `compshare` / `compshare_coding` 共用
+/// `CompshareFamilyAdapter`；两成员 × 三 wire 协议（openai / anthropic / gemini，与 registry
+/// 内置默认端点对应）走真实代理与本地假上游，禁真实外呼。
+async fn setup_compshare_wire_group(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    platform_type: Protocol,
+    wire: Protocol,
+    base_url: &str,
+) {
+    let platform_id = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        platform_type,
+        base_url,
+        &[wire],
+    )
+    .await;
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn compshare_family_members_forward_stream_and_nonstream_on_openai_wire() {
+    const CHAT_OK: &str = r#"{"id":"chatcmpl-compshare","object":"chat.completion","created":0,"model":"glm-5.3","choices":[{"index":0,"message":{"role":"assistant","content":"compshare-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#;
+    const CHAT_SSE: &str = "data: {\"id\":\"chatcmpl-compshare\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"compshare-family-stream\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-compshare\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}\n\ndata: [DONE]\n\n";
+
+    for (member, platform) in [
+        ("standard", Protocol::Compshare),
+        ("coding", Protocol::CompshareCoding),
+    ] {
+        for streaming in [false, true] {
+            let content_type = if streaming {
+                "text/event-stream"
+            } else {
+                "application/json"
+            };
+            let body = if streaming { CHAT_SSE } else { CHAT_OK };
+            let upstream = spawn_unified_upstream(200, content_type, body).await;
+            let state = make_state(test_db().await).await;
+            let gk = format!("gkcompshare{member}{streaming}");
+            setup_compshare_wire_group(
+                &state,
+                &gk,
+                platform.clone(),
+                Protocol::OpenAI,
+                &upstream,
+            )
+            .await;
+            let request_body = serde_json::json!({
+                "model": "glm-5.3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": streaming,
+                "stream_options": {"include_usage": true}
+            });
+            let request = HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap();
+            let response = handle_proxy(AxumState(state.clone()), request).await;
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "{member}, streaming={streaming}"
+            );
+            let response = axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            let response = String::from_utf8(response.to_vec()).unwrap();
+            assert!(response.contains(if streaming {
+                "compshare-family-stream"
+            } else {
+                "compshare-family-ok"
+            }));
+            if streaming {
+                assert!(response.contains("[DONE]"));
+            } else {
+                assert!(response.contains("\"total_tokens\":2"));
+            }
+            let log = only_log_of(&state, &gk).await;
+            assert_eq!(
+                (log.input_tokens, log.output_tokens),
+                (1, 1),
+                "{member}, streaming={streaming}"
+            );
+            assert!(log.est_cost > 0.0, "{member}: usage must yield est_cost");
+        }
+    }
+}
+
+/// 家族覆盖全部内置端点协议：anthropic wire（Messages SSE）与 gemini wire（usageMetadata SSE）
+/// 各走一轮真实代理 + 本地假上游，usage 记账进 proxy_log。
+#[tokio::test]
+async fn compshare_family_anthropic_and_gemini_wires_forward_with_usage() {
+    let anthropic_sse = concat!(
+        "data: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3\",\"usage\":{\"input_tokens\":5,\"output_tokens\":1}}}\n\n",
+        "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+        "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":2}}\n\n",
+        "data: {\"type\":\"message_stop\"}\n\n",
+    );
+    let gemini_sse = concat!(
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hi\"}]}}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":2,\"thoughtsTokenCount\":1}}\n\n",
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"!\"}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":3,\"thoughtsTokenCount\":1}}\n\n",
+    );
+
+    for (label, wire, sse, expect_input, expect_output) in [
+        ("anthropic", Protocol::Anthropic, anthropic_sse, 5, 2),
+        ("gemini", Protocol::Gemini, gemini_sse, 5, 4),
+    ] {
+        let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkcompsharewire{label}");
+        setup_compshare_wire_group(
+            &state,
+            &gk,
+            Protocol::Compshare,
+            wire.clone(),
+            &upstream,
+        )
+        .await;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("authorization", format!("Bearer {gk}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"model":"claude-3","max_tokens":10,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            ))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        assert_eq!(response.status(), StatusCode::OK, "{label}");
+        let bytes = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        assert!(
+            String::from_utf8_lossy(&bytes).contains("hi"),
+            "{label}: response must reach client"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        let log = only_log_of(&state, &gk).await;
+        assert_eq!(
+            (log.input_tokens, log.output_tokens),
+            (expect_input, expect_output),
+            "{label}"
+        );
+    }
+}
+
 async fn spawn_recording_response_upstream(
     status: u16,
     body: &'static str,
