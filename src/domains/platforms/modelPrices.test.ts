@@ -43,7 +43,7 @@ describe("toModelPriceInfo", () => {
   });
 
   it("按次条目 time_tiers 生效后 unitLabel 切到档内价", () => {
-    const startAt = 1794844800; // 2026-11-17 00:00 +08:00
+    const startAt = Math.floor(Date.now() / 1000) + 86_400; // 未来 1 天，保证「未生效」语义不随日历过期
     const info = toModelPriceInfo({
       unit: "second",
       unit_price: 0.000778,

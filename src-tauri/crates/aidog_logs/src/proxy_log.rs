@@ -66,7 +66,8 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
 
 /// 按 `ProxyLogSettings` 就地清空「原始信息」两侧列。
 ///
-/// **口径唯一真值源**：本函数与 [`ProxyLogColumns::from_log`] 必须清同一组列
+/// **列集真值源是 `proxy_log_catalog`**（issue #56 票 02）：本函数按 `raw_cols(side)` 派生，
+/// 与 [`ProxyLogColumns::from_log`] 必须清同一组列
 /// （`raw_field_sides_match` 用同一份数据双跑两条路径断言一致，改一边漏另一边即红）。
 /// 用户侧 5 列（含 `request_url`）受 `log_user_request`，上游侧 6 列（含 `field_trace` /
 /// `upstream_request_url`）受 `log_upstream_request`。
@@ -222,12 +223,13 @@ type ColBind = (&'static str, Box<dyn rusqlite::types::ToSql + Send>);
 
 impl ProxyLogColumns {
     /// 由 `ProxyLog` 构造入库列快照。
-    /// 「原始信息」（headers + body + 上游响应正文 + url）按用户 / 上游侧归类，受开关控制就地清空：
+    /// 「原始信息」（headers + body + 上游响应正文 + url）按用户 / 上游侧归类，受开关控制就地清空
+    /// （列集真值源是 `proxy_log_catalog`，本函数与 `strip_raw_sides` 由 `raw_field_sides_match` 锁定一致）：
     /// - `strip_user`（!log_user_request）清空用户侧：`request_headers` / `request_body` /
     ///   `user_response_headers` / `user_response_body` / `request_url`；
     /// - `strip_upstream`（!log_upstream_request）清空上游侧：`upstream_request_headers` /
     ///   `upstream_request_body` / `upstream_response_headers` / `response_body`（上游响应正文）/
-    ///   `upstream_request_url`。
+    ///   `field_trace` / `upstream_request_url`。
     ///
     /// 关开关后只保留解析后元数据（token / cost / url / status / model 等），不存任何原始 headers/body/正文。
     /// 开关开启时入库的 Authorization 等敏感头已在上游脱敏为 `[REDACTED]`。

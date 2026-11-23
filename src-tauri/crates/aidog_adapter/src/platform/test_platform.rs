@@ -1036,3 +1036,165 @@ fn qianfan_override_scoped_to_family_members() {
     assert_eq!(other["chat_template_kwargs"]["enable_thinking"], json!(false));
     assert!(other.get("thinking").is_none());
 }
+
+/// SiliconFlow 家族（issue 82）：openai 端点禁思考写官方顶层 `enable_thinking: false`
+/// （API 文档「enable_thinking boolean 在推理模式与非推理模式之间切换」，无 thinking 对象、
+/// 无 chat_template_kwargs），写 false 前剥客户端旧 `thinking` / `reasoning_effort` /
+/// `enable_thinking` / chat_template_kwargs / generationConfig；anthropic 端点官方
+/// `thinking.type=disabled` 与基座同形，不覆盖；强制思考路径只剥不写（基座）。
+#[test]
+fn siliconflow_members_disable_thinking_with_native_parameter() {
+    for code in ["siliconflow", "siliconflow_en"] {
+        let adapter = super::adapter_for(code);
+        let mut body = json!({
+            "model": "deepseek-ai/DeepSeek-V3.2",
+            "enable_thinking": true,
+            "reasoning_effort": "high",
+            "thinking": {"type": "enabled"},
+            "chat_template_kwargs": {"enable_thinking": true},
+        });
+        adapter.apply_disable_thinking(
+            &mut body,
+            true,
+            &Protocol::OpenAI,
+            "http://127.0.0.1:31234/v1",
+            false,
+        );
+        assert_eq!(body["enable_thinking"], json!(false), "{code}");
+        assert!(body.get("thinking").is_none(), "{code}");
+        assert!(body.get("reasoning_effort").is_none(), "{code}");
+        assert!(
+            body["chat_template_kwargs"].get("enable_thinking").is_none(),
+            "{code}"
+        );
+
+        // 禁思考关：不写任何参数（官方默认值未证实，aidog 不注入）。
+        let mut keep = json!({ "model": "m", "enable_thinking": true });
+        adapter.apply_disable_thinking(
+            &mut keep,
+            false,
+            &Protocol::OpenAI,
+            "http://127.0.0.1:31234/v1",
+            false,
+        );
+        assert_eq!(keep["enable_thinking"], json!(true), "{code}");
+
+        // 强制思考模型（registry thinking_toggleable: false）：只剥禁用形参数、不写 false。
+        let mut forced = json!({ "model": "deepseek-ai/DeepSeek-R1", "thinking": {"type": "disabled"} });
+        adapter.apply_disable_thinking(
+            &mut forced,
+            true,
+            &Protocol::OpenAI,
+            "http://127.0.0.1:31234/v1",
+            true,
+        );
+        assert!(forced.get("thinking").is_none(), "{code}");
+        assert!(forced.get("enable_thinking").is_none(), "{code}");
+
+        // anthropic wire：官方 thinking 对象与基座同形。
+        let mut ant = json!({ "model": "m" });
+        adapter.apply_disable_thinking(
+            &mut ant,
+            true,
+            &Protocol::Anthropic,
+            "http://127.0.0.1:31234",
+            false,
+        );
+        assert_eq!(ant["thinking"]["type"], "disabled", "{code}");
+    }
+}
+
+/// SiliconFlow 家族其余接口继承协议构件：请求构造 / 响应转换 / 流式 / 错误分类 / usage
+/// 与通用适配逐字节等价；顶层 `{"code":20012,"message":"Model does not exist..."}`
+/// （官方错误示例，无 error 包裹）按基座特征归模型类。
+#[test]
+fn siliconflow_family_preserves_generic_protocol_behavior() {
+    let input: ChatRequest = serde_json::from_value(json!({
+        "model": "deepseek-ai/DeepSeek-V3.2",
+        "max_tokens": 64,
+        "messages": [{ "role": "user", "content": "hi" }]
+    }))
+    .unwrap();
+    let generic = super::adapter_for("deepseek");
+    let completion = json!({
+        "id": "cmpl-1", "model": "deepseek-ai/DeepSeek-V3.2",
+        "choices": [{ "index": 0, "message": { "role": "assistant", "content": "ok" }, "finish_reason": "stop" }],
+        "usage": { "prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12,
+            "prompt_tokens_details": { "cached_tokens": 4 },
+            "prompt_cache_hit_tokens": 4, "prompt_cache_miss_tokens": 6 }
+    });
+    let delta = json!({
+        "id": "cmpl-1", "choices": [{ "index": 0, "delta": { "reasoning_content": "think", "content": "ok" } }]
+    });
+    let sf_error = r#"{"code":20012,"message":"Model does not exist. Please check it carefully.","data":null}"#;
+    let anthropic_message = json!({
+        "id": "msg_1", "type": "message", "role": "assistant", "model": "m",
+        "content": [{ "type": "text", "text": "ok" }], "stop_reason": "end_turn",
+        "usage": { "input_tokens": 5, "output_tokens": 3,
+            "cache_read_input_tokens": 2, "cache_creation_input_tokens": 1 }
+    });
+
+    for (code, platform) in [
+        ("siliconflow", Protocol::SiliconFlow),
+        ("siliconflow_en", Protocol::SiliconFlowEn),
+    ] {
+        let adapter = super::adapter_for(code);
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let (body, path) = adapter.build_request(&input, &wire, &platform);
+            let (base_body, base_path) = generic.build_request(&input, &wire, &platform);
+            assert_eq!((body, path), (base_body, base_path), "{code}/{wire:?}");
+        }
+        let converted = adapter
+            .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "m")
+            .expect("OpenAI response should convert to Anthropic");
+        assert_eq!(
+            converted,
+            generic
+                .convert_response(&completion, &Protocol::OpenAI, &Protocol::Anthropic, "m")
+                .unwrap(),
+            "{code} non-stream parity"
+        );
+        assert_eq!(converted["content"][0]["text"], "ok", "{code}");
+
+        let events = adapter.parse_sse_frame(&delta, &Protocol::OpenAI);
+        assert_eq!(
+            format!("{events:?}"),
+            format!("{:?}", generic.parse_sse_frame(&delta, &Protocol::OpenAI)),
+            "{code} stream parity"
+        );
+        assert!(format!("{events:?}").contains("ok"), "{code} stream content: {events:?}");
+
+        let anthropic_converted = adapter
+            .convert_response(&anthropic_message, &Protocol::Anthropic, &Protocol::OpenAI, "m")
+            .expect("Anthropic response should convert to OpenAI");
+        assert_eq!(
+            anthropic_converted,
+            generic
+                .convert_response(&anthropic_message, &Protocol::Anthropic, &Protocol::OpenAI, "m")
+                .unwrap(),
+            "{code} anthropic non-stream parity"
+        );
+
+        // 官方错误示例（顶层 code/message，无 error 包裹）：模型不存在归模型类。
+        assert_eq!(
+            adapter.classify_error(400, sf_error),
+            UpstreamErrorClass::Model,
+            "{code} top-level code/message model error"
+        );
+        assert_eq!(
+            adapter.classify_error(429, r#"{"code":30002,"message":"rate limit exceeded","data":null}"#),
+            UpstreamErrorClass::Service,
+            "{code} 429 rate limit"
+        );
+
+        // usage：cached_tokens 与 prompt_cache_hit_tokens 同源（基座取其一并从 input 扣除）。
+        assert_eq!(
+            adapter.extract_usage(&completion.to_string()),
+            generic.extract_usage(&completion.to_string()),
+            "{code} usage parity"
+        );
+        let usage = adapter.extract_usage(&completion.to_string());
+        assert_eq!(usage.0, 6, "{code} input = prompt - cache hit");
+        assert_eq!(usage.2, 4, "{code} cache read");
+    }
+}

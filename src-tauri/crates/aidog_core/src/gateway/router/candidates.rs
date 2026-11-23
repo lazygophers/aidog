@@ -2188,7 +2188,8 @@ fn full_chain(target: &str, fallbacks: &[String]) -> Vec<String> {
 
 /// 模型 `supported_protocols` 与平台端点协议是否有交集（4dbbc7c4）：无交集 = 该模型
 /// 在本平台任何端点都服务不了（同协议直发或跨协议 converter 都无出口），从模型链剔除。
-/// registry 无数据（用户自建平台 / 条目缺该字段）不约束，恒可服务。
+/// registry 无数据（用户自建平台 / 条目缺该字段 / 推断回填值，见
+/// `aidog_db::model_supported_protocols`）不约束，恒可服务。
 fn model_serviceable(platform: &Platform, model: &str) -> bool {
     // 无端点配置的平台不判定（拓扑未知，端点选择本来就无处可落，非本过滤职责）；
     let Some(supported) =
