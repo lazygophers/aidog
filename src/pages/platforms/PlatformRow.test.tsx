@@ -73,7 +73,7 @@ describe("PlatformRow", () => {
     render(<PlatformRow {...base} onToggleExpanded={onToggleExpanded} onToggle={onToggle} onQuickTest={onQuickTest} />);
     fireEvent.click(screen.getByTestId("platform-row").querySelector("[data-testid='row-toggle']")!);
     expect(onToggle).toHaveBeenCalledWith(platform);
-    fireEvent.click(screen.getByTitle("测速"));
+    fireEvent.click(screen.getByTitle("Quick Test"));
     expect(onQuickTest).toHaveBeenCalledWith(platform);
     fireEvent.click(screen.getByTestId("platform-row").firstElementChild!);
     expect(onToggleExpanded).toHaveBeenCalledWith(true);
@@ -82,7 +82,7 @@ describe("PlatformRow", () => {
   it("详情按钮与编辑按钮并列常显，并调用 onDetail(platform)", () => {
     const onDetail = vi.fn();
     render(<PlatformRow {...base} onDetail={onDetail} />);
-    const edit = screen.getByTitle("编辑");
+    const edit = screen.getByTitle("Edit");
     const detail = screen.getByTestId("row-detail-button");
     expect(edit.parentElement).toBe(detail.parentElement);
     fireEvent.click(detail);

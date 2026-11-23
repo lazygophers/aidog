@@ -69,7 +69,7 @@ export function Sub2ApiImportSection({
   const handleParseText = async (text: string) => {
     setError("");
     if (!text.trim()) {
-      setError(t("importExport.sub2api.emptyInput", "请先粘贴或选择 sub2api 导出 JSON"));
+      setError(t("importExport.sub2api.emptyInput", "Please paste or select a sub2api export JSON first"));
       return;
     }
     setParsing(true);
@@ -130,7 +130,7 @@ export function Sub2ApiImportSection({
         payload.push(await sub2apiAccountToPlatformJson(acc, protocol));
       }
       if (payload.length === 0) {
-        setError(t("importExport.sub2api.nothingSelected", "没有可导入的账号（未选中）"));
+        setError(t("importExport.sub2api.nothingSelected", "No accounts to import (none selected)"));
         return;
       }
       // decisions 空数组：platform 不参与冲突检测（always INSERT，无覆盖语义）。
@@ -155,13 +155,13 @@ export function Sub2ApiImportSection({
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <SectionIcon name="download" size={18} style={{ color: "var(--accent)" }} />
           <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "var(--text-primary)" }}>
-            {t("importExport.sub2api.title", "从 sub2api 导入")}
+            {t("importExport.sub2api.title", "Import from sub2api")}
           </h3>
         </div>
         <p style={{ margin: 0, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.5 }}>
           {t(
             "importExport.sub2api.desc",
-            "导入 sub2api 管理后台导出的账号数据 JSON（仅取 platform / base_url / api_key）。导入将新建平台，不覆盖同名。",
+            "Import the account-data JSON exported from the sub2api admin panel (only platform / base_url / api_key). Import always creates new platforms; it never overwrites by name.",
           )}
         </p>
       </div>
@@ -175,7 +175,7 @@ export function Sub2ApiImportSection({
             
             style={{ padding: "7px 16px", fontSize: 14 }}
           >
-            {t("importExport.sub2api.pickFile", "选择 JSON 文件")}
+            {t("importExport.sub2api.pickFile", "Select JSON file")}
           </Button>
           <Button variant="outline"
             onClick={() => handleParseText(pasteText)}
@@ -187,8 +187,8 @@ export function Sub2ApiImportSection({
             }}
           >
             {parsing
-              ? t("importExport.sub2api.parsing", "解析中…")
-              : t("importExport.sub2api.parsePaste", "解析粘贴内容")}
+              ? t("importExport.sub2api.parsing", "Parsing…")
+              : t("importExport.sub2api.parsePaste", "Parse pasted text")}
           </Button>
         </div>
         <JsonCodeEditor
@@ -196,7 +196,7 @@ export function Sub2ApiImportSection({
           onChange={setPasteText}
           minHeight={120}
           maxHeight={320}
-          placeholder={t("importExport.sub2api.pastePlaceholder", "粘贴 sub2api 导出的 JSON 文本…")}
+          placeholder={t("importExport.sub2api.pastePlaceholder", "Paste the JSON text exported from sub2api…")}
         />
       </div>
 
@@ -205,22 +205,22 @@ export function Sub2ApiImportSection({
         <>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>
-              {t("importExport.sub2api.accountList", "账号列表")}
+              {t("importExport.sub2api.accountList", "Account list")}
             </strong>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Button variant="outline"
                 onClick={() => setSelected(new Set(accounts.map((_, i) => i)))}
                 style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: 14, fontWeight: 500, cursor: "pointer", padding: 0 }}
               >
-                {t("importExport.selectAll", "全选")}
+                {t("importExport.selectAll", "Select all")}
               </Button>
               <Button variant="outline"
                 onClick={() => setSelected(new Set())}
                 style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: 14, fontWeight: 500, cursor: "pointer", padding: 0 }}
               >
-                {t("importExport.deselectAll", "反选")}
+                {t("importExport.deselectAll", "Deselect all")}
               </Button>
-              <StatChip value={`${selectedCount}/${accounts.length}`} label={t("importExport.selectedLabel", "已选")} level={selectedCount > 0 ? "success" : "neutral"} />
+              <StatChip value={`${selectedCount}/${accounts.length}`} label={t("importExport.selectedLabel", "selected")} level={selectedCount > 0 ? "success" : "neutral"} />
             </div>
           </div>
 
@@ -270,7 +270,7 @@ export function Sub2ApiImportSection({
                   </SelectContent>
 </Select>
                   {!map.recognized && !overrides.has(i) && (
-                    <StatChip value={t("importExport.sub2api.unrecognized", "未识别·已兜底 OpenAI")} label="" level="warning" />
+                    <StatChip value={t("importExport.sub2api.unrecognized", "Unrecognized · fell back to OpenAI")} label="" level="warning" />
                   )}
                   {acc.baseUrl && (
                     <code style={{ fontSize: 14, color: "var(--text-tertiary)", wordBreak: "break-all" }}>{acc.baseUrl}</code>
@@ -278,7 +278,7 @@ export function Sub2ApiImportSection({
                   {acc.apiKey ? (
                     <code style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{maskKey(acc.apiKey)}</code>
                   ) : (
-                    <StatChip value={t("importExport.sub2api.noKey", "无密钥")} label="" level="warning" />
+                    <StatChip value={t("importExport.sub2api.noKey", "No key")} label="" level="warning" />
                   )}
                 </div>
               );
@@ -287,7 +287,7 @@ export function Sub2ApiImportSection({
 
           {/* 加入分组 toggle */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
-            <span style={{ fontSize: 14 }}>{t("importExport.sub2api.autoGroup", "导入后自动加入「sub2api」分组")}</span>
+            <span style={{ fontSize: 14 }}>{t("importExport.sub2api.autoGroup", "Auto-join the \"sub2api\" group after import")}</span>
             <Switch checked={autoGroup} onCheckedChange={setAutoGroup} />
           </div>
 
@@ -301,8 +301,8 @@ export function Sub2ApiImportSection({
               style={{ padding: "7px 16px", fontSize: 14 }}
             >
               {importing
-                ? t("importExport.applying", "导入中…")
-                : t("importExport.sub2api.importBtn", "导入 {{n}} 项", { n: selectedCount })}
+                ? t("importExport.applying", "Importing…")
+                : t("importExport.sub2api.importBtn", "Import {{n}} items", { n: selectedCount })}
             </Button>
           </div>
         </>

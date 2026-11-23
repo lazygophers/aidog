@@ -100,12 +100,12 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
   };
 
   const modes: { key: TestMode; label: string }[] = [
-    { key: "quick", label: t("test.modeQuick", "快速测试") },
-    { key: "single", label: t("test.modeSingle", "指定模型") },
-    { key: "batch", label: t("test.modeBatch", "批量测试") },
-    { key: "random", label: t("test.modeRandom", "随机提示词批量") },
-    { key: "custom", label: t("test.modeCustom", "指定提示词") },
-    { key: "tool", label: t("test.modeTool", "工具调用探测") },
+    { key: "quick", label: t("test.modeQuick", "Quick Test") },
+    { key: "single", label: t("test.modeSingle", "Single Model") },
+    { key: "batch", label: t("test.modeBatch", "Batch Test") },
+    { key: "random", label: t("test.modeRandom", "Random Prompts Batch") },
+    { key: "custom", label: t("test.modeCustom", "Custom Prompt") },
+    { key: "tool", label: t("test.modeTool", "Tool-call probe") },
   ];
 
   const needsModelSelect = mode === "single" || mode === "batch" || mode === "custom";
@@ -139,7 +139,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
         borderRadius: 16, display: "flex", flexDirection: "column", gap: 16,
       }}>
         <DialogHeader style={{ display: "block" }}>
-          <DialogTitle style={{ fontSize: 15, fontWeight: 700 }}>{t("test.title", "模型测试")}</DialogTitle>
+          <DialogTitle style={{ fontSize: 15, fontWeight: 700 }}>{t("test.title", "Model Test")}</DialogTitle>
           <DialogDescription className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
             {platform.name} · {protocolLabel || platform.platform_type}
           </DialogDescription>
@@ -171,7 +171,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
 
         {mode === "custom" && (
           <Textarea style={{ fontSize: 14, minHeight: 60, resize: "vertical" }}
-            placeholder={t("test.promptPlaceholder", "输入测试提示词...")}
+            placeholder={t("test.promptPlaceholder", "Enter test prompt...")}
             value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} />
         )}
 
@@ -182,13 +182,13 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
           disabled={running || (needsModelSelect && selectedModels.length === 0 && mode !== "batch" && allModels.length === 0)}
         >
           {running
-            ? t("test.running", "测试中...") + (currentIdx >= 0 ? ` (${currentIdx + 1}/${getModels().length})` : "")
-            : t("test.run", "开始测试")}
+            ? t("test.running", "Testing...") + (currentIdx >= 0 ? ` (${currentIdx + 1}/${getModels().length})` : "")
+            : t("test.run", "Run Test")}
         </Button>
 
         {results.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("test.results", "测试结果")}</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("test.results", "Results")}</div>
             {results.map((r, i) => (
               <TestResultItem key={i} r={r} idx={i} />
             ))}

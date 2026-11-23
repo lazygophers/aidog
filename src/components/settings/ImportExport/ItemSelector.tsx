@@ -64,12 +64,12 @@ export function ItemSelector({
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>
-          {t("importExport.selectItems", "选择导入项")}
+          {t("importExport.selectItems", "Select items to import")}
         </strong>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <TextButton onClick={() => onAllSet(true)}>{t("importExport.selectAll", "全选")}</TextButton>
-          <TextButton onClick={() => onAllSet(false)}>{t("importExport.deselectAll", "反选")}</TextButton>
-          <StatChip value={`${selCount} / ${total}`} label={t("importExport.selectedLabel", "已选")} level={(selCount > 0 ? "success" : "neutral") as ColorLevel} />
+          <TextButton onClick={() => onAllSet(true)}>{t("importExport.selectAll", "Select all")}</TextButton>
+          <TextButton onClick={() => onAllSet(false)}>{t("importExport.deselectAll", "Deselect all")}</TextButton>
+          <StatChip value={`${selCount} / ${total}`} label={t("importExport.selectedLabel", "selected")} level={(selCount > 0 ? "success" : "neutral") as ColorLevel} />
         </div>
       </div>
 
@@ -123,7 +123,7 @@ export function ItemSelector({
                     marginLeft: 4,
                   }}
                 >
-                  {t("importExport.skillsScopeHint", "未选 Skills（确认无需导入）")}
+                  {t("importExport.skillsScopeHint", "Skills are not imported by default; select them manually")}
                 </span>
               )}
               <span style={{ fontSize: 14, color: "var(--text-tertiary)", marginLeft: "auto" }}>
@@ -158,7 +158,7 @@ export function ItemSelector({
                       <SectionIcon name={SCOPE_ICON[it.scope] ?? "folder"} size={12} style={{ color: "var(--text-tertiary)", flexShrink: 0 }} />
                       <span style={{ fontSize: 14, color: "var(--text-primary)", wordBreak: "break-all", flex: 1 }}>{displayLabel}</span>
                       {it.conflict && (
-                        <StatChip value={t("importExport.conflictTag", "冲突")} label="" level={"warning" as ColorLevel} />
+                        <StatChip value={t("importExport.conflictTag", "Conflict")} label="" level={"warning" as ColorLevel} />
                       )}
                     </div>
                   );

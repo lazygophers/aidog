@@ -31,14 +31,14 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
         flexDirection: "column",
         gap: 12,
       }}>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.timeout", "超时设置")}</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.timeout", "Timeout Settings")}</div>
         <div className="text-secondary" style={{ fontSize: 14 }}>
-          {t("proxy.timeoutDesc", "系统默认超时，分组和模型级别可覆盖")}
+          {t("proxy.timeoutDesc", "System default timeouts; group and model levels can override")}
         </div>
         <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 4 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-              {t("proxy.requestTimeout", "请求超时")}
+              {t("proxy.requestTimeout", "Request Timeout")}
             </label>
             <Input
               type="number"
@@ -47,11 +47,11 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
               onChange={(e) => handleTimeoutChange(Math.max(0, Number(e.target.value)), connTimeout)}
               style={{ width: 80 }}
             />
-            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("unit.sec", "秒")}</span>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("unit.sec", "sec")}</span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-              {t("proxy.connectTimeout", "连接超时")}
+              {t("proxy.connectTimeout", "Connect Timeout")}
             </label>
             <Input
               type="number"
@@ -60,7 +60,7 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
               onChange={(e) => handleTimeoutChange(reqTimeout, Math.max(0, Number(e.target.value)))}
               style={{ width: 80 }}
             />
-            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("unit.sec", "秒")}</span>
+            <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{t("unit.sec", "sec")}</span>
           </div>
         </div>
       </div>
@@ -74,9 +74,9 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
         gap: 12,
       }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.btcGlobal", "内置工具兼容总开关")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.btcGlobal", "Builtin tool compat master switch")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("proxy.btcGlobalDesc", "开启后所有平台转发时剔除 Claude Code 内置工具定义（ToolSearch/Read/Bash 等），用于不支持内置工具的第三方模型；默认关闭 = 请求原样转发")}
+            {t("proxy.btcGlobalDesc", "When on, Claude Code builtin tool definitions (ToolSearch/Read/Bash, etc.) are stripped from every platform’s outbound request; off = forward unchanged")}
           </div>
         </div>
         <Switch checked={btcGlobalEnabled} onCheckedChange={handleBtcGlobalChange} />
@@ -106,9 +106,9 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
         alignItems: "center",
       }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("settings.dbCompact", "立即压缩数据库")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("settings.dbCompact", "Compact database now")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("settings.dbCompactHint", "全量 VACUUM，期间代理请求将短暂排队")}
+            {t("settings.dbCompactHint", "Full VACUUM; proxy requests will briefly queue during compaction")}
           </div>
         </div>
         <Button
@@ -120,7 +120,7 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
             opacity: dbCompacting ? 0.6 : 1,
           }}
         >
-          {dbCompacting ? t("common.loading", "加载中…") : t("settings.dbCompact", "立即压缩数据库")}
+          {dbCompacting ? t("common.loading", "Loading...") : t("settings.dbCompact", "Compact database now")}
         </Button>
       </div>
 
@@ -129,22 +129,22 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 380, padding: 20 }}>
           <AlertDialogHeader>
             <AlertDialogTitle style={{ fontSize: 14, fontWeight: 600 }}>
-              {t("settings.dbCompact", "立即压缩数据库")}
+              {t("settings.dbCompact", "Compact database now")}
             </AlertDialogTitle>
             <AlertDialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-              {t("settings.dbCompactHint", "全量 VACUUM，期间代理请求将短暂排队")}
+              {t("settings.dbCompactHint", "Full VACUUM; proxy requests will briefly queue during compaction")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel style={{ padding: "6px 14px", fontSize: 14 }}>
-              {t("common.cancel", "取消")}
+              {t("common.cancel", "Cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="ripple"
               onClick={(e) => { makeRipple(e); runDbCompact(); }}
               style={{ padding: "6px 14px", fontSize: 14 }}
             >
-              {t("settings.dbCompact", "立即压缩数据库")}
+              {t("settings.dbCompact", "Compact database now")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -158,14 +158,14 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
         gap: 12,
       }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("stats.aggSettings", "聚合统计")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("stats.aggSettings", "Aggregate Stats")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("stats.aggSettingsHint", "使用统计独立累计，不受请求日志开关影响")}
+            {t("stats.aggSettingsHint", "Usage stats are accumulated independently, unaffected by the request log toggle")}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
-            {t("stats.aggRetention", "统计保留天数")}
+            {t("stats.aggRetention", "Stats retention days")}
           </label>
           <Input
             type="number"
@@ -175,12 +175,12 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
             style={{ width: 70 }}
           />
           <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-            {statsRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
+            {statsRetention === 0 ? t("proxy.logRetentionForever", "Keep forever") : t("unit.days", "days")}
           </span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div className="text-secondary" style={{ fontSize: 14 }}>
-            {t("stats.rebuildHint", "从历史请求日志全量重建聚合统计表")}
+            {t("stats.rebuildHint", "Fully rebuild the aggregate stats table from historical request logs")}
           </div>
           <Button
             variant="outline"
@@ -191,7 +191,7 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
               opacity: statsRebuilding ? 0.6 : 1, whiteSpace: "nowrap",
             }}
           >
-            {statsRebuilding ? t("common.loading", "加载中…") : t("stats.rebuild", "从日志重建统计")}
+            {statsRebuilding ? t("common.loading", "Loading...") : t("stats.rebuild", "Rebuild from logs")}
           </Button>
         </div>
       </div>

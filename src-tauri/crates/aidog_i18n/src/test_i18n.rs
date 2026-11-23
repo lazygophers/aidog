@@ -62,3 +62,54 @@ fn t_covers_all_langs_and_keys() {
         }
     }
 }
+
+/// 模板里 `{...}` 占位（含 `{ · |session_name}` 可选段、`{{n}}`）的集合。
+fn placeholders(s: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut rest = s;
+    while let Some(i) = rest.find('{') {
+        let Some(j) = rest[i..].find('}') else { break };
+        let mut end = i + j + 1;
+        if rest[end..].starts_with('}') {
+            end += 1; // `{{n}}`
+        }
+        out.push(rest[i..end].to_string());
+        rest = &rest[end..];
+    }
+    out.sort();
+    out
+}
+
+#[test]
+fn backend_shared_keys_keep_placeholders_in_all_langs() {
+    let zh = locale_table(Lang::ZhCn);
+    let keys: Vec<&String> = zh
+        .keys()
+        .filter(|k| {
+            k.starts_with("notif.eventTemplate.")
+                || k.starts_with("notif.typeTemplate.")
+                || k.starts_with("notif.action.")
+                || k.starts_with("tray.render.countdown")
+                || *k == "tray.render.clockDays"
+        })
+        .collect();
+    assert_eq!(keys.len(), 33 + 3 + 21 + 4, "zh-Hans 后端共用 key 数");
+    let mut bad = Vec::new();
+    for lang in ALL_LANGS {
+        for k in &keys {
+            match locale_table(lang).get(k.as_str()) {
+                Some(v) if placeholders(v) == placeholders(&zh[k.as_str()]) => {}
+                other => bad.push(format!("{lang:?} {k}: {other:?}")),
+            }
+        }
+    }
+    assert!(bad.is_empty(), "占位符与 zh-Hans 不一致:\n{}", bad.join("\n"));
+}
+
+#[test]
+fn lookup_falls_back_to_en_then_none() {
+    assert_eq!(lookup(Lang::ZhCn, "tray.render.peakOn"), Some("峰"));
+    assert_eq!(lookup(Lang::EnUs, "tray.render.peakOn"), Some("Peak"));
+    assert_eq!(lookup(Lang::JaJp, "no.such.key"), None);
+    assert_eq!(tr(Lang::JaJp, "no.such.key"), "no.such.key");
+}

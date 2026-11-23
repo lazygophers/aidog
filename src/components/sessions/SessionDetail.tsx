@@ -45,9 +45,9 @@ function LazyBlock({ title, testId, fetch, children }: {
         <ChevronDown aria-hidden className={`size-4 transition-transform motion-reduce:transition-none ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
         {title}
       </button>
-      {open && load?.state === "loading" && <p className="text-sm text-muted-foreground" aria-busy="true">{t("sessions.detailLoading", "正在加载详情…")}</p>}
+      {open && load?.state === "loading" && <p className="text-sm text-muted-foreground" aria-busy="true">{t("sessions.detailLoading", "Loading details…")}</p>}
       {open && load?.state === "error" && (
-        <p role="alert" className="break-all text-sm text-destructive">{t("sessions.detailError", "详情加载失败：{{error}}", { error: load.error })}</p>
+        <p role="alert" className="break-all text-sm text-destructive">{t("sessions.detailError", "Failed to load details: {{error}}", { error: load.error })}</p>
       )}
       {open && load?.state === "ready" && children(load.detail)}
     </div>
@@ -71,10 +71,10 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRa
 
   // 键序即堆叠序（自下而上）：缓存读通常最大，沉底。色板默认第 1、2 色同为紫系分不开，显式取四个可区分色。
   const config = useMemo(() => ({
-    cacheRead: { label: t("sessions.seriesCacheRead", "缓存读"), color: "var(--chart-3)" },
-    cacheWrite: { label: t("sessions.seriesCacheWrite", "缓存写"), color: "var(--muted-foreground)" },
-    input: { label: t("sessions.seriesInput", "输入"), color: "var(--data-primary)" },
-    output: { label: t("sessions.seriesOutput", "输出"), color: "var(--chart-4)" },
+    cacheRead: { label: t("sessions.seriesCacheRead", "Cache read"), color: "var(--chart-3)" },
+    cacheWrite: { label: t("sessions.seriesCacheWrite", "Cache write"), color: "var(--muted-foreground)" },
+    input: { label: t("sessions.seriesInput", "Input"), color: "var(--data-primary)" },
+    output: { label: t("sessions.seriesOutput", "Output"), color: "var(--chart-4)" },
   }), [t]);
   const points = load.state === "ready" ? load.detail.points : [];
   const data = useMemo(() => {
@@ -87,29 +87,29 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRa
     return [zero(rows[0].x - 60_000), rows[0], zero(rows[0].x + 60_000)];
   }, [points]);
   const agentName = (g: ClientUsageAgentGroup) =>
-    g.kind === "main" ? t("sessions.agentMain", "主线") : g.agentType ?? (g.agentId ? g.agentId.slice(0, 8) : t("sessions.agentSub", "子代理"));
+    g.kind === "main" ? t("sessions.agentMain", "Main thread") : g.agentType ?? (g.agentId ? g.agentId.slice(0, 8) : t("sessions.agentSub", "Subagent"));
 
   const state = load.state === "ready" && load.detail.points.length === 0 ? "empty" : load.state;
   return (
     <div className="mx-3 mb-3 space-y-4 rounded-lg border bg-card p-4" data-testid="session-detail" data-state={state}>
-      {load.state === "loading" && <p className="text-sm text-muted-foreground" aria-busy="true">{t("sessions.detailLoading", "正在加载详情…")}</p>}
+      {load.state === "loading" && <p className="text-sm text-muted-foreground" aria-busy="true">{t("sessions.detailLoading", "Loading details…")}</p>}
       {load.state === "error" && (
-        <p role="alert" className="break-all text-sm text-destructive">{t("sessions.detailError", "详情加载失败：{{error}}", { error: load.error })}</p>
+        <p role="alert" className="break-all text-sm text-destructive">{t("sessions.detailError", "Failed to load details: {{error}}", { error: load.error })}</p>
       )}
-      {state === "empty" && <p className="text-sm text-muted-foreground">{t("sessions.detailEmpty", "保留期内没有这个会话的调用明细")}</p>}
+      {state === "empty" && <p className="text-sm text-muted-foreground">{t("sessions.detailEmpty", "No call records for this session within the retention period")}</p>}
       {state === "ready" && (
         <>
           {ctxRatio != null && (
-            <p className="text-sm text-muted-foreground" title={t("sessions.ctxTitle", "context-mode 上下文压缩比")} data-testid="session-detail-ctx" data-pct={String(ctxRatio)}>
-              {t("sessions.ctxRatio", "压缩 {{pct}}", { pct: formatPercent(ctxRatio) })}
+            <p className="text-sm text-muted-foreground" title={t("sessions.ctxTitle", "context-mode context compression ratio")} data-testid="session-detail-ctx" data-pct={String(ctxRatio)}>
+              {t("sessions.ctxRatio", "Compressed {{pct}}", { pct: formatPercent(ctxRatio) })}
             </p>
           )}
           {/* 图例下留白：bare 模式图例紧贴 Y 轴顶刻度，加内边距让 Recharts 量高时把绘图区下推。 */}
           <div data-testid="session-detail-chart" data-points={String(points.length)} data-rows={String(data.length)} className="[&_.recharts-legend-wrapper]:pb-3">
-            <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t("sessions.detailChart", "token 消耗")}</h4>
+            <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t("sessions.detailChart", "Token usage")}</h4>
             <StackedAreaChart bare config={config} data={data} height={200} valueFormat={formatNumber} />
           </div>
-          <LazyBlock title={t("sessions.detailChain", "模型链")} testId="session-detail-chain" fetch={fetchPart("chain")}>
+          <LazyBlock title={t("sessions.detailChain", "Model chain")} testId="session-detail-chain" fetch={fetchPart("chain")}>
             {(d) => (
               <ol className="flex flex-wrap items-center gap-1.5" data-testid="session-detail-chain">
                 {d.modelChain.map((s, i) => (
@@ -123,7 +123,7 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRa
                       data-calls={String(s.calls)}
                     >
                       <span dir="ltr">{s.model || "?"}</span>
-                      <span className="ms-1.5 font-sans text-muted-foreground">{t("sessions.segCalls", "{{n}} 次", { n: s.calls })}</span>
+                      <span className="ms-1.5 font-sans text-muted-foreground">{t("sessions.segCalls", "{{n}} calls", { n: s.calls })}</span>
                     </span>
                   </li>
                 ))}
@@ -131,7 +131,7 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRa
             )}
           </LazyBlock>
           {sidechainCalls > 0 && (
-            <LazyBlock title={t("sessions.detailAgents", "主线与子代理")} testId="session-detail-agents" fetch={fetchPart("agents")}>
+            <LazyBlock title={t("sessions.detailAgents", "Main thread & subagents")} testId="session-detail-agents" fetch={fetchPart("agents")}>
               {(d) => (
                 <ul className="divide-y rounded-md border" data-testid="session-detail-agents">
                   {d.agents.map((g, i) => (
@@ -148,8 +148,8 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRa
                           ? <span className="font-medium">{agentName(g)}</span>
                           : <span dir="ltr" className={g.agentType ? "" : "font-mono"}>{agentName(g)}</span>}
                       </span>
-                      <span className="text-end text-muted-foreground">{t("sessions.segCalls", "{{n}} 次", { n: g.calls })}</span>
-                      <span className="text-end font-mono tabular-nums" title={t("sessions.tokenSplit", "入 {{input}} / 出 {{output}}", { input: formatNumber(g.inputTokens), output: formatNumber(g.outputTokens) })}>
+                      <span className="text-end text-muted-foreground">{t("sessions.segCalls", "{{n}} calls", { n: g.calls })}</span>
+                      <span className="text-end font-mono tabular-nums" title={t("sessions.tokenSplit", "in {{input}} / out {{output}}", { input: formatNumber(g.inputTokens), output: formatNumber(g.outputTokens) })}>
                         {formatNumber(g.inputTokens + g.outputTokens)}
                       </span>
                       <span className="text-end font-mono tabular-nums">

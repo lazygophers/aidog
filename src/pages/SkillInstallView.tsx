@@ -122,7 +122,7 @@ export function SkillInstallView({
         setMessage(
           t("skills.install.installSuccess", {
             name: entry.name,
-            defaultValue: "已安装 {{name}}",
+            defaultValue: "Installed {{name}}",
           })
         );
         onInstalled();
@@ -131,7 +131,7 @@ export function SkillInstallView({
           res.stderr?.trim() ||
             res.stdout?.trim() ||
             t("skills.install.installFailed", {
-              defaultValue: "安装失败",
+              defaultValue: "Installation failed",
             })
         );
       }
@@ -175,7 +175,7 @@ export function SkillInstallView({
         if (res.success) ok += g.ids.length;
         else {
           fail += g.ids.length;
-          setMessage(res.stderr?.trim() || res.stdout?.trim() || t("skills.install.installFailed", { defaultValue: "安装失败" }));
+          setMessage(res.stderr?.trim() || res.stdout?.trim() || t("skills.install.installFailed", { defaultValue: "Installation failed" }));
         }
       } catch (e: any) {
         fail += g.ids.length;
@@ -184,9 +184,9 @@ export function SkillInstallView({
     }
     setBusyId(null);
     if (ok > 0 && fail === 0) {
-      setMessage(t("skills.importOk", { defaultValue: "已导入 {{count}} 项", count: ok }));
+      setMessage(t("skills.importOk", { defaultValue: "Imported {{count}} skill(s)", count: ok }));
     } else if (fail > 0 && ok > 0) {
-      setMessage(t("skills.importPartial", { defaultValue: "成功 {{ok}}，失败 {{fail}}", ok, fail }));
+      setMessage(t("skills.importPartial", { defaultValue: "Success {{ok}}, failed {{fail}}", ok, fail }));
     }
     if (ok > 0) {
       setChecked(new Set());
@@ -215,7 +215,7 @@ export function SkillInstallView({
         >
           <div className="glass-elevated" style={{ padding: "24px 32px", fontSize: 14, display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--border)", borderTopColor: "var(--accent)", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
-            {t("skills.install.installing", { defaultValue: "安装中…" })}
+            {t("skills.install.installing", { defaultValue: "Installing…" })}
           </div>
         </div>,
         document.body,
@@ -229,16 +229,16 @@ export function SkillInstallView({
             style={{ fontSize: 14 }}
             onClick={(e) => { makeRipple(e); onBack(); }}
             disabled={busyId !== null}
-            title={t("skills.install.back", { defaultValue: "返回" })}
+            title={t("skills.install.back", { defaultValue: "← Back" })}
           >
-            {t("skills.install.back", { defaultValue: "← 返回" })}
+            {t("skills.install.back", { defaultValue: "← Back" })}
           </Button>
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>
-            {t("skills.install.title", { defaultValue: "添加 Skills" })}
+            {t("skills.install.title", { defaultValue: "Add Skills" })}
           </h2>
           {loading && (
             <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("skills.install.searching", { defaultValue: "搜索中…" })}
+              {t("skills.install.searching", { defaultValue: "Searching…" })}
             </span>
           )}
         </div>
@@ -250,8 +250,8 @@ export function SkillInstallView({
           onClick={(e) => { makeRipple(e); void handleInstallBatch(); }}
         >
           {busyId === "__batch__"
-            ? t("skills.install.installing", { defaultValue: "安装中…" })
-            : t("skills.install.installSelected", { defaultValue: "安装选中 ({{count}})", count: checked.size })}
+            ? t("skills.install.installing", { defaultValue: "Installing…" })
+            : t("skills.install.installSelected", { defaultValue: "Install selected ({{count}})", count: checked.size })}
         </Button>
       </div>
 
@@ -261,7 +261,7 @@ export function SkillInstallView({
         value={keyword}
         onChange={(e) => setKeyword(e.target.value)}
         placeholder={t("skills.install.searchPlaceholder", {
-          defaultValue: "输入关键字搜索 skills（如 git、docs、deploy）",
+          defaultValue: "Search skills by keyword (e.g. git, docs, deploy)",
         })}
         autoFocus
       />
@@ -286,7 +286,7 @@ export function SkillInstallView({
           className="glass-surface"
           style={{ padding: "12px 16px", fontSize: 14, color: "var(--color-danger)" }}
         >
-          {t("skills.install.loadFailed", { defaultValue: "加载失败" })}: {error}
+          {t("skills.install.loadFailed", { defaultValue: "Failed to load" })}: {error}
         </div>
       )}
 
@@ -297,7 +297,7 @@ export function SkillInstallView({
           style={{ padding: "32px 16px", textAlign: "center", color: "var(--text-secondary)", fontSize: 14 }}
         >
           {t("skills.install.emptyHint", {
-            defaultValue: "输入关键字开始搜索可安装的 skills",
+            defaultValue: "Type a keyword to search for installable skills",
           })}
         </div>
       )}
@@ -308,7 +308,7 @@ export function SkillInstallView({
           className="glass-surface"
           style={{ padding: "32px 16px", textAlign: "center", color: "var(--text-secondary)", fontSize: 14 }}
         >
-          {t("skills.install.noResults", { defaultValue: "无结果" })}
+          {t("skills.install.noResults", { defaultValue: "No results" })}
         </div>
       )}
 
@@ -370,7 +370,7 @@ function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, 
         {/* 批量安装勾选 */}
         <input
           type="checkbox"
-          aria-label={t("skills.install.installSelected", { defaultValue: "安装选中 ({{count}})", count: 1 })}
+          aria-label={t("skills.install.installSelected", { defaultValue: "Install selected ({{count}})", count: 1 })}
           checked={checked}
           disabled={busyId !== null}
           onChange={() => onCheck(entry.id)}
@@ -389,7 +389,7 @@ function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, 
                   color: "var(--text-secondary)",
                 }}
               >
-                {t("skills.install.installed", { defaultValue: "已装" })}
+                {t("skills.install.installed", { defaultValue: "Installed" })}
               </span>
             )}
           </div>
@@ -427,22 +427,22 @@ function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, 
           title={
             otherBusy
               ? t("skills.install.busyOther", {
-                  defaultValue: "等待当前安装完成",
+                  defaultValue: "Waiting for current installation to finish",
                 })
               : undefined
           }
         >
           {installing
-            ? t("skills.install.installing", { defaultValue: "安装中…" })
+            ? t("skills.install.installing", { defaultValue: "Installing…" })
             : already
-              ? t("skills.install.installed", { defaultValue: "已装" })
-              : t("skills.install.install", { defaultValue: "安装" })}
+              ? t("skills.install.installed", { defaultValue: "Installed" })
+              : t("skills.install.install", { defaultValue: "Install" })}
         </Button>
       </div>
       {/* agent 选择 */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-          {t("skills.install.selectAgent", { defaultValue: "安装到" })}:
+          {t("skills.install.selectAgent", { defaultValue: "Install to" })}:
         </span>
         {AGENTS.map((a) => {
           const on = agents.has(a);

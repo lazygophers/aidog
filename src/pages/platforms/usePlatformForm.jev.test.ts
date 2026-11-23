@@ -59,7 +59,7 @@ describe("unknown protocol repair", () => {
     await act(() => result.current.handleSave());
     expect(platformApi.create).not.toHaveBeenCalled();
     expect(platformApi.update).not.toHaveBeenCalled();
-    expect(result.current.saveError).toContain("请选择");
+    expect(result.current.saveError).toContain("Select a valid protocol");
   });
 
   it("blocks unknown protocol before batch submission", async () => {
@@ -71,7 +71,7 @@ describe("unknown protocol repair", () => {
     await act(() => result.current.handleSave());
     expect(platformApi.create).not.toHaveBeenCalled();
     expect(result.current.batchPreviewKeys).toEqual(["key1", "key2"]);
-    expect(result.current.saveError).toContain("请选择");
+    expect(result.current.saveError).toContain("Select a valid protocol");
   });
 
   it("repairs only the protocol without replacing existing configuration", async () => {

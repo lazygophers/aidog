@@ -45,7 +45,7 @@ export function Topbar({ crumb, onOpenNotifications, notifHidden, onOpenSearch }
         type="button"
         id="g3-topbar-search"
         onClick={onOpenSearch}
-        title={t("topbar.search", "搜索（⌘K）")}
+        title={t("topbar.search", "Search (⌘K)")}
         style={{
           all: "unset", cursor: "pointer",
           display: "inline-flex", alignItems: "center", gap: 8,
@@ -55,7 +55,7 @@ export function Topbar({ crumb, onOpenNotifications, notifHidden, onOpenSearch }
         }}
       >
         <span style={{ fontSize: 14 }}>⌕</span>
-        <span style={{ flex: 1, textAlign: "start" }}>{t("topbar.search", "搜索（⌘K）")}</span>
+        <span style={{ flex: 1, textAlign: "start" }}>{t("topbar.search", "Search (⌘K)")}</span>
         <kbd style={{
           fontFamily: "var(--font-mono, monospace)", fontSize: 14,
           border: "1px solid var(--border)", borderBottomWidth: 2, borderRadius: 5,
@@ -67,7 +67,7 @@ export function Topbar({ crumb, onOpenNotifications, notifHidden, onOpenSearch }
       {!notifHidden && (
         <Button
           id="g3-topbar-bell"
-          variant="ghost" size="sm" title={t("nav.notifications", "通知")}
+          variant="ghost" size="sm" title={t("nav.notifications", "Notifications")}
           style={{ fontSize: 14, padding: 4, width: 28, height: 28, minWidth: 0 }}
           onClick={onOpenNotifications}
         >
@@ -79,7 +79,7 @@ export function Topbar({ crumb, onOpenNotifications, notifHidden, onOpenSearch }
         id="g3-topbar-theme"
         data-mode={themeMode}
         variant="ghost" size="sm"
-        title={themeMode === "light" ? t("theme.dark", "深色") : t("theme.light", "浅色")}
+        title={themeMode === "light" ? t("theme.dark", "Dark") : t("theme.light", "Light")}
         style={{ fontSize: 14, padding: 4, width: 28, height: 28, minWidth: 0 }}
         onClick={toggleMode}
       >

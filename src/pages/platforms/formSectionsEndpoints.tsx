@@ -37,7 +37,7 @@ export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
     <FormSection
       title={t("platform.endpoints", "Protocol Endpoints")}
       desc={locked
-        ? t("platform.endpointsLockedHint", "厂商平台端点为内置配置，不可修改")
+        ? t("platform.endpointsLockedHint", "Vendor platform endpoints are built-in and cannot be modified")
         : t("platform.endpointsHint", "Additional protocols this platform supports with different base URLs")}
       action={locked ? undefined : (
         <Button
@@ -99,7 +99,7 @@ export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
               setEndpoints(next);
             }}
           >
-            <SelectTrigger className="input" style={{ width: 140, flexShrink: 0 }} title={t("platform.clientType", "客户端模拟")} disabled={locked}>
+            <SelectTrigger className="input" style={{ width: 140, flexShrink: 0 }} title={t("platform.clientType", "Client Type")} disabled={locked}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

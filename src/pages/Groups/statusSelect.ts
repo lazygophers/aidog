@@ -61,16 +61,16 @@ export function platformCategories(
 
 /** 错误分类固定选项（值前缀 `c:`），顺序即下拉顺序。 */
 export const ERROR_CATEGORY_OPTIONS: { value: string; category: ErrorCategory; labelKey: string; fallback: string }[] = [
-  { value: "c:key_invalid", category: "key_invalid", labelKey: "group.errCat.keyInvalid", fallback: "密钥失效" },
-  { value: "c:token_expired", category: "token_expired", labelKey: "group.errCat.tokenExpired", fallback: "令牌已过期" },
-  { value: "c:balance", category: "balance", labelKey: "group.errCat.balance", fallback: "余额不足" },
-  { value: "c:rate_limit", category: "rate_limit", labelKey: "group.errCat.rateLimit", fallback: "限频" },
-  { value: "c:quota", category: "quota", labelKey: "group.errCat.quota", fallback: "套餐/额度用尽" },
-  { value: "c:server", category: "server", labelKey: "group.errCat.server", fallback: "服务异常" },
-  { value: "c:timeout", category: "timeout", labelKey: "group.errCat.timeout", fallback: "请求超时" },
-  { value: "c:connect", category: "connect", labelKey: "group.errCat.connect", fallback: "连接失败" },
-  { value: "c:expired", category: "expired", labelKey: "group.errCat.expired", fallback: "平台已到期" },
-  { value: "c:censorship", category: "censorship", labelKey: "group.errCat.censorship", fallback: "内容审核拦截" },
+  { value: "c:key_invalid", category: "key_invalid", labelKey: "group.errCat.keyInvalid", fallback: "Key invalid" },
+  { value: "c:token_expired", category: "token_expired", labelKey: "group.errCat.tokenExpired", fallback: "Token expired" },
+  { value: "c:balance", category: "balance", labelKey: "group.errCat.balance", fallback: "Insufficient balance" },
+  { value: "c:rate_limit", category: "rate_limit", labelKey: "group.errCat.rateLimit", fallback: "Rate limited" },
+  { value: "c:quota", category: "quota", labelKey: "group.errCat.quota", fallback: "Plan/quota exhausted" },
+  { value: "c:server", category: "server", labelKey: "group.errCat.server", fallback: "Service error" },
+  { value: "c:timeout", category: "timeout", labelKey: "group.errCat.timeout", fallback: "Request timeout" },
+  { value: "c:connect", category: "connect", labelKey: "group.errCat.connect", fallback: "Connection failed" },
+  { value: "c:expired", category: "expired", labelKey: "group.errCat.expired", fallback: "Platform expired" },
+  { value: "c:censorship", category: "censorship", labelKey: "group.errCat.censorship", fallback: "Blocked by content moderation" },
 ];
 
 /** 组内平台 → 命中数 >0 的错误分类选项（含组内命中数）。组外平台的错误状态不计入。 */
@@ -91,9 +91,9 @@ export function buildStatusOptions(
 
 /** 平台启用状态固定选项（值前缀 `s:` 与 HTTP 错误码选项区分）。 */
 export const PLATFORM_STATUS_OPTIONS: { value: string; status: PlatformStatus; labelKey: string; fallback: string }[] = [
-  { value: "s:enabled", status: "enabled", labelKey: "platform.statusEnabled", fallback: "启用" },
-  { value: "s:disabled", status: "disabled", labelKey: "platform.statusDisabled", fallback: "禁用" },
-  { value: "s:auto_disabled", status: "auto_disabled", labelKey: "platform.statusAutoDisabled", fallback: "熔断" },
+  { value: "s:enabled", status: "enabled", labelKey: "platform.statusEnabled", fallback: "Enabled" },
+  { value: "s:disabled", status: "disabled", labelKey: "platform.statusDisabled", fallback: "Disabled" },
+  { value: "s:auto_disabled", status: "auto_disabled", labelKey: "platform.statusAutoDisabled", fallback: "Circuit-broken" },
 ];
 
 /** 下拉选中值 → 要选中的平台 id 集：`s:<status>` 按平台 status，`c:<分类>` 按错误分类。 */

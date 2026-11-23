@@ -59,7 +59,7 @@ describe("RateLimitRulesList", () => {
 
   it("提示「没填的项在该规则生效时不限」与重叠按顺序", () => {
     const { q } = mount([R()]);
-    expect(q("rl-rules-hint")?.textContent).toContain("没填的项在该规则生效时不限");
+    expect(q("rl-rules-hint")?.textContent).toContain("Unfilled limits are unlimited while the rule applies");
   });
 
   it("没有任何条件 → 行内报错；有模型或时段即消失", () => {

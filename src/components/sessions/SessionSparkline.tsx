@@ -148,7 +148,7 @@ export function SessionSparkline({ clientCode, sessionId, lastCallMs }: { client
         viewBox={`0 0 ${N} ${H}`}
         preserveAspectRatio="none"
         role="img"
-        aria-label={t("sessions.spark5mLabel", "最近 5 分钟 token，共 {{n}}", { n: formatNumber(sum) })}
+        aria-label={t("sessions.spark5mLabel", "Tokens in the last 5 minutes, {{n}} total", { n: formatNumber(sum) })}
         className="w-14 text-[var(--primary)] @md:w-40"
         data-testid="sessions-row-spark"
         data-bars={String(bars.length)}

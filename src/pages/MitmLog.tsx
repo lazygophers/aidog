@@ -69,20 +69,20 @@ export function MitmLog() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div className="section-title">{t("page.mitmLog", "MITM 观测")}</div>
+      <div className="section-title">{t("page.mitmLog", "MITM Observations")}</div>
       {rows === null ? (
-        <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("status.loading", "加载中…")}</div>
+        <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("status.loading", "Loading...")}</div>
       ) : rows.length === 0 ? (
-        <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("stats.bypassEmpty", "（暂无旁路观测行）")}</div>
+        <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("stats.bypassEmpty", "(no bypass observations yet)")}</div>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("stats.bypassTime", "时间")}</TableHead>
-              <TableHead>{t("stats.bypassGroup", "分组")}</TableHead>
+              <TableHead>{t("stats.bypassTime", "Time")}</TableHead>
+              <TableHead>{t("stats.bypassGroup", "Group")}</TableHead>
               <TableHead>{t("stats.bypassHost", "Host / Path")}</TableHead>
-              <TableHead style={{ textAlign: "right" }}>{t("stats.bypassStatus", "状态")}</TableHead>
-              <TableHead style={{ textAlign: "right" }}>{t("stats.bypassBytes", "流量")}</TableHead>
+              <TableHead style={{ textAlign: "right" }}>{t("stats.bypassStatus", "Status")}</TableHead>
+              <TableHead style={{ textAlign: "right" }}>{t("stats.bypassBytes", "Traffic")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -106,18 +106,18 @@ export function MitmLog() {
                   <TableRow key={`${r.id}-detail`}>
                     <TableCell colSpan={5} style={{ padding: "6px 8px" }}>
                       {!(r.id in details) ? (
-                        <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("status.loading", "加载中…")}</div>
+                        <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("status.loading", "Loading...")}</div>
                       ) : (
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <BodyBlock
-                            label={t("page.mitmBodyRequest", "请求 body")}
+                            label={t("page.mitmBodyRequest", "Request body")}
                             body={details[r.id]?.request_body ?? ""}
-                            emptyText={t("page.mitmBodyEmpty", "（正文未记录：请开启「记录实际上游请求」；token 刷新路径为安全策略永不保存正文）")}
+                            emptyText={t("page.mitmBodyEmpty", "(body not recorded: enable “Record actual upstream request”; token refresh bodies are never stored for security)")}
                           />
                           <BodyBlock
-                            label={t("page.mitmBodyResponse", "响应 body")}
+                            label={t("page.mitmBodyResponse", "Response body")}
                             body={details[r.id]?.response_body ?? ""}
-                            emptyText={t("page.mitmBodyEmpty", "（正文未记录：请开启「记录实际上游请求」；token 刷新路径为安全策略永不保存正文）")}
+                            emptyText={t("page.mitmBodyEmpty", "(body not recorded: enable “Record actual upstream request”; token refresh bodies are never stored for security)")}
                           />
                         </div>
                       )}

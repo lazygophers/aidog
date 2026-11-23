@@ -28,7 +28,7 @@ export function PiUnsupportedNote({ reasonKey, reasonFallback }: { reasonKey: st
     >
       <img src={piIcon} width={16} height={16} alt="pi" style={{ flexShrink: 0, marginTop: 1 }} />
       <span>
-        <strong style={{ color: "var(--text-primary)" }}>{t("pi.unsupportedTitle", "pi 不支持此项")}</strong>
+        <strong style={{ color: "var(--text-primary)" }}>{t("pi.unsupportedTitle", "Not supported by pi")}</strong>
         {" — "}
         {t(reasonKey, reasonFallback)}
       </span>

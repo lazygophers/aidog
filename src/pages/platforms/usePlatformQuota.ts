@@ -124,7 +124,7 @@ export function usePlatformQuota(t: TFunction): UsePlatformQuotaResult {
 
   const refreshQuota = useCallback(async (p: Platform, opts?: { onNewapiUserId?: (uid: string) => void; onError?: (msg: string) => void }) => {
     if (!p.api_key) {
-      opts?.onError?.(`${p.name}: ${t("platform.quotaNoKey", "缺少 Token")}`);
+      opts?.onError?.(`${p.name}: ${t("platform.quotaNoKey", "Missing token")}`);
       return;
     }
     // 手动刷新接管该平台 quota：清初始 pending（避免与 refreshing 旋转图标骨架重叠），显式调度去重也标记。
@@ -146,11 +146,11 @@ export function usePlatformQuota(t: TFunction): UsePlatformQuotaResult {
           opts?.onNewapiUserId?.(q.newapi_user_id);
         }
       } else {
-        opts?.onError?.(`${p.name}: ${q.error || t("platform.quotaRefreshFail", "刷新额度失败")}`);
+        opts?.onError?.(`${p.name}: ${q.error || t("platform.quotaRefreshFail", "Failed to refresh quota")}`);
       }
     } catch (e) {
       console.error(e);
-      opts?.onError?.(`${p.name}: ${t("platform.quotaRefreshFail", "刷新额度失败")}`);
+      opts?.onError?.(`${p.name}: ${t("platform.quotaRefreshFail", "Failed to refresh quota")}`);
     }
     setQuotaRefreshing((s) => ({ ...s, [p.id]: false }));
   }, [t]);

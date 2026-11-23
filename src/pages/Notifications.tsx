@@ -83,25 +83,25 @@ function NotificationItem({ item, idx, t, onNavigate }: { item: Notification; id
           )}
           {item.source === "proxy" && onNavigate && (
             <Button variant="ghost" style={{ fontSize: 14, height: "auto", padding: "1px 7px" }} onClick={() => onNavigate("platforms")}>
-              {t("notif.jump.platforms", "平台页")}
+              {t("notif.jump.platforms", "Platforms")}
             </Button>
           )}
           {(item.source === "hook" || item.source === "proxy") && onNavigate && (
             <Button variant="ghost" style={{ fontSize: 14, height: "auto", padding: "1px 7px" }} onClick={() => onNavigate("logs")}>
-              {t("notif.jump.logs", "日志")}
+              {t("notif.jump.logs", "Logs")}
             </Button>
           )}
           {item.source === "hook" && item.vars?.cwd && (
             <span style={{ fontFamily: "var(--font-mono, monospace)" }}>{item.vars.cwd}</span>
           )}
           <Button variant="ghost" style={{ fontSize: 14, height: "auto", padding: "1px 7px" }} onClick={loadDeliveries}>
-            {deliveries ? t("notif.inbox.hideDeliveries", "收起投递") : t("notif.inbox.showDeliveries", "投递记录")}
+            {deliveries ? t("notif.inbox.hideDeliveries", "Hide deliveries") : t("notif.inbox.showDeliveries", "Deliveries")}
           </Button>
         </div>
         {deliveries && (
           <div id={`notif-deliveries-${item.id}`} data-count={deliveries.length} style={{ marginTop: 6, borderTop: "1px dashed var(--border)", paddingTop: 6 }}>
             {deliveries.length === 0
-              ? <span className="text-tertiary" style={{ fontSize: 14 }}>{t("notif.inbox.noDeliveries", "无外部投递记录（本地渠道不留痕）")}</span>
+              ? <span className="text-tertiary" style={{ fontSize: 14 }}>{t("notif.inbox.noDeliveries", "No external delivery records (local channels leave no trace)")}</span>
               : deliveries.map(d => (
                 <div key={d.id} style={{ fontSize: 14, display: "flex", gap: 8 }}>
                   <span style={{ minWidth: 64 }}>{t(`notif.channel.${d.channel}`, d.channel)}</span>
@@ -165,7 +165,7 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("notif.inboxTitle", "通知中心")}</h2>
+        <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("notif.inboxTitle", "Notifications")}</h2>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {onNavigate && (
             <Button
@@ -174,7 +174,7 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
               style={{ fontSize: 14, height: "auto", padding: "4px 10px" }}
               onClick={(e) => { makeRipple(e); onNavigate("settings/notifications"); }}
             >
-              {t("notifications.goSettings", "通知设置")}
+              {t("notifications.goSettings", "Notification Settings")}
             </Button>
           )}
           <Button
@@ -184,7 +184,7 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
             disabled={items.length === 0}
             onClick={(e) => { makeRipple(e); handleClear(); }}
           >
-            {t("notif.clear", "清空")}
+            {t("notif.clear", "Clear")}
           </Button>
         </div>
       </div>
@@ -192,27 +192,27 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
       {/* 筛选（票 04）：源 / 级别 / 时间 */}
       <div id="notif-filter-bar" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <label style={{ fontSize: 14, display: "flex", gap: 4, alignItems: "center" }}>
-          <span className="text-secondary">{t("notif.filter.source", "来源")}</span>
+          <span className="text-secondary">{t("notif.filter.source", "Source")}</span>
           <select className="input" style={{ fontSize: 14, padding: "2px 6px" }} value={fSource} onChange={e => setFSource(e.target.value)}>
-            <option value="">{t("notif.filter.all", "全部")}</option>
+            <option value="">{t("notif.filter.all", "All")}</option>
             <option value="hook">hook</option>
             <option value="proxy">proxy</option>
             <option value="api">api</option>
           </select>
         </label>
         <label style={{ fontSize: 14, display: "flex", gap: 4, alignItems: "center" }}>
-          <span className="text-secondary">{t("notif.filter.severity", "级别")}</span>
+          <span className="text-secondary">{t("notif.filter.severity", "Severity")}</span>
           <select className="input" style={{ fontSize: 14, padding: "2px 6px" }} value={fSeverity} onChange={e => setFSeverity(e.target.value)}>
-            <option value="">{t("notif.filter.all", "全部")}</option>
+            <option value="">{t("notif.filter.all", "All")}</option>
             <option value="info">info</option>
             <option value="warn">warn</option>
             <option value="error">error</option>
           </select>
         </label>
         <label style={{ fontSize: 14, display: "flex", gap: 4, alignItems: "center" }}>
-          <span className="text-secondary">{t("notif.filter.time", "时间")}</span>
+          <span className="text-secondary">{t("notif.filter.time", "Time")}</span>
           <select className="input" style={{ fontSize: 14, padding: "2px 6px" }} value={fTime} onChange={e => setFTime(e.target.value)}>
-            <option value="">{t("notif.filter.all", "全部")}</option>
+            <option value="">{t("notif.filter.all", "All")}</option>
             <option value="24h">24h</option>
             <option value="7d">7d</option>
           </select>
@@ -220,10 +220,10 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
       </div>
 
       {loading ? (
-        <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading", "加载中…")}</div>
+        <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading", "Loading...")}</div>
       ) : items.length === 0 ? (
         <div className="glass-surface text-secondary" style={{ padding: "40px 20px", textAlign: "center", fontSize: 14 }}>
-          {t("notif.inboxEmpty", "暂无通知")}
+          {t("notif.inboxEmpty", "No notifications")}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

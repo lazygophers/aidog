@@ -1,8 +1,16 @@
 // mwDsl round-trip 与错误定位测试（票 05）。
 
 import { describe, it, expect } from "vitest";
-import { treeToDsl, parseDsl, dslErrorPos } from "./mwDsl";
+import { treeToDsl, parseDsl as parseDslT, dslErrorPos } from "./mwDsl";
 import type { ConditionNode } from "../services/api";
+
+// t stub：fallback + {{var}} 插值（i18next 同构），报错文本因此确定性等于中文兜底
+const t = ((key: string, fallback?: string, opts?: Record<string, unknown>) => {
+  let s = fallback ?? key;
+  if (opts) for (const [k, v] of Object.entries(opts)) s = s.split(`{{${k}}}`).join(String(v));
+  return s;
+}) as any;
+const parseDsl = (src: string) => parseDslT(src, t);
 
 const leaf = (target: string, pattern: string, match_type = "contains", field = "", validator = ""): ConditionNode => ({
   kind: "leaf",
@@ -69,7 +77,7 @@ describe("mwDsl round-trip", () => {
   });
 
   it("未知校验器名保存前就报错（后端 fail-closed，拼错会让整条规则静默失效）", () => {
-    expect(() => parseDsl('request_body regex "\\\\d{16}" checksum luhnn')).toThrow("未知校验器");
+    expect(() => parseDsl('request_body regex "\\\\d{16}" checksum luhnn')).toThrow("Unknown validator");
   });
 });
 
@@ -79,7 +87,7 @@ describe("mwDsl 错误定位", () => {
       parseDsl('foo contains "x"');
       expect.unreachable();
     } catch (e) {
-      expect(String(e)).toContain("未知 target");
+      expect(String(e)).toContain("Unknown target");
       expect(dslErrorPos(e)).toBe(0);
     }
   });
@@ -89,7 +97,7 @@ describe("mwDsl 错误定位", () => {
       parseDsl('request_body contains "x');
       expect.unreachable();
     } catch (e) {
-      expect(String(e)).toContain("未闭合");
+      expect(String(e)).toContain("Unclosed");
       expect(dslErrorPos(e)).toBe(22);
     }
   });
@@ -106,6 +114,6 @@ describe("mwDsl 错误定位", () => {
   });
 
   it("条件后多余内容拒绝", () => {
-    expect(() => parseDsl('request_body contains "x" )')).toThrow("多余内容");
+    expect(() => parseDsl('request_body contains "x" )')).toThrow("Unexpected content");
   });
 });

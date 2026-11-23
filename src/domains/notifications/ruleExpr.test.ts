@@ -1,6 +1,15 @@
 // 可视化 ⇄ 文本双向转换测试（通知体系票 05）：往返等价 + 不可转换降级判定。
 import { describe, it, expect } from "vitest";
-import { parseToVisual, roundTrips, toText, type Visual } from "./ruleExpr";
+import { parseToVisual as parseToVisualT, roundTrips as roundTripsT, toText, type Visual } from "./ruleExpr";
+
+// t stub：fallback + {{var}} 插值（i18next 同构），reason 文本因此确定性等于中文兜底
+const t = ((key: string, fallback?: string, opts?: Record<string, unknown>) => {
+  let s = fallback ?? key;
+  if (opts) for (const [k, v] of Object.entries(opts)) s = s.split(`{{${k}}}`).join(String(v));
+  return s;
+}) as any;
+const parseToVisual = (src: string) => parseToVisualT(src, t);
+const roundTrips = (v: Visual) => roundTripsT(v, t);
 
 const v = (join: "&&" | "||", ...terms: [string, "==" | "!=" | "contains", string][]): Visual => ({
   join,
@@ -39,7 +48,7 @@ describe("ruleExpr — 票 05", () => {
   it("不可转换：&& 与 || 混用 → 明确降级理由", () => {
     const r = parseToVisual('type == "x" && severity == "error" || vars.k == "v"');
     expect(r.ok).toBe(false);
-    expect(!r.ok && r.reason).toContain("混用");
+    expect(!r.ok && r.reason).toContain("Mixing");
   });
 
   it("不可转换：括号分组 / 语法错 / 空", () => {

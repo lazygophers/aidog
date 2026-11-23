@@ -22,7 +22,7 @@ export function MiddlewareTryPanel() {
     try {
       setResult(await middlewareApi.tryRun(text));
     } catch (e) {
-      setError(`${t("middleware.try.failed", "运行失败")}: ${String(e)}`);
+      setError(`${t("middleware.try.failed", "Run failed")}: ${String(e)}`);
     } finally {
       setRunning(false);
     }
@@ -31,43 +31,43 @@ export function MiddlewareTryPanel() {
   return (
     <div className="glass-surface glass-highlight" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("middleware.try.title", "试一试")}</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("middleware.try.title", "Try it")}</div>
         <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-          {t("middleware.try.desc", "输入样例文本，按当前启用的全部请求侧规则依次执行（与转发同一引擎），不会发出任何请求。")}
+          {t("middleware.try.desc", "Enter sample text; all enabled request-side rules run in order through the same engine as forwarding. No request is sent.")}
         </div>
       </div>
       <Textarea
         data-testid="mw-try-input"
-        aria-label={t("middleware.try.input", "样例文本")}
-        placeholder={t("middleware.try.placeholder", "粘贴一段含敏感信息的文本…")}
+        aria-label={t("middleware.try.input", "Sample text")}
+        placeholder={t("middleware.try.placeholder", "Paste text containing sensitive data…")}
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={4}
       />
       <div>
         <Button data-testid="mw-try-run" onClick={run} disabled={running || !text}>
-          {t("middleware.try.run", "运行")}
+          {t("middleware.try.run", "Run")}
         </Button>
       </div>
       {error && <div className="toast" style={{ fontSize: 14, wordBreak: "break-all" }}>{error}</div>}
       {result && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div>
-            <div className="text-secondary" style={{ fontSize: 14 }}>{t("middleware.try.masked", "替换后文本")}</div>
+            <div className="text-secondary" style={{ fontSize: 14 }}>{t("middleware.try.masked", "Masked text")}</div>
             <pre data-testid="mw-try-masked" style={preStyle}>{result.masked}</pre>
           </div>
           <div>
-            <div className="text-secondary" style={{ fontSize: 14 }}>{t("middleware.try.hits", "命中规则")}</div>
+            <div className="text-secondary" style={{ fontSize: 14 }}>{t("middleware.try.hits", "Matched rules")}</div>
             {result.hits.length ? (
               <div data-testid="mw-try-hits" style={{ fontSize: 14 }}>{result.hits.join(", ")}</div>
             ) : (
               <div data-testid="mw-try-hits-empty" className="text-secondary" style={{ fontSize: 14 }}>
-                {t("middleware.try.hitsEmpty", "无规则命中")}
+                {t("middleware.try.hitsEmpty", "No rule matched")}
               </div>
             )}
           </div>
           <div>
-            <div className="text-secondary" style={{ fontSize: 14 }}>{t("middleware.try.restored", "还原后文本")}</div>
+            <div className="text-secondary" style={{ fontSize: 14 }}>{t("middleware.try.restored", "Restored text")}</div>
             <pre data-testid="mw-try-restored" style={preStyle}>{result.restored}</pre>
           </div>
         </div>

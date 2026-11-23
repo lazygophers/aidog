@@ -152,8 +152,8 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
     () => trend.map((r) => ({ x: r.dayMs, cost: r.cost })),
     [trend],
   );
-  const callsConfig: ChartConfig = { calls: { label: t("clientUsage.calls", "调用数") } };
-  const costConfig: ChartConfig = { cost: { label: t("clientUsage.cost", "折算花费") } };
+  const callsConfig: ChartConfig = { calls: { label: t("clientUsage.calls", "Calls") } };
+  const costConfig: ChartConfig = { cost: { label: t("clientUsage.cost", "Converted cost") } };
 
   const imp = status?.import;
   const empty = !summary || summary.calls === 0;
@@ -163,14 +163,14 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
     return (
       <section className="space-y-5" data-testid="client-usage-page">
         <header>
-          <h1 className="text-xl font-semibold">{t("clientUsage.title", "客户端统计")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.desc", "读取本地 AI 编码客户端的会话文件，按官方 API 价格折算本地用量。数据仅本机处理与存储。")}</p>
+          <h1 className="text-xl font-semibold">{t("clientUsage.title", "Client Usage")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.desc", "Read local AI coding client session files and convert local usage at official API prices. Data is processed and stored on this machine only.")}</p>
         </header>
         <Card className="p-5 space-y-4" data-testid="client-usage-guide">
-          <h2 className="font-medium">{t("clientUsage.guideTitle", "尚未启用客户端读取")}</h2>
-          <p className="text-sm text-muted-foreground">{t("clientUsage.guideDesc", "在设置中开启要统计的客户端。AiDog 只记录 token、成本等元数据，对话正文不入库。")}</p>
+          <h2 className="font-medium">{t("clientUsage.guideTitle", "Client reading is not enabled")}</h2>
+          <p className="text-sm text-muted-foreground">{t("clientUsage.guideDesc", "Turn on the clients to track in Settings. AiDog records only metadata such as tokens and cost; conversation text is never stored.")}</p>
           <Button data-testid="client-usage-guide-go" onClick={goSettings}>
-            {t("clientUsage.guideGo", "去设置启用")}
+            {t("clientUsage.guideGo", "Enable in Settings")}
           </Button>
         </Card>
         {error && <p role="alert" className="text-sm text-destructive" data-testid="page-error">{error}</p>}
@@ -182,20 +182,20 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
     <section className="space-y-5" data-testid="client-usage-page">
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold">{t("clientUsage.title", "客户端统计")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.desc", "读取本地 AI 编码客户端的会话文件，按官方 API 价格折算本地用量。数据仅本机处理与存储。")}</p>
+          <h1 className="text-xl font-semibold">{t("clientUsage.title", "Client Usage")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("clientUsage.desc", "Read local AI coding client session files and convert local usage at official API prices. Data is processed and stored on this machine only.")}</p>
         </div>
         <Button variant="outline" data-testid="client-usage-refresh" disabled={importing} onClick={() => void refresh()}>
-          {importing ? t("clientUsage.refreshing", "正在导入…") : t("clientUsage.refresh", "立即刷新")}
+          {importing ? t("clientUsage.refreshing", "Importing…") : t("clientUsage.refresh", "Refresh Now")}
         </Button>
       </header>
 
       {error && <p role="alert" className="text-sm text-destructive" data-testid="page-error">{error}</p>}
       {status && disabledClients.length > 0 && (
         <p className="text-sm text-muted-foreground" data-testid="client-usage-partial-hint" data-disabled={disabledClients.map((c) => c.code).join(",")}>
-          {t("clientUsage.partialHint", "未启用读取：{{names}}。", { names: disabledClients.map((c) => c.name).join(", ") })}{" "}
+          {t("clientUsage.partialHint", "Reading not enabled: {{names}}.", { names: disabledClients.map((c) => c.name).join(", ") })}{" "}
           <button type="button" className="text-primary underline-offset-2 hover:underline" data-testid="client-usage-partial-go" onClick={goSettings}>
-            {t("clientUsage.guideGo", "去设置启用")}
+            {t("clientUsage.guideGo", "Enable in Settings")}
           </button>
         </p>
       )}
@@ -205,18 +205,18 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
           <Card className="p-4 text-sm text-muted-foreground space-y-1" data-testid="import-state">
             {importing && (
               <p data-testid="import-progress">
-                {t("clientUsage.importing", "导入中：{{done}}/{{total}} 个文件", { done: imp?.filesDone ?? 0, total: imp?.filesTotal ?? 0 })}
+                {t("clientUsage.importing", "Importing: {{done}}/{{total}} files", { done: imp?.filesDone ?? 0, total: imp?.filesTotal ?? 0 })}
               </p>
             )}
             {!importing && imp && imp.callsImported > 0 && (
               <p data-testid="import-done">
-                {t("clientUsage.importDone", "上次导入新增 {{n}} 条调用", { n: imp.callsImported })}
+                {t("clientUsage.importDone", "Last import added {{n}} calls", { n: imp.callsImported })}
               </p>
             )}
             {!!imp?.error && <p className="text-destructive" data-testid="import-error">{imp.error}</p>}
             {(status?.persistedParseErrors ?? 0) > 0 && (
               <p data-testid="import-persisted-errors">
-                {t("clientUsage.parseErrors", "累计解析错误 {{n}} 条", { n: status?.persistedParseErrors })}
+                {t("clientUsage.parseErrors", "{{n}} parse errors in total", { n: status?.persistedParseErrors })}
               </p>
             )}
           </Card>
@@ -227,16 +227,16 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
         <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
           <SelectTrigger className="w-40" data-testid="range-select"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="today">{t("stats.today", "今天")}</SelectItem>
-            <SelectItem value="7d">{t("stats.7d", "近 7 天")}</SelectItem>
-            <SelectItem value="30d">{t("stats.30d", "近 30 天")}</SelectItem>
-            <SelectItem value="custom">{t("clientUsage.rangeCustom", "自定义")}</SelectItem>
+            <SelectItem value="today">{t("stats.today", "Today")}</SelectItem>
+            <SelectItem value="7d">{t("stats.7d", "Last 7d")}</SelectItem>
+            <SelectItem value="30d">{t("stats.30d", "Last 30d")}</SelectItem>
+            <SelectItem value="custom">{t("clientUsage.rangeCustom", "Custom")}</SelectItem>
           </SelectContent>
         </Select>
         {preset === "custom" && (
           <>
-            <Input type="date" className="w-40" value={fromDate} onChange={(e) => setFromDate(e.target.value)} aria-label={t("clientUsage.from", "开始日期")} data-testid="range-from" />
-            <Input type="date" className="w-40" value={toDate} onChange={(e) => setToDate(e.target.value)} aria-label={t("clientUsage.to", "结束日期")} data-testid="range-to" />
+            <Input type="date" className="w-40" value={fromDate} onChange={(e) => setFromDate(e.target.value)} aria-label={t("clientUsage.from", "Start date")} data-testid="range-from" />
+            <Input type="date" className="w-40" value={toDate} onChange={(e) => setToDate(e.target.value)} aria-label={t("clientUsage.to", "End date")} data-testid="range-to" />
           </>
         )}
       </div>
@@ -247,19 +247,19 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
         {loaded && <span data-testid="data-loaded" className="hidden" aria-hidden="true" />}
         {empty ? (
           <p className="text-sm text-muted-foreground" data-testid="summary-empty">
-            {t("clientUsage.empty", "所选时间范围内暂无数据")}
+            {t("clientUsage.empty", "No data in the selected time range")}
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {([
-              ["calls", t("clientUsage.calls", "调用数"), formatNumber(summary.calls)],
-              ["input", t("clientUsage.input", "输入"), formatNumber(summary.inputTokens)],
-              ["output", t("clientUsage.output", "输出"), formatNumber(summary.outputTokens)],
-              ["cacheRead", t("clientUsage.cacheRead", "缓存读"), formatNumber(summary.cacheReadTokens)],
-              ["cacheWrite", t("clientUsage.cacheWrite", "缓存写"), formatNumber(summary.cacheWriteTokens)],
-              ["reasoning", t("clientUsage.reasoning", "推理"), formatNumber(summary.reasoningTokens)],
-              ["cost", t("clientUsage.cost", "折算花费"), formatMoney(summary.cost)],
-              ["unpriced", t("clientUsage.unpricedCalls", "未定价调用"), formatNumber(summary.unpricedCalls)],
+              ["calls", t("clientUsage.calls", "Calls"), formatNumber(summary.calls)],
+              ["input", t("clientUsage.input", "Input"), formatNumber(summary.inputTokens)],
+              ["output", t("clientUsage.output", "Output"), formatNumber(summary.outputTokens)],
+              ["cacheRead", t("clientUsage.cacheRead", "Cache read"), formatNumber(summary.cacheReadTokens)],
+              ["cacheWrite", t("clientUsage.cacheWrite", "Cache write"), formatNumber(summary.cacheWriteTokens)],
+              ["reasoning", t("clientUsage.reasoning", "Reasoning"), formatNumber(summary.reasoningTokens)],
+              ["cost", t("clientUsage.cost", "Converted cost"), formatMoney(summary.cost)],
+              ["unpriced", t("clientUsage.unpricedCalls", "Unpriced calls"), formatNumber(summary.unpricedCalls)],
             ] as const).map(([key, label, value]) => (
               <div key={key} data-testid={`summary-${key}`}>
                 <p className="text-sm text-muted-foreground">{label}</p>
@@ -278,8 +278,8 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
                 config={callsConfig}
                 data={trendCalls}
                 xKey="x"
-                title={t("clientUsage.trendCallsTitle", "调用趋势")}
-                emptyHint={t("clientUsage.empty", "所选时间范围内暂无数据")}
+                title={t("clientUsage.trendCallsTitle", "Call trend")}
+                emptyHint={t("clientUsage.empty", "No data in the selected time range")}
               />
             </div>
             <div data-testid="trend-cost">
@@ -287,23 +287,23 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
                 config={costConfig}
                 data={trendCost}
                 xKey="x"
-                title={t("clientUsage.trendCostTitle", "折算花费趋势")}
+                title={t("clientUsage.trendCostTitle", "Converted cost trend")}
                 valueFormat={(n) => formatMoney(n)}
-                emptyHint={t("clientUsage.empty", "所选时间范围内暂无数据")}
+                emptyHint={t("clientUsage.empty", "No data in the selected time range")}
               />
             </div>
           </div>
 
           <Card className="p-4" data-testid="by-model-card">
-            <h2 className="font-medium mb-3">{t("clientUsage.byModelTitle", "按模型分布")}</h2>
+            <h2 className="font-medium mb-3">{t("clientUsage.byModelTitle", "By model")}</h2>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("clientUsage.model", "模型")}</TableHead>
-                  <TableHead className="text-right">{t("clientUsage.calls", "调用数")}</TableHead>
-                  <TableHead className="text-right">{t("clientUsage.input", "输入")}</TableHead>
-                  <TableHead className="text-right">{t("clientUsage.output", "输出")}</TableHead>
-                  <TableHead className="text-right">{t("clientUsage.cost", "折算花费")}</TableHead>
+                  <TableHead>{t("clientUsage.model", "Model")}</TableHead>
+                  <TableHead className="text-right">{t("clientUsage.calls", "Calls")}</TableHead>
+                  <TableHead className="text-right">{t("clientUsage.input", "Input")}</TableHead>
+                  <TableHead className="text-right">{t("clientUsage.output", "Output")}</TableHead>
+                  <TableHead className="text-right">{t("clientUsage.cost", "Converted cost")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -315,7 +315,7 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
                     <TableCell className="text-right tabular-nums">{formatNumber(r.outputTokens)}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {isUnpriced(r.cost)
-                        ? <span data-testid="unpriced-mark">{t("clientUsage.unpriced", "未定价")}{r.unpricedCalls > 0 ? ` ×${r.unpricedCalls}` : ""}</span>
+                        ? <span data-testid="unpriced-mark">{t("clientUsage.unpriced", "Unpriced")}{r.unpricedCalls > 0 ? ` ×${r.unpricedCalls}` : ""}</span>
                         : formatMoney(r.cost)}
                     </TableCell>
                   </TableRow>
@@ -325,20 +325,20 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
           </Card>
 
           <Card className="p-4" data-testid="sessions-card">
-            <h2 className="font-medium mb-1">{t("clientUsage.sessionTitle", "会话列表")}</h2>
-            <p className="text-sm text-muted-foreground mb-3">{t("clientUsage.sessionsLimit", "仅显示最近 200 个会话")}</p>
+            <h2 className="font-medium mb-1">{t("clientUsage.sessionTitle", "Sessions")}</h2>
+            <p className="text-sm text-muted-foreground mb-3">{t("clientUsage.sessionsLimit", "Only the 200 most recent sessions are shown")}</p>
             {sessions.length === 0 ? (
-              <p className="text-sm text-muted-foreground" data-testid="sessions-empty">{t("clientUsage.sessionEmpty", "所选时间范围内暂无会话")}</p>
+              <p className="text-sm text-muted-foreground" data-testid="sessions-empty">{t("clientUsage.sessionEmpty", "No sessions in the selected time range")}</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t("clientUsage.client", "客户端")}</TableHead>
-                    <TableHead>{t("clientUsage.session", "会话")}</TableHead>
-                    <TableHead className="text-right">{t("clientUsage.calls", "调用数")}</TableHead>
+                    <TableHead>{t("clientUsage.client", "Client")}</TableHead>
+                    <TableHead>{t("clientUsage.session", "Session")}</TableHead>
+                    <TableHead className="text-right">{t("clientUsage.calls", "Calls")}</TableHead>
                     <TableHead className="text-right">{t("clientUsage.tokens", "Token")}</TableHead>
-                    <TableHead className="text-right">{t("clientUsage.cost", "折算花费")}</TableHead>
-                    <TableHead className="text-right">{t("clientUsage.lastCall", "最后调用")}</TableHead>
+                    <TableHead className="text-right">{t("clientUsage.cost", "Converted cost")}</TableHead>
+                    <TableHead className="text-right">{t("clientUsage.lastCall", "Last call")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -355,8 +355,8 @@ export function ClientUsage({ onNavigate }: { onNavigate?: (id: string) => void 
                         {s.unpricedCalls === 0
                           ? formatMoney(s.cost)
                           : s.unpricedCalls === s.calls
-                            ? <span data-testid="session-unpriced">{t("clientUsage.unpriced", "未定价")}</span>
-                            : <span data-testid="session-mixed-cost">{formatMoney(s.cost)} <span className="text-sm text-muted-foreground">{t("clientUsage.unpriced", "未定价")} ×{s.unpricedCalls}</span></span>}
+                            ? <span data-testid="session-unpriced">{t("clientUsage.unpriced", "Unpriced")}</span>
+                            : <span data-testid="session-mixed-cost">{formatMoney(s.cost)} <span className="text-sm text-muted-foreground">{t("clientUsage.unpriced", "Unpriced")} ×{s.unpricedCalls}</span></span>}
                       </TableCell>
                       <TableCell className="text-right text-sm tabular-nums">
                         {new Date(s.lastCallMs).toLocaleString()}

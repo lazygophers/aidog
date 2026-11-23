@@ -44,6 +44,57 @@ impl Lang {
     }
 }
 
+// ── 与前端共用的 locale JSON 文案 ────────────────────────────
+
+/// 8 语言 locale JSON（前端 `t()` 同一份），编译期内嵌、首次查表时解析。
+const LOCALE_JSON: [(Lang, &str); 8] = [
+    (Lang::ZhCn, include_str!("../locales/zh-Hans.json")),
+    (Lang::EnUs, include_str!("../locales/en-US.json")),
+    (Lang::JaJp, include_str!("../locales/ja-JP.json")),
+    (Lang::FrFr, include_str!("../locales/fr-FR.json")),
+    (Lang::DeDe, include_str!("../locales/de-DE.json")),
+    (Lang::RuRu, include_str!("../locales/ru-RU.json")),
+    (Lang::ArSa, include_str!("../locales/ar-SA.json")),
+    (Lang::EsEs, include_str!("../locales/es-ES.json")),
+];
+
+fn locale_table(lang: Lang) -> &'static std::collections::HashMap<String, String> {
+    static TABLES: std::sync::OnceLock<Vec<(Lang, std::collections::HashMap<String, String>)>> =
+        std::sync::OnceLock::new();
+    let tables = TABLES.get_or_init(|| {
+        LOCALE_JSON
+            .iter()
+            .map(|(l, raw)| {
+                let obj: serde_json::Map<String, serde_json::Value> =
+                    serde_json::from_str(raw).expect("locale JSON must be an object");
+                // 只收顶层字符串值（个别嵌套对象键前端另行使用，后端不读）。
+                let strings = obj
+                    .into_iter()
+                    .filter_map(|(k, v)| match v {
+                        serde_json::Value::String(s) => Some((k, s)),
+                        _ => None,
+                    })
+                    .collect();
+                (*l, strings)
+            })
+            .collect()
+    });
+    &tables.iter().find(|(l, _)| *l == lang).expect("all 8 langs embedded").1
+}
+
+/// 按 locale key 取文案（与前端同 key）：当前语言 → en-US 兜底；两者都没有 → None。
+pub fn lookup(lang: Lang, key: &str) -> Option<&'static str> {
+    locale_table(lang)
+        .get(key)
+        .or_else(|| locale_table(Lang::EnUs).get(key))
+        .map(String::as_str)
+}
+
+/// 同 [`lookup`]，缺 key 时返回 key 本身（与 i18next 缺译文行为一致）。
+pub fn tr(lang: Lang, key: &'static str) -> &'static str {
+    lookup(lang, key).unwrap_or(key)
+}
+
 // ── 错误消息键 ──────────────────────────────────────────────
 
 #[derive(Debug, Clone, Copy)]

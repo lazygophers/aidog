@@ -80,7 +80,7 @@ describe("GroupListItem — 删除分组菜单项", () => {
     const onDelete = vi.fn();
     render(<GroupListItem {...baseProps} onDelete={onDelete} />);
     openMenu();
-    fireEvent.click(await screen.findByText("删除分组"));
+    fireEvent.click(await screen.findByText("Delete group"));
     expect(onDelete).toHaveBeenCalledWith(3);
   });
 
@@ -88,8 +88,8 @@ describe("GroupListItem — 删除分组菜单项", () => {
     const auto = { ...detail, group: { ...detail.group, auto_from_platform: 1 } } as never as GroupDetail;
     render(<GroupListItem {...baseProps} detail={auto} />);
     openMenu();
-    await screen.findByText("一键测试本组全部平台");
-    expect(screen.queryByText("删除分组")).not.toBeNull();
+    await screen.findByText("Test all platforms in this group");
+    expect(screen.queryByText("Delete group")).not.toBeNull();
   });
 });
 

@@ -7,30 +7,30 @@ import { makeRipple } from "../../shared";
 
 // ─── Hooks Section (friendly editor) ────────────────────────
 
-export const HOOK_EVENTS: { id: string; label: string; desc: string; hasMatcher: boolean; matcherOptions: string[]; matcherFreeform: boolean }[] = [
-  { id: "SessionStart", label: "会话启动", desc: "会话启动或恢复时触发", hasMatcher: true, matcherOptions: ["startup", "resume", "clear", "compact"], matcherFreeform: false },
-  { id: "UserPromptSubmit", label: "提交提示", desc: "用户提交提示时触发", hasMatcher: false, matcherOptions: [], matcherFreeform: false },
-  { id: "PreToolUse", label: "工具调用前", desc: "工具调用前触发，可阻止", hasMatcher: true, matcherOptions: ["Bash", "Edit", "Write", "Read", "Glob", "Grep", "WebFetch", "Agent"], matcherFreeform: true },
-  { id: "PostToolUse", label: "工具调用后", desc: "工具调用成功后触发", hasMatcher: true, matcherOptions: ["Bash", "Edit", "Write", "Read", "Glob", "Grep", "WebFetch", "Agent"], matcherFreeform: true },
-  { id: "Notification", label: "通知", desc: "发送通知时触发", hasMatcher: true, matcherOptions: ["permission_prompt", "idle_prompt", "auth_success", "elicitation_dialog"], matcherFreeform: false },
-  { id: "Stop", label: "停止", desc: "Claude 完成响应时触发", hasMatcher: false, matcherOptions: [], matcherFreeform: false },
-  { id: "SubagentStop", label: "子代理停止", desc: "子代理完成时触发", hasMatcher: true, matcherOptions: ["general-purpose", "Explore", "Plan"], matcherFreeform: true },
-  { id: "ConfigChange", label: "配置变更", desc: "配置文件变更时触发", hasMatcher: true, matcherOptions: ["user_settings", "project_settings", "local_settings", "policy_settings", "skills"], matcherFreeform: false },
-  { id: "FileChanged", label: "文件变更", desc: "监视文件变更时触发", hasMatcher: true, matcherOptions: [], matcherFreeform: true },
-  { id: "CwdChanged", label: "目录切换", desc: "工作目录切换时触发", hasMatcher: false, matcherOptions: [], matcherFreeform: false },
-  { id: "PreCompact", label: "压缩前", desc: "上下文压缩前触发", hasMatcher: true, matcherOptions: ["manual", "auto"], matcherFreeform: false },
-  { id: "SessionEnd", label: "会话结束", desc: "会话结束时触发", hasMatcher: true, matcherOptions: ["clear", "resume", "logout", "prompt_input_exit", "other"], matcherFreeform: false },
+export const HOOK_EVENTS: { id: string; desc: string; hasMatcher: boolean; matcherOptions: string[]; matcherFreeform: boolean }[] = [
+  { id: "SessionStart", desc: "Triggered on session start or resume", hasMatcher: true, matcherOptions: ["startup", "resume", "clear", "compact"], matcherFreeform: false },
+  { id: "UserPromptSubmit", desc: "Triggered when the user submits a prompt", hasMatcher: false, matcherOptions: [], matcherFreeform: false },
+  { id: "PreToolUse", desc: "Triggered before tool use, can block", hasMatcher: true, matcherOptions: ["Bash", "Edit", "Write", "Read", "Glob", "Grep", "WebFetch", "Agent"], matcherFreeform: true },
+  { id: "PostToolUse", desc: "Triggered after successful tool use", hasMatcher: true, matcherOptions: ["Bash", "Edit", "Write", "Read", "Glob", "Grep", "WebFetch", "Agent"], matcherFreeform: true },
+  { id: "Notification", desc: "Triggered when sending a notification", hasMatcher: true, matcherOptions: ["permission_prompt", "idle_prompt", "auth_success", "elicitation_dialog"], matcherFreeform: false },
+  { id: "Stop", desc: "Triggered when Claude finishes responding", hasMatcher: false, matcherOptions: [], matcherFreeform: false },
+  { id: "SubagentStop", desc: "Triggered when a subagent finishes", hasMatcher: true, matcherOptions: ["general-purpose", "Explore", "Plan"], matcherFreeform: true },
+  { id: "ConfigChange", desc: "Triggered when a config file changes", hasMatcher: true, matcherOptions: ["user_settings", "project_settings", "local_settings", "policy_settings", "skills"], matcherFreeform: false },
+  { id: "FileChanged", desc: "Triggered when a watched file changes", hasMatcher: true, matcherOptions: [], matcherFreeform: true },
+  { id: "CwdChanged", desc: "Triggered when the working directory changes", hasMatcher: false, matcherOptions: [], matcherFreeform: false },
+  { id: "PreCompact", desc: "Triggered before context compaction", hasMatcher: true, matcherOptions: ["manual", "auto"], matcherFreeform: false },
+  { id: "SessionEnd", desc: "Triggered when the session ends", hasMatcher: true, matcherOptions: ["clear", "resume", "logout", "prompt_input_exit", "other"], matcherFreeform: false },
 ];
 
 export const HANDLER_TYPES = ["command", "http", "mcp_tool", "prompt", "agent"] as const;
 export type HandlerType = (typeof HANDLER_TYPES)[number];
 
 export const HANDLER_LABELS: Record<HandlerType, string> = {
-  command: "命令",
+  command: "Command",
   http: "HTTP",
-  mcp_tool: "MCP 工具",
-  prompt: "LLM 提示",
-  agent: "Agent 验证",
+  mcp_tool: "MCP Tool",
+  prompt: "LLM Prompt",
+  agent: "Agent Validation",
 };
 
 export type HookHandler = {
@@ -138,7 +138,7 @@ export function NotifyHookQuickBar(props: {
       updateField("_aidog_hooks", { enabled: true });
     } catch (e) {
       console.error("buildNotifyHooksFragment failed", e);
-      setError(t("settings.hooksNotifyError", "操作失败，请重试"));
+      setError(t("settings.hooksNotifyError", "Operation failed, please retry"));
     } finally {
       setBusy(false);
     }
@@ -160,25 +160,25 @@ export function NotifyHookQuickBar(props: {
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 200 }}>
           <span style={{ fontSize: F.body, fontWeight: 600, color: "var(--text-primary)" }}>
-            {t("settings.hooksQuickTitle", "通知 hook")}
+            {t("settings.hooksQuickTitle", "Notification hook")}
           </span>
           <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
             {injected
-              ? t("settings.hooksNotifyInjected", "已注入 Claude Code 完成/等待通知 hook，保存后对全部分组生效。")
-              : t("settings.hooksQuickDesc", "一键填入 Claude Code 完成/等待通知 hook，保存后对全部分组与 Codex 生效。")}
+              ? t("settings.hooksNotifyInjected", "Claude Code completion/waiting notification hooks injected; applies to all groups after saving.")
+              : t("settings.hooksQuickDesc", "Fill in the Claude Code completion/waiting notification hooks in one click; applies to all groups and Codex after saving.")}
           </span>
         </div>
         {injected ? (
           <Button variant="ghost" type="button" className="ripple" disabled={busy}
             style={{ fontSize: F.body, padding: "6px 14px", flexShrink: 0 }}
             onClick={(e) => { makeRipple(e); handleRemove(); }}>
-            {t("notif.hookRemove", "移除")}
+            {t("notif.hookRemove", "Remove")}
           </Button>
         ) : (
           <Button variant="default" type="button" className="ripple" disabled={busy}
             style={{ fontSize: F.body, padding: "6px 14px", flexShrink: 0 }}
             onClick={(e) => { makeRipple(e); handleInject(); }}>
-            {busy ? t("settings.hooksNotifyBusy", "处理中…") : t("settings.hooksNotifyInject", "注入通知 hook")}
+            {busy ? t("settings.hooksNotifyBusy", "Processing…") : t("settings.hooksNotifyInject", "Inject notification hook")}
           </Button>
         )}
       </div>

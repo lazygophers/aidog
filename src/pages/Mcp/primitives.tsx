@@ -107,7 +107,7 @@ export function McpRow({
                 !supported
                   ? t("mcp.unsupportedTransportTip", {
                       transport: srv.transport,
-                      defaultValue: `${srv.transport} 不支持`,
+                      defaultValue: "{{transport}} unsupported",
                     })
                   : t(`mcp.agent.${agent}`, agent)
               }
@@ -137,7 +137,7 @@ export function McpRow({
           variant="outline"
           size="icon"
           className="hover-lift"
-          title={t("mcp.share", "分享")}
+          title={t("mcp.share", "Share")}
           onClick={onShare}
           style={{ width: 30, height: 30, color: "var(--text-secondary)" }}
         >
@@ -154,7 +154,7 @@ export function McpRow({
           variant="outline"
           size="icon"
           className="hover-lift"
-          title={t("mcp.edit", "编辑")}
+          title={t("mcp.edit", "Edit")}
           onClick={onEdit}
           disabled={busyKey?.startsWith(`edit::${srv.name}`) ?? false}
           style={{ width: 30, height: 30, color: "var(--text-secondary)" }}
@@ -170,7 +170,7 @@ export function McpRow({
           variant="outline"
           size="icon"
           className="hover-lift"
-          title={t("common.delete", "删除")}
+          title={t("common.delete", "Delete")}
           onClick={onDelete}
           disabled={busyKey?.startsWith(`del::${srv.name}`) ?? false}
           style={{ width: 30, height: 30, color: "var(--danger)" }}
@@ -225,7 +225,7 @@ export function KVRows({
       <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
         {label}
         <span style={{ color: "var(--text-tertiary)", marginLeft: 6, fontSize: 14 }}>
-          ({t("mcp.maskedHint", "未改值填 *** 保持原密钥")})
+          ({t("mcp.maskedHint", "Unchanged: enter *** to keep the original secret")})
         </span>
       </span>
       {rows.map((r, i) => (
@@ -246,7 +246,7 @@ export function KVRows({
             variant="outline"
             onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
             style={{ padding: "6px 10px" }}
-            title={t("common.delete", "删除")}
+            title={t("common.delete", "Delete")}
           >
             ×
           </Button>
@@ -257,7 +257,7 @@ export function KVRows({
         onClick={() => onChange([...rows, { k: "", v: "" }])}
         style={{ alignSelf: "flex-start", padding: "5px 10px", fontSize: 14 }}
       >
-        + {t("mcp.addRow", "添加")}
+        + {t("mcp.addRow", "Add")}
       </Button>
     </div>
   );

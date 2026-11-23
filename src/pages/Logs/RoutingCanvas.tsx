@@ -327,7 +327,7 @@ export function RoutingCanvas({
   const sc = routing?.shortcut;
   const winTtfb = flow?.winStep?.attempt?.ttfb_ms;
   const ttfbLine = (Tag: "span" | "div", testid: string, ms: number, cls: string) => (
-    <Tag className={cls} data-testid={testid} data-ms={ms}>{t("logs.routing.ttfb", "首字")} {formatDurationMs(ms)}</Tag>
+    <Tag className={cls} data-testid={testid} data-ms={ms}>{t("logs.routing.ttfb", "TTFB")} {formatDurationMs(ms)}</Tag>
   );
 
   const stepText = (s: Step) => {
@@ -339,12 +339,12 @@ export function RoutingCanvas({
   return (
     <div className="glass-surface hover-lift" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }} data-testid="routing-canvas">
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: F.body, fontWeight: 600 }}>{t("logs.routingDecision", "路由决策")}</span>
+        <span style={{ fontSize: F.body, fontWeight: 600 }}>{t("logs.routingDecision", "Routing decisions")}</span>
         {modeLabel && <span className="rc-pill primary" data-testid="routing-mode">{modeLabel}</span>}
       </div>
       {!flow || !routing ? (
         <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }} data-testid="routing-empty">
-          {t("logs.routing.noSnapshot", "无路由决策记录")}
+          {t("logs.routing.noSnapshot", "No routing decision recorded")}
         </span>
       ) : (
         <div ref={wrapRef} className="rc-scroll">
@@ -353,7 +353,7 @@ export function RoutingCanvas({
             <div className="rc-col">
               <div className="rc-col-title">{t("logs.routing.col.inbound")}</div>
               <div className="rc-node" data-node-id="req" data-state="dim">
-                <h3><span className="rc-ico">→</span>{t("logs.routing.request", "请求")}</h3>
+                <h3><span className="rc-ico">→</span>{t("logs.routing.request", "Request")}</h3>
                 {requestModel && <div className="rc-sub mono" data-testid="routing-request-model">{requestModel}{client ? ` · ${client}` : ""}</div>}
                 {groupName && <div className="rc-sub" data-testid="routing-group">{t("logs.routing.group")} <b>{groupName}</b></div>}
                 <ul className="rc-checks">
@@ -368,7 +368,7 @@ export function RoutingCanvas({
             <div className="rc-col">
               <div className="rc-col-title">{t("logs.routing.col.route")}</div>
               <div className="rc-node" data-node-id="route" data-state="dim">
-                <h3><span className="rc-ico">⇄</span>{t("logs.routing.route", "路由")}</h3>
+                <h3><span className="rc-ico">⇄</span>{t("logs.routing.route", "Route")}</h3>
                 {routing.eval_ms !== undefined && <div className="rc-sub mono" data-testid="routing-eval-ms" data-ms={routing.eval_ms}>{formatDurationMs(routing.eval_ms)}</div>}
                 <ul className="rc-checks">
                   <Check id="mapping" state={viaAny("mapped") ? "ok" : "na"} label={t("logs.routing.check.mapping")} t={t}>

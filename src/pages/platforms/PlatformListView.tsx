@@ -107,7 +107,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
           }}>
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: 0.55 }}><circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.6" /><path d="M11 11l3.2 3.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
             <Input
-              placeholder={t("platform.searchPlaceholder", "搜索平台...")}
+              placeholder={t("platform.searchPlaceholder", "Search platforms...")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ flex: 1, minWidth: 0, height: "auto", border: "none", background: "transparent", padding: 0, fontSize: 14, boxShadow: "none" }}
@@ -120,7 +120,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
           </label>
           {/* 稿 5 .btn 基础款 / .btn.primary 淡紫 */}
           <Button onClick={() => openCreateGroupRef.current?.()}>
-            + {t("group.add", "添加分组")}
+            + {t("group.add", "Add Group")}
           </Button>
           <Button
             onClick={() => { resetForm(); setShowForm(true); }}
@@ -130,9 +130,9 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
           </Button>
           <Button
             onClick={() => setPurgeConfirmOpen(true)}
-            title={t("platform.purgeDisabled", "清理失效平台")}
+            title={t("platform.purgeDisabled", "Purge disabled platforms")}
           >
-            {t("platform.purgeDisabled", "清理失效平台")}
+            {t("platform.purgeDisabled", "Purge disabled platforms")}
           </Button>
         </div>
       </header>)}
@@ -145,7 +145,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
       {!groupFullscreen && (<>
         <div data-testid="ungrouped-divider" className="aidog-anim-rise" style={{ display: "flex", alignItems: "center", gap: 12, margin: "34px 0 4px", color: "var(--text-tertiary)", fontSize: 14, animationDelay: "480ms" }}>
           <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
-          {t("platform.ungrouped", "未分组")} · {standalonePlatforms.length} {t("group.platforms", "平台")}
+          {t("platform.ungrouped", "Ungrouped platforms")} · {standalonePlatforms.length} {t("group.platforms", "Platforms")}
           <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
         </div>
         {loading ? (
@@ -206,7 +206,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
                         onDelete={(id) => setDeleteId(id)}
                         lead={
                           <span className="drag-handle drag-handle-inline aidog-dragfade" style={{ cursor: "grab", display: "inline-flex", alignItems: "center", touchAction: "none" }}
-                            title={t("group.dragPlatform", "拖拽加入分组")}>
+                            title={t("group.dragPlatform", "Drag to reorder / move to another group")}>
                             <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
                           </span>
                         }
@@ -292,24 +292,24 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
           <AlertDialogContent className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}
             onEscapeKeyDown={(e) => { if (purging) e.preventDefault(); }}>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t("platform.purgeDisabled", "清理失效平台")}</AlertDialogTitle>
+              <AlertDialogTitle>{t("platform.purgeDisabled", "Purge disabled platforms")}</AlertDialogTitle>
               <AlertDialogDescription>
-                {t("platform.purgeDisabledConfirm", "将永久删除所有自动禁用态平台，此操作不可撤销。")}
+                {t("platform.purgeDisabledConfirm", "This will permanently delete all disabled (auto-disabled) platforms across the library. This cannot be undone. Continue?")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div style={{ maxHeight: 240, overflow: "auto", display: "flex", flexDirection: "column", gap: 6, margin: "4px 0" }}>
               {previewLoading ? (
-                <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("status.loading", "处理中…")}</div>
+                <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("status.loading", "Loading...")}</div>
               ) : !previewList || previewList.length === 0 ? (
-                <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("platform.purgeDisabledNone", "暂无失效平台")}</div>
+                <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("platform.purgeDisabledNone", "No disabled platforms")}</div>
               ) : (
                 <>
-                  <div className="text-tertiary" style={{ fontSize: 14, fontWeight: 600 }}>{t("platform.purgeDisabledListTitle", "待清理平台清单")}</div>
+                  <div className="text-tertiary" style={{ fontSize: 14, fontWeight: 600 }}>{t("platform.purgeDisabledListTitle", "Platforms to clean up")}</div>
                   {previewList.map((c) => (
                     <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
                       <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
                       <Badge variant="secondary" style={{ fontSize: 14, flexShrink: 0 }}>
-                        {c.reason === "auth_failed" ? t("platform.purgeDisabledReasonAuthFailed", "认证失效（401/403）") : t("platform.purgeDisabledReasonExpired", "已过期")}
+                        {c.reason === "auth_failed" ? t("platform.purgeDisabledReasonAuthFailed", "Auth failed (401/403)") : t("platform.purgeDisabledReasonExpired", "Expired")}
                       </Badge>
                     </div>
                   ))}
@@ -317,9 +317,9 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
               )}
             </div>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={purging}>{t("action.cancel", "取消")}</AlertDialogCancel>
+              <AlertDialogCancel disabled={purging}>{t("action.cancel", "Cancel")}</AlertDialogCancel>
               <AlertDialogAction disabled={purging || previewLoading || !previewList || previewList.length === 0} onClick={onPurgeConfirm}>
-                {purging ? t("status.loading", "处理中…") : t("action.confirm", "确认")}
+                {purging ? t("status.loading", "Loading...") : t("action.confirm", "Confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -331,14 +331,14 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
         <AlertDialog open={deleteId !== null} onOpenChange={(next) => { if (!next) setDeleteId(null); }}>
           <AlertDialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "20px 22px" }}>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t("platform.deleteTitle", "删除平台")}</AlertDialogTitle>
+              <AlertDialogTitle>{t("platform.deleteTitle", "Delete platform")}</AlertDialogTitle>
               <AlertDialogDescription>
-                {t("platform.deleteConfirm", "「{{name}}」将被彻底删除，配置、密钥与所有分组关联一并移除，且无法撤销。确认删除？")
+                {t("platform.deleteConfirm", "“{{name}}” will be permanently deleted — its config, keys and all group links go with it. This cannot be undone. Delete it?")
                   .replace("{{name}}", deleteTarget?.name ?? "")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t("action.cancel", "取消")}</AlertDialogCancel>
+              <AlertDialogCancel>{t("action.cancel", "Cancel")}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
                   const id = deleteId;
@@ -346,7 +346,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
                   if (id !== null) void s.list.handleDelete(id);
                 }}
               >
-                {t("action.delete", "删除")}
+                {t("action.delete", "Delete")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

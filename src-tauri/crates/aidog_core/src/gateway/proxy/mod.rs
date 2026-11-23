@@ -192,13 +192,7 @@ pub(crate) use timeout::{get_system_timeout, resolve_timeout};
 
 /// 从 DB 读取 app locale，失败则回退英文
 pub(crate) async fn get_lang(db: &Db) -> Lang {
-    aidog_db::get_setting(db, "app", "locale")
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| v.get("locale").and_then(|s| s.as_str()).map(String::from))
-        .map(|s| Lang::from_locale(&s))
-        .unwrap_or_default()
+    aidog_db::get_app_lang(db).await
 }
 
 /// 代理服务器共享状态

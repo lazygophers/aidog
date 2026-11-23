@@ -118,7 +118,7 @@ function MarketplaceSourceEditor({
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: compact ? 50 : 80, flexShrink: 0, whiteSpace: "nowrap" }}>skipLfs</span>
           <Toggle active={!!source.skipLfs} onChange={(v) => setField("skipLfs", v)} />
-          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.plugins.skipLfs", "跳过 LFS 下载")}</span>
+          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.plugins.skipLfs", "Skip LFS download")}</span>
         </div>
       )}
 
@@ -180,7 +180,7 @@ function MarketplaceSourceEditor({
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: compact ? 50 : 80, flexShrink: 0, whiteSpace: "nowrap" }}>auto</span>
         <Toggle active={!!source.autoUpdate} onChange={(v) => setField("autoUpdate", v)} />
-        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.plugins.autoRefresh", "启动时自动刷新")}</span>
+        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.plugins.autoRefresh", "Auto-refresh on startup")}</span>
       </div>
     </div>
   );
@@ -247,7 +247,7 @@ function PluginsEditor({
           <SvgIcon d={ICON_PATHS.plugins} size={14} style={{ opacity: 0.6 }} />
           Enabled Plugins
         </SubHeading>
-        <Hint>{t("settings.plugins.enabledHint", "格式: plugin-name@marketplace → 启用/禁用")}</Hint>
+        <Hint>{t("settings.plugins.enabledHint", "Format: plugin-name@marketplace → enable/disable")}</Hint>
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
           {pluginEntries.map(([key, val]) => (
             <div key={key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -261,8 +261,8 @@ function PluginsEditor({
               </code>
               <Toggle active={val} onChange={(v) => setPluginEnabled(key, v)} />
               <Button variant="outline" type="button" onClick={() => removePlugin(key)}
-                title={t("settings.plugins.removePlugin", "删除插件")}
-                aria-label={t("settings.plugins.removePlugin", "删除插件")}
+                title={t("settings.plugins.removePlugin", "Remove plugin")}
+                aria-label={t("settings.plugins.removePlugin", "Remove plugin")}
                 style={{
                   background: "none", border: "none", cursor: "pointer",
                   color: "var(--text-secondary)", padding: 4, lineHeight: 1,
@@ -294,7 +294,7 @@ function PluginsEditor({
           <SvgIcon d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2Z" size={14} style={{ opacity: 0.6 }} />
           Extra Marketplaces
         </SubHeading>
-        <Hint>{t("settings.plugins.marketplacesHint", "命名市场源定义（github / git / directory / settings）")}</Hint>
+        <Hint>{t("settings.plugins.marketplacesHint", "Named marketplace source definitions (github / git / directory / settings)")}</Hint>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
           {mktEntries.map(([name, mktConfig]) => (
             <div key={name} style={{
@@ -308,8 +308,8 @@ function PluginsEditor({
                 }}>{name}</span>
                 <div style={{ flex: 1 }} />
                 <Button variant="outline" type="button" onClick={() => removeMarketplace(name)}
-                  title={t("settings.plugins.removeMarketplace", "删除市场源")}
-                  aria-label={t("settings.plugins.removeMarketplace", "删除市场源")}
+                  title={t("settings.plugins.removeMarketplace", "Remove marketplace")}
+                  aria-label={t("settings.plugins.removeMarketplace", "Remove marketplace")}
                   style={{
                     background: "none", border: "none", cursor: "pointer",
                     color: "var(--text-secondary)", padding: 4, lineHeight: 1,
@@ -327,7 +327,7 @@ function PluginsEditor({
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
                 <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: 80, flexShrink: 0, whiteSpace: "nowrap" }}>Path</span>
                 <Input  style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
-                  placeholder={t("settings.plugins.localPathPh", "本地安装路径（留空自动管理）")}
+                  placeholder={t("settings.plugins.localPathPh", "Local install path (leave empty to auto-manage)")}
                   value={mktConfig.path ?? ""}
                   onChange={(e) => updateMarketplace(name, { ...mktConfig, path: e.target.value || undefined })}
                 />
@@ -355,7 +355,7 @@ function PluginsEditor({
           <SvgIcon d={ICON_PATHS.core} size={14} style={{ opacity: 0.6 }} />
           Plugin Configs
         </SubHeading>
-        <Hint>{t("settings.plugins.configsHint", "按插件 ID（plugin@marketplace）配置 MCP 服务器与插件选项")}</Hint>
+        <Hint>{t("settings.plugins.configsHint", "Per-plugin config (plugin@marketplace): MCP servers and plugin options")}</Hint>
         <div style={{ marginTop: 8 }}>
           <JsonEditor
             value={config.pluginConfigs}
@@ -371,7 +371,7 @@ function PluginsEditor({
           <SvgIcon d={ICON_PATHS.trash} size={14} style={{ opacity: 0.6 }} />
           Skipped
         </SubHeading>
-        <Hint>{t("settings.plugins.skippedHint", "推荐安装时选择跳过的插件与市场，写入后不再提示")}</Hint>
+        <Hint>{t("settings.plugins.skippedHint", "Plugins and marketplaces you chose to skip — they stop being suggested")}</Hint>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
           <div>
             <div style={{ fontSize: F.hint, color: "var(--text-secondary)", marginBottom: 4 }}>skippedPlugins</div>

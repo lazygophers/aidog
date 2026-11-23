@@ -98,11 +98,11 @@ export function About() {
   const updStatusText = (() => {
     switch (updState) {
       case "checking":
-        return t("about.checking", "检查中…");
+        return t("about.checking", "Checking…");
       case "uptodate":
-        return t("about.upToDate", "已是最新版本");
+        return t("about.upToDate", "Already up to date");
       case "error":
-        return `${t("about.updateError", "检查更新失败")}: ${updMsg}`;
+        return `${t("about.updateError", "Update check failed")}: ${updMsg}`;
       default:
         return "";
     }
@@ -133,7 +133,7 @@ export function About() {
         console.warn("checkUpdates failed:", e);
       });
     } catch (e) {
-      setCliErr(`${t("about.localEnv.checkFailed", "检查失败")}: ${e}`);
+      setCliErr(`${t("about.localEnv.checkFailed", "Check failed")}: ${e}`);
     } finally {
       setCliBusy("");
     }
@@ -146,10 +146,10 @@ export function About() {
     setCliErr("");
     try {
       await cliEnvApi.install(tool);
-      setCliMsg(t("about.localEnv.installSuccess", "{{tool}} 安装成功", { tool }));
+      setCliMsg(t("about.localEnv.installSuccess", "{{tool}} installed successfully", { tool }));
       await handleCliCheck();
     } catch (e) {
-      setCliErr(`${t("about.localEnv.installFailed", "安装失败")}: ${e}`);
+      setCliErr(`${t("about.localEnv.installFailed", "Install failed")}: ${e}`);
     } finally {
       setCliBusy("");
       setCliPendingTool(null);
@@ -163,10 +163,10 @@ export function About() {
     setCliErr("");
     try {
       await cliEnvApi.upgrade(tool);
-      setCliMsg(t("about.localEnv.upgradeSuccess", "{{tool}} 升级成功", { tool }));
+      setCliMsg(t("about.localEnv.upgradeSuccess", "{{tool}} upgraded successfully", { tool }));
       await handleCliCheck();
     } catch (e) {
-      setCliErr(`${t("about.localEnv.upgradeFailed", "升级失败")}: ${e}`);
+      setCliErr(`${t("about.localEnv.upgradeFailed", "Upgrade failed")}: ${e}`);
     } finally {
       setCliBusy("");
       setCliPendingTool(null);
@@ -182,14 +182,14 @@ export function About() {
       setCliConflicts(list);
       const conflictTools = list.filter((c) => c.is_conflicting);
       if (conflictTools.length === 0) {
-        setCliMsg(t("about.localEnv.noConflicts", "无冲突"));
+        setCliMsg(t("about.localEnv.noConflicts", "No conflicts"));
       } else {
         setCliMsg(
-          t("about.localEnv.conflictFound", "发现 {{count}} 个工具存在冲突", { count: conflictTools.length })
+          t("about.localEnv.conflictFound", "Found {{count}} tool(s) with conflicts", { count: conflictTools.length })
         );
       }
     } catch (e) {
-      setCliErr(`${t("about.localEnv.diagnoseFailed", "诊断失败")}: ${e}`);
+      setCliErr(`${t("about.localEnv.diagnoseFailed", "Diagnose failed")}: ${e}`);
     } finally {
       setCliBusy("");
     }
@@ -197,36 +197,36 @@ export function About() {
 
   const cliStatusText = (s: CliToolStatus): { text: string; color: string } => {
     if (!s.installed) {
-      return { text: t("about.localEnv.notInstalled", "未安装"), color: "var(--text-tertiary)" };
+      return { text: t("about.localEnv.notInstalled", "Not installed"), color: "var(--text-tertiary)" };
     }
     if (s.broken) {
-      return { text: t("about.localEnv.broken", "已损坏"), color: "var(--color-danger)" };
+      return { text: t("about.localEnv.broken", "Broken"), color: "var(--color-danger)" };
     }
     if (s.conflict) {
-      return { text: t("about.localEnv.conflict", "冲突"), color: "var(--color-warning)" };
+      return { text: t("about.localEnv.conflict", "Conflict"), color: "var(--color-warning)" };
     }
-    return { text: t("about.localEnv.installed", "已安装"), color: "var(--color-success)" };
+    return { text: t("about.localEnv.installed", "Installed"), color: "var(--color-success)" };
   };
 
   const conflictFor = (tool: string) => cliConflicts.find((c) => c.tool === tool);
 
   const rows: { label: string; value: string; mono?: boolean }[] = info
     ? [
-        { label: t("about.appVersion", "应用版本"), value: `v${info.app_version}`, mono: true },
-        { label: t("about.tauriVersion", "Tauri 版本"), value: `v${info.tauri_version}`, mono: true },
-        { label: t("about.os", "操作系统"), value: info.os, mono: true },
-        { label: t("about.arch", "架构"), value: info.arch, mono: true },
-        { label: t("about.profile", "构建配置"), value: info.profile, mono: true },
+        { label: t("about.appVersion", "App Version"), value: `v${info.app_version}`, mono: true },
+        { label: t("about.tauriVersion", "Tauri Version"), value: `v${info.tauri_version}`, mono: true },
+        { label: t("about.os", "OS"), value: info.os, mono: true },
+        { label: t("about.arch", "Architecture"), value: info.arch, mono: true },
+        { label: t("about.profile", "Build Profile"), value: info.profile, mono: true },
         { label: t("about.gitCommit", "Git Commit"), value: info.git_commit, mono: true },
-        { label: t("about.buildTime", "构建时间"), value: buildTimeText },
+        { label: t("about.buildTime", "Build Time"), value: buildTimeText },
       ]
     : [];
 
   const linkBtns: { key: keyof typeof GITHUB_LINKS; label: string }[] = [
-    { key: "repo", label: t("about.repo", "代码仓库") },
-    { key: "releases", label: t("about.releases", "版本发布") },
-    { key: "issues", label: t("about.issues", "问题列表") },
-    { key: "reportIssue", label: t("about.reportIssue", "反馈问题") },
+    { key: "repo", label: t("about.repo", "Repository") },
+    { key: "releases", label: t("about.releases", "Releases") },
+    { key: "issues", label: t("about.issues", "Issues") },
+    { key: "reportIssue", label: t("about.reportIssue", "Report Issue") },
   ];
 
   return (
@@ -244,8 +244,8 @@ export function About() {
     >
       <div className="section-header">
         <div style={{ flex: 1 }}>
-          <div className="section-title">{t("about.title", "关于")}</div>
-          <div className="section-desc">{t("about.subtitle", "版本信息与项目链接")}</div>
+          <div className="section-title">{t("about.title", "About")}</div>
+          <div className="section-desc">{t("about.subtitle", "Version info and project links")}</div>
         </div>
       </div>
 
@@ -253,7 +253,7 @@ export function About() {
       <div ref={revealVersion.ref} className={`glass-surface hover-lift reveal${revealVersion.shown ? " in" : ""}`} style={{ padding: "8px 20px" }}>
         {rows.length === 0 ? (
           <div style={{ padding: "16px 0", fontSize: 14, color: "var(--text-secondary)" }}>
-            {t("status.loading", "加载中…")}
+            {t("status.loading", "Loading...")}
           </div>
         ) : (
           rows.map((r, i) => (
@@ -294,7 +294,7 @@ export function About() {
       <div ref={revealUpdate.ref} className={`glass-surface hover-lift reveal${revealUpdate.shown ? " in" : ""}`} style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
-            {t("about.updateTitle", "软件更新")}
+            {t("about.updateTitle", "Software Update")}
           </div>
           {updStatusText && (
             <div style={{ fontSize: 14, color: updState === "error" ? "var(--color-danger)" : "var(--text-secondary)", wordBreak: "break-all" }}>
@@ -311,11 +311,11 @@ export function About() {
             disabled={updBusy}
             onClick={(e) => { makeRipple(e); handleCheckUpdate(); }}
           >
-            {updBusy ? t("about.checking", "检查中…") : t("about.checkUpdate", "检查更新")}
+            {updBusy ? t("about.checking", "Checking…") : t("about.checkUpdate", "Check for Updates")}
           </Button>
         ) : (
           <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-            {t("about.updateDesktopOnly", "浏览器里不检查更新：升级内核请在部署它的机器上做")}
+            {t("about.updateDesktopOnly", "No update check in the browser — upgrade the kernel on the machine it runs on")}
           </div>
         )}
       </div>
@@ -349,32 +349,32 @@ export function About() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
-              {t("about.dbKey.title", "数据库密钥")}
+              {t("about.dbKey.title", "Database key")}
             </div>
             <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-              {t("about.dbKey.desc", "本机数据库（SQLite / SQLCipher）的加密密钥，验证管理员身份后显示")}
+              {t("about.dbKey.desc", "Encryption key of the local database (SQLite / SQLCipher); shown after admin verification")}
             </div>
           </div>
           {!dbKey && (
             <Button onClick={(e) => { makeRipple(e); void handleRevealDbKey(); }} disabled={dbKeyBusy}>
-              {dbKeyBusy ? t("status.loading") : t("about.dbKey.reveal", "验证并显示")}
+              {dbKeyBusy ? t("status.loading") : t("about.dbKey.reveal", "Verify & show")}
             </Button>
           )}
         </div>
         {dbKey && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <code data-testid="about-db-key-value" style={{ flex: 1, minWidth: 0, fontSize: 14, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", wordBreak: "break-all", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-glass, rgba(127,127,127,.06))" }}>{dbKey}</code>
-            <Button variant="outline" onClick={() => void navigator.clipboard.writeText(dbKey)}>{t("action.copy", "复制")}</Button>
+            <Button variant="outline" onClick={() => void navigator.clipboard.writeText(dbKey)}>{t("action.copy", "Copy")}</Button>
           </div>
         )}
         {dbKey && (
           <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-            {t("about.dbKey.hint", "sqlcipher 工具开库：")}<code style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{"PRAGMA key = \"x'{密钥}'\""}</code>
+            {t("about.dbKey.hint", "To open with sqlcipher: ")}<code style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{t("about.dbKey.pragma", "PRAGMA key = \"x'{key}'\"")}</code>
           </div>
         )}
         {dbKeyErr && (
           <div className="toast" style={{ fontSize: 14, wordBreak: "break-all", color: "var(--color-danger)" }}>
-            {t("about.dbKey.fail", "验证未通过或已取消")}
+            {t("about.dbKey.fail", "Verification failed or cancelled")}
           </div>
         )}
       </div>
@@ -384,10 +384,10 @@ export function About() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
-              {t("about.localEnv.title", "本地环境")}
+              {t("about.localEnv.title", "Local Environment")}
             </div>
             <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>
-              {t("about.localEnv.subtitle", "Claude Code / Codex CLI 安装状态")}
+              {t("about.localEnv.subtitle", "Claude Code / Codex CLI / pi installation status")}
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -398,7 +398,7 @@ export function About() {
               disabled={cliBusy !== ""}
               onClick={(e) => { makeRipple(e); handleCliCheck(); }}
             >
-              {cliBusy === "check" ? t("about.localEnv.checking", "检查中…") : t("about.localEnv.check", "检查版本")}
+              {cliBusy === "check" ? t("about.localEnv.checking", "Checking…") : t("about.localEnv.check", "Check Versions")}
             </Button>
             <Button
               variant="default"
@@ -407,7 +407,7 @@ export function About() {
               disabled={cliBusy !== ""}
               onClick={(e) => { makeRipple(e); handleCliDiagnose(); }}
             >
-              {cliBusy === "diagnose" ? t("about.localEnv.diagnosing", "诊断中…") : t("about.localEnv.diagnose", "诊断冲突")}
+              {cliBusy === "diagnose" ? t("about.localEnv.diagnosing", "Diagnosing…") : t("about.localEnv.diagnose", "Diagnose Conflicts")}
             </Button>
           </div>
         </div>
@@ -458,8 +458,8 @@ export function About() {
                       onClick={(e) => { makeRipple(e); handleCliInstall(s.name as CliTool); }}
                     >
                       {cliBusy === "install" && isPending
-                        ? t("about.localEnv.installing", "安装中…")
-                        : t("about.localEnv.install", "安装")}
+                        ? t("about.localEnv.installing", "Installing…")
+                        : t("about.localEnv.install", "Install")}
                     </Button>
                   )}
                   {s.installed && !s.broken && s.has_update === true && (
@@ -471,8 +471,8 @@ export function About() {
                       onClick={(e) => { makeRipple(e); handleCliUpgrade(s.name as CliTool); }}
                     >
                       {cliBusy === "upgrade" && isPending
-                        ? t("about.localEnv.upgrading", "升级中…")
-                        : t("about.localEnv.upgrade", "升级")}
+                        ? t("about.localEnv.upgrading", "Upgrading…")
+                        : t("about.localEnv.upgrade", "Upgrade")}
                     </Button>
                   )}
                   {s.broken && (
@@ -482,29 +482,29 @@ export function About() {
                       style={{ fontSize: 14, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
                       onClick={(e) => { makeRipple(e); handleCliUpgrade(s.name as CliTool); }}
-                      title={t("about.localEnv.brokenHint", "已损坏，尝试重新安装以修复")}
+                      title={t("about.localEnv.brokenHint", "Broken, try reinstall to repair")}
                     >
                       {cliBusy === "upgrade" && isPending
-                        ? t("about.localEnv.upgrading", "升级中…")
-                        : t("about.localEnv.repair", "修复")}
+                        ? t("about.localEnv.upgrading", "Upgrading…")
+                        : t("about.localEnv.repair", "Repair")}
                     </Button>
                   )}
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 14, color: "var(--text-secondary)" }}>
                 <div>
-                  <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.version", "版本")}：</span>
+                  <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.version", "Version")}: </span>
                   <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
-                    {s.version || (s.installed ? t("about.localEnv.unknown", "未知") : "—")}
+                    {s.version || (s.installed ? t("about.localEnv.unknown", "unknown") : "—")}
                   </span>
                   {s.latest_version && (
                     <span style={{ marginLeft: 8, color: "var(--color-success)" }}>
-                      {t("about.localEnv.latest", "最新 {{version}}", { version: s.latest_version })}
+                      {t("about.localEnv.latest", "Latest {{version}}", { version: s.latest_version })}
                     </span>
                   )}
                 </div>
                 <div style={{ wordBreak: "break-all" }}>
-                  <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.path", "路径")}：</span>
+                  <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.path", "Path")}: </span>
                   <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
                     {s.path || "—"}
                   </span>
@@ -532,10 +532,10 @@ export function About() {
                   }}
                 >
                   <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
-                    {t("about.localEnv.installations", "共 {{count}} 处安装", { count: conflict.installations.length })}
+                    {t("about.localEnv.installations", "{{count}} installation(s)", { count: conflict.installations.length })}
                     {conflict.is_conflicting && (
                       <span style={{ color: "var(--color-warning)", marginLeft: 6 }}>
-                        {t("about.localEnv.conflict", "冲突")}
+                        {t("about.localEnv.conflict", "Conflict")}
                       </span>
                     )}
                   </div>
@@ -576,19 +576,19 @@ export function About() {
                       )}
                       {!inst.runnable && (
                         <span style={{ color: "var(--color-danger)" }}>
-                          {t("about.localEnv.broken", "已损坏")}
+                          {t("about.localEnv.broken", "Broken")}
                         </span>
                       )}
                       {inst.is_path_default && (
                         <span style={{ color: "var(--color-success)" }}>
-                          {t("about.localEnv.pathDefault", "PATH 默认")}
+                          {t("about.localEnv.pathDefault", "PATH default")}
                         </span>
                       )}
                     </div>
                   ))}
                   {conflict.suggestion && (
                     <div style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 2 }}>
-                      <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.suggestion", "建议")}：</span>
+                      <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.suggestion", "Suggestion")}: </span>
                       {conflict.suggestion}
                     </div>
                   )}

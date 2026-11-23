@@ -12,7 +12,7 @@ export const PI_SECTIONS: SettingSection[] = [
     id: "core",
     labelKey: "pi.sectionCore",
     fields: [
-      { key: "defaultProvider", label: "Default Provider", type: "string", placeholder: "aidog-<group>", description: "标记默认分组后由 aidog 写入" },
+      { key: "defaultProvider", label: "Default Provider", type: "string", placeholder: "aidog-<group>", description: "Written by aidog after a group is marked as default" },
       { key: "defaultModel", label: "Default Model", type: "string" },
       { key: "defaultProjectTrust", label: "Default Project Trust", type: "select", options: ["ask", "always", "never"] },
     ],
@@ -22,7 +22,7 @@ export const PI_SECTIONS: SettingSection[] = [
     labelKey: "pi.sectionThinking",
     fields: [
       { key: "defaultThinkingLevel", label: "Default Thinking Level", type: "select", options: ["off", "minimal", "low", "medium", "high", "xhigh", "max"] },
-      { key: "thinkingBudgets", label: "Thinking Budgets", type: "json", description: "每个思考等级的 token 预算" },
+      { key: "thinkingBudgets", label: "Thinking Budgets", type: "json", description: "Token budget for each thinking level" },
       { key: "hideThinkingBlock", label: "Hide Thinking Block", type: "boolean" },
     ],
   },
@@ -40,7 +40,7 @@ export const PI_SECTIONS: SettingSection[] = [
     id: "network",
     labelKey: "pi.sectionNetwork",
     fields: [
-      { key: "httpProxy", label: "HTTP Proxy", type: "string", placeholder: "http://127.0.0.1:7890", description: "同时作用于 HTTP_PROXY 与 HTTPS_PROXY" },
+      { key: "httpProxy", label: "HTTP Proxy", type: "string", placeholder: "http://127.0.0.1:7890", description: "Applies to both HTTP_PROXY and HTTPS_PROXY" },
     ],
   },
   {

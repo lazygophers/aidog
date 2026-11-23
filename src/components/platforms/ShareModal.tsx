@@ -114,15 +114,15 @@ export function ShareModal<T extends object = Record<string, unknown>>({
       await writeText(text);
       onToast(
         auto
-          ? t("platform.share.autoCopied", "分享内容已自动复制到剪贴板")
-          : t("platform.share.copied", "已复制到剪贴板"),
+          ? t("platform.share.autoCopied", "Share content auto-copied to clipboard")
+          : t("platform.share.copied", "Copied to clipboard"),
         true,
       );
       setCopied(true);
       if (copiedTimer.current) clearTimeout(copiedTimer.current);
       copiedTimer.current = setTimeout(() => setCopied(false), 1500);
     } catch {
-      onToast(t("platform.share.copyFail", "复制失败，请手动选择内容"), false);
+      onToast(t("platform.share.copyFail", "Copy failed, please select the content manually"), false);
     }
   };
 
@@ -154,7 +154,7 @@ export function ShareModal<T extends object = Record<string, unknown>>({
       >
         <DialogHeader>
           <DialogTitle style={{ fontSize: 17 }}>
-            {t(titleKey ?? "platform.share.title", "分享平台")} · {title}
+            {t(titleKey ?? "platform.share.title", "Share Platform")} · {title}
           </DialogTitle>
         </DialogHeader>
 
@@ -172,7 +172,7 @@ export function ShareModal<T extends object = Record<string, unknown>>({
         >
           {t(
             warningKey ?? "platform.share.warning",
-            "分享内容含明文 API Key，请仅发送给可信对象，切勿公开发布。",
+            "The shared content contains a plaintext API key. Only send it to trusted recipients; never publish it publicly.",
           )}
         </div>
 
@@ -234,12 +234,12 @@ export function ShareModal<T extends object = Record<string, unknown>>({
             }}
           >
             <div style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 600 }}>
-              {t("platform.share.scanToImport", "扫码导入")}
+              {t("platform.share.scanToImport", "Scan to import")}
             </div>
             {qrDataUrl ? (
               <img
                 src={qrDataUrl}
-                alt={t("platform.share.scanToImport", "扫码导入")}
+                alt={t("platform.share.scanToImport", "Scan to import")}
                 style={{ width: 160, height: 160, borderRadius: "var(--radius-sm)", display: "block" }}
               />
             ) : (
@@ -254,7 +254,7 @@ export function ShareModal<T extends object = Record<string, unknown>>({
               >
                 {t(
                   "platform.share.qrTooLong",
-                  "内容过长，二维码不可用，请用复制链接",
+                  "Content too long for QR code, use copy link instead",
                 )}
               </div>
             )}
@@ -264,13 +264,13 @@ export function ShareModal<T extends object = Record<string, unknown>>({
         {/* 操作 */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
           <Button variant="ghost" style={{ fontSize: 14, padding: "6px 14px" }} onClick={onClose}>
-            {t("action.close", "关闭")}
+            {t("action.close", "Close")}
           </Button>
           <Button
             style={{ fontSize: 14, padding: "6px 14px", minWidth: 96 }}
             onClick={() => void copy(false)}
           >
-            {copied ? t("platform.share.copiedBtn", "已复制") : t("platform.share.copyBtn", "复制")}
+            {copied ? t("platform.share.copiedBtn", "Copied") : t("platform.share.copyBtn", "Copy")}
           </Button>
         </div>
       </DialogContent>

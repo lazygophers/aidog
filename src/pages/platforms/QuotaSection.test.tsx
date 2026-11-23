@@ -78,35 +78,35 @@ beforeEach(() => {
 describe("QuotaSection（quota-ia 票 03）", () => {
   it("auto tab 渲染脚本变体下拉；manual tab 渲染预算行", () => {
     const auto = renderSection();
-    expect(auto.container.textContent).toContain("脚本变体");
+    expect(auto.container.textContent).toContain("Script variant");
 
     const manual = renderSection({ quotaSource: "manual", budgets: [{ amount: 5 }] });
-    expect(manual.container.textContent).toContain("添加限额");
+    expect(manual.container.textContent).toContain("Add limit");
   });
 
   it("对侧有数据：切 tab 弹确认，确认后才记忆目标", () => {
     // auto + 自定义脚本 → 切 manual 需确认（弹窗走 portal 落 document.body，用 screen 查）
     const r = renderSection({ customScript: "function q(){}" });
-    switchTab(r, "手动预算");
+    switchTab(r, "Manual Budget");
     expect(r.onSourceChange).not.toHaveBeenCalled();
-    expect(screen.getByText("切换到手动预算？")).not.toBeNull();
-    fireEvent.click(screen.getByText("切换"));
+    expect(screen.getByText("Switch to manual budget?")).not.toBeNull();
+    fireEvent.click(screen.getByText("Switch"));
     expect(r.onSourceChange).toHaveBeenCalledWith("manual");
   });
 
   it("对侧无数据：静默切换，不弹确认", () => {
     // auto 无任何脚本配置 → 切 manual 直接切
     const r = renderSection();
-    switchTab(r, "手动预算");
+    switchTab(r, "Manual Budget");
     expect(r.onSourceChange).toHaveBeenCalledWith("manual");
-    expect(screen.queryByText("切换到手动预算？")).toBeNull();
+    expect(screen.queryByText("Switch to manual budget?")).toBeNull();
   });
 
   it("manual 有预算 → 切 auto 也弹确认", () => {
     const r = renderSection({ quotaSource: "manual", budgets: [{ amount: 5 }] });
-    switchTab(r, "自动脚本");
+    switchTab(r, "Auto Script");
     expect(r.onSourceChange).not.toHaveBeenCalled();
-    expect(screen.getByText("切换到自动脚本？")).not.toBeNull();
+    expect(screen.getByText("Switch to auto script?")).not.toBeNull();
   });
 });
 
@@ -120,7 +120,7 @@ describe("QuotaSection 测试按钮", () => {
     const r = renderSection({ variants: [] });
     expect(r.container.querySelector('[data-testid="quota-test-button"]')).not.toBeNull();
     expect(r.container.querySelector('[data-testid="quota-test-button"]')).toBeDisabled();
-    expect(r.container.querySelector('[data-testid="quota-test-hint"]')?.textContent).toContain("查询脚本");
+    expect(r.container.querySelector('[data-testid="quota-test-hint"]')?.textContent).toContain("query script");
   });
 
   it("点击后调 quotaApi.query 一次；查询中防重复点击", async () => {
@@ -152,7 +152,7 @@ describe("QuotaSection 测试按钮", () => {
     expect(txt).toContain("CNY");
     expect(txt).toContain("five_hour");
     expect(txt).toContain("42");
-    expect(txt).toContain("查询时间");
+    expect(txt).toContain("Queried at");
     expect(screen.getByTestId("quota-test-note")).not.toBeNull();
     expect(screen.getByTestId("quota-test-note").textContent).toContain("legacy fields ignored");
   });

@@ -21,7 +21,7 @@ export function CarryMenu({ r, installed, transcriptOn, onCarry, onNeedTranscrip
   const { t } = useTranslation();
   const targets = r.workdir ? SESSION_CLIENTS.filter((c) => c.code !== r.clientCode && installed.includes(c.code)) : [];
   if (targets.length === 0) return null;
-  const label = t("sessions.carry", "换客户端继续");
+  const label = t("sessions.carry", "Continue in another client");
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -55,9 +55,9 @@ export function CarryMenu({ r, installed, transcriptOn, onCarry, onNeedTranscrip
               <ClientIcon code={c.code} size={14} />
               <span className="flex-1">{c.name}</span>
               {mode === "need-consent" ? (
-                <span className="text-sm text-muted-foreground" data-testid="sessions-carry-need-consent">{t("sessions.carryNeedConsent", "需开启原文读取")}</span>
+                <span className="text-sm text-muted-foreground" data-testid="sessions-carry-need-consent">{t("sessions.carryNeedConsent", "Requires transcript access")}</span>
               ) : (
-                <span className="text-sm text-muted-foreground">{mode === "transcribe" ? t("sessions.carryTranscribe", "转写上下文") : t("sessions.carryHandoff", "交接文件路径")}</span>
+                <span className="text-sm text-muted-foreground">{mode === "transcribe" ? t("sessions.carryTranscribe", "Carry over context") : t("sessions.carryHandoff", "Hand off file path")}</span>
               )}
             </DropdownMenuItem>
           );

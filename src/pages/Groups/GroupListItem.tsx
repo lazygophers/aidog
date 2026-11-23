@@ -228,8 +228,8 @@ export const GroupListItem = memo(function GroupListItem({
           {...handle.attributes}
           {...handle.listeners}
           data-testid="group-drag-handle"
-          title={t("group.dragToReorder", "拖动排序")}
-          aria-label={`${t("group.dragToReorder", "拖动排序")}: ${group.name}`}
+          title={t("group.dragToReorder", "Drag to reorder")}
+          aria-label={`${t("group.dragToReorder", "Drag to reorder")}: ${group.name}`}
           style={{
             display: "inline-flex", alignItems: "center", gap: 8, cursor: "grab", touchAction: "none",
             userSelect: "none", WebkitUserSelect: "none",
@@ -252,7 +252,7 @@ export const GroupListItem = memo(function GroupListItem({
           <span data-testid="group-section-name" style={{ fontSize: 14, fontWeight: 620, letterSpacing: "-0.005em", display: "inline-flex", alignItems: "center", gap: 5 }}>
             {group.name}
             {group.is_default && (
-              <span title={t("group.isDefaultTitle", "默认分组")} style={{ color: "var(--color-warning)", fontSize: 14 }}>★</span>
+              <span title={t("group.isDefaultTitle", "Default group: config merged into ~/.claude/settings.json + ~/.codex/config.toml (Codex needs export AIDOG_KEY=<group key>)")} style={{ color: "var(--color-warning)", fontSize: 14 }}>★</span>
             )}
             {group.auto_from_platform && (
               <Badge variant="secondary" style={{ fontSize: 14, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
@@ -263,16 +263,16 @@ export const GroupListItem = memo(function GroupListItem({
             fontSize: 14, color: "var(--text-tertiary)", background: "var(--secondary)",
             border: "1px solid var(--border)", borderRadius: 99, padding: "1px 8px", whiteSpace: "nowrap",
           }}>
-            {gps.length} {t("group.platforms", "平台")}
+            {gps.length} {t("group.platforms", "Platforms")}
           </span>
         </span>
         {/* 三统计（稿 .gstats：今日 / 请求 / 成功率） */}
         <span style={gstatStyle}>
-          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.detail.todayShort", "今")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{formatMoney(u ? u.today_cost : 0)}</b></span>
-          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.todayRequests", "今日请求")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u ? formatNumber(u.today_requests) : "0"}</b></span>
-          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.todaySuccessRate", "今日成功率")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u && u.today_requests > 0 ? formatPercent(calcSuccessRate(u.today_success, u.today_requests), 1) : "—"}</b></span>
+          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.detail.todayShort", "Today")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{formatMoney(u ? u.today_cost : 0)}</b></span>
+          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.todayRequests", "Requests today")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u ? formatNumber(u.today_requests) : "0"}</b></span>
+          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.todaySuccessRate", "Success rate today")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u && u.today_requests > 0 ? formatPercent(calcSuccessRate(u.today_success, u.today_requests), 1) : "—"}</b></span>
           {balance != null && (
-            <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.balance", "余额")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{formatMoney(balance)}</b></span>
+            <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.balance", "Balance")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{formatMoney(balance)}</b></span>
           )}
         </span>
         <span onClick={e => e.stopPropagation()} style={{ minWidth: 0 }}>
@@ -287,25 +287,25 @@ export const GroupListItem = memo(function GroupListItem({
             marginLeft: 2, fontSize: 14, color: "var(--text-tertiary)",
             border: "1px dashed var(--input)", borderRadius: 6, padding: "2px 8px",
             display: "inline-flex", alignItems: "center", gap: 5,
-          }} title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}>⠿ {t("group.dropHint", "拖入平台")}</span>
+          }} title={t("group.dragPlatform", "Drag to reorder / move to another group")}>⠿ {t("group.dropHint", "Drop platforms")}</span>
           {gps.length > 0 && (
             <Button variant="ghost" className="ripple" data-testid="group-batch-start" style={{ ...headBtn, ...(mode === "select" ? { background: "var(--accent-subtle)", color: "var(--primary)", border: "1px solid color-mix(in srgb, var(--primary) 45%, transparent)" } : {}) }}
               onClick={(e) => { makeRipple(e); setMode("select"); setSelectedIds(new Set()); }}>
-              {t("group.batchOps", "多选")}
+              {t("group.batchOps", "Multi-select")}
             </Button>
           )}
           {onOpenDetail && (
             <Button variant="ghost" className="ripple" data-testid="group-section-detail" style={headBtn}
               onClick={(e) => { makeRipple(e); onOpenDetail(group.id); }}>
-              {t("group.detail.openShort", "详情")}
+              {t("group.detail.openShort", "Details")}
             </Button>
           )}
           <Button variant="ghost" className="ripple" style={headBtn} onClick={(e) => { makeRipple(e); onEdit({ group, platforms: gps, model_mappings }); }}>
-            {t("group.sectionSettings", "设置")}
+            {t("group.sectionSettings", "Settings")}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" data-testid="group-section-menu" className="ripple" title={t("platform.more", "更多")}
+              <button type="button" data-testid="group-section-menu" className="ripple" title={t("platform.more", "More")}
                 style={{ ...headBtn, display: "inline-flex", alignItems: "center", background: "transparent", border: "1px solid transparent", color: "var(--text-tertiary)", cursor: "pointer" }}
                 onClick={(e) => { makeRipple(e); }}>
                 ⋯
@@ -315,22 +315,22 @@ export const GroupListItem = memo(function GroupListItem({
               {onTestGroup && (
                 <DropdownMenuItem disabled={gps.filter(gp => gp.platform.status === "enabled").length === 0 || groupTestRunning}
                   onSelect={() => onTestGroup(group, gps)}>
-                  {t("group.testAll", "一键测试本组全部平台")}
+                  {t("group.testAll", "Test all platforms in this group")}
                 </DropdownMenuItem>
               )}
-              {onCreatePlatform && <DropdownMenuItem onSelect={() => onCreatePlatform([group.id], group.id)}>{t("group.addPlatform", "添加平台")}</DropdownMenuItem>}
+              {onCreatePlatform && <DropdownMenuItem onSelect={() => onCreatePlatform([group.id], group.id)}>{t("group.addPlatform", "+ Add Platform")}</DropdownMenuItem>}
               <DropdownMenuItem onSelect={() => onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key })}>
-                {t("group.viewStats", "查看统计")}
+                {t("group.viewStats", "View Stats")}
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setPurgeConfirmOpen(true)}>{t("group.purgeDisabled", "清理失效")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setPurgeConfirmOpen(true)}>{t("group.purgeDisabled", "Purge disabled")}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => onToggleDefault(group)}>
-                {group.is_default ? t("group.unsetDefault", "取消默认分组") : t("group.setAsDefault", "设为默认分组")}
+                {group.is_default ? t("group.unsetDefault", "Unset default group") : t("group.setAsDefault", "Set as default group")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(group.group_key); }}>{t("group.menuCopyKey", "API Key")}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildClaudeCommand(group.group_key)); }}>{t("group.menuCopyClaude", "Claude 启动命令")}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildCodexCommand(group.group_key)); }}>{t("group.menuCopyCodex", "Codex 启动命令")}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildPiCommand(group.group_key)); }}>{t("group.menuCopyPi", "pi 启动命令")}</DropdownMenuItem>
-              <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(group.id)}>{t("group.delete", "删除分组")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildClaudeCommand(group.group_key)); }}>{t("group.menuCopyClaude", "Claude launch command")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildCodexCommand(group.group_key)); }}>{t("group.menuCopyCodex", "Codex launch command")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildPiCommand(group.group_key)); }}>{t("group.menuCopyPi", "pi launch command")}</DropdownMenuItem>
+              <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(group.id)}>{t("group.delete", "Delete group")}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </span>
@@ -343,28 +343,28 @@ export const GroupListItem = memo(function GroupListItem({
           background: "var(--accent-subtle)", borderBottom: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)",
           fontSize: 14, color: "var(--text-secondary)",
         }} onClick={e => e.stopPropagation()}>
-          <span style={{ fontWeight: 620, color: "var(--primary)" }}>{t("group.selectedCount", "已选 {{count}} 个", { count: selectedIds.size })}</span>
+          <span style={{ fontWeight: 620, color: "var(--primary)" }}>{t("group.selectedCount", "{{count}} selected", { count: selectedIds.size })}</span>
           {/* 稿 5 .batchbar .sep：竖分隔线 */}
           <span style={{ width: 1, height: 14, background: "color-mix(in srgb, var(--foreground) 12%, transparent)" }} />
           <Button variant="ghost" disabled={selectedIds.size === 0} style={{ ...bactBtn, color: "var(--color-danger)" }}
             onClick={() => onBatchDelete([...selectedIds], group.id)}>
-            {t("group.batchDelete", "批量删除")}
+            {t("group.batchDelete", "Delete selected")}
           </Button>
           <Button variant="ghost" disabled={selectedIds.size === 0} style={bactBtn}
             onClick={() => onBatchMoveGroup([...selectedIds], group.id)}>
-            {t("group.batchMoveGroup", "移动到分组")}
+            {t("group.batchMoveGroup", "Move to group")}
           </Button>
           <Button variant="ghost" disabled={selectedIds.size === 0} style={bactBtn}
             onClick={() => onBatchSetStatus([...selectedIds], group.id)}>
-            {t("group.batchSetStatus", "改状态")}
+            {t("group.batchSetStatus", "Change status")}
           </Button>
           <Button variant="ghost" disabled={selectedIds.size === 0} style={bactBtn}
             onClick={() => onBatchOverrideModels([...selectedIds], group.id)}>
-            {t("group.batchOverrideModels", "覆盖模型")}
+            {t("group.batchOverrideModels", "Override models")}
           </Button>
           <Button variant="ghost" style={bactBtn}
             onClick={() => setSelectedIds(new Set(fullPlats.map(p => p.id)))}>
-            {t("group.selectAll", "全选")}
+            {t("group.selectAll", "Select all")}
           </Button>
           {/* 按状态选（plat-select-status）：动态错误码选项；口径 = 实时调度态优先回落 24h 日志最近失败码。 */}
           <Select
@@ -382,17 +382,17 @@ export const GroupListItem = memo(function GroupListItem({
             }}
           >
             <SelectTrigger data-testid="group-batch-status-select" style={{ fontSize: 14, height: "auto", padding: "3px 9px", minHeight: 26, width: "auto", background: "var(--secondary)" }}>
-              <SelectValue placeholder={t("group.selectByStatus", "按状态选")} />
+              <SelectValue placeholder={t("group.selectByStatus", "Select by status")} />
             </SelectTrigger>
             <SelectContent>
               {PLATFORM_STATUS_OPTIONS.map(o => (
                 <SelectItem key={o.value} value={o.value} data-testid={`group-batch-status-opt-${o.value}`} style={{ fontSize: 14 }}>
-                  {`${t(o.labelKey, o.fallback)}（${fullPlats.filter(p => p.status === o.status).length}）`}
+                  {`${t(o.labelKey, o.fallback)} (${fullPlats.filter(p => p.status === o.status).length})`}
                 </SelectItem>
               ))}
               {statusOptions.map(o => (
                 <SelectItem key={o.value} value={o.value} data-testid={`group-batch-status-opt-${o.value}`} style={{ fontSize: 14 }}>
-                  {`${t(o.labelKey, o.fallback)}（${o.count}）`}
+                  {`${t(o.labelKey, o.fallback)} (${o.count})`}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -400,7 +400,7 @@ export const GroupListItem = memo(function GroupListItem({
           {/* 稿 5 .batchbar .cancel：取消多选靠右 */}
           <span data-testid="group-batch-cancel" onClick={() => { setMode("view"); setSelectedIds(new Set()); }}
             style={{ marginLeft: "auto", fontSize: 14, color: "var(--text-tertiary)", cursor: "pointer" }}>
-            {t("group.cancelMultiSelect", "取消多选")}
+            {t("group.cancelMultiSelect", "Cancel multi-select")}
           </span>
         </div>
       )}
@@ -450,7 +450,7 @@ export const GroupListItem = memo(function GroupListItem({
                     onPointerDown={(e) => onPlatPointerDown(e, p.id, group.id)}
                     className="drag-handle drag-handle-inline aidog-dragfade"
                     style={{ cursor: "grab", display: "inline-flex", alignItems: "center", touchAction: "none" }}
-                    title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}
+                    title={t("group.dragPlatform", "Drag to reorder / move to another group")}
                   >
                     <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
                   </span>
@@ -465,7 +465,7 @@ export const GroupListItem = memo(function GroupListItem({
       )}
       {(forceExpanded || isExpanded || mode === "select") && fullPlats.length === 0 && (
         <div className="text-tertiary" style={{ padding: "14px 16px", fontSize: 14 }} onClick={e => e.stopPropagation()}>
-          {t("group.noPlatforms", "暂无平台")}
+          {t("group.noPlatforms", "No platforms in this group")}
         </div>
       )}
 
@@ -473,16 +473,16 @@ export const GroupListItem = memo(function GroupListItem({
       <AlertDialog open={purgeConfirmOpen} onOpenChange={(next) => { if (!next && !purging) setPurgeConfirmOpen(false); }}>
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("group.purgeDisabled", "清理失效")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("group.purgeDisabled", "Purge disabled")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("group.purgeDisabledConfirm", "将清理本分组失效平台（独占的永久删除，共享的仅从本分组移除），确定？")}
+              {t("group.purgeDisabledConfirm", "This will clean up disabled (auto-disabled) platforms in this group: exclusive ones are permanently deleted, shared ones are only removed from this group. Continue?")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div style={{ maxHeight: 240, overflow: "auto", display: "flex", flexDirection: "column", gap: 10, margin: "4px 0" }}>
             {previewLoading ? (
-              <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("status.loading", "处理中…")}</div>
+              <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("status.loading", "Loading...")}</div>
             ) : !previewList || previewList.length === 0 ? (
-              <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("platform.purgeDisabledNone", "暂无失效平台")}</div>
+              <div className="text-secondary" style={{ fontSize: 14, padding: "8px 0" }}>{t("platform.purgeDisabledNone", "No disabled platforms")}</div>
             ) : (
               (["delete", "unassign"] as const).map((action) => {
                 const items = previewList.filter(c => c.action === action);
@@ -490,13 +490,13 @@ export const GroupListItem = memo(function GroupListItem({
                 return (
                   <div key={action} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <div className="text-tertiary" style={{ fontSize: 14, fontWeight: 600 }}>
-                      {action === "delete" ? t("platform.purgeDisabledActionDelete", "将永久删除") : t("platform.purgeDisabledActionUnassign", "将移出本分组")}
+                      {action === "delete" ? t("platform.purgeDisabledActionDelete", "Will be permanently deleted") : t("platform.purgeDisabledActionUnassign", "Will be removed from this group")}
                     </div>
                     {items.map((c) => (
                       <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
                         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
                         <Badge variant="secondary" style={{ fontSize: 14, flexShrink: 0 }}>
-                          {c.reason === "auth_failed" ? t("platform.purgeDisabledReasonAuthFailed", "认证失效（401/403）") : t("platform.purgeDisabledReasonExpired", "已过期")}
+                          {c.reason === "auth_failed" ? t("platform.purgeDisabledReasonAuthFailed", "Auth failed (401/403)") : t("platform.purgeDisabledReasonExpired", "Expired")}
                         </Badge>
                       </div>
                     ))}
@@ -506,7 +506,7 @@ export const GroupListItem = memo(function GroupListItem({
             )}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={purging}>{t("action.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={purging}>{t("action.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={purging || previewLoading || !previewList || previewList.length === 0}
               onClick={async () => {
@@ -514,7 +514,7 @@ export const GroupListItem = memo(function GroupListItem({
                 try { await onPurgeDisabled(group.id); } finally { setPurging(false); setPurgeConfirmOpen(false); }
               }}
             >
-              {purging ? t("status.loading", "处理中…") : t("action.confirm", "确认")}
+              {purging ? t("status.loading", "Loading...") : t("action.confirm", "Confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

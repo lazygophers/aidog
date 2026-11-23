@@ -22,6 +22,7 @@ fn main() {
     }
     print!(
         "{}",
-        aidog_core::statusline::preview(&stored, kind != "subagent")
+        // golden 按中文默认值录制。
+        aidog_core::statusline::preview(&stored, kind != "subagent", aidog_i18n::Lang::ZhCn)
     );
 }

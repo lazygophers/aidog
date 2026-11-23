@@ -89,9 +89,9 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
           <div className="mb-2 self-start pe-4 xl:sticky xl:top-0 xl:mb-0">
             <b className="flex items-center gap-2 text-lg font-semibold">
               <i aria-hidden className={`inline-block size-2 rounded-full ${STATE_DOT.running}`} />
-              {t("sessions.pinnedTitle", "正在执行")}
+              {t("sessions.pinnedTitle", "Active now")}
             </b>
-            <div className="mt-2.5 text-sm text-muted-foreground">{t("sessions.count", "{{n}} 个会话", { n: pinned.length })}</div>
+            <div className="mt-2.5 text-sm text-muted-foreground">{t("sessions.count", "{{n}} sessions", { n: pinned.length })}</div>
           </div>
           <div>{pinned.map((r) => renderRow(r, true))}</div>
         </div>
@@ -106,7 +106,7 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
         return (
           <div key={workdir} className="grid grid-cols-1 xl:grid-cols-[230px_minmax(0,1fr)] border-t pt-4 pb-2.5" data-testid="sessions-group" data-workdir={workdir} data-count={String(items.length)} data-cost={String(cost)}>
             <div className="mb-2 self-start pe-4 xl:sticky xl:top-0 xl:mb-0">
-              <b className="block truncate text-lg font-semibold" title={workdir}>{workdir ? projectName(workdir) : t("sessions.noWorkdir", "未知目录")}</b>
+              <b className="block truncate text-lg font-semibold" title={workdir}>{workdir ? projectName(workdir) : t("sessions.noWorkdir", "Unknown directory")}</b>
               {workdir && (
                 <div className="mt-1 flex items-center gap-1">
                   <small dir="ltr" className="min-w-0 flex-1 truncate font-mono text-sm text-muted-foreground rtl:text-right" title={workdir} data-testid="sessions-group-path">{workdir}</small>
@@ -114,7 +114,7 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
                 </div>
               )}
               <div className="mt-2.5 text-sm text-muted-foreground">
-                {t("sessions.count", "{{n}} 个会话", { n: items.length })} · <span className="font-mono tabular-nums"><SessionCost cost={cost} calls={calls} unpricedCalls={unpriced} /></span>
+                {t("sessions.count", "{{n}} sessions", { n: items.length })} · <span className="font-mono tabular-nums"><SessionCost cost={cost} calls={calls} unpricedCalls={unpriced} /></span>
               </div>
             </div>
             <div>{visible.map((r) => renderRow(r, false))}</div>
@@ -128,7 +128,7 @@ export function SessionGroups({ rows, pinned, stateOf, isResuming, onResume, onO
 // 无目录（含 Gemini 旧哈希目录会话）不渲染；按钮在可展开行内，阻冒泡。
 function OpenDirButton({ workdir, testId, onOpenDir }: { workdir: string; testId: string; onOpenDir: (workdir: string) => void }) {
   const { t } = useTranslation();
-  const label = t("sessions.openDir", "打开目录");
+  const label = t("sessions.openDir", "Open folder");
   return (
     <Button
       size="icon"
@@ -164,22 +164,22 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
   const { t, i18n } = useTranslation();
   const key = rowKey(r);
   const stateLabel: Record<SessionRunState, string> = {
-    running: t("sessions.stateRunning", "执行中"),
-    idle: t("sessions.stateIdle", "空闲"),
-    stopped: t("sessions.stateStopped", "已结束"),
+    running: t("sessions.stateRunning", "Running"),
+    idle: t("sessions.stateIdle", "Idle"),
+    stopped: t("sessions.stateStopped", "Ended"),
   };
   const d = Math.max(0, r.lastCallMs - r.firstCallMs);
   const duration = d < 3600_000
-    ? t("sessions.durMin", "{{n}} 分", { n: Math.round(d / 60_000) })
-    : t("sessions.durHour", "{{n}} 小时", { n: (d / 3600_000).toFixed(1) });
-  const cache = t("sessions.cacheSplit", "缓存 读 {{read}} / 写 {{write}}", { read: formatNumber(r.cacheReadTokens), write: formatNumber(r.cacheWriteTokens) });
+    ? t("sessions.durMin", "{{n}} min", { n: Math.round(d / 60_000) })
+    : t("sessions.durHour", "{{n}} h", { n: (d / 3600_000).toFixed(1) });
+  const cache = t("sessions.cacheSplit", "cache read {{read}} / write {{write}}", { read: formatNumber(r.cacheReadTokens), write: formatNumber(r.cacheWriteTokens) });
   return (
     <Fragment>
     <div
       role="button"
       tabIndex={0}
       aria-expanded={isOpen}
-      aria-label={isOpen ? t("sessions.collapse", "收起详情") : t("sessions.expand", "展开详情")}
+      aria-label={isOpen ? t("sessions.collapse", "Hide details") : t("sessions.expand", "Show details")}
       onClick={() => onToggle(key)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(key); }
@@ -203,8 +203,8 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
             {" · "}
             {/* 每段 bdi 各自隔离方向：RTL 下数字与拉丁名不与相邻段混排（票 13） */}
             {inPinned && r.workdir && <><bdi dir="ltr" title={r.workdir}>{projectName(r.workdir)}</bdi>{" · "}</>}
-            <bdi>{clientName(r.clientCode)}</bdi> · <bdi>{t("sessions.calls", "{{n}} 次调用", { n: r.calls })}</bdi> · <bdi>{t("sessions.duration", "持续 {{d}}", { d: duration })}</bdi>
-            {ctxRatio != null && <>{" · "}<bdi className="font-mono tabular-nums" title={t("sessions.ctxTitle", "context-mode 上下文压缩比")} data-testid="sessions-row-ctx" data-pct={String(ctxRatio)}>{t("sessions.ctxRatio", "压缩 {{pct}}", { pct: formatPercent(ctxRatio) })}</bdi></>}
+            <bdi>{clientName(r.clientCode)}</bdi> · <bdi>{t("sessions.calls", "{{n}} calls", { n: r.calls })}</bdi> · <bdi>{t("sessions.duration", "lasted {{d}}", { d: duration })}</bdi>
+            {ctxRatio != null && <>{" · "}<bdi className="font-mono tabular-nums" title={t("sessions.ctxTitle", "context-mode context compression ratio")} data-testid="sessions-row-ctx" data-pct={String(ctxRatio)}>{t("sessions.ctxRatio", "Compressed {{pct}}", { pct: formatPercent(ctxRatio) })}</bdi></>}
           </div>
         </div>
         {inPinned && <SessionSparkline clientCode={r.clientCode} sessionId={r.sessionId} lastCallMs={r.lastCallMs} />}
@@ -212,7 +212,7 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
       <div className="min-w-0 text-end font-mono text-sm tabular-nums" data-testid="sessions-row-tokens">
         <div className="truncate">{formatNumber(r.inputTokens + r.outputTokens)}</div>
         <div className="truncate font-sans text-muted-foreground">
-          {t("sessions.tokenSplit", "入 {{input}} / 出 {{output}}", { input: formatNumber(r.inputTokens), output: formatNumber(r.outputTokens) })}
+          {t("sessions.tokenSplit", "in {{input}} / out {{output}}", { input: formatNumber(r.inputTokens), output: formatNumber(r.outputTokens) })}
         </div>
         <div className="truncate font-sans text-muted-foreground" title={cache} data-testid="sessions-row-cache" data-read={String(r.cacheReadTokens)} data-write={String(r.cacheWriteTokens)}>
           {cache}
@@ -230,8 +230,8 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
           size="icon"
           variant="ghost"
           className="size-8 shrink-0"
-          title={t("sessions.hide", "从列表隐藏")}
-          aria-label={t("sessions.hide", "从列表隐藏")}
+          title={t("sessions.hide", "Hide from list")}
+          aria-label={t("sessions.hide", "Hide from list")}
           data-testid="sessions-hide"
           onClick={(e) => { e.stopPropagation(); onHide(r); }}
           onKeyDown={(e) => e.stopPropagation()}
@@ -251,7 +251,7 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
             onClick={(e) => { e.stopPropagation(); onResume(r); }}
             onKeyDown={(e) => e.stopPropagation()}
           >
-            {t("sessions.resume", "继续")}
+            {t("sessions.resume", "Resume")}
           </Button>
         )}
       </div>

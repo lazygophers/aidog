@@ -292,7 +292,7 @@ export function ImportDiffModal({
   };
 
   const formatValue = (v: any): string => {
-    if (v === undefined) return t("settings.editor.none", "(无)");
+    if (v === undefined) return t("settings.editor.none", "(none)");
     if (typeof v === "object") return JSON.stringify(v, null, 2);
     return String(v);
   };
@@ -313,7 +313,7 @@ export function ImportDiffModal({
     const labelColor = changeType === "added" ? "var(--color-success)"
       : changeType === "removed" ? "var(--color-danger)"
       : "var(--accent)";
-    const label = changeType === "added" ? t("settings.editor.diffAdded", "新增") : changeType === "removed" ? t("settings.editor.diffRemoved", "删除") : t("settings.editor.diffChanged", "变更");
+    const label = changeType === "added" ? t("settings.editor.diffAdded", "Added") : changeType === "removed" ? t("settings.editor.diffRemoved", "Removed") : t("settings.editor.diffChanged", "Changed");
     return (
       <div key={d.path} style={{
         margin: nested ? "4px 0 4px 28px" : "4px 12px",
@@ -342,7 +342,7 @@ export function ImportDiffModal({
         {isSelected && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, marginLeft: 36 }}>
             <div>
-              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>{t("settings.editor.diffCurrent", "当前")}</div>
+              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>{t("settings.editor.diffCurrent", "Current")}</div>
               <pre style={{
                 fontFamily: '"SF Mono", "Fira Code", monospace',
                 fontSize: F.hint, lineHeight: 1.5,
@@ -353,7 +353,7 @@ export function ImportDiffModal({
               }}>{formatValue(d.current)}</pre>
             </div>
             <div>
-              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>{incomingLabel ?? t("settings.editor.diffIncoming", "导入")}</div>
+              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>{incomingLabel ?? t("settings.editor.diffIncoming", "Incoming")}</div>
               <pre style={{
                 fontFamily: '"SF Mono", "Fira Code", monospace',
                 fontSize: F.hint, lineHeight: 1.5,
@@ -383,12 +383,12 @@ export function ImportDiffModal({
           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
         }}>
           <DialogTitle style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
-            {title ?? t("settings.editor.importTitle", "从 Claude Code 导入配置")}
+            {title ?? t("settings.editor.importTitle", "Import config from Claude Code")}
           </DialogTitle>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Button variant="ghost" style={{ fontSize: F.hint, padding: "4px 10px" }}
               onClick={toggleAll}>
-              {selected.size === allLeafPaths.length ? t("settings.editor.deselectAll", "取消全选") : t("settings.editor.selectAll", "全选")}
+              {selected.size === allLeafPaths.length ? t("settings.editor.deselectAll", "Deselect All") : t("settings.editor.selectAll", "Select All")}
             </Button>
           </div>
         </DialogHeader>
@@ -427,7 +427,7 @@ export function ImportDiffModal({
                     padding: "1px 6px",
                     background: state === "partial" ? "color-mix(in srgb, var(--color-warning) 12%, transparent)" : "var(--accent-subtle)",
                     borderRadius: "var(--radius-sm)",
-                  }}>{state === "partial" ? t("settings.editor.diffPartial", "部分") : t("settings.editor.diffObject", "对象")}</span>
+                  }}>{state === "partial" ? t("settings.editor.diffPartial", "Partial") : t("settings.editor.diffObject", "Object")}</span>
                 </div>
                 <div style={{ marginTop: 6 }}>
                   {node.children.map(child => renderLeaf(child, true))}
@@ -443,15 +443,15 @@ export function ImportDiffModal({
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
           <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
-            {t("settings.editor.selectedPrefix", "已选")} {selected.size}/{allLeafPaths.length} {t("settings.editor.selectedSuffix", "项")}
+            {t("settings.editor.selectedPrefix", "Selected")} {selected.size}/{allLeafPaths.length} {t("settings.editor.selectedSuffix", "items")}
           </span>
           <div style={{ display: "flex", gap: 8 }}>
             <Button variant="ghost" style={{ fontSize: F.body, padding: S.btnPad }}
-              onClick={onClose}>{t("action.cancel", "取消")}</Button>
+              onClick={onClose}>{t("action.cancel", "Cancel")}</Button>
             <Button variant="default" className="ripple" style={{ fontSize: F.body, padding: S.btnPad }}
               disabled={selected.size === 0}
               onClick={(e) => { makeRipple(e); onApply(selected); }}>
-              {applyLabel ?? t("settings.editor.importSelected", "导入选中")} ({selected.size})
+              {applyLabel ?? t("settings.editor.importSelected", "Import Selected")} ({selected.size})
             </Button>
           </div>
         </div>

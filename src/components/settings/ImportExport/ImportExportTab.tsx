@@ -146,7 +146,7 @@ export function ImportExportTab() {
             .filter((it) => exportSelected.has(itemKey(it.scope, it.key)))
             .map((it) => [it.scope, it.key]);
       await importExportApi.exportToFile(Array.from(scopes), path, selection);
-      setExportMsg(t("importExport.exportDone", "导出成功：{{path}}", { path }));
+      setExportMsg(t("importExport.exportDone", "Exported: {{path}}", { path }));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -293,7 +293,7 @@ export function ImportExportTab() {
           if (target) {
             void loadPreviewRef.current(target);
           } else if (paths.length > 0) {
-            setError(t("importExport.error.notAidogx", "请拖入 .aidogx 备份文件"));
+            setError(t("importExport.error.notAidogx", "Please drop a .aidogx backup file"));
           }
         } else {
           // leave / cancel
@@ -318,7 +318,7 @@ export function ImportExportTab() {
     // 用户以为保留两条实际覆盖本地。前置拦截，与 Flutter 侧同闸。
     for (const d of decisions.values()) {
       if (d.kind === "rename" && !d.new_key.trim()) {
-        setError(t("importExport.renameRequired", "选了「保留两者」就要填新名字，空着这条发过去是一行没名字的数据"));
+        setError(t("importExport.renameRequired", "Keep both needs a new name — an empty one imports a row with no name"));
         return;
       }
     }
@@ -376,20 +376,20 @@ export function ImportExportTab() {
     <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%" }}>
       {/* ── 导出区 ── */}
       <section className="glass" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
-        <SectionHeader icon="folder" title={t("importExport.exportTitle", "导出")} desc={t("importExport.exportDesc", "勾选要导出的内容，加密为单文件 .aidogx（密钥隐藏在文件内，人眼无法识别）。")} />
+        <SectionHeader icon="folder" title={t("importExport.exportTitle", "Export")} desc={t("importExport.exportDesc", "Select what to export; it is encrypted into a single .aidogx file (key hidden inside, unreadable to humans).")} />
 
         {/* scope 区头：标题 + 全选/反选 + 选中计数 */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
-              {t("importExport.scopeHeader", "导出范围")}
+              {t("importExport.scopeHeader", "Export scope")}
             </span>
-            <TextButton onClick={() => { selectAll(); setExportPreview(null); }}>{t("importExport.selectAll", "全选")}</TextButton>
-            <TextButton onClick={() => { deselectAll(); setExportPreview(null); }}>{t("importExport.deselectAll", "反选")}</TextButton>
+            <TextButton onClick={() => { selectAll(); setExportPreview(null); }}>{t("importExport.selectAll", "Select all")}</TextButton>
+            <TextButton onClick={() => { deselectAll(); setExportPreview(null); }}>{t("importExport.deselectAll", "Deselect all")}</TextButton>
           </div>
           <StatChip
             value={`${selectedCount} / ${ALL_SCOPES.length}`}
-            label={t("importExport.selectedLabel", "已选")}
+            label={t("importExport.selectedLabel", "selected")}
             level={(selectedCount > 0 ? "success" : "neutral") as ColorLevel}
           />
         </div>
@@ -443,7 +443,7 @@ export function ImportExportTab() {
                 display: "inline-block",
               }}
             />
-            {t("importExport.loadingPreview", "加载中…")}
+            {t("importExport.loadingPreview", "Loading…")}
           </div>
         )}
         {!previewing && exportPreview && exportPreview.items.length > 0 && (
@@ -462,7 +462,7 @@ export function ImportExportTab() {
         )}
         {!previewing && exportPreview && exportPreview.items.length === 0 && (
           <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-            {t("importExport.exportEmpty", "所选范围暂无可导出条目")}
+            {t("importExport.exportEmpty", "No items to export in the selected scopes")}
           </div>
         )}
 
@@ -473,12 +473,12 @@ export function ImportExportTab() {
           style={{ alignSelf: "flex-end" }}
         >
           {exporting
-            ? t("importExport.exporting", "导出中…")
+            ? t("importExport.exporting", "Exporting…")
             : previewing
-              ? t("importExport.loadingPreview", "加载中…")
+              ? t("importExport.loadingPreview", "Loading…")
               : exportPreview
-                ? t("importExport.exportN", "导出 {{n}} 项", { n: exportSelCount })
-                : t("importExport.exportBtn", "导出")}
+                ? t("importExport.exportN", "Export {{n}} items", { n: exportSelCount })
+                : t("importExport.exportBtn", "Choose path & export")}
         </Button>
 
         {exportMsg && <SuccessPathCard message={exportMsg} />}
@@ -486,7 +486,7 @@ export function ImportExportTab() {
 
       {/* ── 导入区 ── */}
       <section className="glass" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
-        <SectionHeader icon="worktree" title={t("importExport.importTitle", "导入")} desc={t("importExport.importDesc", "选择 .aidogx 文件，程序自动解密。冲突项逐条决策；Skill 自动安装并恢复原启用状态。")} />
+        <SectionHeader icon="worktree" title={t("importExport.importTitle", "Import")} desc={t("importExport.importDesc", "Pick a .aidogx file; it's auto-decrypted. Decide each conflict; Skills auto-install with original enable state.")} />
 
         {/* 导入入口：点击选文件 或 原生拖入 .aidogx（dragActive 高亮）。
             票 10：浏览器形态下拖入拿不到绝对路径（沙箱只给文件内容），而导入按路径走后端，
@@ -497,16 +497,16 @@ export function ImportExportTab() {
           onDrop={isTauri() ? undefined : (e) => {
             e.preventDefault();
             setDragActive(false);
-            setError(t("importExport.dropUnsupportedInBrowser", "浏览器里拖入文件取不到完整路径，请点这里手动填写 .aidogx 的路径。"));
+            setError(t("importExport.dropUnsupportedInBrowser", "A browser drop gives no full path — click here and type the path to your .aidogx file instead."));
           }}
         >
           <DropZone
             onClick={handlePickFile}
             active={dragActive}
-            title={t("importExport.pickFile", "选择 .aidogx 文件")}
+            title={t("importExport.pickFile", "Pick .aidogx file")}
             hint={isTauri()
-              ? t("importExport.dropHint", "点击选择，或将 .aidogx 拖到此处 · 自动解密 · Skill 自动安装")
-              : t("importExport.pickHintBrowser", "点击输入 .aidogx 的完整路径（支持补全）· 自动解密 · Skill 自动安装")}
+              ? t("importExport.dropHint", "Auto-decrypt · Skills auto-install")
+              : t("importExport.pickHintBrowser", "Click to type the full path to your .aidogx (with completion) · auto-decrypt · skills auto-installed")}
           />
         </div>
 
@@ -514,8 +514,8 @@ export function ImportExportTab() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* 概要卡：来源机器 + 导出时间 meta 行 + counts StatChip 行 */}
             <div className="glass-surface" style={{ padding: 14, borderRadius: "var(--radius-lg)", display: "flex", flexDirection: "column", gap: 12 }}>
-              <MetaRow label={t("importExport.sourceMachine", "来源机器")} value={preview.manifest.source_machine} />
-              <MetaRow label={t("importExport.createdAt", "导出时间")} value={preview.manifest.created_at} />
+              <MetaRow label={t("importExport.sourceMachine", "Source machine")} value={preview.manifest.source_machine} />
+              <MetaRow label={t("importExport.createdAt", "Exported at")} value={preview.manifest.created_at} />
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {Object.entries(preview.counts).map(([k, v]) => (
                   <StatChip
@@ -548,11 +548,11 @@ export function ImportExportTab() {
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                   <strong style={{ fontSize: 14, color: "var(--color-warning)" }}>
-                    {t("importExport.conflicts", "冲突（{{n}} 项）", { n: preview.conflicts.length })}
+                    {t("importExport.conflicts", "Conflicts ({{n}})", { n: preview.conflicts.length })}
                   </strong>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <TextButton onClick={() => bulkSet("overwrite")}>{t("importExport.bulkOverwrite", "全部覆盖")}</TextButton>
-                    <TextButton onClick={() => bulkSet("skip")}>{t("importExport.bulkSkip", "全部跳过")}</TextButton>
+                    <TextButton onClick={() => bulkSet("overwrite")}>{t("importExport.bulkOverwrite", "Overwrite all")}</TextButton>
+                    <TextButton onClick={() => bulkSet("skip")}>{t("importExport.bulkSkip", "Skip all")}</TextButton>
                   </div>
                 </div>
                 {preview.conflicts.map((c) => {
@@ -579,8 +579,8 @@ export function ImportExportTab() {
               style={{ alignSelf: "flex-end" }}
             >
               {importing
-                ? t("importExport.applying", "导入中…")
-                : t("importExport.applyN", "应用导入（{{n}} 项）", { n: selectedItems.size })}
+                ? t("importExport.applying", "Importing…")
+                : t("importExport.applyN", "Import ({{n}})", { n: selectedItems.size })}
             </Button>
           </div>
         )}

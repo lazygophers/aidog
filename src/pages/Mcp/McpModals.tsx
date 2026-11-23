@@ -57,10 +57,10 @@ export function McpModals({ d }: { d: McpData }) {
         <DialogContent className="glass-elevated" style={{ maxWidth: "min(560px, 90vw)", maxHeight: "80vh", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <DialogTitle style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
-              {t("mcp.scanTitle", "扫描导入 MCP")}
+              {t("mcp.scanTitle", "Scan & Import MCP")}
             </DialogTitle>
             <span style={{ color: "var(--text-tertiary)", fontSize: 14 }}>
-              {scanning ? t("mcp.scanning", "扫描中…") : `${scanItems.length}`}
+              {scanning ? t("mcp.scanning", "Scanning…") : `${scanItems.length}`}
             </span>
             <div style={{ flex: 1 }} />
             <Button
@@ -80,18 +80,18 @@ export function McpModals({ d }: { d: McpData }) {
               }}
               disabled={scanning || importing}
             >
-              {t("mcp.toggleAll", "全选/反选")}
+              {t("mcp.toggleAll", "Toggle all")}
             </Button>
           </div>
 
           <div style={{ maxHeight: "50vh", overflow: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
             {scanning ? (
               <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 14 }}>
-                {t("mcp.scanning", "扫描中…")}
+                {t("mcp.scanning", "Scanning…")}
               </div>
             ) : scanItems.length === 0 ? (
               <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 14 }}>
-                {t("mcp.scanEmpty", "两 agent 配置无 MCP")}
+                {t("mcp.scanEmpty", "No MCP found in either agent config.")}
               </div>
             ) : (
               scanItems.map((it) => {
@@ -138,7 +138,7 @@ export function McpModals({ d }: { d: McpData }) {
                         ))}
                         {disabled && (
                           <span style={{ fontSize: 14, color: "var(--success)" }}>
-                            {t("mcp.alreadyImported", "已导入")}
+                            {t("mcp.alreadyImported", "Imported")}
                           </span>
                         )}
                       </div>
@@ -154,7 +154,7 @@ export function McpModals({ d }: { d: McpData }) {
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
             <Button variant="outline" onClick={() => setScanOpen(false)} disabled={importing}>
-              {t("common.cancel", "取消")}
+              {t("common.cancel", "Cancel")}
             </Button>
             <Button
               className="ripple"
@@ -162,8 +162,8 @@ export function McpModals({ d }: { d: McpData }) {
               disabled={importing || selected.size === 0}
             >
               {importing
-                ? t("mcp.importing", "导入中…")
-                : t("mcp.import", { count: selected.size, defaultValue: `导入 ${selected.size}` })}
+                ? t("mcp.importing", "Importing…")
+                : t("mcp.import", { count: selected.size, defaultValue: "Import {{count}}" })}
             </Button>
           </div>
         </DialogContent>
@@ -177,11 +177,11 @@ export function McpModals({ d }: { d: McpData }) {
         <DialogContent className="glass-elevated" style={{ maxWidth: "min(560px, 90vw)", maxHeight: "80vh", gap: 12 }}>
           <DialogHeader>
             <DialogTitle style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
-              {t("mcp.pasteTitle", "粘贴 JSON 导入")}
+              {t("mcp.pasteTitle", "Import from pasted JSON")}
             </DialogTitle>
           </DialogHeader>
           <p style={{ margin: "0 0 12px", fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-            {t("mcp.pasteHint", "粘贴 Claude 格式 MCP 配置（含 mcpServers 包裹或直接 名称→配置 映射）。同名跳过，导入后逐 agent 启用。")}
+            {t("mcp.pasteHint", "Paste a Claude-format MCP config (with mcpServers wrapper or a direct name→config map). Duplicates are skipped; enable per agent after import.")}
           </p>
           <JsonCodeEditor
             value={pasteText}
@@ -192,14 +192,14 @@ export function McpModals({ d }: { d: McpData }) {
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
             <Button variant="outline" onClick={() => setPasteOpen(false)} disabled={pasteBusy}>
-              {t("common.cancel", "取消")}
+              {t("common.cancel", "Cancel")}
             </Button>
             <Button
               className="ripple"
               onClick={(e) => { makeRipple(e); void handlePasteImport(); }}
               disabled={pasteBusy || !pasteText.trim()}
             >
-              {pasteBusy ? t("mcp.importing", "导入中…") : t("mcp.import", "导入")}
+              {pasteBusy ? t("mcp.importing", "Importing…") : t("mcp.importAction", "Import")}
             </Button>
           </div>
         </DialogContent>
@@ -213,24 +213,24 @@ export function McpModals({ d }: { d: McpData }) {
         <AlertDialogContent className="glass-elevated">
           <AlertDialogHeader>
             <AlertDialogTitle style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
-              {t("mcp.deleteTitle", "删除 MCP")}
+              {t("mcp.deleteTitle", "Delete MCP")}
             </AlertDialogTitle>
             <AlertDialogDescription style={{ margin: "12px 0", fontSize: 14, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
               {deleteTarget && t("mcp.deleteConfirm", {
                 name: deleteTarget.name,
-                defaultValue: `将从 DB + 所有 enabled agent 配置移除「${deleteTarget.name}」，不可恢复`,
+                defaultValue: 'Removes "{{name}}" from DB + all enabled agent configs. Irreversible.',
               })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>
-              {t("common.cancel", "取消")}
+              {t("common.cancel", "Cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { makeRipple(e); void handleDelete(); }}
               className="ripple bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {t("common.delete", "删除")}
+              {t("common.delete", "Delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -245,8 +245,8 @@ export function McpModals({ d }: { d: McpData }) {
           <DialogHeader>
             <DialogTitle style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
               {editTarget === null
-                ? t("mcp.addTitle", "添加 MCP")
-                : t("mcp.editTitle", "编辑 MCP")}
+                ? t("mcp.addTitle", "Add MCP Server")
+                : t("mcp.editTitle", "Edit MCP")}
             </DialogTitle>
           </DialogHeader>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, overflow: "auto", paddingRight: 4 }}>
@@ -272,8 +272,8 @@ export function McpModals({ d }: { d: McpData }) {
                     }}
                   >
                     {tab === "rec"
-                      ? t("mcp.recTab", "推荐")
-                      : t("mcp.manualTab", "手动配置")}
+                      ? t("mcp.recTab", "Recommended")
+                      : t("mcp.manualTab", "Manual setup")}
                   </button>
                 ))}
               </div>
@@ -281,14 +281,14 @@ export function McpModals({ d }: { d: McpData }) {
             {editTarget !== null || addTab === "manual" ? (
               <>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
-              <span>{t("mcp.field.name", "名称")}</span>
+              <span>{t("mcp.field.name", "Name")}</span>
               <Input
                 value={editForm.name}
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
               />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
-              <span>{t("mcp.field.transport", "传输")}</span>
+              <span>{t("mcp.field.transport", "Transport")}</span>
               <Select
                 value={editForm.transport}
                 onValueChange={(v) => setEditForm((f) => ({ ...f, transport: v as McpTransport }))}
@@ -306,7 +306,7 @@ export function McpModals({ d }: { d: McpData }) {
             {editForm.transport === "stdio" ? (
               <>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
-                  <span>{t("mcp.field.command", "命令")}</span>
+                  <span>{t("mcp.field.command", "Command")}</span>
                   <Input
                     value={editForm.command}
                     placeholder="npx"
@@ -314,7 +314,7 @@ export function McpModals({ d }: { d: McpData }) {
                   />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14, color: "var(--text-secondary)" }}>
-                  <span>{t("mcp.field.args", "参数（每行一个）")}</span>
+                  <span>{t("mcp.field.args", "Arguments (one per line)")}</span>
                   <Textarea
                     style={{ minHeight: 64, fontFamily: "var(--font-mono)" }}
                     value={editForm.argsText}
@@ -322,7 +322,7 @@ export function McpModals({ d }: { d: McpData }) {
                   />
                 </div>
                 <KVRows
-                  label={t("mcp.field.env", "环境变量")}
+                  label={t("mcp.field.env", "Environment variables")}
                   rows={editForm.envRows}
                   onChange={(envRows) => setEditForm((f) => ({ ...f, envRows }))}
                 />
@@ -338,7 +338,7 @@ export function McpModals({ d }: { d: McpData }) {
                   />
                 </div>
                 <KVRows
-                  label={t("mcp.field.headers", "请求头")}
+                  label={t("mcp.field.headers", "Headers")}
                   rows={editForm.headersRows}
                   onChange={(headersRows) => setEditForm((f) => ({ ...f, headersRows }))}
                 />
@@ -349,7 +349,7 @@ export function McpModals({ d }: { d: McpData }) {
                   <div style={{ fontSize: 14, color: "var(--warning)", lineHeight: 1.6 }}>
                     {t("mcp.requiredKeyHint", {
                       keys: prefillMeta.requiredEnvKeys.join(", "),
-                      defaultValue: "{{keys}} 必填，申请地址：",
+                      defaultValue: "{{keys}} required, apply at:",
                     })}
                     {prefillMeta.docsUrl && (
                       <a
@@ -366,7 +366,7 @@ export function McpModals({ d }: { d: McpData }) {
                 {/* sse 传输：Codex 同步边界提示（Codex 支持 stdio 与 streamable http） */}
                 {editForm.transport === "sse" && (
                   <div style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-                    {t("mcp.codexNoSseHint", "Codex 不支持 sse，此项不会同步到 Codex")}
+                    {t("mcp.codexNoSseHint", "Codex does not support sse; this entry will not sync to Codex")}
                   </div>
                 )}
               </>
@@ -377,14 +377,14 @@ export function McpModals({ d }: { d: McpData }) {
           {(editTarget !== null || addTab === "manual") && (
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
             <Button variant="outline" onClick={() => { setEditTarget(null); setEditOpen(false); }} disabled={busyKey !== null}>
-              {t("common.cancel", "取消")}
+              {t("common.cancel", "Cancel")}
             </Button>
             <Button
               className="ripple"
               onClick={(e) => { makeRipple(e); void handleEditSave(); }}
               disabled={busyKey !== null}
             >
-              {busyKey !== null ? t("mcp.saving", "保存中…") : t("mcp.save", "保存")}
+              {busyKey !== null ? t("mcp.saving", "Saving…") : t("mcp.save", "Save")}
             </Button>
           </div>
           )}
@@ -440,14 +440,14 @@ function RecommendedPane({ d }: { d: McpData }) {
   if (d.recLoading) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 14 }}>
-        {t("common.loading", "加载中…")}
+        {t("common.loading", "Loading...")}
       </div>
     );
   }
   if (entries.length === 0) {
     return (
       <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 14 }}>
-        {t("mcp.recEmpty", "暂无推荐")}
+        {t("mcp.recEmpty", "No recommendations yet")}
       </div>
     );
   }
@@ -505,7 +505,7 @@ function RecommendedPane({ d }: { d: McpData }) {
                       {e.display_name || e.name}
                       {inst && (
                         <span style={{ fontSize: 14, fontWeight: 500, color: "var(--success)" }}>
-                          {t("mcp.installed", "已安装")}
+                          {t("mcp.installed", "Installed")}
                         </span>
                       )}
                     </div>

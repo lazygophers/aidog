@@ -326,7 +326,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
 
   // ── 三维度行列表（今日窗口）──
   const modelRows = useMemo(() => buildDimRows(dimModels), [dimModels]);
-  const ungroupedLabel = t("platform.ungrouped", "未分组平台");
+  const ungroupedLabel = t("platform.ungrouped", "Ungrouped platforms");
   const groupRows = useMemo(
     () => buildDimRows(dimGroups, ungroupedLabel),
     [dimGroups, ungroupedLabel],
@@ -353,8 +353,8 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
     ? P.muted
     : running ? "var(--color-success)" : P.muted;
   const statusText = running == null
-    ? t("home.statusUnknown", "未知")
-    : running ? t("home.statusRunning", "运行中") : t("home.statusStopped", "已停止");
+    ? t("home.statusUnknown", "Unknown")
+    : running ? t("home.statusRunning", "Running") : t("home.statusStopped", "Stopped");
 
   // 萤火虫动效：面板内 5 区块 reveal 入场错峰（0/70/140/210/280ms）。
   const revealSearch = useReveal<HTMLDivElement>(0);
@@ -366,19 +366,19 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
 
   const kpis = hasTodayData && today
     ? [
-      { label: t("home.cost", "费用"), value: formatMoney(today.cost), spark: costSeries, amber: true },
+      { label: t("home.cost", "Cost"), value: formatMoney(today.cost), spark: costSeries, amber: true },
       { label: t("home.tokens", "Token"), value: formatNumber(today.tokens), spark: tokensSeries },
-      { label: t("home.requests", "请求"), value: formatNumber(today.total_requests), spark: reqSeries },
-      { label: t("home.cacheRate", "缓存率"), value: formatPercent(today.cache_rate), spark: cacheSeries },
+      { label: t("home.requests", "Requests"), value: formatNumber(today.total_requests), spark: reqSeries },
+      { label: t("home.cacheRate", "Cache Rate"), value: formatPercent(today.cache_rate), spark: cacheSeries },
     ]
     : [];
 
   const footChips = useMemo(
     () => [
-      { label: t("home.addPlatform", "添加平台"), kbd: "⌘N", key: "n", run: () => onNavigate("platforms") },
-      { label: t("home.viewStats", "查看统计"), kbd: "⌘S", key: "s", run: () => onNavigate("stats") },
-      { label: t("home.viewLogs", "查看日志"), kbd: "⌘L", key: "l", run: () => onNavigate("logs") },
-      { label: t("home.copyBaseUrl", "复制代理地址"), kbd: "⌘C", key: "c", run: copyUrl },
+      { label: t("home.addPlatform", "Add Platform"), kbd: "⌘N", key: "n", run: () => onNavigate("platforms") },
+      { label: t("home.viewStats", "View Stats"), kbd: "⌘S", key: "s", run: () => onNavigate("stats") },
+      { label: t("home.viewLogs", "View Logs"), kbd: "⌘L", key: "l", run: () => onNavigate("logs") },
+      { label: t("home.copyBaseUrl", "Copy Proxy URL"), kbd: "⌘C", key: "c", run: copyUrl },
     ],
     [t, onNavigate, copyUrl],
   );
@@ -406,8 +406,8 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
     <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1200, margin: "0 auto", width: "100%" }}>
       {/* Header */}
       <div>
-        <div className="section-title">{t("page.home", "首页")}</div>
-        <div className="section-desc">{t("home.desc", "代理状态、今日用量与分组平台速览")}</div>
+        <div className="section-title">{t("page.home", "Home")}</div>
+        <div className="section-desc">{t("home.desc", "Proxy status, today's usage, and group/platform overview")}</div>
       </div>
 
       {/* 琥珀渐变眉条（Raycast 品牌渐变位换琥珀系） */}
@@ -440,17 +440,17 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
             }}
           />
           <span style={{ fontSize: F.body, fontWeight: 600, color: P.fg, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {t("home.proxyStatus", "代理服务")} {statusText} · {t("home.port", "端口")} {port}
+            {t("home.proxyStatus", "Proxy Service")} {statusText} · {t("home.port", "Port")} {port}
           </span>
           <button
             type="button"
             className="cmd-kb"
             style={{ marginInlineStart: "auto" }}
-            title={t("home.copyBaseUrlTitle", "复制代理 base_url")}
+            title={t("home.copyBaseUrlTitle", "Copy proxy base_url")}
             onClick={copyUrl}
           >
             <span className="k">⌘C</span>
-            {copied ? "✓" : t("home.copyBaseUrl", "复制代理地址")}
+            {copied ? "✓" : t("home.copyBaseUrl", "Copy Proxy URL")}
           </button>
         </div>
 
@@ -469,7 +469,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
             ))
           ) : (
             <div style={{ padding: "14px 16px", fontSize: F.hint, color: P.muted, background: P.s1 }}>
-              {loading ? "" : t("home.noToday", "今日暂无请求")}
+              {loading ? "" : t("home.noToday", "No requests today")}
             </div>
           )}
         </div>
@@ -515,7 +515,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
         >
           <DimPanel
             titleKey="home.byPlatform"
-            titleDefault="按平台 · 今日"
+            titleDefault="By platform · Today"
             rows={platformRows.rows}
             totalTokens={platformRows.total}
             sparks={platformSparks}
@@ -528,7 +528,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           />
           <DimPanel
             titleKey="home.byModel"
-            titleDefault="按模型 · 今日"
+            titleDefault="By model · Today"
             rows={modelRows.rows}
             totalTokens={modelRows.total}
             sparks={modelSparks}
@@ -537,7 +537,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           />
           <DimPanel
             titleKey="home.byGroup"
-            titleDefault="按分组 · 今日"
+            titleDefault="By group · Today"
             rows={groupRows.rows}
             totalTokens={groupRows.total}
             sparks={groupSparks}
@@ -561,7 +561,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
                 color: P.muted,
               }}
             >
-              <span>{t("home.totalBalance", "总余额")}</span>
+              <span>{t("home.totalBalance", "Total Balance")}</span>
               <b style={{ fontSize: 17, color: P.fg, fontFamily: P.mono, fontVariantNumeric: "tabular-nums" }}>
                 {formatMoney(totalBalance)}
               </b>
@@ -612,7 +612,7 @@ function DimPanel({
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
         <b style={{ fontSize: F.small + 1, color: P.fg }}>{t(titleKey, titleDefault)}</b>
         <span style={{ fontFamily: P.mono, fontSize: 14, color: P.muted }}>
-          TODAY · {t("home.dimMetric", "tokens / 花费 / 请求")}
+          TODAY · {t("home.dimMetric", "tokens / cost / requests")}
         </span>
       </div>
       {rows.length > 0 ? (
@@ -636,7 +636,7 @@ function DimPanel({
               >
                 {proto && <ProtocolLogo protocol={proto} size={18} />}
                 <span
-                  title={r.other ? t("home.dimOther", "其它") : r.name}
+                  title={r.other ? t("home.dimOther", "Other") : r.name}
                   style={{
                     fontSize: F.small + 1,
                     fontWeight: 600,
@@ -650,7 +650,7 @@ function DimPanel({
                     textAlign: "start",
                   }}
                 >
-                  {r.other ? t("home.dimOther", "其它") : r.name}
+                  {r.other ? t("home.dimOther", "Other") : r.name}
                 </span>
                 {/* 条长 = 该行 tokens 占全量比例（不是相对 top1，读者期望占比和为 100%） */}
                 <span style={{ flex: 1, height: 3, background: "rgba(232,197,71,.12)", borderRadius: 2, overflow: "hidden" }}>
@@ -691,7 +691,7 @@ function DimPanel({
         </div>
       ) : (
         <div style={{ fontSize: F.hint, color: P.muted, padding: "4px 0" }}>
-          {loading ? "" : t("home.noToday", "今日暂无请求")}
+          {loading ? "" : t("home.noToday", "No requests today")}
         </div>
       )}
     </div>

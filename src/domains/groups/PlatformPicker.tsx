@@ -56,7 +56,7 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
                   ref={handle.ref}
                   {...handle.attributes}
                   {...handle.listeners}
-                  title={t("group.dragToReorder", "拖动排序")}
+                  title={t("group.dragToReorder", "Drag to reorder")}
                   style={{
                     cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
                     lineHeight: 1, userSelect: "none", flexShrink: 0, touchAction: "none",
@@ -118,7 +118,7 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
               }
             }}>
             <SelectTrigger className="input" style={{ fontSize: PICKER_F.hint, padding: "6px 10px", flex: 1 }}>
-              <SelectValue>{t("group.addPlatform", "+ 添加平台")}</SelectValue>
+              <SelectValue>{t("group.addPlatform", "+ Add Platform")}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {options
@@ -132,7 +132,7 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
       )}
       {selectedCc && platformIds.length > 0 && (
         <div style={{ fontSize: PICKER_F.hint, color: "var(--color-warning, var(--text-tertiary))" }}>
-          {t("group.soloHint", "Claude Code 订阅平台只允许独占分组，不能与其他平台同组")}
+          {t("group.soloHint", "Claude Code subscription platform must be in a solo group — no other platforms allowed")}
         </div>
       )}
     </>

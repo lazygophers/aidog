@@ -66,7 +66,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
     try {
       await proxyLogApi.cleanupExpired();
       setShowCleanupConfirm(false);
-      flashMessage(t("logs.cleanupExpiredDone", "已清理过期日志"), "success");
+      flashMessage(t("logs.cleanupExpiredDone", "Expired logs cleaned up"), "success");
     } catch (e) {
       console.error("[LogSettings] cleanupExpired failed", e);
       flashMessage(String(e), "error");
@@ -81,7 +81,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
     try {
       await proxyLogApi.clear();
       setShowClearConfirm(false);
-      flashMessage(t("logs.clearDone", "已清空"), "success");
+      flashMessage(t("logs.clearDone", "Cleared"), "success");
     } catch (e) {
       flashMessage(String(e), "error");
     } finally {
@@ -96,9 +96,9 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="hour">{t("unit.hour", "小时")}</SelectItem>
-        <SelectItem value="day">{t("unit.day", "天")}</SelectItem>
-        <SelectItem value="week">{t("unit.week", "周")}</SelectItem>
+        <SelectItem value="hour">{t("unit.hour", "Hours")}</SelectItem>
+        <SelectItem value="day">{t("unit.day", "Days")}</SelectItem>
+        <SelectItem value="week">{t("unit.week", "Weeks")}</SelectItem>
       </SelectContent>
     </Select>
   );
@@ -114,9 +114,9 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.logRequests", "记录请求日志")}</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.logRequests", "Log Requests")}</div>
             <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-              {t("proxy.logRequestsDesc", "元数据（模型、耗时、Token、费用）恒记录；正文与请求头按下方开关控制")}
+              {t("proxy.logRequestsDesc", "Metadata (model, duration, tokens, cost) is always recorded; bodies and headers follow the toggles below")}
             </div>
           </div>
         </div>
@@ -125,18 +125,18 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
             <div style={{ paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.logUserReq", "记录用户原始请求")}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.logUserReq", "Log original user request")}</div>
                   <div className="text-tertiary" style={{ fontSize: 14, marginTop: 1 }}>
-                    {t("proxy.logUserReqDesc", "用户发送的请求头和请求体")}
+                    {t("proxy.logUserReqDesc", "Request headers and body sent by the client")}
                   </div>
                 </div>
                 <Switch data-testid="log-user-req-switch" checked={logUserReq} onCheckedChange={(c) => { setLogUserReq(c); void saveLog({ log_user_request: c }); }} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.logUpstreamReq", "记录实际上游请求")}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{t("proxy.logUpstreamReq", "Log upstream request")}</div>
                   <div className="text-tertiary" style={{ fontSize: 14, marginTop: 1 }}>
-                    {t("proxy.logUpstreamReqDesc", "发送到上游平台的请求头和请求体")}
+                    {t("proxy.logUpstreamReqDesc", "Request headers and body sent to the upstream platform; upstream error digests (up to 500 characters) are metadata and always retained")}
                   </div>
                 </div>
                 <Switch data-testid="log-upstream-req-switch" checked={logUpstreamReq} onCheckedChange={(c) => { setLogUpstreamReq(c); void saveLog({ log_upstream_request: c }); }} />
@@ -148,7 +148,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               {logUserReq && (
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
-                    {t("proxy.userReqRetention", "原始请求保留时间")}
+                    {t("proxy.userReqRetention", "User request retention time")}
                   </label>
                   <Input
                     type="number"
@@ -160,7 +160,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   />
                   {userReqRetention === 0 ? (
                     <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-                      {t("proxy.logRetentionForever", "永久保留")}
+                      {t("proxy.logRetentionForever", "Keep forever")}
                     </span>
                   ) : (
                     <UnitSelect value={userReqRetentionUnit} testId="user-req-retention-unit" onChange={(u) => { setUserReqRetentionUnit(u); void saveLog({ user_request_retention_unit: u }); }} />
@@ -170,7 +170,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               {logUpstreamReq && (
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
-                    {t("proxy.upstreamReqRetention", "上游请求保留时间")}
+                    {t("proxy.upstreamReqRetention", "Upstream request retention time")}
                   </label>
                   <Input
                     type="number"
@@ -182,7 +182,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   />
                   {upstreamReqRetention === 0 ? (
                     <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-                      {t("proxy.logRetentionForever", "永久保留")}
+                      {t("proxy.logRetentionForever", "Keep forever")}
                     </span>
                   ) : (
                     <UnitSelect value={upstreamReqRetentionUnit} testId="upstream-req-retention-unit" onChange={(u) => { setUpstreamReqRetentionUnit(u); void saveLog({ upstream_request_retention_unit: u }); }} />
@@ -191,7 +191,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               )}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
-                  {t("proxy.logRetention", "日志记录保留时间")}
+                  {t("proxy.logRetention", "Log retention time")}
                 </label>
                 <Input
                   type="number"
@@ -203,7 +203,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                 />
                 {logRetention === 0 ? (
                   <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-                    {t("proxy.logRetentionForever", "永久保留")}
+                    {t("proxy.logRetentionForever", "Keep forever")}
                   </span>
                 ) : (
                   <UnitSelect value={logRetentionUnit} testId="log-retention-unit" onChange={(u) => { setLogRetentionUnit(u); void saveLog({ retention_unit: u }); }} />
@@ -218,28 +218,28 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
             <Button variant="outline"
               onClick={() => setShowCleanupConfirm(true)}
               disabled={busy || logRetention === 0}
-              title={logRetention === 0 ? t("logs.cleanupDisabledHint", "永久保留模式，无过期日志可清理") : undefined}
+              title={logRetention === 0 ? t("logs.cleanupDisabledHint", "Retention forever mode — no expired logs to clean up") : undefined}
               style={{ fontSize: 14, padding: "4px 12px", height: 28, opacity: busy ? 0.6 : 1 }}
             >
-              {busy ? t("logs.cleaning", "清理中...") : t("logs.cleanupExpired", "清理过期")}
+              {busy ? t("logs.cleaning", "Cleaning...") : t("logs.cleanupExpired", "Cleanup Expired")}
             </Button>
             <Button variant="destructive"
               onClick={() => setShowClearConfirm(true)}
               disabled={busy}
               style={{ fontSize: 14, padding: "4px 12px", height: 28, opacity: busy ? 0.6 : 1 }}
             >
-              {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
+              {busy ? t("logs.cleaning", "Cleaning...") : t("logs.clear", "Clear All")}
             </Button>
           </div>
           {/* 预估三个数：超期行数 / 可回收 body 体积 / 库总大小。按钮旁常驻，清理后自动刷新。 */}
           <div className="text-tertiary" style={{ fontSize: 14, marginTop: 2 }}>
             {estimate
-              ? t("logs.cleanupEstimate", "当前有 {{rows}} 行超期、占 {{bytes}}，库总大小 {{size}}", {
+              ? t("logs.cleanupEstimate", "{{rows}} rows expired, using {{bytes}}; database total {{size}}", {
                   rows: formatNumber(estimate.overdue_rows),
                   bytes: formatBytes(estimate.overdue_body_bytes),
                   size: formatBytes(estimate.db_size_bytes),
                 })
-              : t("logs.cleanupEstimateLoading", "正在统计超期日志...")}
+              : t("logs.cleanupEstimateLoading", "Counting expired logs...")}
           </div>
           {message && (
             <div
@@ -268,9 +268,9 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("appLog.title", "应用日志")}</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("appLog.title", "Application Log")}</div>
             <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-              {t("appLog.desc", "控制台日志始终输出；以下设置仅影响日志文件")}
+              {t("appLog.desc", "Console logs are always output; settings below only affect log files")}
             </div>
           </div>
           <Switch checked={logFileEnabled} onCheckedChange={(c) => handleLogSettingsChange({ file_enabled: c })} />
@@ -280,7 +280,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
           <div style={{ display: "flex", gap: 16, alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                {t("appLog.level", "日志级别")}
+                {t("appLog.level", "Log Level")}
               </label>
               <Select value={logLevel} onValueChange={(v) => handleLogSettingsChange({ level: v })}>
                 <SelectTrigger style={{ width: 100, height: 28, fontSize: 14 }}>
@@ -295,7 +295,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <label style={{ fontSize: 14, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                {t("appLog.retention", "保留时长")}
+                {t("appLog.retention", "Retention")}
               </label>
               <Input
                 type="number"
@@ -305,11 +305,11 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                 style={{ width: 70, height: 28, fontSize: 14 }}
               />
               <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-                {t("appLog.retentionUnit", "小时")}
+                {t("appLog.retentionUnit", "hours")}
               </span>
             </div>
             <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>
-              {logRetHours === 0 ? t("appLog.retentionForever", "永久保留") : ""}
+              {logRetHours === 0 ? t("appLog.retentionForever", "Keep forever") : ""}
             </span>
           </div>
         )}
@@ -320,16 +320,16 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
         <DialogContent className="glass-surface" style={{ maxWidth: 380, padding: 20, borderRadius: "var(--radius-lg)", gap: 16 }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 14, fontWeight: 600 }}>
-              {t("logs.cleanupConfirmTitle", "清理过期日志")}
+              {t("logs.cleanupConfirmTitle", "Cleanup Expired Logs")}
             </DialogTitle>
             <DialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
               {estimate
-                ? t("logs.cleanupConfirm", "将删除 {{rows}} 行过期日志，释放约 {{bytes}}（库当前 {{size}}）。此操作不可撤销。", {
+                ? t("logs.cleanupConfirm", "Will delete {{rows}} expired log rows, freeing about {{bytes}} (database is currently {{size}}). This cannot be undone.", {
                     rows: formatNumber(estimate.overdue_rows),
                     bytes: formatBytes(estimate.overdue_body_bytes),
                     size: formatBytes(estimate.db_size_bytes),
                   })
-                : t("logs.cleanupConfirmNoEstimate", "将按当前保留期删除过期日志。此操作不可撤销。")}
+                : t("logs.cleanupConfirmNoEstimate", "Expired logs will be deleted according to the current retention period. This cannot be undone.")}
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -338,14 +338,14 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               disabled={busy}
               style={{ padding: "6px 14px", fontSize: 14 }}
             >
-              {t("logs.cancel", "取消")}
+              {t("logs.cancel", "Cancel")}
             </Button>
             <Button variant="destructive"
               onClick={handleCleanupConfirm}
               disabled={busy}
               style={{ padding: "6px 14px", fontSize: 14, opacity: busy ? 0.6 : 1 }}
             >
-              {busy ? t("logs.cleaning", "清理中...") : t("logs.cleanupExpired", "清理过期")}
+              {busy ? t("logs.cleaning", "Cleaning...") : t("logs.cleanupExpired", "Cleanup Expired")}
             </Button>
           </div>
         </DialogContent>
@@ -356,10 +356,10 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
         <DialogContent className="glass-surface" style={{ maxWidth: 380, padding: 20, borderRadius: "var(--radius-lg)", gap: 16 }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 14, fontWeight: 600 }}>
-              {t("logs.clearConfirmTitle", "清空全部日志")}
+              {t("logs.clearConfirmTitle", "Clear All Logs")}
             </DialogTitle>
             <DialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-              {t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。")}
+              {t("logs.clearConfirm", "Clear all logs? This cannot be undone.")}
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -368,14 +368,14 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               disabled={busy}
               style={{ padding: "6px 14px", fontSize: 14 }}
             >
-              {t("logs.cancel", "取消")}
+              {t("logs.cancel", "Cancel")}
             </Button>
             <Button variant="destructive"
               onClick={handleClearConfirm}
               disabled={busy}
               style={{ padding: "6px 14px", fontSize: 14, opacity: busy ? 0.6 : 1 }}
             >
-              {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
+              {busy ? t("logs.cleaning", "Cleaning...") : t("logs.clear", "Clear All")}
             </Button>
           </div>
         </DialogContent>

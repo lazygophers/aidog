@@ -55,22 +55,22 @@ export function SkillModals({ s }: { s: SkillsData }) {
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 380, padding: 24 }}>
           <AlertDialogHeader>
             <AlertDialogTitle style={{ fontSize: 15, fontWeight: 700 }}>
-              {t("skills.uninstallAll", "卸载全部")}
+              {t("skills.uninstallAll", "Uninstall All")}
             </AlertDialogTitle>
             <AlertDialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-              {t("skills.uninstallAllConfirm", "将删除当前范围下所有平台的全部 {{count}} 个 skills，不可恢复。确认？", { count: installed.length })}
+              {t("skills.uninstallAllConfirm", "This will remove all {{count}} skills across all platforms in the current scope. This cannot be undone. Continue?", { count: installed.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel style={{ fontSize: 14 }}>
-              {t("action.cancel", "取消")}
+              {t("action.cancel", "Cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { makeRipple(e); handleUninstallAll(); }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 ripple"
               style={{ fontSize: 14 }}
             >
-              {t("skills.uninstallAll", "卸载全部")}
+              {t("skills.uninstallAll", "Uninstall All")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -84,22 +84,22 @@ export function SkillModals({ s }: { s: SkillsData }) {
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 380, padding: 24 }}>
           <AlertDialogHeader>
             <AlertDialogTitle style={{ fontSize: 15, fontWeight: 700 }}>
-              {t("skills.uninstall", "卸载")}
+              {t("skills.uninstall", "Uninstall")}
             </AlertDialogTitle>
             <AlertDialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-              {uninstallTarget && t("skills.uninstallConfirm", "将删除 skill {{name}} 及其在所有 agent 的启用配置，不可恢复。确认？", { name: uninstallTarget.name })}
+              {uninstallTarget && t("skills.uninstallConfirm", "This will remove skill {{name}} and its enabled config for all agents. This cannot be undone. Confirm?", { name: uninstallTarget.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel style={{ fontSize: 14 }}>
-              {t("action.cancel", "取消")}
+              {t("action.cancel", "Cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { makeRipple(e); handleUninstallSingle(); }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 ripple"
               style={{ fontSize: 14 }}
             >
-              {t("skills.uninstall", "卸载")}
+              {t("skills.uninstall", "Uninstall")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -110,22 +110,22 @@ export function SkillModals({ s }: { s: SkillsData }) {
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 380, padding: 24 }}>
           <AlertDialogHeader>
             <AlertDialogTitle style={{ fontSize: 15, fontWeight: 700 }}>
-              {t("skills.uninstallSelected", "卸载选中 ({{count}})", { count: selectedNames.size })}
+              {t("skills.uninstallSelected", "Uninstall selected ({{count}})", { count: selectedNames.size })}
             </AlertDialogTitle>
             <AlertDialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-              {t("skills.uninstallSelectedConfirm", "将删除选中的 {{count}} 个 skills 及其在所有 agent 的启用配置，不可恢复。确认？", { count: selectedNames.size })}
+              {t("skills.uninstallSelectedConfirm", "This will permanently delete the {{count}} selected skills and their enablement config across all agents. Continue?", { count: selectedNames.size })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel style={{ fontSize: 14 }}>
-              {t("action.cancel", "取消")}
+              {t("action.cancel", "Cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { makeRipple(e); handleUninstallBatch(); }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 ripple"
               style={{ fontSize: 14 }}
             >
-              {t("skills.uninstall", "卸载")}
+              {t("skills.uninstall", "Uninstall")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -136,12 +136,12 @@ export function SkillModals({ s }: { s: SkillsData }) {
         <DialogContent className="glass-elevated" style={{ maxWidth: 400, padding: 24, gap: 16 }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 15, fontWeight: 700 }}>
-              {t("skills.alignTitle", "对齐配置")}
+              {t("skills.alignTitle", "Align Config")}
             </DialogTitle>
           </DialogHeader>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
-              <span style={{ minWidth: 72 }} className="text-secondary">{t("skills.alignFrom", "源 agent")}</span>
+              <span style={{ minWidth: 72 }} className="text-secondary">{t("skills.alignFrom", "Source agent")}</span>
               <Select value={alignFrom} onValueChange={(v) => setAlignFrom(v as SkillAgent)}>
                 <SelectTrigger style={{ flex: 1, fontSize: 14 }}>
                   <SelectValue />
@@ -154,7 +154,7 @@ export function SkillModals({ s }: { s: SkillsData }) {
               </Select>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
-              <span style={{ minWidth: 72 }} className="text-secondary">{t("skills.alignTo", "目标 agent")}</span>
+              <span style={{ minWidth: 72 }} className="text-secondary">{t("skills.alignTo", "Target agent")}</span>
               <Select value={alignTo} onValueChange={(v) => setAlignTo(v as SkillAgent)}>
                 <SelectTrigger style={{ flex: 1, fontSize: 14 }}>
                   <SelectValue />
@@ -169,15 +169,15 @@ export function SkillModals({ s }: { s: SkillsData }) {
           </div>
           <div style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
             {alignFrom === alignTo
-              ? t("skills.alignSameAgent", "源与目标不能相同")
-              : t("skills.alignConfirm", "将使 {{to}} 的启用配置与 {{from}} 完全一致（启用 {{from}} 已启用的、关闭 {{from}} 未启用的）。", {
+              ? t("skills.alignSameAgent", "Source and target must differ")
+              : t("skills.alignConfirm", "Will make {{to}}'s enabled skills match {{from}} exactly (enable what {{from}} has, disable what {{from}} lacks).", {
                   from: t(`skills.agent.${alignFrom}`, alignFrom),
                   to: t(`skills.agent.${alignTo}`, alignTo),
                 })}
           </div>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <Button variant="outline" style={{ fontSize: 14 }} onClick={() => setAlignOpen(false)}>
-              {t("action.cancel", "取消")}
+              {t("action.cancel", "Cancel")}
             </Button>
             <Button
               className="ripple"
@@ -185,7 +185,7 @@ export function SkillModals({ s }: { s: SkillsData }) {
               disabled={alignFrom === alignTo}
               onClick={(e) => { makeRipple(e); handleAlign(); }}
             >
-              {t("skills.alignTitle", "对齐配置")}
+              {t("skills.alignTitle", "Align Config")}
             </Button>
           </div>
         </DialogContent>
@@ -215,21 +215,21 @@ export function SkillModals({ s }: { s: SkillsData }) {
         <DialogContent className="glass-elevated" style={{ maxWidth: "min(560px, 90vw)", padding: 20, gap: 10 }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 15, fontWeight: 700 }}>
-              {t("skills.pasteTitle", "从分享导入")}
+              {t("skills.pasteTitle", "Import from share")}
             </DialogTitle>
           </DialogHeader>
           <div style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-            {t("skills.pasteHint", "粘贴他人分享的 skill 文本（base64 / JSON / aidog:// 链接的 data 部分）。")}
+            {t("skills.pasteHint", "Paste a shared skill text (base64 / JSON / the data portion of an aidog:// link).")}
           </div>
           <Textarea
             style={{ minHeight: 160, fontFamily: "var(--font-mono, monospace)", resize: "vertical" }}
             value={pasteText}
-            placeholder="aidog://skill/import?data=... 或 base64 或 JSON 数组"
+            placeholder={t("skills.pastePlaceholder", "aidog://skill/import?data=..., base64, or a JSON array")}
             onChange={(e) => setPasteText(e.target.value)}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
             <Button variant="outline" style={{ fontSize: 14 }} onClick={() => setPasteOpen(false)}>
-              {t("action.cancel", "取消")}
+              {t("action.cancel", "Cancel")}
             </Button>
             <Button
               className="ripple"
@@ -237,7 +237,7 @@ export function SkillModals({ s }: { s: SkillsData }) {
               onClick={(e) => { makeRipple(e); handlePasteImport(); }}
               disabled={!pasteText.trim()}
             >
-              {t("skills.importBtn", "导入")}
+              {t("skills.importBtn", "Import")}
             </Button>
           </div>
         </DialogContent>
@@ -251,11 +251,11 @@ export function SkillModals({ s }: { s: SkillsData }) {
         <DialogContent className="glass-elevated" style={{ maxWidth: "min(560px, 92vw)", maxHeight: "82vh", padding: 22, gap: 12, overflow: "auto" }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 15, fontWeight: 700 }}>
-              {t("skills.importConfirmTitle", "确认导入 skills")}
+              {t("skills.importConfirmTitle", "Confirm skill import")}
             </DialogTitle>
           </DialogHeader>
           <div style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-            {importIds !== null && t("skills.importConfirmDesc", "将安装以下 {{count}} 个 skill（npx skills add，需联网）：", { count: importIds.length })}
+            {importIds !== null && t("skills.importConfirmDesc", "Will install the following {{count}} skill(s) via npx skills add (requires network):", { count: importIds.length })}
           </div>
           {importIds !== null && (
             <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: "30vh", overflow: "auto", padding: 8, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-glass)" }}>
@@ -266,7 +266,7 @@ export function SkillModals({ s }: { s: SkillsData }) {
           )}
           {/* scope 选择 */}
           <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
-            <span className="text-secondary" style={{ minWidth: 56 }}>{t("skills.scope", "范围")}</span>
+            <span className="text-secondary" style={{ minWidth: 56 }}>{t("skills.scope", "Scope")}</span>
             <Select
               value={importScopeKind}
               onValueChange={(v) => setImportScopeKind(v as "global" | "project")}
@@ -276,14 +276,14 @@ export function SkillModals({ s }: { s: SkillsData }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="global">{t("skills.scopeGlobal", "用户级（全局）")}</SelectItem>
-                <SelectItem value="project">{t("skills.scopeProject", "项目级")}</SelectItem>
+                <SelectItem value="global">{t("skills.scopeGlobal", "User (global)")}</SelectItem>
+                <SelectItem value="project">{t("skills.scopeProject", "Project")}</SelectItem>
               </SelectContent>
             </Select>
             {importScopeKind === "project" && (
               <Input
                 style={{ flex: 1 }}
-                placeholder={t("skills.projectPathPlaceholder", "项目目录绝对路径")}
+                placeholder={t("skills.projectPathPlaceholder", "Absolute project directory path")}
                 value={importProjectPath}
                 onChange={(e) => setImportProjectPath(e.target.value)}
                 disabled={importBusy}
@@ -292,7 +292,7 @@ export function SkillModals({ s }: { s: SkillsData }) {
           </div>
           {/* agent 多选 */}
           <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 14, flexWrap: "wrap" }}>
-            <span className="text-secondary" style={{ minWidth: 56 }}>{t("skills.importAgents", "目标 agent")}</span>
+            <span className="text-secondary" style={{ minWidth: 56 }}>{t("skills.importAgents", "Target agents")}</span>
             {AGENTS.map((a) => {
               const on = importAgents.has(a);
               return (
@@ -328,7 +328,7 @@ export function SkillModals({ s }: { s: SkillsData }) {
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
             <Button variant="outline" style={{ fontSize: 14 }} onClick={() => setImportIds(null)} disabled={importBusy}>
-              {t("action.cancel", "取消")}
+              {t("action.cancel", "Cancel")}
             </Button>
             <Button
               className="ripple"
@@ -336,7 +336,7 @@ export function SkillModals({ s }: { s: SkillsData }) {
               onClick={(e) => { makeRipple(e); void handleImport(); }}
               disabled={importBusy || importAgents.size === 0 || (importScopeKind === "project" && importProjectPath.trim() === "") || !env?.npx_available}
             >
-              {importBusy ? t("skills.installing", "导入中…") : t("skills.importBtn", "导入")}
+              {importBusy ? t("skills.installing", "Importing…") : t("skills.importBtn", "Import")}
             </Button>
           </div>
         </DialogContent>

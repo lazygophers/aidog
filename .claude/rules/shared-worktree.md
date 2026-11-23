@@ -94,6 +94,22 @@
      未跟踪文件 `tar` 进同目录，用 `git status --short` 列出清单；然后通知 peer 会话等它们收工；
      执行后 `git apply --3way dirty.patch` 还原，并告知各会话核对；
    - 不跑 `gc --prune=now`：保留 reflog 和悬空对象，误操作后才有救。
+   - **重写后对齐主 checkout 优先零接触法**（2026-11-22 密钥清除战役跑通）：mixed reset（`git reset` 不带
+     `--hard`/`--soft`）只挪分支指针、不动工作区，再 `git checkout -- <指定路径>` 恢复个别路径，全程不动在途
+     脏文件；用重写前后对脏文件路径的 patch diff 证明未动。快照-还原（上条）是重写命令必须进主仓时的兜底，
+     不再是首选。
+   - **重写后本地旧分支 / refs 缓存的「已合并」判据失效**（2026-11-22 实锤：`merge-base --is-ancestor` 对全部
+     旧分支报 0，祖先关系已被切断）：改用 GitHub PR 官方状态——`gh pr view <N> --json state,headRefName`
+     要求 `state == "MERGED"` 且 headRefName 与本地分支名一致；PR 标题里的 `(#N)` 可能是 issue 号，不能直接
+     当 PR 号（首轮实锤），分支名→PR 号 fallback `gh pr list --head <分支> --state all`。`fetch` 过的
+     `refs/remotes/origin/*`、`refs/pull/*` 缓存引用同批清理。
+   - **mirror 克隆本地路径时 origin 指回本地仓库**：`git clone --mirror /local/path mirror.git` 的 origin 是
+     本地路径，push 前先 `git -C mirror.git remote -v` 核对，改指真实远端（`git remote set-url origin <URL>`）
+     或 push 时写显式 URL；不核对会把强推打回本地盘空转。
+   - **分支保护与历史重写的相互作用**（2026-11-22 起）：secret-scan CI 设为 master 必需检查、`strict=true`、
+     `allow_force_pushes=false` 后 master 禁强推。未来历史重写需临时 `gh api` 开 allow_force_pushes，推完
+     立即关回；CI 门禁口径是 PR/push **区间扫描**（新增提交范围），不是全历史——全历史扫描撞 108 处测试
+     假密钥/文档占位符属基线红，禁改成全量扫描当门禁。
 
 ### 非交互选择性暂存：patch 过滤（2026-11-11 ~ 11-12 中间件 / session id 轮实锤）
 
@@ -452,3 +468,16 @@ fix-159 agent 的 worktree `.worktrees/fix/char-second-est-cost` 与本地分支
 - **预检查的是「分支相对 origin/master 只含自己的提交」，不是「origin/master 是分支祖先」**：写预检条件前对照「推送只走 origin」节的既有判据，不发明新的祖先关系条件。
 - 预检因 origin/master 前进失败时的正解：`git fetch origin && git merge origin/master`（进分支）解冲突后重跑预检再 push；这不是 push 禁令的例外，是预检失败的标准处置。本地 master 领先 origin 的 ff-only 同步失败属正常（见「多个 agent 同时动主 checkout 的 master」节），留待 master 管理方处理。
 
+
+## 隔离构建期间 `make lint` 仍会在主 target 上不取锁跑 clippy（2026-11-22 中文字面量门禁轮）
+
+agent 等 `/tmp/aidog-cargo.lock` 超 30 分钟（他会话自 00:53 持有），按「构建目录」节改走 detach worktree + `target-iso` 跑 clippy / test，绿后删 10G target-iso。但 `make lint` 内含 `cargo clippy --workspace`（`Makefile:108`），照常在主仓 `src-tauri/target` 上不经锁执行。
+
+- 改走隔离构建后，`make lint` 同样放进隔离 worktree 跑，或等锁释放后再在主仓跑；回报写明 `make lint` 跑在哪个 target、是否持锁。
+- 判据：清单里任何会触发 cargo 的命令（`make lint`、`yarn test:statusline-golden` 等）都算 cargo 步骤，不只是显式写出的 `cargo …`。
+
+## commit message 里的计数取自命令输出（2026-11-23 eb212248f）
+
+agent 提交正文写「45 处改半角」，实际 47 处（53 = 47 + 4 + 2）；提交后才发现，按禁改历史未 amend，只能记账本遗留。
+
+- 正文里的处数 / 文件数 / 测试数从本轮脚本输出或 `git diff --cached --stat` 抄，各分项相加核对总数后再提交。

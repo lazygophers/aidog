@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use super::vars::substitute_vars;
 use aidog_db::models::{NotifForm, NotifType};
+use aidog_i18n::Lang;
 
 /// 分发选定通道（按 form 解析；纯函数便于单测）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,6 +83,7 @@ pub(crate) const BRAND_FALLBACK: &str = "aidog";
 ///   注入品牌兜底名（`aidog`），故得「aidog 完成」而非空串 / `{project}` 字面 / 英文退化。
 pub(crate) fn render(
     notif_type: NotifType,
+    lang: Lang,
     template: &str,
     content: Option<&str>,
     vars: &HashMap<String, String>,
@@ -97,10 +99,10 @@ pub(crate) fn render(
         content.unwrap_or_default()
     };
     let body = if raw_body.is_empty() {
-        let dt = notif_type.default_template();
+        let dt = notif_type.default_template(lang);
         if dt.is_empty() {
             // default_template 理论空时最末兜底，避免空串。
-            substitute_vars(default_title(notif_type), vars)
+            substitute_vars(default_title(notif_type, lang), vars)
         } else {
             // 无 project 时注入品牌兜底名，杜绝 `{project}` 字面残留。
             let has_project = vars
@@ -121,11 +123,14 @@ pub(crate) fn render(
     (substitute_vars(&title, vars), body)
 }
 
-/// 类型默认标题（英文中性，前端按 i18n 展示，此处仅弹窗/收件箱兜底）。
-pub(crate) fn default_title(t: NotifType) -> &'static str {
-    match t {
-        NotifType::TaskComplete => "Task Complete",
-        NotifType::WaitingInput => "Waiting for Input",
-        NotifType::Error => "Error",
-    }
+/// 类型默认标题（按界面语言，与前端类型标签同 key `notif.type.*`；仅弹窗/收件箱兜底）。
+pub(crate) fn default_title(t: NotifType, lang: Lang) -> &'static str {
+    aidog_i18n::tr(
+        lang,
+        match t {
+            NotifType::TaskComplete => "notif.type.task_complete",
+            NotifType::WaitingInput => "notif.type.waiting_input",
+            NotifType::Error => "notif.type.error",
+        },
+    )
 }

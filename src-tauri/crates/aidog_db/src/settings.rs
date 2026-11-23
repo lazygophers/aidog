@@ -39,6 +39,17 @@ pub fn decrypt_setting_value(scope: &str, raw: &str) -> Result<String, String> {
     }
 }
 
+/// 当前界面语言：前端切语言时写入 `app/locale`（`AppContext.tsx` 持久化），读不到回退英文。
+pub async fn get_app_lang(db: &Db) -> aidog_i18n::Lang {
+    get_setting(db, "app", "locale")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.get("locale").and_then(|s| s.as_str()).map(String::from))
+        .map(|s| aidog_i18n::Lang::from_locale(&s))
+        .unwrap_or_default()
+}
+
 #[track_caller]
 pub fn get_setting<'a>(
     db: &'a Db,

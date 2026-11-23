@@ -81,9 +81,9 @@ export function AgentUpdateSection() {
       style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
     >
       <div>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("agentUpdate.title", "Agent 版本更新")}</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("agentUpdate.title", "Agent Updates")}</div>
         <div className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>
-          {t("agentUpdate.desc", "检测各 agent 版本，并按安装来源执行对应的更新命令。")}
+          {t("agentUpdate.desc", "Check agent versions and run the matching update command for each install source.")}
         </div>
       </div>
 
@@ -95,7 +95,7 @@ export function AgentUpdateSection() {
 
       {loading ? (
         <div className="text-secondary" style={{ fontSize: 14 }}>
-          {t("common.loading", "加载中…")}
+          {t("common.loading", "Loading...")}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -120,8 +120,8 @@ export function AgentUpdateSection() {
               >
                 <div style={{ fontWeight: 600, minWidth: 90 }}>{toolLabel(s.tool)}</div>
                 <div className="text-secondary" style={{ fontSize: 14, fontFamily: "ui-monospace, Menlo, monospace" }}>
-                  {s.installed ? `v${s.version ?? "?"}` : t("agentUpdate.notInstalled", "未安装")}
-                  {s.latest_version ? ` → v${s.latest_version}` : s.installed ? ` → ${t("agentUpdate.unknown", "未知")}` : ""}
+                  {s.installed ? `v${s.version ?? "?"}` : t("agentUpdate.notInstalled", "Not installed")}
+                  {s.latest_version ? ` → v${s.latest_version}` : s.installed ? ` → ${t("agentUpdate.unknown", "unknown")}` : ""}
                 </div>
                 {s.source && (
                   <div
@@ -148,11 +148,11 @@ export function AgentUpdateSection() {
                     disabled={busyTool !== null || s.has_update !== true}
                     onClick={() => setPending(s.tool as CliTool)}
                   >
-                    {busyTool === s.tool ? t("agentUpdate.updating", "更新中…") : t("agentUpdate.update", "更新")}
+                    {busyTool === s.tool ? t("agentUpdate.updating", "Updating…") : t("agentUpdate.update", "Update")}
                   </Button>
                 ) : (
                   <div className="text-secondary" data-testid={`agent-update-hint-${s.tool}`} style={{ fontSize: 14 }}>
-                    {t("agentUpdate.manualHint", "该安装方式暂不支持自动更新，请手动升级")}
+                    {t("agentUpdate.manualHint", "This install source does not support automatic updates; upgrade manually")}
                   </div>
                 )}
               </div>
@@ -166,13 +166,13 @@ export function AgentUpdateSection() {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("agentUpdate.confirmTitle", { tool: pending ? toolLabel(pending) : "" })}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("agentUpdate.confirmDesc", "将按该工具的安装来源执行更新命令，可能需要下载。确认继续？")}
+              {t("agentUpdate.confirmDesc", "This runs the update command for this tool's install source and may download files. Continue?")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="agent-update-cancel">{t("common.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogCancel data-testid="agent-update-cancel">{t("common.cancel", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction data-testid="agent-update-confirm" onClick={() => pending && apply(pending)}>
-              {t("agentUpdate.confirmOk", "确认更新")}
+              {t("agentUpdate.confirmOk", "Update now")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

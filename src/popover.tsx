@@ -238,7 +238,7 @@ function Popover() {
   }, [data, groups, groupDetails, t, statsCtx]);
 
   if (!data) {
-    return <div ref={rootRef} className="popover-root popover-loading">{t("common.loading", "加载中...")}</div>;
+    return <div ref={rootRef} className="popover-root popover-loading">{t("common.loading", "Loading...")}</div>;
   }
 
   return (

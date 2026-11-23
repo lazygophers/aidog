@@ -30,14 +30,14 @@ export function PlatformRowCols({ t, riseDelay }: { t: TFunction; riseDelay?: nu
       ...(riseDelay != null ? { animationDelay: `${riseDelay}ms` } : {}),
     }}>
       <span /><span />
-      <span>{t("platform.col.name", "平台")}</span>
-      <span>{t("platform.col.quota", "余额 / 配额")}</span>
-      <span style={{ textAlign: "right" }}>{t("platform.col.today", "今日")}</span>
-      <span style={{ textAlign: "right" }}>{t("platform.col.successRate", "成功率")}</span>
-      <span style={{ textAlign: "right" }}>{t("platform.col.latency", "延迟")}</span>
-      <span style={{ textAlign: "right" }}>{t("platform.col.models", "模型")}</span>
-      <span>{t("platform.col.lastTest", "最近测速")}</span>
-      <span style={{ textAlign: "right" }}>{t("platform.col.ops", "操作")}</span>
+      <span>{t("platform.col.name", "Platform")}</span>
+      <span>{t("platform.col.quota", "Balance / quota")}</span>
+      <span style={{ textAlign: "right" }}>{t("platform.col.today", "Today")}</span>
+      <span style={{ textAlign: "right" }}>{t("platform.col.successRate", "Success")}</span>
+      <span style={{ textAlign: "right" }}>{t("platform.col.latency", "Latency")}</span>
+      <span style={{ textAlign: "right" }}>{t("platform.col.models", "Models")}</span>
+      <span>{t("platform.col.lastTest", "Last test")}</span>
+      <span style={{ textAlign: "right" }}>{t("platform.col.ops", "Actions")}</span>
     </div></div>
   );
 }
@@ -184,7 +184,7 @@ export function PlatformRow({
   });
 
   const refreshBtn = onRefreshQuota && (
-    <button type="button" data-testid="row-refresh-quota" title={t("platform.quotaRefresh", "刷新额度")}
+    <button type="button" data-testid="row-refresh-quota" title={t("platform.quotaRefresh", "Refresh quota")}
       disabled={refreshing} onClick={(e) => { e.stopPropagation(); onRefreshQuota(p); }}
       style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", color: "var(--text-tertiary)", display: "inline-flex", lineHeight: 0 }}>
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -260,22 +260,22 @@ export function PlatformRow({
             )}
             {p.platform_type === "claude_code" && (
               <span style={badgeStyle("var(--primary)", "var(--accent-subtle)", "color-mix(in srgb, var(--primary) 40%, transparent)")}>
-                {t("platform.subBadge", "订阅")}
+                {t("platform.subBadge", "Subscription")}
               </span>
             )}
             {showProxyBadge && (
-              <span data-testid="row-proxy-badge" title={t("platform.useProxyDesc", "该平台的出站请求经「设置 → 代理配置」的代理地址转发。")} style={badgeStyle("var(--text-secondary)", "color-mix(in srgb, var(--foreground) 5%, transparent)", "var(--border)")}>
-                {t("platform.proxyBadge", "代理")}
+              <span data-testid="row-proxy-badge" title={t("platform.useProxyDesc", "Outbound requests of this platform go through the proxy configured in Settings → Proxy.")} style={badgeStyle("var(--text-secondary)", "color-mix(in srgb, var(--foreground) 5%, transparent)", "var(--border)")}>
+                {t("platform.proxyBadge", "Proxy")}
               </span>
             )}
             {rlCount > 0 && (
               <span style={badgeStyle("var(--text-secondary)", "color-mix(in srgb, var(--foreground) 5%, transparent)", "var(--border)")}>
-                {t("platform.rateLimitBadge", "限频 {{n}} 窗口", { n: rlCount })}
+                {t("platform.rateLimitBadge", "{{n}} rate windows", { n: rlCount })}
               </span>
             )}
             {disableDuringPeak && inPeak && (
               <span style={badgeStyle("var(--color-warning)", "color-mix(in srgb, var(--color-warning) 12%, transparent)", "color-mix(in srgb, var(--color-warning) 35%, transparent)")}>
-                {t("platform.peak_disabled_badge", "高峰禁用中")}
+                {t("platform.peak_disabled_badge", "Peak-disabled")}
               </span>
             )}
             {!disableDuringPeak && hitWin && (
@@ -286,13 +286,13 @@ export function PlatformRow({
             {status === "auto_disabled" && (
               <span style={badgeStyle("var(--color-warning)", "color-mix(in srgb, var(--color-warning) 12%, transparent)", "color-mix(in srgb, var(--color-warning) 35%, transparent)")}>
                 {p.auto_disabled_until > nowMs
-                  ? t("platform.autoDisabledRetry", "自动禁用 · {{time}} 重试", { time: hhmm(p.auto_disabled_until) })
-                  : t("platform.autoDisabledBadge", "自动禁用")}
+                  ? t("platform.autoDisabledRetry", "Auto-disabled · retry {{time}}", { time: hhmm(p.auto_disabled_until) })
+                  : t("platform.autoDisabledBadge", "Auto-disabled")}
               </span>
             )}
             {/* per-group 候选优先级（1-10）：数字输入直改（值域真值源 RouteCandidate.level_priority） */}
             {onLevelPriorityChange && (
-              <LevelPriorityInput testId="row-level" title={t("platform.levelPriority", "候选优先级")}
+              <LevelPriorityInput testId="row-level" title={t("platform.levelPriority", "Candidate priority")}
                 value={levelPriority ?? 5} onChange={onLevelPriorityChange} />
             )}
           </span>
@@ -304,10 +304,10 @@ export function PlatformRow({
             const at = failed ? formatRelativeTime(p.last_error_at) : null;
             return (
               <span data-testid="row-last-outcome" data-result={failed ? "fail" : "ok"}
-                title={failed ? t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}").replace("{{time}}", at ?? "-").replace("{{error}}", p.last_error) : undefined}
+                title={failed ? t("platform.lastErrorHint", "Last failure · {{time}}\n{{error}}").replace("{{time}}", at ?? "-").replace("{{error}}", p.last_error) : undefined}
                 style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 14, color: failed ? "var(--color-danger)" : "var(--text-tertiary)" }}>
                 <span style={{ fontWeight: 600, flexShrink: 0 }}>
-                  {failed ? t("platform.lastOutcomeFail", "失败") : t("platform.lastOutcomeOk", "正常")}
+                  {failed ? t("platform.lastOutcomeFail", "Failed") : t("platform.lastOutcomeOk", "OK")}
                 </span>
                 {failed && <span data-testid="row-last-outcome-reason" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{p.last_error}</span>}
                 {at && <span data-testid="row-last-outcome-time" style={{ color: "var(--text-tertiary)", whiteSpace: "nowrap", flexShrink: 0 }}>{at}</span>}
@@ -324,14 +324,14 @@ export function PlatformRow({
               const resetClock = formatResetClock(tier.resetsAt);
               return (
                 <span key={tier.name} data-testid="row-quota-tier" data-tier={tier.name}
-                  title={`${tierLabel(tier.name)} ${t("platform.quotaRemainSuffix", "剩")} ${tier.remainPct.toFixed(0)}%${countdown ? ` · ${countdown}` : ""}`}
+                  title={`${tierLabel(tier.name)} ${t("platform.quotaRemainSuffix", "left")} ${tier.remainPct.toFixed(0)}%${countdown ? ` · ${countdown}` : ""}`}
                   style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, color: "var(--text-tertiary)", minWidth: 0 }}>
                   <span style={{ width: 32, flexShrink: 0 }}>{tierLabel(tier.name)}</span>
                   <span style={{ flex: 1, height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
                     <span style={{ display: "block", height: "100%", borderRadius: 99, width: `${Math.max(0, Math.min(100, tier.remainPct))}%`, background: tierColor }} />
                   </span>
                   <span className="num" style={{ fontVariantNumeric: "tabular-nums", color: tierColor, fontWeight: 600 }}>{tier.remainPct.toFixed(0)}%</span>
-                  {resetClock && <span style={{ whiteSpace: "nowrap" }} title={`${t("platform.quotaResetAt", "重置于")} ${resetClock}`}>{resetClock}</span>}
+                  {resetClock && <span style={{ whiteSpace: "nowrap" }} title={`${t("platform.quotaResetAt", "resets at")} ${resetClock}`}>{resetClock}</span>}
                   {i === 0 && refreshBtn}
                 </span>
               );
@@ -352,7 +352,7 @@ export function PlatformRow({
                     </span>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                       <span className="num" style={{ fontVariantNumeric: "tabular-nums" }}>
-                        {quota.balanceTotal != null ? `/ ${formatMoney(quota.balanceTotal)}` : isAcu ? "ACU" : t("platform.col.balance", "余额")}
+                        {quota.balanceTotal != null ? `/ ${formatMoney(quota.balanceTotal)}` : isAcu ? "ACU" : t("platform.col.balance", "Balance")}
                       </span>
                       {refreshBtn}
                     </span>
@@ -373,7 +373,7 @@ export function PlatformRow({
                       {isUsd ? formatMoney(Math.max(0, mb.remaining)) : formatNumber(Math.max(0, mb.remaining))}
                     </span>
                     <span className="num" style={{ fontVariantNumeric: "tabular-nums", color: "var(--text-tertiary)" }}>
-                      {isUsd ? `/ ${formatMoney(mb.amount)}` : `/ ${formatNumber(mb.amount)} ${mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "次") : "tok"}`}
+                      {isUsd ? `/ ${formatMoney(mb.amount)}` : `/ ${formatNumber(mb.amount)} ${mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "req") : "tok"}`}
                     </span>
                   </span>
                   <span style={{ height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
@@ -387,24 +387,24 @@ export function PlatformRow({
           )}
           {/* Coding plan 使用情况（对齐 PlatformCard：累计 tokens + 预估金额） */}
           {(isCpProtocol || hasCodingEndpoint) && u && (
-            <span data-testid="row-coding-usage" title={t("platform.codingUsedHint", "本平台累计已用 tokens 与预估金额（基于实际请求估算）")}
+            <span data-testid="row-coding-usage" title={t("platform.codingUsedHint", "Cumulative tokens used and estimated cost for this platform (based on actual requests)")}
               style={{ fontSize: 14, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap" }}>
               ⚡ {formatNumber(u.total_input_tokens + u.total_output_tokens)} · {formatMoney(u.total_cost)}
             </span>
           )}
         </span>
         {/* 列 5-8：今日 / 成功率 / 延迟 / 模型 */}
-        <StatCell testId="row-today-cost" v={u ? formatMoney(u.today_cost) : "—"} l={t("platform.col.today", "今日")} tone={u ? undefined : "dim"} />
-        <StatCell v={sRate != null ? formatPercent(sRate, 1) : "—"} l={t("platform.col.successRate", "成功率")}
+        <StatCell testId="row-today-cost" v={u ? formatMoney(u.today_cost) : "—"} l={t("platform.col.today", "Today")} tone={u ? undefined : "dim"} />
+        <StatCell v={sRate != null ? formatPercent(sRate, 1) : "—"} l={t("platform.col.successRate", "Success")}
           tone={sRate == null ? "dim" : sRate >= 98 ? "ok" : sRate >= 90 ? "warn" : undefined} />
-        <StatCell v={lastTest ? formatDurationMs(lastTest.duration_ms) : "—"} l={t("platform.col.latency", "延迟")} tone={lastTest ? undefined : "dim"} />
-        <StatCell testId="row-models-count" v={String(configuredModels.length)} l={t("platform.col.models", "模型")} />
+        <StatCell v={lastTest ? formatDurationMs(lastTest.duration_ms) : "—"} l={t("platform.col.latency", "Latency")} tone={lastTest ? undefined : "dim"} />
+        <StatCell testId="row-models-count" v={String(configuredModels.length)} l={t("platform.col.models", "Models")} />
 
         {/* 列 9：最近测速 */}
         <span data-testid="row-last-test" data-result={testOk == null ? "none" : testOk ? "ok" : "fail"}
           style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, color: "var(--text-secondary)", minWidth: 0 }}>
           {testing ? (
-            <span style={{ color: "var(--text-tertiary)" }}>{t("status.testing", "测试中…")}</span>
+            <span style={{ color: "var(--text-tertiary)" }}>{t("status.testing", "Testing…")}</span>
           ) : testOk == null ? (
             <span style={{ color: "var(--text-tertiary)" }}>—</span>
           ) : (
@@ -416,7 +416,7 @@ export function PlatformRow({
                 color: testOk ? "var(--color-success)" : "var(--color-danger)",
               }}>{testOk ? "✓" : "✕"}</span>
               <span className="num" style={{ fontVariantNumeric: "tabular-nums" }}>
-                {testOk ? (lastTest ? formatDurationMs(lastTest.duration_ms) : "") : (lastTest?.status_code ?? t("platform.testFail", "失败"))}
+                {testOk ? (lastTest ? formatDurationMs(lastTest.duration_ms) : "") : (lastTest?.status_code ?? t("platform.testFail", "Test failed"))}
               </span>
               {ago && <span style={{ color: "var(--text-tertiary)" }}>{ago}</span>}
             </>
@@ -424,34 +424,34 @@ export function PlatformRow({
         </span>
         {/* 列 10：操作（稿 .ops：⚡ 测速 · ✎ 编辑 · ⋯ 菜单 · 启用开关） */}
         <span style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "flex-end" }} onClick={e => e.stopPropagation()}>
-          <button type="button" className="ripple" title={t("platform.quickTest", "测速")} style={iconBtn({ color: "var(--color-warning)" })}
+          <button type="button" className="ripple" title={t("platform.quickTest", "Quick Test")} style={iconBtn({ color: "var(--color-warning)" })}
             onClick={() => onQuickTest?.(p)}>
             <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor"><path d="M8.2 1.2L3 8h3.4l-.8 4.8L11 6H7.4z" /></svg>
           </button>
-          <button type="button" className="ripple" title={t("action.edit", "编辑")} style={iconBtn()} onClick={() => onEdit?.(p)}>
+          <button type="button" className="ripple" title={t("action.edit", "Edit")} style={iconBtn()} onClick={() => onEdit?.(p)}>
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M9.8 1.8l2.4 2.4L5 11.4l-3 .6.6-3z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" /></svg>
           </button>
           {onDetail && <button type="button" className="ripple" data-testid="row-detail-button"
-            aria-label={t("platform.detailHint", "查看平台详情")} title={t("platform.detailHint", "查看平台详情")} style={iconBtn()} onClick={() => onDetail(p)}>
+            aria-label={t("platform.detailHint", "View platform details")} title={t("platform.detailHint", "View platform details")} style={iconBtn()} onClick={() => onDetail(p)}>
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
               <circle cx="7" cy="7" r="5.2" /><path d="M7 6.4v3.2M7 4.5h.01" />
             </svg>
           </button>}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" data-testid="row-menu" title={t("platform.more", "更多")} style={iconBtn()}>
+              <button type="button" data-testid="row-menu" title={t("platform.more", "More")} style={iconBtn()}>
                 <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor"><circle cx="3" cy="7" r="1.3" /><circle cx="7" cy="7" r="1.3" /><circle cx="11" cy="7" r="1.3" /></svg>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" style={{ minWidth: 142 }}>
-              {onViewLogs && <DropdownMenuItem onSelect={() => onViewLogs(p)}>{t("platform.viewLogs", "查看日志")}</DropdownMenuItem>}
-              {onShare && <DropdownMenuItem onSelect={() => onShare(p)}>{t("platform.share.button", "分享配置")}</DropdownMenuItem>}
-              {onDuplicate && <DropdownMenuItem onSelect={() => onDuplicate(p)}>{t("platform.duplicate", "复制平台")}</DropdownMenuItem>}
-              {onDelete && <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(p.id)}>{t("platform.deletePlatformMenu", "删除平台…")}</DropdownMenuItem>}
+              {onViewLogs && <DropdownMenuItem onSelect={() => onViewLogs(p)}>{t("platform.viewLogs", "View Logs")}</DropdownMenuItem>}
+              {onShare && <DropdownMenuItem onSelect={() => onShare(p)}>{t("platform.share.button", "Share")}</DropdownMenuItem>}
+              {onDuplicate && <DropdownMenuItem onSelect={() => onDuplicate(p)}>{t("platform.duplicate", "Duplicate")}</DropdownMenuItem>}
+              {onDelete && <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(p.id)}>{t("platform.deletePlatformMenu", "Delete platform…")}</DropdownMenuItem>}
             </DropdownMenuContent>
           </DropdownMenu>
           <button type="button" role="switch" aria-checked={enabled} data-testid="row-toggle" data-state={enabled ? "on" : "off"}
-            title={enabled ? t("platform.disable", "禁用") : t("platform.enable", "启用")}
+            title={enabled ? t("platform.disable", "Disable") : t("platform.enable", "Enable")}
             onClick={() => onToggle?.(p)}
             style={{
               width: 32, height: 19, borderRadius: 99, position: "relative", cursor: "pointer", flexShrink: 0,
@@ -476,7 +476,7 @@ export function PlatformRow({
         }}>
           <div>
             <h4 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.02em", margin: "0 0 9px" }}>
-              {t("platform.detail.models", "模型（{{n}}）", { n: configuredModels.length })}
+              {t("platform.detail.models", "Models ({{n}})", { n: configuredModels.length })}
             </h4>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {configuredModels.slice(0, 12).map((m, i) => (
@@ -494,18 +494,18 @@ export function PlatformRow({
           </div>
           <div>
             <h4 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.02em", margin: "0 0 9px" }}>
-              {t("platform.detail.limits", "限频与预算")}
+              {t("platform.detail.limits", "Rate limits & budgets")}
             </h4>
             {rlConfigured && (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead><tr>
-                  <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.window", "窗口")}</th>
+                  <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.window", "Window")}</th>
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>RPM</th>
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>TPM</th>
                 </tr></thead>
                 <tbody>
                   <tr>
-                    <td style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--foreground)" }}>{t("platform.detail.allDay", "全天")}</td>
+                    <td style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--foreground)" }}>{t("platform.detail.allDay", "All day")}</td>
                     <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>{rlBase?.rpm ?? "—"}</td>
                     <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>{rlBase?.tpm != null ? formatNumber(rlBase.tpm) : "—"}</td>
                   </tr>
@@ -515,8 +515,8 @@ export function PlatformRow({
             {(rateLimitsBundle.quota_windows?.length ?? 0) > 0 && (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, marginTop: 10 }}>
                 <thead><tr>
-                  <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.quotaWindow", "额度窗口")}</th>
-                  <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.budget", "预算")}</th>
+                  <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.quotaWindow", "Quota window")}</th>
+                  <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.budget", "Budget")}</th>
                 </tr></thead>
                 <tbody>
                   {rateLimitsBundle.quota_windows!.map((w, i) => (
@@ -525,7 +525,7 @@ export function PlatformRow({
                       <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
                         {w.budget_tokens != null ? formatNumber(w.budget_tokens) + " tokens"
                           : w.budget_usd != null ? formatMoney(w.budget_usd)
-                          : w.budget_count != null ? formatNumber(w.budget_count) + " " + t("platform.detail.countUnit", "次")
+                          : w.budget_count != null ? formatNumber(w.budget_count) + " " + t("platform.detail.countUnit", "reqs")
                           : w.budget_points != null ? formatNumber(w.budget_points) + " pts" : "—"}
                       </td>
                     </tr>
@@ -536,14 +536,14 @@ export function PlatformRow({
             {(p.manual_budgets ?? []).length > 0 && (
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, marginTop: 10 }}>
                 <thead><tr>
-                  <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.budget", "预算")}</th>
-                  <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.used", "已用")}</th>
+                  <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.budget", "Budget")}</th>
+                  <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.used", "Used")}</th>
                 </tr></thead>
                 <tbody>
                   {p.manual_budgets.filter(b => b.enabled).map(b => (
                     <tr key={b.id}>
                       <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--foreground)" }}>
-                        {b.unit === "usd" ? formatMoney(b.amount) : `${formatNumber(b.amount)} ${b.unit === "token" ? "tokens" : t("platform.detail.countUnit", "次")}`}
+                        {b.unit === "usd" ? formatMoney(b.amount) : `${formatNumber(b.amount)} ${b.unit === "token" ? "tokens" : t("platform.detail.countUnit", "reqs")}`}
                       </td>
                       <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>
                         {b.unit === "usd" ? formatMoney(b.consumed) : formatNumber(b.consumed)}

@@ -46,8 +46,8 @@ export function PathPickerHost() {
   const title =
     options.title ??
     (options.directory
-      ? t("settings.editor.chooseDir", "选择目录")
-      : t("settings.editor.chooseFile", "选择文件"));
+      ? t("settings.editor.chooseDir", "Choose Directory")
+      : t("settings.editor.chooseFile", "Choose File"));
 
   const extHint = options.filters?.flatMap((f) => f.extensions.map((e) => `.${e}`)).join(" / ");
 
@@ -58,8 +58,8 @@ export function PathPickerHost() {
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             {options.save
-              ? t("pathPicker.saveHint", "浏览器里没有系统「保存到」对话框，请直接填写要写入的完整路径。")
-              : t("pathPicker.openHint", "浏览器里没有系统文件对话框，请直接输入路径（输入 ~/ 浏览主目录，Tab 补全）。")}
+              ? t("pathPicker.saveHint", "Browsers have no native “Save as” dialog — type the full path to write to.")
+              : t("pathPicker.openHint", "Browsers have no native file dialog — type the path directly (start with ~/ to browse your home folder, Tab to complete).")}
             {extHint ? ` (${extHint})` : ""}
           </DialogDescription>
         </DialogHeader>
@@ -72,14 +72,14 @@ export function PathPickerHost() {
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => finish(null)}>
-            {t("common.cancel", "取消")}
+            {t("common.cancel", "Cancel")}
           </Button>
           <Button
             variant="default"
             disabled={!value.trim()}
             onClick={() => finish(value.trim())}
           >
-            {t("action.confirm", "确认")}
+            {t("action.confirm", "Confirm")}
           </Button>
         </DialogFooter>
       </DialogContent>

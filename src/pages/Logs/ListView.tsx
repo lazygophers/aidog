@@ -57,10 +57,10 @@ export function ListView({ filters, list, openDetail, copyRow }: {
       {/* Header */}
       <div className="section-header" style={{ justifyContent: "space-between" }}>
         <div>
-          <div className="section-title">{t("page.logs", "请求日志")}</div>
+          <div className="section-title">{t("page.logs", "Proxy Log")}</div>
           <div className="section-desc">
             {/* logs-query-ipc-slimming s2：不再精确 COUNT(*)，仅按当前页有无数据判空 */}
-            {logs.length > 0 ? t("logs.totalUnknown", "日志列表") : t("logs.empty", "暂无日志")}
+            {logs.length > 0 ? t("logs.totalUnknown", "Log list") : t("logs.empty", "No logs yet.")}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -73,10 +73,10 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           {logs.length > 0 && (
             <>
               <Button variant="default" className="ripple" onClick={(e) => { makeRipple(e); handleCleanupExpired(); }} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
-                {t("logs.cleanupExpired", "清理过期")}
+                {t("logs.cleanupExpired", "Cleanup Expired")}
               </Button>
               <Button variant="destructive" className="ripple" onClick={(e) => { makeRipple(e); setShowClearConfirm(true); }} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
-                {t("logs.clear", "清除全部")}
+                {t("logs.clear", "Clear All")}
               </Button>
             </>
           )}
@@ -93,11 +93,11 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           options={[
             ...platforms.map(p => ({ value: String(p.id), label: p.name, searchTerms: protocolTerms[p.platform_type] })),
             // 隧道请求 host 未命中任何平台 → platform_id=0
-            { value: "0", label: t("logs.noPlatform", "无平台") },
+            { value: "0", label: t("logs.noPlatform", "No platform") },
           ]}
-          allLabel={t("logs.filterPlatform", "平台")}
-          searchPlaceholder={t("stats.searchPlatform", "搜索平台")}
-          emptyLabel={t("stats.noMatch", "无匹配结果")}
+          allLabel={t("logs.filterPlatform", "Platform")}
+          searchPlaceholder={t("stats.searchPlatform", "Search platform")}
+          emptyLabel={t("stats.noMatch", "No match")}
         />
         {/* Group */}
         <FilterDropdown
@@ -107,21 +107,21 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           options={[
             ...groups.map(g => ({ value: g.group.group_key, label: g.group.name })),
             // 隧道请求无 apikey → group_key=''（sentinel 映射见 activeFilter）
-            { value: NO_GROUP_SENTINEL, label: t("logs.noGroup", "无分组") },
+            { value: NO_GROUP_SENTINEL, label: t("logs.noGroup", "No group") },
           ]}
-          allLabel={t("logs.filterGroup", "分组")}
-          searchPlaceholder={t("stats.searchGroup", "搜索分组")}
-          emptyLabel={t("stats.noMatch", "无匹配结果")}
+          allLabel={t("logs.filterGroup", "Group")}
+          searchPlaceholder={t("stats.searchGroup", "Search group")}
+          emptyLabel={t("stats.noMatch", "No match")}
         />
         {/* Status */}
         <FilterSelect
           value={filterStatus}
           onChange={setFilterStatus}
           options={[
-            { value: "success", label: t("logs.statusSuccess", "成功") },
-            { value: "error", label: t("logs.statusError", "失败") },
+            { value: "success", label: t("logs.statusSuccess", "Success") },
+            { value: "error", label: t("logs.statusError", "Failed") },
           ]}
-          placeholder={t("logs.filterStatus", "状态")}
+          placeholder={t("logs.filterStatus", "Status")}
         />
         {/* Time range */}
         <FilterSelect
@@ -134,26 +134,26 @@ export function ListView({ filters, list, openDetail, copyRow }: {
             { value: "7d", label: "7d" },
             { value: "30d", label: "30d" },
           ]}
-          placeholder={t("logs.filterTime", "时间")}
+          placeholder={t("logs.filterTime", "Time")}
         />
         {/* 日志类型：默认全部（含隧道连接） */}
         <FilterSelect
           value={filterType}
           onChange={setFilterType}
           options={[
-            { value: "request", label: t("logs.typeRequest", "AI 请求") },
-            { value: "tunnel", label: t("logs.typeTunnel", "隧道连接") },
+            { value: "request", label: t("logs.typeRequest", "AI requests") },
+            { value: "tunnel", label: t("logs.typeTunnel", "Tunnel connections") },
           ]}
-          placeholder={t("logs.filterType", "类型")}
+          placeholder={t("logs.filterType", "Type")}
         />
         {/* 中间件观察模式命中（票 04）：只看「规则命中但放行」的请求 */}
         <FilterSelect
           value={filterObserved}
           onChange={setFilterObserved}
           options={[
-            { value: "observed", label: t("logs.observedOnly", "观察模式命中") },
+            { value: "observed", label: t("logs.observedOnly", "Observe-mode hits") },
           ]}
-          placeholder={t("logs.filterMiddleware", "中间件")}
+          placeholder={t("logs.filterMiddleware", "Middleware")}
         />
         {/* 请求模型 / 实际模型：两个独立下拉，可同时过滤（AND） */}
         <FilterDropdown
@@ -162,9 +162,9 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           value={filterModel}
           onChange={setFilterModel}
           options={modelOptions.map(m => ({ value: m, label: m }))}
-          allLabel={t("logs.model", "请求模型")}
-          searchPlaceholder={t("stats.searchModel", "搜索模型")}
-          emptyLabel={t("stats.noMatch", "无匹配结果")}
+          allLabel={t("logs.model", "Requested Model")}
+          searchPlaceholder={t("stats.searchModel", "Search model")}
+          emptyLabel={t("stats.noMatch", "No match")}
         />
         <FilterDropdown
           width={170}
@@ -172,16 +172,16 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           value={filterActualModel}
           onChange={setFilterActualModel}
           options={actualModelOptions.map(m => ({ value: m, label: m }))}
-          allLabel={t("logs.actualModel", "实际模型")}
-          searchPlaceholder={t("stats.searchModel", "搜索模型")}
-          emptyLabel={t("stats.noMatch", "无匹配结果")}
+          allLabel={t("logs.actualModel", "Actual Model")}
+          searchPlaceholder={t("stats.searchModel", "Search model")}
+          emptyLabel={t("stats.noMatch", "No match")}
         />
         {/* Path search — LIKE match on request_url */}
         <Input
           type="text"
           value={filterPath}
           onChange={e => setFilterPath(e.target.value)}
-          placeholder={t("logs.filterPath", "搜索路径（如 /v1/messages）")}
+          placeholder={t("logs.filterPath", "Search path (e.g. /v1/messages)")}
           style={{ fontSize: F.small, height: 30, maxWidth: 180, minWidth: 120 }}
         />
         {/* Claude Code 网关提示头：prompt-id / session-id 精确匹配 */}
@@ -190,7 +190,7 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           data-testid="log-filter-prompt-id"
           value={filterPromptId}
           onChange={e => setFilterPromptId(e.target.value)}
-          placeholder={t("logs.filterPromptId", "提示词 ID")}
+          placeholder={t("logs.filterPromptId", "Filter by prompt ID")}
           style={{ fontSize: F.small, height: 30, maxWidth: 160, minWidth: 110 }}
         />
         <Input
@@ -198,13 +198,13 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           data-testid="log-filter-session-id"
           value={filterSessionId}
           onChange={e => setFilterSessionId(e.target.value)}
-          placeholder={t("logs.filterSessionId", "会话 ID")}
+          placeholder={t("logs.filterSessionId", "Filter by session ID")}
           style={{ fontSize: F.small, height: 30, maxWidth: 160, minWidth: 110 }}
         />
         {/* 会话归组键（magpie 票 09 会话统计下钻）：仅导航入口带入，chip 展示 + 可移除 */}
         {filterSession && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: F.small, height: 30, padding: "0 8px", borderRadius: 6, background: "var(--accent-subtle)", color: "var(--accent)", maxWidth: 200, overflow: "hidden" }}>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t("logs.sessionFilter", "会话")}: {filterSession}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t("logs.sessionFilter", "Session")}: {filterSession}</span>
             <button type="button" data-testid="clear-session-filter" onClick={() => setFilterSession("")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit", display: "inline-flex" }}>
               <IconClose size={11} />
             </button>
@@ -213,7 +213,7 @@ export function ListView({ filters, list, openDetail, copyRow }: {
         {/* Clear */}
         {hasFilter && (
           <Button variant="ghost" type="button" onClick={clearFilter} style={{ fontSize: F.small, height: "auto", padding: "2px 8px", color: "var(--text-tertiary)" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><IconClose size={11} /> {t("logs.clearFilter", "清除")}</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><IconClose size={11} /> {t("logs.clearFilter", "Clear")}</span>
           </Button>
         )}
       </div>
@@ -233,9 +233,9 @@ export function ListView({ filters, list, openDetail, copyRow }: {
               <TableHeader>
                 <ThCell>{t("logs.time")}</ThCell>
                 <ThCell>{t("logs.group")}</ThCell>
-                <ThCell>{t("logs.platform", "平台")}</ThCell>
-                <ThCell>{t("logs.model", "请求模型")}</ThCell>
-                <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
+                <ThCell>{t("logs.platform", "Platform")}</ThCell>
+                <ThCell>{t("logs.model", "Requested Model")}</ThCell>
+                <ThCell>{t("logs.actualModel", "Actual Model")}</ThCell>
                 <ThCell>{t("logs.userAgent", "UA")}</ThCell>
                 <ThCell>{t("logs.status")}</ThCell>
                 <ThCell>{t("logs.duration")}</ThCell>
@@ -281,22 +281,22 @@ export function ListView({ filters, list, openDetail, copyRow }: {
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 380, padding: 20 }}>
           <AlertDialogHeader>
             <AlertDialogTitle style={{ fontSize: 14, fontWeight: 600 }}>
-              {t("logs.clearConfirmTitle", "清空全部日志")}
+              {t("logs.clearConfirmTitle", "Clear All Logs")}
             </AlertDialogTitle>
             <AlertDialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-              {t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。")}
+              {t("logs.clearConfirm", "Clear all logs? This cannot be undone.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel style={{ padding: "6px 14px", fontSize: 14 }}>
-              {t("logs.cancel", "取消")}
+              {t("logs.cancel", "Cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="ripple"
               onClick={(e) => { makeRipple(e); handleClear(); }}
               style={{ padding: "6px 14px", fontSize: 14, background: "var(--color-danger)" }}
             >
-              {t("logs.clear", "清除全部")}
+              {t("logs.clear", "Clear All")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

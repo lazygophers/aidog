@@ -315,13 +315,13 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     if (!found) return;
     groupDetailApi.movePlatform(pid, 0, found.gid)
       .then(() => {
-        setToast({ text: "已加入分组", ok: true });
+        setToast({ text: t("group.addedToGroupNoName", "Added to group"), ok: true });
         // 拖到分组特例（见顶部「一致性规则」— 故意漏 reloadRef）：平台行本身不变，仅刷 groupDetails
         //   重建 membership（卡片即移到目标组）+ 事件广播供 GroupsEmbedded 等跨组件同步，无需整页 load()。
         handleGroupsChanged();
         window.dispatchEvent(new Event("aidog-groups-changed"));
       })
-      .catch(err => setToast({ text: `加入分组失败: ${err}`, ok: false }));
+      .catch(err => setToast({ text: t("group.addToGroupFailed", "Failed to add to group: {{error}}", { error: String(err) }), ok: false }));
   };
 
   // ════════════ QUOTA SUBSYSTEM ════════════
@@ -530,7 +530,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
           return next;
         });
       }
-      setToast({ text: `${t("platform.deleteFail", "删除失败")}`, ok: false });
+      setToast({ text: `${t("platform.deleteFail", "Delete failed")}`, ok: false });
       setTimeout(() => setToast(null), 3000);
     }
   };
@@ -554,7 +554,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
       console.error(e);
       // 失败回滚该 item 到原状态 + 报错。
       setPlatforms(prev => prev.map(x => x.id === p.id ? p : x));
-      setToast({ text: `${p.name}: ${t("platform.toggleFail", "切换失败")}`, ok: false });
+      setToast({ text: `${p.name}: ${t("platform.toggleFail", "Toggle failed")}`, ok: false });
       setTimeout(() => setToast(null), 3000);
     }
   };
@@ -568,12 +568,12 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
       success = r.success;
       setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
       setToast({ text: r.success
-        ? `${p.name}: ${t("platform.testOk", "测试成功")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
-        : `${p.name}: ${r.error || t("platform.testFail", "测试失败")}`,
+        ? `${p.name}: ${t("platform.testOk", "Test passed")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
+        : `${p.name}: ${r.error || t("platform.testFail", "Test failed")}`,
         ok: r.success });
     } catch (err: any) {
       setTestResults(prev => ({ ...prev, [p.id]: "fail" }));
-      setToast({ text: `${p.name}: ${err?.message || t("platform.testFail", "测试失败")}`, ok: false });
+      setToast({ text: `${p.name}: ${err?.message || t("platform.testFail", "Test failed")}`, ok: false });
     }
     setTestingId(null);
     setTimeout(() => setToast(null), 3000);
@@ -600,7 +600,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
       form.setShareData({ share, name: p.name });
     } catch (err) {
       console.error("platform share export failed", err);
-      setToast({ text: `${p.name}: ${t("platform.share.exportFail", "生成分享内容失败")}`, ok: false });
+      setToast({ text: `${p.name}: ${t("platform.share.exportFail", "Failed to generate share content")}`, ok: false });
       setTimeout(() => setToast(null), 3000);
     }
   };
@@ -611,9 +611,9 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     try {
       const r = await platformApi.purgeDisabled();
       if (r.deletedIds.length === 0) {
-        setToast({ text: t("platform.purgeDisabledNone", "暂无失效平台"), ok: true });
+        setToast({ text: t("platform.purgeDisabledNone", "No disabled platforms"), ok: true });
       } else {
-        setToast({ text: t("platform.purgeDisabledDone", "已删除 {{count}} 个失效平台", { count: r.deletedIds.length }), ok: true });
+        setToast({ text: t("platform.purgeDisabledDone", "Deleted {{count}} disabled platform(s)", { count: r.deletedIds.length }), ok: true });
       }
       setTimeout(() => setToast(null), 3000);
       // 局部刷新：按 deletedIds 批量移除被永久删除的平台（不整页 load）；
@@ -630,7 +630,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
       groupsReloadRef.current?.();
       window.dispatchEvent(new Event("aidog-groups-changed"));
     } catch (err) {
-      setToast({ text: `${t("platform.purgeDisabled", "清理失效平台")}: ${err}`, ok: false });
+      setToast({ text: `${t("platform.purgeDisabled", "Purge disabled platforms")}: ${err}`, ok: false });
       setTimeout(() => setToast(null), 3000);
     }
   };

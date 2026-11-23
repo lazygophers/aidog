@@ -32,20 +32,20 @@ export function StatusLineOptions({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.padding", "左右留白（padding）")}</label>
+        <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.padding", "Padding")}</label>
         <Input type="number" min={0} step={1} data-testid="sl-opt-padding"
           style={{ fontSize: F.body, padding: S.inputPad, width: 140 }}
           value={stored.padding ?? ""}
           onChange={(e) => onChange("padding", parse(e.target.value))} />
-        <Hint>{t("statusline.paddingDesc", "额外水平留白（字符数），留空使用官方默认 0")}</Hint>
+        <Hint>{t("statusline.paddingDesc", "Extra horizontal spacing in characters; leave empty for the official default 0")}</Hint>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.refreshInterval", "定时刷新（refreshInterval，秒）")}</label>
+        <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.refreshInterval", "Refresh interval (seconds)")}</label>
         <Input type="number" min={1} step={1} data-testid="sl-opt-refresh"
           style={{ fontSize: F.body, padding: S.inputPad, width: 140 }}
           value={stored.refreshInterval ?? ""}
           onChange={(e) => onChange("refreshInterval", parse(e.target.value))} />
-        <Hint>{t("statusline.refreshIntervalDesc", "每 N 秒额外重跑一次命令，最小 1；留空仅在事件触发时刷新")}</Hint>
+        <Hint>{t("statusline.refreshIntervalDesc", "Re-run the command every N seconds, minimum 1; leave empty to refresh on events only")}</Hint>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span data-testid="sl-opt-hidevim" data-state={hide ? "on" : "off"}
@@ -54,8 +54,8 @@ export function StatusLineOptions({
           <Toggle active={hide} onChange={() => {}} />
         </span>
         <div>
-          <div style={{ fontSize: F.label, color: "var(--text-primary)" }}>{t("statusline.hideVimModeIndicator", "隐藏内置 Vim 模式提示")}</div>
-          <Hint>{t("statusline.hideVimModeIndicatorDesc", "脚本自行渲染 vim.mode 时开启，避免重复显示 -- INSERT --")}</Hint>
+          <div style={{ fontSize: F.label, color: "var(--text-primary)" }}>{t("statusline.hideVimModeIndicator", "Hide built-in Vim mode indicator")}</div>
+          <Hint>{t("statusline.hideVimModeIndicatorDesc", "Enable when your script renders vim.mode itself, so -- INSERT -- is not shown twice")}</Hint>
         </div>
       </div>
     </div>

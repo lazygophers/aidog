@@ -8,6 +8,7 @@ import {
   VALUE_COLORABLE,
   hexToRgb,
   SEGMENT_DEF_MAP,
+  omitLocalizedDefaultPrefix,
 } from "../../statusline-gen";
 import { F, S } from "../tokens";
 import { Toggle } from "../_shared";
@@ -154,7 +155,7 @@ export function SegmentEditModal({
                     value={opts[f.key] ?? ""} placeholder={f.placeholder}
                     onChange={(e) => setOpts({ ...opts, [f.key]: Number(e.target.value) })} />
                 ) : (
-                  <Input  style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+                  <Input  data-testid={`sl-seg-field-${f.key}`} style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
                     value={String(opts[f.key] ?? "")} placeholder={f.placeholder}
                     onChange={(e) => setOpts({ ...opts, [f.key]: e.target.value })} />
                 )}
@@ -182,11 +183,11 @@ export function SegmentEditModal({
           <Button variant="ghost"  style={{ fontSize: F.body, padding: S.btnPad }} onClick={onClose}>
             {t("statusline.cancel")}
           </Button>
-          <Button variant="default" className="ripple" style={{ fontSize: F.body, padding: S.btnPad }}
+          <Button variant="default" className="ripple" data-testid="sl-seg-save" style={{ fontSize: F.body, padding: S.btnPad }}
             onClick={(e) => {
               makeRipple(e);
               onSave({
-                options: opts,
+                options: segment.options?.prefix === undefined ? omitLocalizedDefaultPrefix(opts, def.defaultOptions) : opts,
                 newline,
                 color: validHex ? color : undefined,
                 autoColor: canAutoColor ? autoColor : undefined,

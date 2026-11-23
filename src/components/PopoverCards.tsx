@@ -157,14 +157,14 @@ function PlatformToday({ data, size, colorStyle }: { data: PopoverData; size: Si
   const { t } = useTranslation();
   return (
     <div className={`popover-section pc-${size}`}>
-      <div className="popover-stats-title">{t("popover.platformToday", "各平台今日")}</div>
+      <div className="popover-stats-title">{t("popover.platformToday", "Per-platform today")}</div>
       {data.platform_today.length === 0 ? (
-        <div className="popover-empty">{t("popover.noUsageToday", "今日暂无用量")}</div>
+        <div className="popover-empty">{t("popover.noUsageToday", "No usage today")}</div>
       ) : (
         data.platform_today.map((p) => (
           <div className="popover-platform-row" key={p.platform_id}>
             <span className="popover-platform-name">
-              {p.platform_name || t("popover.unknownPlatform", "未知平台")}
+              {p.platform_name || t("popover.unknownPlatform", "Unknown platform")}
             </span>
             <span className="popover-platform-value" data-testid="popover-platform-cost" style={colorStyle}>{formatMoney(p.cost)}</span>
             {/* s: 仅平台名+金额；m: +token；l: +token+请求数 */}
@@ -259,12 +259,12 @@ function trendTitle(item: PopoverItem, data: PopoverData, t: TFn): string {
     const pid = Number(item.scope_ref);
     const p = data.platform_today.find((x) => x.platform_id === pid);
     const name = p?.platform_name || item.scope_ref;
-    return t("popover.trendPlatformTitle", "{{name}} 消费趋势", { name });
+    return t("popover.trendPlatformTitle", "{{name}} Cost Trend", { name });
   }
   if (scope === "group") {
-    return t("popover.trendGroupTitle", "分组消费趋势");
+    return t("popover.trendGroupTitle", "Group Cost Trend");
   }
-  return t("popover.trendOverallTitle", "整体消费趋势");
+  return t("popover.trendOverallTitle", "Overall Cost Trend");
 }
 
 export function CostTrendCard({
@@ -295,24 +295,24 @@ export function CostTrendCard({
       {/* s: 无标题，仅迷你曲线；m/l: 标题；l: 额外汇总行 */}
       {size !== "s" && <div className="popover-stats-title">{trendTitle(item, data, t)}</div>}
       {failed ? (
-        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+        <div className="popover-empty">{t("popover.trendLoadError", "Load failed")}</div>
       ) : buckets === null ? (
-        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+        <div className="popover-empty">{t("common.loading", "Loading...")}</div>
       ) : buckets.length === 0 ? (
-        <div className="popover-empty">{t("popover.noUsageToday", "今日暂无用量")}</div>
+        <div className="popover-empty">{t("popover.noUsageToday", "No usage today")}</div>
       ) : (
         <>
           {/* 公共层 LineChart 迷你化（T8 迁移，旧内联 SVG 曲线已删） */}
           <LineChart
             mini
             height={size === "s" ? 44 : size === "m" ? 56 : 72}
-            config={{ v: { label: t("popover.trendCostSeries", "花费") } }}
+            config={{ v: { label: t("popover.trendCostSeries", "Cost") } }}
             data={buckets.map((b) => ({ x: bucketMs(b.time_bucket), v: b.total_cost }))}
             valueFormat={formatMoney}
           />
           {size === "l" && (
             <div className="popover-metric-sub">
-              {t("popover.trendTotal", "合计")} <span style={colorStyle}>{formatMoney(total)}</span>
+              {t("popover.trendTotal", "Total")} <span style={colorStyle}>{formatMoney(total)}</span>
             </div>
           )}
         </>
@@ -349,14 +349,14 @@ function PlatformShareCard({
 
   return (
     <div className={`popover-section pc-${size}`}>
-      {size !== "s" && <div className="popover-stats-title">{t("popover.itemPlatformShare", "平台占比")}</div>}
+      {size !== "s" && <div className="popover-stats-title">{t("popover.itemPlatformShare", "Platform share")}</div>}
       {failed ? (
-        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+        <div className="popover-empty">{t("popover.trendLoadError", "Load failed")}</div>
       ) : entries === null ? (
-        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+        <div className="popover-empty">{t("common.loading", "Loading...")}</div>
       ) : effective.length < 2 ? (
         // 不足两个有效扇区构不成占比（与 DonutChart 空态判据一致），诚实空态不画假环
-        <div className="popover-empty">{t("charts.noData", "暂无数据")}</div>
+        <div className="popover-empty">{t("charts.noData", "No data available")}</div>
       ) : (
         <DonutChart
           mini
@@ -365,7 +365,7 @@ function PlatformShareCard({
           size={size === "s" ? 64 : size === "m" ? 88 : 104}
           showLegend={size !== "s"}
           formatValue={formatMoney}
-          centerLabel={t("popover.trendTotal", "合计")}
+          centerLabel={t("popover.trendTotal", "Total")}
         />
       )}
     </div>
@@ -391,13 +391,13 @@ function HourHeatCard({
 
   return (
     <div className={`popover-section pc-${size}`}>
-      {size !== "s" && <div className="popover-stats-title">{t("popover.itemHourHeat", "今日热力")}</div>}
+      {size !== "s" && <div className="popover-stats-title">{t("popover.itemHourHeat", "Today's activity")}</div>}
       {failed ? (
-        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+        <div className="popover-empty">{t("popover.trendLoadError", "Load failed")}</div>
       ) : buckets === null ? (
-        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+        <div className="popover-empty">{t("common.loading", "Loading...")}</div>
       ) : buckets.length === 0 ? (
-        <div className="popover-empty">{t("popover.noUsageToday", "今日暂无用量")}</div>
+        <div className="popover-empty">{t("popover.noUsageToday", "No usage today")}</div>
       ) : (
         <HourHeatBar
           data={buckets.map((b) => ({
@@ -405,7 +405,7 @@ function HourHeatCard({
             value: b.total_requests,
           }))}
           formatValue={formatNumber}
-          ariaLabel={t("popover.itemHourHeat", "今日热力")}
+          ariaLabel={t("popover.itemHourHeat", "Today's activity")}
         />
       )}
     </div>
@@ -419,8 +419,8 @@ function platformMetricTitle(item: PopoverItem, data: PopoverData, t: TFn): stri
   const ref = item.scope_ref ?? "";
   const pid = Number(ref);
   const p = data.platform_today.find((x) => x.platform_id === pid);
-  const name = p?.platform_name || ref || t("popover.unknownPlatform", "未知平台");
-  return t("popover.platformMetricTitle", "{{name}} 用量", { name });
+  const name = p?.platform_name || ref || t("popover.unknownPlatform", "Unknown platform");
+  return t("popover.platformMetricTitle", "{{name}} Usage", { name });
 }
 
 function PlatformMetricCard({
@@ -451,9 +451,9 @@ function PlatformMetricCard({
     <div className={`popover-section pc-${size}`}>
       {size !== "s" && <div className="popover-stats-title">{platformMetricTitle(item, data, t)}</div>}
       {failed ? (
-        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+        <div className="popover-empty">{t("popover.trendLoadError", "Load failed")}</div>
       ) : overview === null ? (
-        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+        <div className="popover-empty">{t("common.loading", "Loading...")}</div>
       ) : (
         <>
           <div className="popover-platform-row">
@@ -463,7 +463,7 @@ function PlatformMetricCard({
           </div>
           {size === "l" && (
             <div className="popover-metric-sub">
-              {t("popover.tokenIn", "入")} {formatNumber(overview.total_input_tokens)} · {t("popover.tokenOut", "出")} {formatNumber(overview.total_output_tokens)}
+              {t("popover.tokenIn", "in")} {formatNumber(overview.total_input_tokens)} · {t("popover.tokenOut", "out")} {formatNumber(overview.total_output_tokens)}
             </div>
           )}
         </>
@@ -478,7 +478,7 @@ function PlatformMetricCard({
 function groupName(item: PopoverItem, groups: Group[], t: TFn): string {
   const ref = item.scope_ref ?? "";
   const g = groups.find((x) => x.group_key === ref);
-  return g?.name || ref || t("popover.trendScopeGroup", "分组");
+  return g?.name || ref || t("popover.trendScopeGroup", "Group");
 }
 
 /** group_cost：分组金额（带时间窗，overview.total_cost）。 */
@@ -505,11 +505,11 @@ function GroupCostCard({
 
   return (
     <div className={`popover-section pc-${size}`}>
-      {size !== "s" && <div className="popover-stats-title">{t("popover.groupCostTitle", "{{name}} 金额", { name: groupName(item, groups, t) })}</div>}
+      {size !== "s" && <div className="popover-stats-title">{t("popover.groupCostTitle", "{{name}} Cost", { name: groupName(item, groups, t) })}</div>}
       {failed ? (
-        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+        <div className="popover-empty">{t("popover.trendLoadError", "Load failed")}</div>
       ) : overview === null ? (
-        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+        <div className="popover-empty">{t("common.loading", "Loading...")}</div>
       ) : (
         <>
           <div className="popover-metric-row">
@@ -552,11 +552,11 @@ function GroupTokensCard({
 
   return (
     <div className={`popover-section pc-${size}`}>
-      {size !== "s" && <div className="popover-stats-title">{t("popover.groupTokensTitle", "{{name}} 今日 Token", { name: groupName(item, groups, t) })}</div>}
+      {size !== "s" && <div className="popover-stats-title">{t("popover.groupTokensTitle", "{{name}} Tokens Today", { name: groupName(item, groups, t) })}</div>}
       {failed ? (
-        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+        <div className="popover-empty">{t("popover.trendLoadError", "Load failed")}</div>
       ) : overview === null ? (
-        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+        <div className="popover-empty">{t("common.loading", "Loading...")}</div>
       ) : (
         <>
           <div className="popover-metric-row">
@@ -564,7 +564,7 @@ function GroupTokensCard({
           </div>
           {size === "l" && (
             <div className="popover-metric-sub">
-              {t("popover.tokenIn", "入")} {formatNumber(overview.total_input_tokens)} · {t("popover.tokenOut", "出")} {formatNumber(overview.total_output_tokens)}
+              {t("popover.tokenIn", "in")} {formatNumber(overview.total_input_tokens)} · {t("popover.tokenOut", "out")} {formatNumber(overview.total_output_tokens)}
             </div>
           )}
         </>
@@ -597,11 +597,11 @@ function GroupRequestsCard({
 
   return (
     <div className={`popover-section pc-${size}`}>
-      {size !== "s" && <div className="popover-stats-title">{t("popover.groupRequestsTitle", "{{name}} 今日请求", { name: groupName(item, groups, t) })}</div>}
+      {size !== "s" && <div className="popover-stats-title">{t("popover.groupRequestsTitle", "{{name}} Requests Today", { name: groupName(item, groups, t) })}</div>}
       {failed ? (
-        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+        <div className="popover-empty">{t("popover.trendLoadError", "Load failed")}</div>
       ) : overview === null ? (
-        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+        <div className="popover-empty">{t("common.loading", "Loading...")}</div>
       ) : (
         <>
           <div className="popover-metric-row">
@@ -609,7 +609,7 @@ function GroupRequestsCard({
           </div>
           {size === "l" && (
             <div className="popover-metric-sub">
-              {t("popover.successRate", "成功率")} {formatPercent(overview.success_rate, 0)}
+              {t("popover.successRate", "Success rate")} {formatPercent(overview.success_rate, 0)}
             </div>
           )}
         </>
@@ -645,11 +645,11 @@ function GroupBalanceCard({
 
   return (
     <div className={`popover-section pc-${size}`}>
-      {size !== "s" && <div className="popover-stats-title">{t("popover.groupBalanceTitle", "{{name}} 余额", { name: groupName(item, groups, t) })}</div>}
+      {size !== "s" && <div className="popover-stats-title">{t("popover.groupBalanceTitle", "{{name}} Balance", { name: groupName(item, groups, t) })}</div>}
       {groupDetails === null ? (
-        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+        <div className="popover-empty">{t("common.loading", "Loading...")}</div>
       ) : detail === undefined ? (
-        <div className="popover-empty">{t("popover.trendNoGroup", "无分组")}</div>
+        <div className="popover-empty">{t("popover.trendNoGroup", "No groups")}</div>
       ) : (
         <>
           <div className="popover-metric-row">
@@ -657,7 +657,7 @@ function GroupBalanceCard({
           </div>
           {size === "l" && (
             <div className="popover-metric-sub">
-              {detail.platforms.length} {t("popover.platformsUnit", "平台")}
+              {detail.platforms.length} {t("popover.platformsUnit", "platforms")}
             </div>
           )}
         </>
@@ -691,11 +691,11 @@ export function renderItem(
     case "platform_balance":
       return <PlatformBalance key={item.id} data={data} size={size} />;
     case "today_cost":
-      return <MetricRow key={item.id} label={t("popover.todayCost", "今日金额")} value={formatMoney(data.today_stats.cost)} sub={t("popover.todayCostSub", "今日累计金额")} size={size} colorStyle={cs} />;
+      return <MetricRow key={item.id} label={t("popover.todayCost", "Today's cost")} value={formatMoney(data.today_stats.cost)} sub={t("popover.todayCostSub", "Total cost today")} size={size} colorStyle={cs} />;
     case "today_cache_rate":
-      return <MetricRow key={item.id} label={t("popover.todayCacheRate", "今日缓存率")} value={formatPercent(data.today_stats.cache_rate, 0)} sub={t("popover.todayCacheRateSub", "缓存命中占比")} size={size} colorStyle={cs} />;
+      return <MetricRow key={item.id} label={t("popover.todayCacheRate", "Today's cache rate")} value={formatPercent(data.today_stats.cache_rate, 0)} sub={t("popover.todayCacheRateSub", "Cache hit ratio")} size={size} colorStyle={cs} />;
     case "today_tokens":
-      return <MetricRow key={item.id} label={t("popover.todayTokens", "今日 Token")} value={formatNumber(data.today_stats.tokens)} sub={t("popover.todayTokensSub", "今日累计 Token")} size={size} colorStyle={cs} />;
+      return <MetricRow key={item.id} label={t("popover.todayTokens", "Today's tokens")} value={formatNumber(data.today_stats.tokens)} sub={t("popover.todayTokensSub", "Total tokens today")} size={size} colorStyle={cs} />;
     case "platform_today":
       return <PlatformToday key={item.id} data={data} size={size} colorStyle={cs} />;
     case "cost_trend":

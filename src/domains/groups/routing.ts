@@ -16,14 +16,14 @@ export const ROUTING_MODES: RoutingMode[] = [
 /** 策略短名（i18n，缺键回退默认中文）。 */
 export function routingModeLabel(t: TFunction, mode: RoutingMode): string {
   const map: Record<RoutingMode, string> = {
-    failover: t("group.failover", "故障转移"),
-    load_balance: t("group.loadBalance", "负载均衡"),
-    health_aware: t("group.routingMode.health_aware", "健康感知"),
-    sticky: t("group.routingMode.sticky", "会话粘性"),
-    rotate: t("group.routingMode.rotate", "严格轮换"),
-    usage: t("group.routingMode.usage", "用量最少"),
-    pace: t("group.routingMode.pace", "余量最多"),
-    smart: t("group.routingMode.smart", "智能模式"),
+    failover: t("group.failover", "Failover"),
+    load_balance: t("group.loadBalance", "Load Balance"),
+    health_aware: t("group.routingMode.health_aware", "Health-aware"),
+    sticky: t("group.routingMode.sticky", "Sticky session"),
+    rotate: t("group.routingMode.rotate", "Strict rotate"),
+    usage: t("group.routingMode.usage", "Least usage"),
+    pace: t("group.routingMode.pace", "Most quota left"),
+    smart: t("group.routingMode.smart", "Smart"),
   };
   return map[mode] ?? mode;
 }
@@ -31,14 +31,14 @@ export function routingModeLabel(t: TFunction, mode: RoutingMode): string {
 /** 策略说明（下拉旁提示）。 */
 export function routingModeDesc(t: TFunction, mode: RoutingMode): string {
   const map: Record<RoutingMode, string> = {
-    failover: t("group.routingModeDesc.failover", "按优先级升序选平台，失败逐个回退。"),
-    load_balance: t("group.routingModeDesc.load_balance", "在可用平台间加权随机分流。"),
-    health_aware: t("group.routingModeDesc.health_aware", "加权随机分流，实现与负载均衡相同；熔断/冷却摘除对所有路由模式生效。"),
-    sticky: t("group.routingModeDesc.sticky", "同会话绑定同一平台，失效/熔断后回退加权随机。"),
-    rotate: t("group.routingModeDesc.rotate", "同档平台间按请求依次轮转，重启后从头开始。"),
-    usage: t("group.routingModeDesc.usage", "近 24 小时成功请求量最少的平台优先。"),
-    pace: t("group.routingModeDesc.pace", "重置前剩余额度最多的平台优先；无额度数据时回落用量模式。"),
-    smart: t("group.routingModeDesc.smart", "最快重置的套餐优先，次键套餐余额；无重置数据时回落健康感知。"),
+    failover: t("group.routingModeDesc.failover", "Pick platforms by ascending priority, falling back one by one on failure."),
+    load_balance: t("group.routingModeDesc.load_balance", "Weighted random distribution across available platforms."),
+    health_aware: t("group.routingModeDesc.health_aware", "Weighted-random routing, identical to Load Balance; breaker/cooldown exclusion applies to every routing mode."),
+    sticky: t("group.routingModeDesc.sticky", "Bind a session to one platform; fall back to weighted random when unavailable or tripped."),
+    rotate: t("group.routingModeDesc.rotate", "Rotate across same-tier platforms request by request; the rotation restarts from the beginning after an app restart."),
+    usage: t("group.routingModeDesc.usage", "Prefer platforms with the fewest successful requests in the last 24 hours."),
+    pace: t("group.routingModeDesc.pace", "Prefer platforms with the most quota left before reset; falls back to least-usage mode when quota data is unavailable."),
+    smart: t("group.routingModeDesc.smart", "Prefer plans resetting soonest, then highest plan balance; falls back to health-aware mode when reset data is unavailable."),
   };
   return map[mode] ?? "";
 }

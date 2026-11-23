@@ -98,8 +98,8 @@ export function WaterLevel({ platformId, extra }: { platformId: number; extra?: 
     model === "" ? platformLimits : undefined;
 
   return (
-    <Blk testid="detail-t5-water" title={t("platform.detail.water", "限频与额度窗口水位")}
-      hint={t("platform.detail.live", "实时")}>
+    <Blk testid="detail-t5-water" title={t("platform.detail.water", "Rate & Quota Window Water Levels")}
+      hint={t("platform.detail.live", "Live")}>
       {/* 限频占用：平台级桶 + 各模型桶（真实内存计数；无占用 / 代理未启动 → 不渲染行） */}
       {occ.map((o, i) => {
         const lim = limitOf(o.model);
@@ -108,13 +108,13 @@ export function WaterLevel({ platformId, extra }: { platformId: number; extra?: 
             style={{ border: "1px solid var(--border)", borderRadius: 7, padding: "8px 10px", marginBottom: rows.length > 0 || i < occ.length - 1 ? 10 : 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
               <span style={{ color: "var(--text-secondary)" }}>
-                {o.model === "" ? t("platform.detail.rlPlatformLevel", "平台级") : o.model}
+                {o.model === "" ? t("platform.detail.rlPlatformLevel", "Platform-wide") : o.model}
               </span>
               <span style={{ fontFamily: "var(--font-mono, monospace)" }}>{occupancyText(o)}</span>
             </div>
             {lim && (
               <div style={{ fontSize: 14, color: "var(--muted-foreground)", marginTop: 4 }}>
-                {t("platform.detail.rlConfigured", "配置上限：并发 {{c}} · RPM {{r}} · TPM {{t}}")
+                {t("platform.detail.rlConfigured", "Configured limits: concurrency {{c}} · RPM {{r}} · TPM {{t}}")
                   .replace("{{c}}", String(lim.concurrency ?? "—"))
                   .replace("{{r}}", String(lim.rpm ?? "—"))
                   .replace("{{t}}", String(lim.tpm ?? "—"))}
@@ -125,7 +125,7 @@ export function WaterLevel({ platformId, extra }: { platformId: number; extra?: 
       })}
       {rows.length === 0 ? (
         <div data-testid="detail-t5-qw-empty" style={{ fontSize: 14, color: "var(--muted-foreground)", padding: "8px 0" }}>
-          {t("platform.detail.noData", "暂无数据")}
+          {t("platform.detail.noData", "No data")}
         </div>
       ) : rows.map((w, i) => {
         const usedPct = w.budget > 0 ? ((w.used / w.budget) * 100).toFixed(1) : "0";
@@ -137,11 +137,11 @@ export function WaterLevel({ platformId, extra }: { platformId: number; extra?: 
               <span style={{ color: "var(--text-secondary)" }}>
                 {t(DIM_KEY[w.dimension] ?? w.dimension, w.dimension)}
                 <span style={{ color: "var(--muted-foreground)" }}>
-                  {" "}（{t(MODE_KEY[w.reset_mode] ?? w.reset_mode, w.reset_mode)}）
+                  {" "}({t(MODE_KEY[w.reset_mode] ?? w.reset_mode, w.reset_mode)})
                 </span>
               </span>
               <span style={{ fontFamily: "var(--font-mono, monospace)" }}>
-                {amountText(w)} · {t("platform.detail.qwRemain", "剩 {{pct}}%").replace("{{pct}}", `${remainPct}`)}
+                {amountText(w)} · {t("platform.detail.qwRemain", "{{pct}}% left").replace("{{pct}}", `${remainPct}`)}
               </span>
             </div>
             <div style={{ height: 6, borderRadius: 3, background: "var(--muted)", overflow: "hidden" }}>
@@ -149,7 +149,7 @@ export function WaterLevel({ platformId, extra }: { platformId: number; extra?: 
                 style={{ width: `${usedPct}%`, height: "100%", borderRadius: 3, background: fillColor(w.used / (w.budget || 1)) }} />
             </div>
             <div style={{ fontSize: 14, color: "var(--muted-foreground)", marginTop: 4 }}>
-              {t("platform.detail.qwResetIn", "{{time}} 后重置").replace("{{time}}", new Date(w.resets_at_ms).toLocaleTimeString())}
+              {t("platform.detail.qwResetIn", "resets in {{time}}").replace("{{time}}", new Date(w.resets_at_ms).toLocaleTimeString())}
             </div>
           </div>
         );

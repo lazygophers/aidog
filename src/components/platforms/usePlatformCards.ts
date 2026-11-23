@@ -102,7 +102,7 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
   const refreshQuota = useCallback(async (p: Platform, opts?: { silent?: boolean }) => {
     if (!p.api_key) {
       if (!opts?.silent) {
-        setToast({ text: `${p.name}: ${t("platform.quotaNoKey", "缺少 Token")}`, ok: false });
+        setToast({ text: `${p.name}: ${t("platform.quotaNoKey", "Missing token")}`, ok: false });
         setTimeout(() => setToast(null), 3000);
       }
       return;
@@ -119,13 +119,13 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
         setQuotaMap((s) => ({ ...s, [p.id]: q }));
         setQuotaRealIds((s) => ({ ...s, [p.id]: true }));
       } else if (!opts?.silent) {
-        setToast({ text: `${p.name}: ${q.error || t("platform.quotaRefreshFail", "刷新额度失败")}`, ok: false });
+        setToast({ text: `${p.name}: ${q.error || t("platform.quotaRefreshFail", "Failed to refresh quota")}`, ok: false });
         setTimeout(() => setToast(null), 3000);
       }
     } catch (e) {
       console.error(e);
       if (!opts?.silent) {
-        setToast({ text: `${p.name}: ${t("platform.quotaRefreshFail", "刷新额度失败")}`, ok: false });
+        setToast({ text: `${p.name}: ${t("platform.quotaRefreshFail", "Failed to refresh quota")}`, ok: false });
         setTimeout(() => setToast(null), 3000);
       }
     }
@@ -142,12 +142,12 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
       success = r.success;
       setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
       setToast({ text: r.success
-        ? `${p.name}: ${t("platform.testOk", "测试成功")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
-        : `${p.name}: ${r.error || t("platform.testFail", "测试失败")}`,
+        ? `${p.name}: ${t("platform.testOk", "Test passed")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
+        : `${p.name}: ${r.error || t("platform.testFail", "Test failed")}`,
         ok: r.success });
     } catch (err: any) {
       setTestResults(prev => ({ ...prev, [p.id]: "fail" }));
-      setToast({ text: `${p.name}: ${err?.message || t("platform.testFail", "测试失败")}`, ok: false });
+      setToast({ text: `${p.name}: ${err?.message || t("platform.testFail", "Test failed")}`, ok: false });
     }
     setTestingId(null);
     setTimeout(() => setToast(null), 3000);
@@ -222,7 +222,7 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
       setShareData({ share, name: p.name });
     } catch (e) {
       console.error(e);
-      setToast({ text: `${p.name}: ${t("platform.share.exportFail", "导出分享内容失败")}`, ok: false });
+      setToast({ text: `${p.name}: ${t("platform.share.exportFail", "Failed to generate share content")}`, ok: false });
       setTimeout(() => setToast(null), 3000);
     }
   }, [t, setToast]);

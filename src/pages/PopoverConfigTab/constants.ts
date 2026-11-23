@@ -38,20 +38,20 @@ export const GROUP_TYPES: ReadonlySet<PopoverItemType> = new Set<PopoverItemType
 
 /** 指标类型 → i18n key + 默认中文标签。 */
 export const TYPE_LABELS: Record<PopoverItemType, { key: string; fallback: string }> = {
-  proxy_status: { key: "popover.itemProxyStatus", fallback: "代理状态" },
-  platform_balance: { key: "popover.itemPlatformBalance", fallback: "平台余额/配额" },
-  today_cost: { key: "popover.todayCost", fallback: "今日金额" },
-  today_cache_rate: { key: "popover.todayCacheRate", fallback: "今日缓存率" },
-  today_tokens: { key: "popover.todayTokens", fallback: "今日 Token" },
-  platform_today: { key: "popover.platformToday", fallback: "各平台今日" },
-  platform_metric: { key: "popover.itemPlatformMetric", fallback: "指定平台指标" },
-  group_cost: { key: "popover.itemGroupCost", fallback: "分组金额" },
-  group_tokens: { key: "popover.itemGroupTokens", fallback: "分组今日Token" },
-  group_requests: { key: "popover.itemGroupRequests", fallback: "分组今日请求" },
-  group_balance: { key: "popover.itemGroupBalance", fallback: "分组余额" },
-  cost_trend: { key: "popover.itemCostTrend", fallback: "消费趋势" },
-  platform_share: { key: "popover.itemPlatformShare", fallback: "平台占比" },
-  hour_heatbar: { key: "popover.itemHourHeat", fallback: "今日热力" },
+  proxy_status: { key: "popover.itemProxyStatus", fallback: "Proxy status" },
+  platform_balance: { key: "popover.itemPlatformBalance", fallback: "Platform balance/quota" },
+  today_cost: { key: "popover.todayCost", fallback: "Today's cost" },
+  today_cache_rate: { key: "popover.todayCacheRate", fallback: "Today's cache rate" },
+  today_tokens: { key: "popover.todayTokens", fallback: "Today's tokens" },
+  platform_today: { key: "popover.platformToday", fallback: "Per-platform today" },
+  platform_metric: { key: "popover.itemPlatformMetric", fallback: "Platform Metric" },
+  group_cost: { key: "popover.itemGroupCost", fallback: "Group Cost" },
+  group_tokens: { key: "popover.itemGroupTokens", fallback: "Group Tokens Today" },
+  group_requests: { key: "popover.itemGroupRequests", fallback: "Group Requests Today" },
+  group_balance: { key: "popover.itemGroupBalance", fallback: "Group Balance" },
+  cost_trend: { key: "popover.itemCostTrend", fallback: "Cost Trend" },
+  platform_share: { key: "popover.itemPlatformShare", fallback: "Platform share" },
+  hour_heatbar: { key: "popover.itemHourHeat", fallback: "Today's activity" },
 };
 
 export const TREND_WINDOWS: PopoverTrendWindow[] = ["today", "7d", "30d"];

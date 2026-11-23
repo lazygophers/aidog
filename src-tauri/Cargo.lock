@@ -221,6 +221,7 @@ name = "aidog_db"
 version = "0.1.21"
 dependencies = [
  "aes-gcm",
+ "aidog_i18n",
  "base64 0.23.1",
  "chrono",
  "dirs 7.0.0",
@@ -252,6 +253,9 @@ dependencies = [
 [[package]]
 name = "aidog_i18n"
 version = "0.1.21"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "aidog_kernel"
@@ -346,6 +350,7 @@ version = "0.1.21"
 dependencies = [
  "aidog_ctx",
  "aidog_db",
+ "aidog_i18n",
  "aidog_middleware",
  "ctor",
  "dirs 7.0.0",

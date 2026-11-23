@@ -47,17 +47,17 @@ export function StatusLinePanel({
         <Toggle active={enabled} onChange={handleToggle} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: F.label, fontWeight: 600, color: "var(--text-primary)" }}>
-            {isMain ? t("statusline.useBuiltin", "使用内置状态栏") : t("statusline.useBuiltinSubagent", "使用内置子代理状态栏")}
+            {isMain ? t("statusline.useBuiltin", "Use built-in status bar") : t("statusline.useBuiltinSubagent", "Use built-in subagent status bar")}
           </div>
           <Hint>{isMain
-            ? t("statusline.builtinDesc", "开启后 aidog 生成脚本到 ~/.aidog/aidog-statusline.sh")
-            : t("statusline.builtinSubagentDesc", "开启后 aidog 生成脚本到 ~/.aidog/aidog-subagent-statusline.sh")}</Hint>
+            ? t("statusline.builtinDesc", "Once enabled, aidog generates a script at ~/.aidog/scripts/aidog-statusline.sh")
+            : t("statusline.builtinSubagentDesc", "Once enabled, aidog generates a script at ~/.aidog/scripts/aidog-subagent-statusline.sh")}</Hint>
         </div>
         {enabled && (
           <span style={{
             fontSize: F.small, fontWeight: 600, color: "var(--color-success)",
             padding: "2px 8px", background: "color-mix(in srgb, var(--color-success) 12%, transparent)", borderRadius: "var(--radius-sm)",
-          }}>● {t("statusline.enabled", "已启用")}</span>
+          }}>● {t("statusline.enabled", "Enabled")}</span>
         )}
       </div>
 
@@ -78,8 +78,8 @@ export function StatusLinePanel({
                   }}
                   onClick={() => switchMode(m)}>
                   {m === "builtin"
-                    ? t("statusline.modeBuiltin", "内置结构化")
-                    : t("statusline.modeCustom", "自定义脚本")}
+                    ? t("statusline.modeBuiltin", "Built-in structured")
+                    : t("statusline.modeCustom", "Custom script")}
                 </Button>
               );
             })}
@@ -94,26 +94,26 @@ export function StatusLinePanel({
           padding: "12px 16px", background: "var(--bg-surface)", borderRadius: "var(--radius-md)",
           border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12,
         }}>
-          <Hint>{t("statusline.customDesc", "按原生 statusLine 格式分字段填写，写入 settings 的 command 字段，不生成 aidog 脚本")}</Hint>
+          <Hint>{t("statusline.customDesc", "Fill in the native statusLine fields. Written to the settings command field; no aidog script is generated.")}</Hint>
           {/* type — 固定 command，只读展示 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.customType", "类型")}</label>
+            <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.customType", "Type")}</label>
             <Input  readOnly value="command"
               style={{ fontSize: F.body, padding: S.inputPad, width: 140, opacity: 0.7, fontFamily: '"SF Mono", "Fira Code", monospace' }} />
           </div>
           {/* command — 脚本路径 / 命令 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.customCommand", "命令 / 脚本路径")}</label>
+            <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.customCommand", "Command / script path")}</label>
             <Input  style={{ fontSize: F.body, padding: S.inputPad }}
               value={customCommand}
-              placeholder={t("statusline.customPlaceholder", "~/.claude/my-statusline.sh 或 inline 命令")}
+              placeholder={t("statusline.customPlaceholder", "~/.claude/my-statusline.sh or an inline command")}
               onChange={(e) => updateField(aidogKey, { ...stored, customCommand: e.target.value })} />
-            <Hint>{t("statusline.customCommandDesc", "支持绝对路径、~ 路径或内联命令")}</Hint>
+            <Hint>{t("statusline.customCommandDesc", "Supports absolute paths, ~ paths, or inline commands")}</Hint>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <Button variant="default" className="ripple" style={{ fontSize: F.body, padding: S.btnPad }}
               onClick={(e) => { makeRipple(e); handleApplyCustom(); }}>
-              {t("statusline.applyCustom", "应用自定义脚本")}
+              {t("statusline.applyCustom", "Apply custom script")}
             </Button>
           </div>
         </div>
@@ -163,8 +163,8 @@ export function StatusLinePanel({
                         <Button variant="ghost" type="button" 
                           style={{ fontSize: F.hint, padding: "2px 8px", color: "var(--text-tertiary)" }}
                           onClick={() => deleteRow(seg.id)}
-                          title={t("statusline.deleteRow", "删除整行")}>
-                          {t("statusline.deleteRow", "删除整行")}
+                          title={t("statusline.deleteRow", "Delete row")}>
+                          {t("statusline.deleteRow", "Delete row")}
                         </Button>
                       </div>
                     )}
@@ -188,7 +188,7 @@ export function StatusLinePanel({
                           userSelect: "none", touchAction: "none",
                           padding: "0 2px", lineHeight: 1,
                         }}
-                        title={t("statusline.dragSort", "拖动排序")}
+                        title={t("statusline.dragSort", "Drag to sort")}
                       ><IconMenu size={15} /></span>
                       {/* Toggle */}
                       <Toggle active={seg.enabled} onChange={(v) => {
@@ -238,8 +238,8 @@ export function StatusLinePanel({
               <div style={{ position: "relative", display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
                 <Button variant="ghost"  style={{ fontSize: F.body, padding: "6px 14px", marginRight: "auto", color: "var(--text-tertiary)" }}
                   onClick={resetToDefaultLayout}
-                  title={t("statusline.resetLayoutHint", "恢复内置默认 3 行布局")}>
-                  {t("statusline.resetLayout", "恢复默认布局")}
+                  title={t("statusline.resetLayoutHint", "Restore the built-in default 3-line layout")}>
+                  {t("statusline.resetLayout", "Reset Layout")}
                 </Button>
                 <Button variant="ghost"  style={{ fontSize: F.body, padding: "6px 14px" }}
                   onClick={addRow}>
@@ -299,7 +299,7 @@ export function StatusLinePanel({
               onClick={() => setShowScript(!showScript)}>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ transform: showScript ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 150ms", display: "inline-block" }}>▶</span>
-                {t("statusline.scriptPreview", "脚本预览")}
+                {t("statusline.scriptPreview", "Script Preview")}
               </span>
               <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontFamily: '"SF Mono", "Fira Code", monospace' }}>
                 ~/.aidog/scripts/aidog-{scriptType === "subagent" ? "subagent-" : ""}statusline.py

@@ -126,12 +126,12 @@ export function MitmConfigTab() {
         const kind: TrustErrorKind = await mitmApi.classifyTrustError(spec.name, out.code, out.stderr ?? "");
         const base =
           kind === "cancel"
-            ? t("mitm.installCancel", "已取消安装（未输入密码或点了取消）")
+            ? t("mitm.installCancel", "Installation canceled (no password entered or canceled)")
             : kind === "auth_fail"
-              ? t("mitm.installAuthFail", "密码错误或鉴权被拒，请重试")
+              ? t("mitm.installAuthFail", "Wrong password or authorization denied, please retry")
               : kind === "no_agent"
-                ? t("mitm.installNoAgent", "Linux 缺少 polkit 鉴权 agent，请用下方命令手动装")
-                : t("mitm.installFailed", "装信任库失败（exit={{code}}）", { code: String(out.code) });
+                ? t("mitm.installNoAgent", "Linux lacks a polkit authentication agent; use the command below to install manually")
+                : t("mitm.installFailed", "Install to trust store failed (exit={{code}})", { code: String(out.code) });
         // cmd_fail 附原始 stderr 辅助诊断；其余分类不堆栈 stderr（用户无需看）。
         // 阶段A 兜底：分类逻辑产出空串（out.code 异常 / i18n 缺失）时也必给非空文案，禁 toast 无文案再现。
         const detail = kind === "cmd_fail" && out.stderr ? `${base}\n${out.stderr}` : base;
@@ -145,7 +145,7 @@ export function MitmConfigTab() {
       console.error("[ca-install] reject", e);
       // mitm_install_ca reject（起不了进程 / 写不了 ca.pem）→ 兜底手动装。
       // 阶段A 兜底：reject 的 e 可能无 message（空 reject）→ 也必给非空文案。
-      setError(String(e) || "(reject 无 message)");
+      setError(String(e) || t("mitm.rejectNoMessage", "(rejected without a message)"));
       try {
         const spec = await mitmApi.installCaPrepare();
         setManualInstall(spec);
@@ -192,7 +192,7 @@ export function MitmConfigTab() {
     setBusy(true); setError(""); setMessage("");
     try {
       const { imported, skipped } = await mitmApi.importDefaults();
-      setMessage(t("mitm.importDefaultsDone", "已导入 {{imported}} 条默认规则（{{skipped}} 条已存在跳过）", { imported, skipped }));
+      setMessage(t("mitm.importDefaultsDone", "Imported {{imported}} default rules ({{skipped}} already existed, skipped)", { imported, skipped }));
       await refresh();
     } catch (e) { setError(String(e)); }
     finally { setBusy(false); }
@@ -224,7 +224,7 @@ export function MitmConfigTab() {
     setBusy(true); setError(""); setMessage("");
     try {
       const n = await mitmApi.clearWhitelist();
-      setMessage(t("mitm.clearDone", "已清空 {{n}} 条白名单规则", { n }));
+      setMessage(t("mitm.clearDone", "Cleared {{n}} whitelist rules", { n }));
       // 清空后清搜索 / 测试结果（列表已空，旧结果无意义）。
       setSearch(""); setTestUrl(""); setTestResult(null);
       await refresh();
@@ -235,7 +235,7 @@ export function MitmConfigTab() {
   if (loading) {
     return (
       <div className="text-secondary" style={{ padding: 20 }}>
-        {t("status.loading", "加载中…")}
+        {t("status.loading", "Loading...")}
       </div>
     );
   }
@@ -262,9 +262,9 @@ export function MitmConfigTab() {
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("mitm.masterToggle", "MITM 解密隧道")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("mitm.masterToggle", "MITM Decryption Tunnel")}</div>
           <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-            {t("mitm.masterToggleDesc", "启用后 CONNECT 隧道内 HTTPS 流量经 AirDog 解密采集（需装假 CA）")}
+            {t("mitm.masterToggleDesc", "When enabled, HTTPS traffic inside CONNECT tunnels is decrypted and captured by AirDog (requires installing a fake CA)")}
           </div>
         </div>
         <Switch checked={enabled} disabled={busy} onCheckedChange={() => handleToggle()} />
@@ -282,9 +282,9 @@ export function MitmConfigTab() {
           }}
         >
           <div style={{ fontWeight: 600, marginBottom: 4, color: "var(--text-primary)" }}>
-            {t("mitm.riskTitle", "安全提示")}
+            {t("mitm.riskTitle", "Security Notice")}
           </div>
-          {t("mitm.riskDesc", "假 CA 私钥明文存于本机数据库；私钥泄露 = 白名单内 HTTPS 可被解密。仅启用必要 host。")}
+          {t("mitm.riskDesc", "The fake CA private key is stored in plaintext in the local database; if leaked, whitelisted HTTPS can be decrypted. Enable only necessary hosts.")}
         </MitmSectionCard>
       )}
 
@@ -295,30 +295,30 @@ export function MitmConfigTab() {
           style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
         >
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("mitm.caCard", "假根证书 CA")}</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{t("mitm.caCard", "Fake Root CA")}</div>
             <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-              {t("mitm.caCardDesc", "装到系统信任库后，客户端才会信任 AirDog 签的 host 证书")}
+              {t("mitm.caCardDesc", "After installing to the system trust store, clients will trust host certificates signed by AirDog")}
             </div>
           </div>
 
           <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", fontSize: 14 }}>
             <span style={{ color: "var(--text-secondary)" }}>
-              {t("mitm.caPresent", "已生成：")}
+              {t("mitm.caPresent", "Generated: ")}
               <strong style={{ color: caPresent ? "var(--color-success)" : "var(--text-tertiary)" }}>
-                {caPresent ? t("common.yes", "是") : t("common.no", "否")}
+                {caPresent ? t("common.yes", "Yes") : t("common.no", "No")}
               </strong>
             </span>
             <span style={{ color: "var(--text-secondary)" }}>
-              {t("mitm.caInstalled", "已装信任库：")}
+              {t("mitm.caInstalled", "Trust store installed: ")}
               <strong style={{ color: caInstalled ? "var(--color-success)" : "var(--text-tertiary)" }}>
-                {caInstalled ? t("common.yes", "是") : t("common.no", "否")}
+                {caInstalled ? t("common.yes", "Yes") : t("common.no", "No")}
               </strong>
             </span>
           </div>
 
           {fingerprint && (
             <div style={{ fontSize: 14, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "var(--text-tertiary)", wordBreak: "break-all" }}>
-              {t("mitm.fingerprint", "指纹：")} {fingerprint}
+              {t("mitm.fingerprint", "Fingerprint: ")} {fingerprint}
             </div>
           )}
 
@@ -329,11 +329,11 @@ export function MitmConfigTab() {
               disabled={busy || !caPresent}
               style={{ padding: "7px 16px", fontSize: 14, opacity: busy || !caPresent ? 0.6 : 1 }}
             >
-              {busy ? t("common.loading", "加载中…") : t("mitm.installCa", "安装 CA")}
+              {busy ? t("common.loading", "Loading...") : t("mitm.installCa", "Install CA")}
             </Button>
             {caInstalled && (
               <span style={{ fontSize: 14, color: "var(--color-success)" }}>
-                {t("mitm.installedHint", "已装，客户端应已信任")}
+                {t("mitm.installedHint", "Installed, clients should trust it")}
               </span>
             )}
           </div>
@@ -347,7 +347,7 @@ export function MitmConfigTab() {
               fontSize: 14,
             }}>
               <div style={{ fontWeight: 600, marginBottom: 6 }}>
-                {t("mitm.manualInstallTitle", "自动安装失败，请手动执行：")}
+                {t("mitm.manualInstallTitle", "Auto-install failed. Run manually:")}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div>
@@ -355,7 +355,7 @@ export function MitmConfigTab() {
                   <code style={{ fontFamily: "ui-monospace, monospace" }}>{manualInstall.ca_pem_path}</code>
                 </div>
                 <div>
-                  <span style={{ color: "var(--text-secondary)" }}>{t("mitm.command", "命令：")}</span>
+                  <span style={{ color: "var(--text-secondary)" }}>{t("mitm.command", "Command: ")}</span>
                   <code style={{ fontFamily: "ui-monospace, monospace", wordBreak: "break-all" }}>
                     {manualInstall.manual_display}
                   </code>
@@ -375,7 +375,7 @@ export function MitmConfigTab() {
                   </div>
                 )}
                 <div style={{ color: "var(--text-tertiary)", fontSize: 14 }}>
-                  {t("mitm.manualInstallHint", "复制上方命令到终端执行（需输入管理员密码）")}
+                  {t("mitm.manualInstallHint", "Copy the command above to a terminal (administrator password required)")}
                 </div>
               </div>
             </div>
@@ -391,9 +391,9 @@ export function MitmConfigTab() {
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>{t("mitm.whitelistTitle", "解密白名单")}</div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{t("mitm.whitelistTitle", "Decryption Whitelist")}</div>
               <div className="text-secondary" style={{ fontSize: 14, marginTop: 2 }}>
-                {t("mitm.whitelistDesc", "命中的 host 走 MITM 解密；未命中的走 P1 盲转。支持 *.domain 通配。")}
+                {t("mitm.whitelistDesc", "Matched hosts go through MITM decryption; unmatched go through P1 blind relay. Supports *.domain wildcard.")}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -403,7 +403,7 @@ export function MitmConfigTab() {
                 disabled={busy}
                 style={{ padding: "6px 12px", fontSize: 14, opacity: busy ? 0.6 : 1 }}
               >
-                {t("mitm.importDefaults", "导入默认白名单")}
+                {t("mitm.importDefaults", "Import default whitelist")}
               </Button>
               <Button variant="outline"
                 
@@ -415,7 +415,7 @@ export function MitmConfigTab() {
                   color: "var(--color-danger)",
                 }}
               >
-                {t("mitm.clear", "清空")}
+                {t("mitm.clear", "Clear")}
               </Button>
             </div>
           </div>
@@ -427,7 +427,7 @@ export function MitmConfigTab() {
               
               value={newRuleType}
               onValueChange={(v) => setNewRuleType(v as WhitelistRuleType)}
-              aria-label={t("mitm.ruleTypeLabel", "匹配方式")}
+              aria-label={t("mitm.ruleTypeLabel", "Match type")}
               
             >
 <SelectTrigger style={{ maxWidth: 120, fontSize: 14 }}><SelectValue/></SelectTrigger>
@@ -452,7 +452,7 @@ export function MitmConfigTab() {
               disabled={busy || !newPattern.trim()}
               style={{ padding: "7px 14px", fontSize: 14, opacity: busy || !newPattern.trim() ? 0.6 : 1 }}
             >
-              {t("common.add", "添加")}
+              {t("common.add", "Add")}
             </Button>
           </div>
 
@@ -461,14 +461,14 @@ export function MitmConfigTab() {
             
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("mitm.searchPlaceholder", "搜索规则…")}
+            placeholder={t("mitm.searchPlaceholder", "Search rules…")}
             style={{ maxWidth: 320, fontSize: 14 }}
           />
 
           {/* D3 URL 命中测试 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>
-              {t("mitm.testUrlLabel", "URL 命中测试")}
+              {t("mitm.testUrlLabel", "URL match test")}
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <Input
@@ -485,22 +485,22 @@ export function MitmConfigTab() {
                 disabled={busy || !testUrl.trim()}
                 style={{ padding: "6px 14px", fontSize: 14, opacity: busy || !testUrl.trim() ? 0.6 : 1 }}
               >
-                {t("mitm.testUrlBtn", "测试")}
+                {t("mitm.testUrlBtn", "Test")}
               </Button>
             </div>
             {testResult && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 14 }}>
                 <div style={{ color: "var(--text-secondary)" }}>
                   {testResult.length > 0
-                    ? t("mitm.testUrlHit", "命中 {{n}} 条规则", { n: testResult.length })
-                    : t("mitm.testNoHit", "未命中任何规则")}
+                    ? t("mitm.testUrlHit", "{{n}} rules matched", { n: testResult.length })
+                    : t("mitm.testNoHit", "No rules matched")}
                 </div>
                 {testResult.map((r) => {
                   const rt = r.rule_type ?? "suffix";
-                  const label = rt === "domain" ? t("mitm.ruleDomain", "域名")
-                    : rt === "suffix" ? t("mitm.ruleSuffix", "后缀")
-                    : rt === "keyword" ? t("mitm.ruleKeyword", "关键字")
-                    : rt === "ipcidr" ? t("mitm.ruleIpcidr", "IP 段")
+                  const label = rt === "domain" ? t("mitm.ruleDomain", "Domain")
+                    : rt === "suffix" ? t("mitm.ruleSuffix", "Suffix")
+                    : rt === "keyword" ? t("mitm.ruleKeyword", "Keyword")
+                    : rt === "ipcidr" ? t("mitm.ruleIpcidr", "IP CIDR")
                     : rt;
                   return (
                     <div key={r.host_pattern} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -527,12 +527,12 @@ export function MitmConfigTab() {
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {whitelist.length === 0 && (
               <div className="text-tertiary" style={{ fontSize: 14 }}>
-                {t("mitm.whitelistEmpty", "（无白名单条目）")}
+                {t("mitm.whitelistEmpty", "(no whitelist entries)")}
               </div>
             )}
             {whitelist.length > 0 && filteredWhitelist.length === 0 && (
               <div className="text-tertiary" style={{ fontSize: 14 }}>
-                {t("mitm.searchEmpty", "无匹配规则")}
+                {t("mitm.searchEmpty", "No matching rules")}
               </div>
             )}
             {filteredWhitelist.map((e) => (
@@ -556,15 +556,15 @@ export function MitmConfigTab() {
                     color: "var(--text-secondary)",
                   }}
                 >
-                  {e.source === "default" ? t("mitm.sourceDefault", "默认") : t("mitm.sourceUser", "自定义")}
+                  {e.source === "default" ? t("mitm.sourceDefault", "Default") : t("mitm.sourceUser", "Custom")}
                 </span>
                 {/* rule_type 标签（domain/suffix/keyword/ipcidr）— source 同风格不同色 */}
                 {(() => {
                   const rt = e.rule_type ?? "suffix";
-                  const label = rt === "domain" ? t("mitm.ruleDomain", "域名")
-                    : rt === "suffix" ? t("mitm.ruleSuffix", "后缀")
-                    : rt === "keyword" ? t("mitm.ruleKeyword", "关键字")
-                    : rt === "ipcidr" ? t("mitm.ruleIpcidr", "IP 段")
+                  const label = rt === "domain" ? t("mitm.ruleDomain", "Domain")
+                    : rt === "suffix" ? t("mitm.ruleSuffix", "Suffix")
+                    : rt === "keyword" ? t("mitm.ruleKeyword", "Keyword")
+                    : rt === "ipcidr" ? t("mitm.ruleIpcidr", "IP CIDR")
                     : rt;
                   return (
                     <span
@@ -585,7 +585,7 @@ export function MitmConfigTab() {
                 />
                 <Button variant="outline"
                   onClick={() => handleRemove(e.host_pattern)}
-                  aria-label={t("common.delete", "删除")}
+                  aria-label={t("common.delete", "Delete")}
                   style={{
                     background: "transparent", border: "none", cursor: "pointer",
                     color: "var(--text-tertiary)", padding: "2px 6px", fontSize: 14,
@@ -611,10 +611,10 @@ export function MitmConfigTab() {
         <DialogContent className="glass-surface" style={{ padding: 20, maxWidth: 380, borderRadius: "var(--radius-lg)", gap: 16 }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 14, fontWeight: 600 }}>
-              {t("mitm.clear", "清空")}
+              {t("mitm.clear", "Clear")}
             </DialogTitle>
             <DialogDescription style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-              {t("mitm.clearConfirm", "确认清空全部 {{n}} 条白名单？此操作不可撤销，但可重新导入默认规则", { n: whitelist.length })}
+              {t("mitm.clearConfirm", "Clear all {{n}} whitelist rules? This cannot be undone, but you can re-import the default rules.", { n: whitelist.length })}
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -622,7 +622,7 @@ export function MitmConfigTab() {
               onClick={() => setShowClearConfirm(false)}
               style={{ padding: "6px 14px", fontSize: 14 }}
             >
-              {t("mitm.cancel", "取消")}
+              {t("mitm.cancel", "Cancel")}
             </Button>
             <Button variant="destructive"
               className="ripple"
@@ -632,7 +632,7 @@ export function MitmConfigTab() {
                 padding: "6px 14px", fontSize: 14, opacity: busy ? 0.6 : 1,
               }}
             >
-              {t("mitm.clear", "清空")}
+              {t("mitm.clear", "Clear")}
             </Button>
           </div>
         </DialogContent>

@@ -20,7 +20,7 @@ import {
 
 /** 差异 target 的人读标签；动态文件 key（如 aidog_script:xxx）原样展示。 */
 function targetLabel(t: TFunction, target: string): string {
-  if (target === "db:groups") return t("profile.targetDbGroups", "分组与映射");
+  if (target === "db:groups") return t("profile.targetDbGroups", "Groups & mappings");
   return target;
 }
 

@@ -92,7 +92,7 @@ function ModelsPicker({ i, value, onChange, options, protocol, t }: {
           style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", fontSize: 14, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
           <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 14 }}>{m}</span>
           <button type="button" data-testid={`rl-rule-${i}-chip-remove-${m}`} className="model-chip-remove"
-            aria-label={t("platform.modelChain.remove", "移除")}
+            aria-label={t("platform.modelChain.remove", "Remove")}
             onClick={() => onChange(value.filter(x => x !== m))}
             style={{ cursor: "pointer", color: "var(--text-tertiary)", background: "transparent", border: 0, padding: "0 2px" }}>✕</button>
         </span>
@@ -101,7 +101,7 @@ function ModelsPicker({ i, value, onChange, options, protocol, t }: {
         <ModelCombobox
           value={draft} onChange={setDraft} onSelect={toggle}
           source={options} selected={value} protocol={protocol}
-          placeholder={t("platform.rateLimits.ruleModelsPlaceholder", "模型（可选，回车添加，支持 前缀*）")}
+          placeholder={t("platform.rateLimits.ruleModelsPlaceholder", "Models (optional, Enter to add, supports prefix*)")}
           inputProps={{
             "data-testid": `rl-rule-${i}-model-input`,
             onKeyDown: e => { if (e.key === "Enter") { e.preventDefault(); add(draft); } },
@@ -123,8 +123,8 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, pl
 }) {
   const upd = (i: number, patch: Partial<RateLimitRuleDraft>) => onChange(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const errText = (e: "noCondition" | "badWildcard") => e === "noCondition"
-    ? t("platform.rateLimits.ruleNoCondition", "至少选一个模型或填一个时段，否则无法保存")
-    : t("platform.rateLimits.ruleBadWildcard", "通配符只能是末尾单个 *，且前缀不能为空（如 glm-*）");
+    ? t("platform.rateLimits.ruleNoCondition", "Pick at least one model or set a time window, otherwise it cannot be saved")
+    : t("platform.rateLimits.ruleBadWildcard", "Wildcard must be a single trailing * with a non-empty prefix (e.g. glm-*)");
   return (
     <div data-testid="rl-rules" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <SortableList
@@ -138,34 +138,34 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, pl
             <div data-testid={`rl-rule-${i}`} data-state={on ? "on" : "off"} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 8px", marginBottom: 4, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--card)", opacity: on ? 1 : 0.55 }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                 <Switch data-testid={`rl-rule-${i}-enabled`} checked={on}
-                  aria-label={t("platform.rateLimits.ruleEnabled", "启用此规则（关掉后视为不存在）")}
-                  title={t("platform.rateLimits.ruleEnabled", "启用此规则（关掉后视为不存在）")}
+                  aria-label={t("platform.rateLimits.ruleEnabled", "Enable this rule (off = treated as absent)")}
+                  title={t("platform.rateLimits.ruleEnabled", "Enable this rule (off = treated as absent)")}
                   onCheckedChange={v => upd(i, { enabled: v === true ? undefined : false })} />
                 <span ref={handle.ref} data-testid={`rl-rule-${i}-handle`} {...handle.attributes} {...handle.listeners}
-                  aria-label={t("platform.rateLimits.ruleDrag", "拖动排序（靠前优先）")}
-                  title={t("platform.rateLimits.ruleDrag", "拖动排序（靠前优先）")}
+                  aria-label={t("platform.rateLimits.ruleDrag", "Drag to reorder (earlier wins)")}
+                  title={t("platform.rateLimits.ruleDrag", "Drag to reorder (earlier wins)")}
                   style={{ cursor: "grab", color: "var(--text-tertiary)", touchAction: "none", userSelect: "none" }}>⠿</span>
                 <ModelsPicker i={i} value={r.models} onChange={models => upd(i, { models })} options={modelOptions} protocol={protocol} t={t} />
                 <Button variant="ghost" size="icon" className="btn-danger" data-testid={`rl-rule-${i}-remove`} style={{ height: 28, width: 28, marginLeft: "auto" }}
-                  aria-label={t("platform.delete", "删除")} onClick={() => onChange(rules.filter((_, j) => j !== i))}>×</Button>
+                  aria-label={t("platform.delete", "Delete")} onClick={() => onChange(rules.filter((_, j) => j !== i))}>×</Button>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                <Input data-testid={`rl-rule-${i}-start`} type="number" min={0} max={23} value={r.start} placeholder="0" aria-label={t("platform.start_hour", "起")} onChange={e => upd(i, { start: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
+                <Input data-testid={`rl-rule-${i}-start`} type="number" min={0} max={23} value={r.start} placeholder="0" aria-label={t("platform.start_hour", "Start")} onChange={e => upd(i, { start: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
                 <span style={miniLabel}>–</span>
-                <Input data-testid={`rl-rule-${i}-end`} type="number" min={0} max={24} value={r.end} placeholder="24" aria-label={t("platform.end_hour", "止")} onChange={e => upd(i, { end: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
+                <Input data-testid={`rl-rule-${i}-end`} type="number" min={0} max={24} value={r.end} placeholder="24" aria-label={t("platform.end_hour", "End")} onChange={e => upd(i, { end: e.target.value })} style={{ ...numStyle, width: 56, minWidth: 56 }} />
                 <Select value={r.tz || "__utc__"} onValueChange={v => upd(i, { tz: v === "__utc__" ? "" : v })}>
-                  <SelectTrigger data-testid={`rl-rule-${i}-tz`} className="input" style={{ width: 150, height: 28, fontSize: 14, fontFamily: "var(--font-mono, monospace)" }} aria-label={t("platform.rateLimits.windowTz", "时区")}><SelectValue /></SelectTrigger>
+                  <SelectTrigger data-testid={`rl-rule-${i}-tz`} className="input" style={{ width: 150, height: 28, fontSize: 14, fontFamily: "var(--font-mono, monospace)" }} aria-label={t("platform.rateLimits.windowTz", "Time zone")}><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {r.tz && !(WINDOW_TIMEZONES as readonly string[]).includes(r.tz) && <SelectItem value={r.tz}>{r.tz}</SelectItem>}
                     {WINDOW_TIMEZONES.map(tz => <SelectItem key={tz} value={tz}>{tz === "__utc__" ? "UTC" : tz}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Select value={r.dayType ?? "__week__"} onValueChange={v => upd(i, { dayType: v === "__week__" ? undefined : v as "workday" | "holiday", days: [], holidayCalendar: v === "__week__" ? undefined : r.holidayCalendar })}>
-                  <SelectTrigger className="input" style={{ width: 120, height: 28, fontSize: 14 }} aria-label={t("platform.holidayCalendar.dayType", "日期类型")}><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="input" style={{ width: 120, height: 28, fontSize: 14 }} aria-label={t("platform.holidayCalendar.dayType", "Day type")}><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__week__">{t("platform.holidayCalendar.weekday", "星期")}</SelectItem>
-                    <SelectItem value="workday">{t("platform.windows_dim_workday", "工作日")}</SelectItem>
-                    <SelectItem value="holiday">{t("platform.windows_dim_holiday", "节假日")}</SelectItem>
+                    <SelectItem value="__week__">{t("platform.holidayCalendar.weekday", "Weekdays")}</SelectItem>
+                    <SelectItem value="workday">{t("platform.windows_dim_workday", "Workdays")}</SelectItem>
+                    <SelectItem value="holiday">{t("platform.windows_dim_holiday", "Holidays")}</SelectItem>
                   </SelectContent>
                 </Select>
                 {r.dayType && <HolidayCalendarSelect value={r.holidayCalendar} inheritedValue={platformCalendar} timezone={r.tz} onChange={holidayCalendar => upd(i, { holidayCalendar })} t={t} />}
@@ -178,7 +178,7 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, pl
                     </button>
                   ))}
                 </div>}
-                <Input data-testid={`rl-rule-${i}-concurrency`} type="number" min={0} value={r.concurrency} placeholder={t("platform.rateLimits.concurrencyShort", "并发")} onChange={e => upd(i, { concurrency: e.target.value })} style={numStyle} />
+                <Input data-testid={`rl-rule-${i}-concurrency`} type="number" min={0} value={r.concurrency} placeholder={t("platform.rateLimits.concurrencyShort", "Conc.")} onChange={e => upd(i, { concurrency: e.target.value })} style={numStyle} />
                 <Input data-testid={`rl-rule-${i}-rpm`} type="number" min={0} value={r.rpm} placeholder="RPM" onChange={e => upd(i, { rpm: e.target.value })} style={numStyle} />
                 <Input data-testid={`rl-rule-${i}-tpm`} type="number" min={0} value={r.tpm} placeholder="TPM" onChange={e => upd(i, { tpm: e.target.value })} style={numStyle} />
               </div>
@@ -191,10 +191,10 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, pl
       />
       <button type="button" data-testid="rl-rules-add" className="btn-ghost" style={{ alignSelf: "flex-start", fontSize: 14, padding: "2px 10px" }}
         onClick={() => onChange([...rules, newRuleDraft()])}>
-        + {t("platform.rateLimits.addRule", "加限频规则")}
+        + {t("platform.rateLimits.addRule", "Add rule")}
       </button>
       <p data-testid="rl-rules-hint" style={{ ...miniLabel, margin: 0 }}>
-        {t("platform.rateLimits.rulesHint", "没填的项在该规则生效时不限；多条规则重叠时按列表顺序，靠前的优先（可拖动）。纯时段规则命中时替换平台级上限；模型 + 时段优先于仅模型。")}
+        {t("platform.rateLimits.rulesHint", "Unfilled limits are unlimited while the rule applies. When rules overlap, the earlier one in the list wins (drag to reorder). A time-only rule replaces platform-level limits while active; model + time beats model-only.")}
       </p>
     </div>
   );

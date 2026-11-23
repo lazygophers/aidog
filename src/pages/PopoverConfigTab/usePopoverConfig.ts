@@ -202,7 +202,7 @@ export function usePopoverConfig(): PopoverConfigData {
   };
 
   const showLayoutHint = () => {
-    setMessage(t("popover.layoutHint", "提示：添加项会新建一行；拖动卡片左上角手柄可跨行/行内调整；每行可设 1-3 列。"));
+    setMessage(t("popover.layoutHint", "Tip: adding an item creates a new row; drag the top-left handle to move across/within rows; each row supports 1-3 columns."));
   };
 
   // ── 二维拖拽：跨行 / 行内吸附 ──
@@ -274,32 +274,32 @@ export function usePopoverConfig(): PopoverConfigData {
     const s = todayStats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 };
     switch (type) {
       case "proxy_status": return t("popover.previewStatusLine", "Running :port");
-      case "platform_balance": return t("popover.previewTrayCols", "（来自托盘配置的列）");
+      case "platform_balance": return t("popover.previewTrayCols", "(columns from tray config)");
       case "today_cost": return formatMoney(s.cost);
       case "today_cache_rate": return formatPercent(s.cache_rate, 0);
       case "today_tokens": return `${formatNumber(s.tokens)} tok`;
       case "platform_today":
         return platformToday.length === 0
-          ? t("popover.noUsageToday", "今日暂无用量")
-          : t("popover.previewPlatformCount", "{{count}} 个平台", { count: platformToday.length });
+          ? t("popover.noUsageToday", "No usage today")
+          : t("popover.previewPlatformCount", "{{count}} platforms", { count: platformToday.length });
       case "cost_trend":
-        return t("popover.previewTrend", "消费曲线（{{window}}）", {
-          window: t(`popover.trendWindow_${"7d"}`, "近 7 天"),
+        return t("popover.previewTrend", "Cost curve ({{window}})", {
+          window: t(`popover.trendWindow_${"7d"}`, "Last 7 days"),
         });
       case "platform_share":
-        return t("popover.itemPlatformShare", "平台占比");
+        return t("popover.itemPlatformShare", "Platform share");
       case "hour_heatbar":
-        return t("popover.itemHourHeat", "今日热力");
+        return t("popover.itemHourHeat", "Today's activity");
       case "platform_metric":
-        return t("popover.itemPlatformMetric", "指定平台指标");
+        return t("popover.itemPlatformMetric", "Platform Metric");
       case "group_cost":
-        return t("popover.itemGroupCost", "分组金额");
+        return t("popover.itemGroupCost", "Group Cost");
       case "group_tokens":
-        return t("popover.itemGroupTokens", "分组今日Token");
+        return t("popover.itemGroupTokens", "Group Tokens Today");
       case "group_requests":
-        return t("popover.itemGroupRequests", "分组今日请求");
+        return t("popover.itemGroupRequests", "Group Requests Today");
       case "group_balance":
-        return t("popover.itemGroupBalance", "分组余额");
+        return t("popover.itemGroupBalance", "Group Balance");
     }
   };
 
@@ -309,18 +309,18 @@ export function usePopoverConfig(): PopoverConfigData {
     let scopeLabel: string;
     if (scope === "platform") {
       const p = platforms.find((x) => String(x.id) === item.scope_ref);
-      scopeLabel = p?.name || t("popover.trendScopePlatform", "平台");
+      scopeLabel = p?.name || t("popover.trendScopePlatform", "Platform");
     } else if (scope === "group") {
       const g = groups.find((x) => x.group_key === item.scope_ref);
-      scopeLabel = g?.name || t("popover.trendScopeGroup", "分组");
+      scopeLabel = g?.name || t("popover.trendScopeGroup", "Group");
     } else {
-      scopeLabel = t("popover.trendScopeOverall", "整体");
+      scopeLabel = t("popover.trendScopeOverall", "Overall");
     }
     if (item.item_type === "group_balance") return scopeLabel;
     const win = item.time_window ?? "7d";
     const winLabel = t(
       `popover.trendWindow_${win}`,
-      win === "today" ? "今日" : win === "30d" ? "近 30 天" : "近 7 天",
+      win === "today" ? "Today" : win === "30d" ? "Last 30 days" : "Last 7 days",
     );
     return `${scopeLabel} · ${winLabel}`;
   };

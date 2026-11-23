@@ -44,7 +44,7 @@ export function CopyCurlButtons({ detail }: { detail: ProxyLogDetail }) {
           variant="ghost"
           className="btn-icon"
           onClick={() => copy(side)}
-          title={t(side === "user" ? "logs.copyUserCurl" : "logs.copyUpstreamCurl", side === "user" ? "复制用户请求 curl" : "复制上游请求 curl")}
+          title={t(side === "user" ? "logs.copyUserCurl" : "logs.copyUpstreamCurl", side === "user" ? "Copy user request curl" : "Copy upstream request curl")}
         >
           {copied === side ? (
             <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>

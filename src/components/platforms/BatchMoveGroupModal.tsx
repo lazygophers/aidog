@@ -81,27 +81,27 @@ export function BatchMoveGroupModal({
         onPointerDownOutside={(e) => { if (busy) e.preventDefault(); }}
       >
         <DialogHeader>
-          <DialogTitle>{t("group.batchMoveGroupTitle", "批量移组")}</DialogTitle>
+          <DialogTitle>{t("group.batchMoveGroupTitle", "Batch move group")}</DialogTitle>
           <DialogDescription>
-            {t("group.batchMoveGroupDesc", "将以下 {{count}} 个平台移动或加入到目标分组：", { count: platforms.length })}
+            {t("group.batchMoveGroupDesc", "Move or add the following {{count}} platform(s) to a target group:", { count: platforms.length })}
           </DialogDescription>
         </DialogHeader>
 
         <div style={{ marginBottom: 10 }}>
           <span style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 500, display: "block", marginBottom: 4 }}>
-            {t("group.batchMoveGroupTarget", "目标分组")}
+            {t("group.batchMoveGroupTarget", "Target group")}
           </span>
           <Select
             value={targetGroupId === "" ? undefined : String(targetGroupId)}
             onValueChange={(v) => setTargetGroupId(v === "" ? "" : Number(v))}
           >
             <SelectTrigger style={{ fontSize: 14, width: "100%" }} className="input">
-              <SelectValue placeholder={t("group.batchMoveGroupSelect", "选择目标分组…")} />
+              <SelectValue placeholder={t("group.batchMoveGroupSelect", "Select target group…")} />
             </SelectTrigger>
             <SelectContent>
               {groups.map(g => (
                 <SelectItem key={g.id} value={String(g.id)}>
-                  {g.name}{g.id === currentGroupId ? ` (${t("group.batchMoveGroupCurrent", "当前组")})` : ""}
+                  {g.name}{g.id === currentGroupId ? ` (${t("group.batchMoveGroupCurrent", "current")})` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -114,7 +114,7 @@ export function BatchMoveGroupModal({
             marginBottom: 10, padding: "6px 10px", borderRadius: "var(--radius-sm)",
             background: "var(--bg-glass)", border: "1px solid var(--color-warning)",
           }}>
-            {t("group.batchMoveGroupSameAsCurrent", "目标分组与当前分组相同，无需操作。")}
+            {t("group.batchMoveGroupSameAsCurrent", "Target group is the same as the current group; no action needed.")}
           </div>
         )}
 
@@ -128,8 +128,8 @@ export function BatchMoveGroupModal({
               <RadioGroupItem value={m} id={`batch-move-${m}`} />
               <label htmlFor={`batch-move-${m}`} style={{ cursor: "pointer" }}>
                 {m === "move"
-                  ? t("group.batchMoveGroupModeMove", "移动（移出所有现组）")
-                  : t("group.batchMoveGroupModeAdd", "加入（保留现组）")}
+                  ? t("group.batchMoveGroupModeMove", "Move (remove from all current groups)")
+                  : t("group.batchMoveGroupModeAdd", "Add (keep current groups)")}
               </label>
             </div>
           ))}
@@ -158,19 +158,19 @@ export function BatchMoveGroupModal({
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
-            {t("action.cancel", "取消")}
+            {t("action.cancel", "Cancel")}
           </Button>
           <Button
             onClick={() => targetGroupId !== "" && onConfirm(targetGroupId, mode)}
             disabled={busy || !canConfirm}
           >
             {busy
-              ? t("group.batchMoveGroupApplying", "移组中…")
-              : t("group.batchMoveGroupConfirm", "{{mode}} {{count}} 个平台", {
+              ? t("group.batchMoveGroupApplying", "Moving…")
+              : t("group.batchMoveGroupConfirm", "{{mode}} {{count}} platforms", {
                   count: platforms.length,
                   mode: mode === "move"
-                    ? t("group.batchMoveGroupModeMoveShort", "移动")
-                    : t("group.batchMoveGroupModeAddShort", "加入"),
+                    ? t("group.batchMoveGroupModeMoveShort", "Move")
+                    : t("group.batchMoveGroupModeAddShort", "Add"),
                 })}
           </Button>
         </DialogFooter>

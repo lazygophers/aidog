@@ -62,10 +62,10 @@ export function CcMitmRefreshWarning({ refresh }: { refresh: MitmRefreshStats })
         borderRadius: 5, padding: "1px 6px",
       }}
       title={t("platform.mitmRefreshWarnHint",
-        "platform.claude.com 令牌刷新过代理可能失败（Claude Code 已知 bug #91703，未修复）。{{fails}}/{{total}} 次失败。\n应对：临时在终端 export NO_PROXY=platform.claude.com 后重启 Claude Code（该域名流量不经代理、不统计），或等待上游修复。",
+        "Token refresh on platform.claude.com may fail through the proxy (known Claude Code bug #91703, unfixed). {{fails}}/{{total}} failed.\nWorkaround: temporarily run export NO_PROXY=platform.claude.com in your terminal and restart Claude Code (that domain then bypasses the proxy, untracked), or wait for the upstream fix.",
         { fails: refresh.failures, total: refresh.attempts })}
     >
-      {t("platform.mitmRefreshWarn", "订阅刷新失败 {{fails}}/{{total}}",
+      {t("platform.mitmRefreshWarn", "Subscription refresh failed {{fails}}/{{total}}",
         { fails: refresh.failures, total: refresh.attempts })}
     </div>
   );
@@ -83,7 +83,7 @@ export function CcMitmTrendSection({ samples }: { samples: OauthUsageSample[] })
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <span className="text-tertiary" style={{ fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>
-        {t("platform.mitmWindowsLabel", "订阅窗口利用率")}
+        {t("platform.mitmWindowsLabel", "Subscription window utilization")}
       </span>
       {latest ? (
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", fontSize: 14, color: "var(--text-secondary)" }}>
@@ -92,7 +92,7 @@ export function CcMitmTrendSection({ samples }: { samples: OauthUsageSample[] })
         </div>
       ) : (
         <span className="text-tertiary" style={{ fontSize: 14 }}>
-          {t("platform.mitmWindowsEmpty", "暂无采样（Claude Code 自然请求 usage 端点后出现，不主动轮询）")}
+          {t("platform.mitmWindowsEmpty", "No samples yet (appears after Claude Code naturally requests the usage endpoint; never polled)")}
         </span>
       )}
       {samples.length >= 2 && (
@@ -118,12 +118,12 @@ export function CcPlanBalance({ plan, samples }: { plan: CcProfile | null; sampl
     <span style={{ flexShrink: 0, fontSize: 14, color: "var(--text-tertiary)", whiteSpace: "nowrap", display: "inline-flex", gap: 6, alignItems: "baseline" }}>
       {plan && (
         <span>
-          {t("platform.mitmPlanTier", "套餐 {{tier}}", { tier: plan.tier })}
+          {t("platform.mitmPlanTier", "Plan {{tier}}", { tier: plan.tier })}
         </span>
       )}
       {latest && (
         <span>
-          {t("platform.mitmPlanRemain", "5h 剩 {{five}} · 7d 剩 {{seven}}", {
+          {t("platform.mitmPlanRemain", "5h left {{five}} · 7d left {{seven}}", {
             five: formatPercent(100 - latest.five_hour_pct, 0),
             seven: formatPercent(100 - latest.seven_day_pct, 0),
           })}

@@ -44,9 +44,9 @@ export function useGroupTest() {
         success = r.success;
         patchRow(idx, r.success
           ? { status: "ok", durationMs }
-          : { status: "fail", durationMs, error: r.error || t("platform.testFail", "测试失败") });
+          : { status: "fail", durationMs, error: r.error || t("platform.testFail", "Test failed") });
       } catch (err: any) {
-        patchRow(idx, { status: "fail", durationMs: Date.now() - start, error: err?.message || t("platform.testFail", "测试失败") });
+        patchRow(idx, { status: "fail", durationMs: Date.now() - start, error: err?.message || t("platform.testFail", "Test failed") });
       }
       // 携带 success：监听方（usePlatformCards/Platforms）据此写 testResults → 单卡 health 走 manual 分支即时变绿/红；
       // 同时驱动「最近测试」徽章刷新（不在 Groups 维护 lastTestMap）

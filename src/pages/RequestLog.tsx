@@ -184,9 +184,9 @@ export function RequestLog() {
         {/* Header */}
         <div className="section-header" style={{ justifyContent: "space-between" }}>
           <div>
-            <div className="section-title">{t("page.requestLog", "请求日志（测试 / 余额）")}</div>
+            <div className="section-title">{t("page.requestLog", "Request Log (Test / Balance)")}</div>
             <div className="section-desc">
-              {total > 0 ? `${total} ${t("logs.total", "条记录")}` : t("requestLog.empty", "暂无请求记录")}
+              {total > 0 ? `${total} ${t("logs.total", "records")}` : t("requestLog.empty", "No request logs")}
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -203,10 +203,10 @@ export function RequestLog() {
             value={filterType}
             onChange={v => setFilterType(v as TypeFilter)}
             options={[
-              { value: "test", label: t("requestLog.typeTest", "测试") },
-              { value: "quota", label: t("requestLog.typeQuota", "余额") },
+              { value: "test", label: t("requestLog.typeTest", "Test") },
+              { value: "quota", label: t("requestLog.typeQuota", "Balance") },
             ]}
-            placeholder={t("requestLog.filterType", "类型")}
+            placeholder={t("requestLog.filterType", "Type")}
           />
           {/* Platform */}
           <span data-testid="request-log-filter-platform" style={{ display: "contents" }}>
@@ -214,7 +214,7 @@ export function RequestLog() {
               value={filterPlatform}
               onChange={setFilterPlatform}
               options={platforms.map(p => ({ value: String(p.id), label: p.name }))}
-              placeholder={t("logs.filterPlatform", "平台")}
+              placeholder={t("logs.filterPlatform", "Platform")}
             />
           </span>
           {/* Status */}
@@ -222,10 +222,10 @@ export function RequestLog() {
             value={filterStatus}
             onChange={setFilterStatus}
             options={[
-              { value: "success", label: t("logs.statusSuccess", "成功") },
-              { value: "error", label: t("logs.statusError", "失败") },
+              { value: "success", label: t("logs.statusSuccess", "Success") },
+              { value: "error", label: t("logs.statusError", "Failed") },
             ]}
-            placeholder={t("logs.filterStatus", "状态")}
+            placeholder={t("logs.filterStatus", "Status")}
           />
           {/* Time */}
           <FilterSelect
@@ -238,11 +238,11 @@ export function RequestLog() {
               { value: "7d", label: "7d" },
               { value: "30d", label: "30d" },
             ]}
-            placeholder={t("logs.filterTime", "时间")}
+            placeholder={t("logs.filterTime", "Time")}
           />
           {hasFilter && (
             <Button variant="ghost" type="button" className="ripple" onClick={(e) => { makeRipple(e); clearFilter(); }} style={{ fontSize: F.small, height: "auto", padding: "2px 8px", color: "var(--text-tertiary)" }}>
-              {t("logs.clearFilter", "清除")}
+              {t("logs.clearFilter", "Clear")}
             </Button>
           )}
         </div>
@@ -252,7 +252,7 @@ export function RequestLog() {
           <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
         ) : logs.length === 0 ? (
           <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
-            <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("requestLog.empty", "暂无请求记录")}</div>
+            <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("requestLog.empty", "No request logs")}</div>
           </div>
         ) : (
           <>

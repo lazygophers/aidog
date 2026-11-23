@@ -216,7 +216,7 @@ export function Settings() {
     setPickerOpen(false);
     const diff = buildRecommendedDiffTree(config, preset.config);
     if (diff.length === 0) {
-      setToast(t("settings.noRecommendedDiff", "当前配置已包含全部推荐项"));
+      setToast(t("settings.noRecommendedDiff", "Current settings already include every recommended item"));
       setTimeout(() => setToast(""), 2000);
       return;
     }
@@ -241,13 +241,13 @@ export function Settings() {
       // Build nested diff tree: top-level objects expand one level into children.
       const diff = buildImportDiffTree(config, source, managed);
       if (diff.length === 0) {
-        setToast(t("settings.noDiff", "无差异，无需导入"));
+        setToast(t("settings.noDiff", "No differences to import"));
         setTimeout(() => setToast(""), 2000);
         return;
       }
       setImportDiff({ source, diff, kind: "claudeCode" });
     } catch (e: any) {
-      setToast(`导入失败：${e?.message ?? e ?? "未知错误"}`);
+      setToast(t("settings.importFailed", "Import failed: {{error}}", { error: e?.message ?? e ?? t("common.unknownError", "Unknown error") }));
       setTimeout(() => setToast(""), 5000);
     }
   };
@@ -265,7 +265,7 @@ export function Settings() {
     setConfig(next);
     setEditJson(JSON.stringify(next, null, 2));
     setImportDiff(null);
-    setToast(recommended ? t("settings.loadedRecommended") : t("settings.imported", "已导入"));
+    setToast(recommended ? t("settings.loadedRecommended") : t("settings.imported", "Imported"));
     setTimeout(() => setToast(""), 2000);
   };
 
@@ -289,7 +289,7 @@ export function Settings() {
       const hits = new Set<string>();
       for (const f of section.fields) {
         const label = t(`settings.f_${f.key}`, f.label).toLowerCase();
-        const desc = (f.description ?? "").toLowerCase();
+        const desc = (f.description ? t(`settings.d_${f.key}`, f.description) : "").toLowerCase();
         if (label.includes(q) || f.key.toLowerCase().includes(q) || desc.includes(q)) {
           hits.add(f.key);
         }
@@ -580,17 +580,17 @@ export function Settings() {
           onClose={() => setImportDiff(null)}
           title={
             importDiff.kind === "recommended"
-              ? t("settings.editor.recommendTitle", "加载推荐配置")
+              ? t("settings.editor.recommendTitle", "Load Recommended Settings")
               : undefined
           }
           applyLabel={
             importDiff.kind === "recommended"
-              ? t("settings.editor.applySelected", "应用选中")
+              ? t("settings.editor.applySelected", "Apply Selected")
               : undefined
           }
           incomingLabel={
             importDiff.kind === "recommended"
-              ? t("settings.editor.diffRecommended", "推荐值")
+              ? t("settings.editor.diffRecommended", "Recommended")
               : undefined
           }
         />

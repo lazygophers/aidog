@@ -58,11 +58,11 @@ export function HolidayCalendarSelect({ value, inheritedValue, timezone, onChang
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       <Select value={value ?? (allowInherited ? inherited : "")} onValueChange={v => onChange(v === inherited ? undefined : v)}>
-        <SelectTrigger className="input" style={{ width: 220, height: 30 }} aria-label={t("platform.holidayCalendar", "节假日日历")}>
-          <SelectValue placeholder={t("platform.holidayCalendar", "节假日日历")} />
+        <SelectTrigger className="input" style={{ width: 220, height: 30 }} aria-label={t("platform.holidayCalendar", "Holiday calendar")}>
+          <SelectValue placeholder={t("platform.holidayCalendar", "Holiday calendar")} />
         </SelectTrigger>
         <SelectContent>
-          {allowInherited && <SelectItem value={inherited}>{t("platform.holidayCalendar.inherit", "继承上级日历")}{inheritedValue ? ` (${calendars.find(c => c.code === inheritedValue)?.name[locale] ?? inheritedValue})` : ""}</SelectItem>}
+          {allowInherited && <SelectItem value={inherited}>{t("platform.holidayCalendar.inherit", "Inherit calendar")}{inheritedValue ? ` (${calendars.find(c => c.code === inheritedValue)?.name[locale] ?? inheritedValue})` : ""}</SelectItem>}
           {calendars.map(calendar => (
             <SelectItem key={calendar.code} value={calendar.code}>
               {calendarLabels.get(calendar.code)}
@@ -70,8 +70,8 @@ export function HolidayCalendarSelect({ value, inheritedValue, timezone, onChang
           ))}
         </SelectContent>
       </Select>
-      {failed && <span role="status" style={{ fontSize: 14, color: "var(--color-warning)" }}>{t("platform.holidayCalendar.loadFailed", "日历数据加载失败，将按星期判断")}</span>}
-      {!failed && missingYear && <span role="status" style={{ fontSize: 14, color: "var(--color-warning)" }}>{t("platform.holidayCalendar.yearUnavailable", "日历未覆盖当前年份，将按星期判断")}</span>}
+      {failed && <span role="status" style={{ fontSize: 14, color: "var(--color-warning)" }}>{t("platform.holidayCalendar.loadFailed", "Calendar data could not be loaded; using weekday rules")}</span>}
+      {!failed && missingYear && <span role="status" style={{ fontSize: 14, color: "var(--color-warning)" }}>{t("platform.holidayCalendar.yearUnavailable", "Calendar does not cover the current year; using weekday rules")}</span>}
     </div>
   );
 }

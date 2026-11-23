@@ -241,10 +241,10 @@ export function CodingToolsSettingsTab() {
     setBusy(true);
     try {
       const isApply = await persist();
-      setMessage(isApply ? t("codingTools.applied", "已应用") : t("codingTools.cleared", "已清除"));
+      setMessage(isApply ? t("codingTools.applied", "Applied") : t("codingTools.cleared", "Cleared"));
     } catch (e: any) {
       revert();
-      setError(t("codingTools.writeFailed", "写入失败") + ": " + String(e));
+      setError(t("codingTools.writeFailed", "Write failed") + ": " + String(e));
     } finally {
       setBusy(false);
     }
@@ -362,16 +362,16 @@ export function CodingToolsSettingsTab() {
   };
 
   if (loading) {
-    return <div style={{ padding: 20, color: "var(--text-secondary)" }}>{t("common.loading", "加载中…")}</div>;
+    return <div style={{ padding: 20, color: "var(--text-secondary)" }}>{t("common.loading", "Loading...")}</div>;
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* 说明卡片 */}
       <CodingSectionCard staggerMs={0} style={{ padding: "16px 20px" }}>
-        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.cliIntegrationTitle", "CLI 集成")}</div>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.cliIntegrationTitle", "Coding Setting")}</div>
         <div className="text-secondary" style={{ fontSize: 14, marginTop: 4 }}>
-          {t("codingTools.introDesc", "以下开关会写入 Claude Code CLI 的本地配置文件，使扩展与 CLI 走 aidog 代理并跳过首启引导。")}
+          {t("codingTools.introDesc", "These toggles write to the Claude Code CLI local config files, routing the extension and CLI through aidog and skipping first-run onboarding.")}
         </div>
       </CodingSectionCard>
 
@@ -567,12 +567,12 @@ export function CodingToolsSettingsTab() {
             wordBreak: "break-word",
           }}
         >
-          <div style={{ fontWeight: 600 }}>{t("codingTools.errorTitle", "开关未生效")}</div>
+          <div style={{ fontWeight: 600 }}>{t("codingTools.errorTitle", "Switch not applied")}</div>
           <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 14, opacity: 0.92 }}>
             {error}
           </div>
           <div style={{ fontSize: 14, opacity: 0.85 }}>
-            {t("codingTools.errorHint", "请检查该文件的 JSON 格式与读写权限后重试。")}
+            {t("codingTools.errorHint", "Please check the file's JSON format and read/write permissions, then retry.")}
           </div>
         </div>
       )}

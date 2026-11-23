@@ -60,7 +60,7 @@ export function useLogsList(activeFilter: ProxyLogFilter, hasFilter: boolean) {
       await proxyLogApi.cleanupExpired();
       setOffset(0);
       load();
-      setCleanupMessage(t("logs.cleanupExpiredDone", "已清理过期日志"));
+      setCleanupMessage(t("logs.cleanupExpiredDone", "Expired logs cleaned up"));
       setTimeout(() => setCleanupMessage(""), 3000);
     } catch (e) { console.error(e); }
   };

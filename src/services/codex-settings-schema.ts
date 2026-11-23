@@ -19,10 +19,10 @@ export const CODEX_SECTIONS: SettingSection[] = [
     labelKey: "codex.sectionCore",
     fields: [
       { key: "model", label: "Model", type: "string", placeholder: "e.g. gpt-5.5" },
-      { key: "model_provider", label: "Model Provider", type: "string", placeholder: "aidog", description: "从 [model_providers] 选 provider id" },
-      { key: "oss_provider", label: "OSS Provider", type: "select", options: ["lmstudio", "ollama"], description: "--oss 默认本地 provider" },
+      { key: "model_provider", label: "Model Provider", type: "string", placeholder: "aidog", description: "Provider id chosen from [model_providers]" },
+      { key: "oss_provider", label: "OSS Provider", type: "select", options: ["lmstudio", "ollama"], description: "Default local provider for --oss" },
       { key: "service_tier", label: "Service Tier", type: "select", options: ["flex", "fast"] },
-      { key: "review_model", label: "Review Model", type: "string", description: "/review 覆盖模型" },
+      { key: "review_model", label: "Review Model", type: "string", description: "Model override for /review" },
       { key: "model_context_window", label: "Context Window (tokens)", type: "string", placeholder: "auto" },
       { key: "model_auto_compact_token_limit", label: "Auto Compact Token Limit", type: "string" },
     ],
@@ -31,17 +31,17 @@ export const CODEX_SECTIONS: SettingSection[] = [
     id: "reasoning",
     labelKey: "codex.sectionReasoning",
     fields: [
-      { key: "model_reasoning_effort", label: "Reasoning Effort", type: "select", options: ["minimal", "low", "medium", "high", "xhigh"], description: "仅 Responses API" },
+      { key: "model_reasoning_effort", label: "Reasoning Effort", type: "select", options: ["minimal", "low", "medium", "high", "xhigh"], description: "Responses API only" },
       { key: "plan_mode_reasoning_effort", label: "Plan Mode Reasoning Effort", type: "select", options: ["none", "minimal", "low", "medium", "high", "xhigh"] },
       { key: "model_reasoning_summary", label: "Reasoning Summary", type: "select", options: ["auto", "concise", "detailed", "none"] },
-      { key: "model_verbosity", label: "Verbosity", type: "select", options: ["low", "medium", "high"], description: "GPT-5 Responses 文本详细度" },
+      { key: "model_verbosity", label: "Verbosity", type: "select", options: ["low", "medium", "high"], description: "GPT-5 Responses text verbosity" },
     ],
   },
   {
     id: "approval",
     labelKey: "codex.sectionApproval",
     fields: [
-      { key: "approval_policy", label: "Approval Policy", type: "select", options: ["untrusted", "on-request", "never"], description: "何时暂停请求审批" },
+      { key: "approval_policy", label: "Approval Policy", type: "select", options: ["untrusted", "on-request", "never"], description: "When to pause and ask for approval" },
       { key: "sandbox_mode", label: "Sandbox Mode", type: "select", options: ["read-only", "workspace-write", "danger-full-access"] },
       { key: "approvals_reviewer", label: "Approvals Reviewer", type: "select", options: ["user", "auto_review"] },
       { key: "allow_login_shell", label: "Allow Login Shell", type: "boolean" },
@@ -52,16 +52,16 @@ export const CODEX_SECTIONS: SettingSection[] = [
     id: "providers",
     labelKey: "codex.sectionProviders",
     fields: [
-      { key: "openai_base_url", label: "OpenAI Base URL Override", type: "string", placeholder: "http://127.0.0.1:9890/proxy", description: "轻量方案：直接覆盖内置 openai provider base URL" },
+      { key: "openai_base_url", label: "OpenAI Base URL Override", type: "string", placeholder: "http://127.0.0.1:9890/proxy", description: "Lightweight option: override the built-in openai provider base URL directly" },
       { key: "chatgpt_base_url", label: "ChatGPT Base URL", type: "string" },
-      { key: "model_providers", label: "Model Providers", type: "json", description: "[model_providers.<id>] 自定义 provider（含 aidog 代理）。每项 { name, base_url, wire_api, env_key, ... }" },
+      { key: "model_providers", label: "Model Providers", type: "json", description: "[model_providers.<id>] custom providers (including the aidog proxy). Each entry is { name, base_url, wire_api, env_key, ... }" },
     ],
   },
   {
     id: "mcp",
     labelKey: "codex.sectionMcp",
     fields: [
-      { key: "mcp_servers", label: "MCP Servers", type: "json", description: "[mcp_servers.<id>] — stdio (command/args/env) 或 HTTP (url/...)" },
+      { key: "mcp_servers", label: "MCP Servers", type: "json", description: "[mcp_servers.<id>] — stdio (command/args/env) or HTTP (url/...)" },
       { key: "mcp_oauth_credentials_store", label: "MCP OAuth Store", type: "select", options: ["auto", "file", "keyring"] },
     ],
   },
@@ -76,7 +76,7 @@ export const CODEX_SECTIONS: SettingSection[] = [
     id: "search",
     labelKey: "codex.sectionSearch",
     fields: [
-      { key: "web_search", label: "Web Search", type: "select", options: ["disabled", "cached", "live"], description: "cached=预索引抗注入；live=实时" },
+      { key: "web_search", label: "Web Search", type: "select", options: ["disabled", "cached", "live"], description: "cached = pre-indexed, injection-resistant; live = real time" },
       { key: "personality", label: "Personality", type: "select", options: ["none", "friendly", "pragmatic"] },
     ],
   },

@@ -14,7 +14,7 @@ export function SessionCost({ cost, calls, unpricedCalls, testId }: { cost: numb
   const state = pricedState(calls, unpricedCalls);
   return (
     <span data-testid={testId} data-priced={state}>
-      {state === "none" ? t("clientUsage.unpriced", "未定价") : rtlIsolate(`${formatMoney(cost)}${state === "partial" ? "+" : ""}`)}
+      {state === "none" ? t("clientUsage.unpriced", "Unpriced") : rtlIsolate(`${formatMoney(cost)}${state === "partial" ? "+" : ""}`)}
     </span>
   );
 }

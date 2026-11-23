@@ -55,17 +55,17 @@ export function parseTestBody(raw: string, t: TFunction): ParsedTestBody {
     if (typeof err === "object") {
       const e = err as Record<string, unknown>;
       const msg = toDisplay(e.message);
-      if (msg) rows.push({ label: t("testBody.errorMessage", "错误信息"), value: msg });
+      if (msg) rows.push({ label: t("testBody.errorMessage", "Error message"), value: msg });
       const type = toDisplay(e.type);
-      if (type) rows.push({ label: t("testBody.errorType", "错误类型"), value: type });
+      if (type) rows.push({ label: t("testBody.errorType", "Error type"), value: type });
       const code = toDisplay(e.code);
-      if (code) rows.push({ label: t("testBody.errorCode", "错误码"), value: code });
+      if (code) rows.push({ label: t("testBody.errorCode", "Error code"), value: code });
       // error 对象存在但无可识别子字段 → 整体序列化兜底
       if (!msg && !type && !code) {
-        rows.push({ label: t("testBody.error", "错误"), value: toDisplay(err) });
+        rows.push({ label: t("testBody.error", "Error"), value: toDisplay(err) });
       }
     } else {
-      rows.push({ label: t("testBody.error", "错误"), value: toDisplay(err) });
+      rows.push({ label: t("testBody.error", "Error"), value: toDisplay(err) });
     }
   }
 
@@ -74,18 +74,18 @@ export function parseTestBody(raw: string, t: TFunction): ParsedTestBody {
   if (usage != null && typeof usage === "object") {
     const u = usage as Record<string, unknown>;
     const input = toDisplay(u.input_tokens ?? u.prompt_tokens);
-    if (input) rows.push({ label: t("testBody.inputTokens", "输入 tokens"), value: input });
+    if (input) rows.push({ label: t("testBody.inputTokens", "Input tokens"), value: input });
     const output = toDisplay(u.output_tokens ?? u.completion_tokens);
-    if (output) rows.push({ label: t("testBody.outputTokens", "输出 tokens"), value: output });
+    if (output) rows.push({ label: t("testBody.outputTokens", "Output tokens"), value: output });
   }
 
   // model
   const model = toDisplay(obj.model);
-  if (model) rows.push({ label: t("testBody.model", "模型"), value: model });
+  if (model) rows.push({ label: t("testBody.model", "Model"), value: model });
 
   // 文本内容：Anthropic content[].text / OpenAI choices[].message.content
   const content = extractContentText(obj);
-  if (content) rows.push({ label: t("testBody.content", "响应内容"), value: content });
+  if (content) rows.push({ label: t("testBody.content", "Response content"), value: content });
 
   if (rows.length > 0) return { kind: "known", rows };
   return { kind: "raw", text };

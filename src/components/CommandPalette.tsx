@@ -49,7 +49,7 @@ export function CommandPalette(props: {
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent data-testid="command-palette" style={{ maxWidth: 480, padding: 0, gap: 0, top: "18%", transform: "translate(-50%, 0)" }} aria-describedby={undefined}>
         <DialogHeader style={{ padding: 0, borderBottom: "1px solid var(--border)" }}>
-          <DialogTitle style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>{t("topbar.search", "搜索（⌘K）")}</DialogTitle>
+          <DialogTitle style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>{t("topbar.search", "Search (⌘K)")}</DialogTitle>
           <input
             ref={inputRef}
             data-testid="command-palette-input"
@@ -61,7 +61,7 @@ export function CommandPalette(props: {
               else if (e.key === "ArrowUp") { e.preventDefault(); setIndex(i => Math.max(i - 1, 0)); }
               else if (e.key === "Enter" && hits[index]) { e.preventDefault(); jump(hits[index].id); }
             }}
-            placeholder={t("topbar.palettePlaceholder", "跳转到…")}
+            placeholder={t("topbar.palettePlaceholder", "Jump to…")}
             style={{
               width: "100%", background: "transparent", border: "none", outline: "none",
               fontSize: 14, padding: "14px 16px", color: "var(--foreground)",
@@ -71,7 +71,7 @@ export function CommandPalette(props: {
         <div style={{ maxHeight: 320, overflow: "auto", padding: 6 }}>
           {hits.length === 0 ? (
             <div data-testid="command-palette-empty" style={{ fontSize: 14, color: "var(--text-tertiary)", padding: "16px 10px", textAlign: "center" }}>
-              {t("topbar.paletteNoResults", "无匹配结果")}
+              {t("topbar.paletteNoResults", "No results")}
             </div>
           ) : hits.map((it, i) => {
             const on = it.id === props.activeId;

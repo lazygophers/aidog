@@ -166,7 +166,7 @@ export function FieldLabel({ field, t, style, nonDefault, onReset, highlight }: 
       </span>
       {field.description && (
         <span style={{ display: "block", fontWeight: 400, fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 3, lineHeight: 1.5 }}>
-          {field.description}
+          {t(`settings.d_${field.key}`, field.description)}
         </span>
       )}
     </label>
@@ -594,7 +594,7 @@ export function PathInput({
       const selected = await open({
         directory: pathType === "directory",
         multiple: false,
-        title: pathType === "directory" ? t("settings.editor.chooseDir", "选择目录") : t("settings.editor.chooseFile", "选择文件"),
+        title: pathType === "directory" ? t("settings.editor.chooseDir", "Choose Directory") : t("settings.editor.chooseFile", "Choose File"),
       });
       if (selected) onChange(selected);
     } catch {
@@ -621,9 +621,9 @@ export function PathInput({
     const diffDays = Math.floor(diffMs / 86400000);
     if (diffDays === 0) {
       const diffH = Math.floor(diffMs / 3600000);
-      return diffH === 0 ? t("settings.editor.justNow", "刚刚") : `${diffH}${t("settings.editor.hoursAgo", "小时前")}`;
+      return diffH === 0 ? t("settings.editor.justNow", "just now") : `${diffH}${t("settings.editor.hoursAgo", "h ago")}`;
     }
-    if (diffDays < 30) return `${diffDays}${t("settings.editor.daysAgo", "天前")}`;
+    if (diffDays < 30) return `${diffDays}${t("settings.editor.daysAgo", "d ago")}`;
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
 
@@ -633,7 +633,7 @@ export function PathInput({
         <Input
           
           style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
-          placeholder={placeholder ?? (pathType === "directory" ? t("settings.editor.dirOrInputPh", "选择目录或直接输入路径…") : t("settings.editor.fileOrInputPh", "选择文件或直接输入路径…"))}
+          placeholder={placeholder ?? (pathType === "directory" ? t("settings.editor.dirOrInputPh", "Choose a directory or type a path…") : t("settings.editor.fileOrInputPh", "Choose a file or type a path…"))}
           value={value ?? ""}
           onChange={(e) => {
             const v = e.target.value || undefined;
@@ -674,7 +674,7 @@ export function PathInput({
 
             style={{ fontSize: F.body, padding: S.inputPad, flexShrink: 0 }}
             onClick={pick}
-            title={pathType === "directory" ? t("settings.editor.chooseDir", "选择目录") : t("settings.editor.chooseFile", "选择文件")}
+            title={pathType === "directory" ? t("settings.editor.chooseDir", "Choose Directory") : t("settings.editor.chooseFile", "Choose File")}
           >
             <SectionIcon name="folder" size={15} />
           </Button>
@@ -738,8 +738,8 @@ export function PathInput({
       {!value && !showSugg && (
         <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
           {pathType === "directory"
-            ? t("settings.editor.dirHint", "输入 ~/ 浏览主目录，支持 Tab 补全")
-            : t("settings.editor.fileHint", "输入路径浏览文件，如 ~/ 或 ./")}
+            ? t("settings.editor.dirHint", "Type ~/ to browse home directory, Tab to complete")
+            : t("settings.editor.fileHint", "Type a path to browse files, e.g. ~/ or ./")}
         </span>
       )}
     </div>

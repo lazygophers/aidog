@@ -51,33 +51,33 @@ export function GroupCreateModal({
 
       {/* Basic info */}
       <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
-        <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 4 }}>{t("group.basicInfo", "基本信息")}</div>
+        <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 4 }}>{t("group.basicInfo", "Basic Info")}</div>
 
         {/* Name */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "名称")}</span>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "Group Name")}</span>
           <Input style={{ fontSize: F.body, padding: S.inputPad }}
-            placeholder={t("group.name", "分组名称")} value={cName}
+            placeholder={t("group.name", "Group Name")} value={cName}
             onChange={(e) => onCName(e.target.value)} />
           <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
-            {t("group.nameHint", "分组显示名（中文可读），用于界面展示。")}
+            {t("group.nameHint", "Display name (human-readable), shown in UI.")}
           </div>
         </div>
 
         {/* Group key */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.groupKey", "密钥")}</span>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.groupKey", "Group key (auto-generated if empty)")}</span>
           <Input style={{ fontSize: F.body, padding: S.inputPad }}
-            placeholder={t("group.groupKey", "分组密钥（留空自动生成）")} value={cGroupKey}
+            placeholder={t("group.groupKey", "Group key (auto-generated if empty)")} value={cGroupKey}
             onChange={(e) => onCGroupKey(e.target.value.replace(/[^\w-]/g, ""))} />
           <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
-            {t("group.groupKeyHint", "分组密钥（= API Key / 路由识别键）。留空自动生成；创建后锁定不可修改。")}
+            {t("group.groupKeyHint", "Group key (= API Key / routing identity). Auto-generated if empty; locked after creation.")}
           </div>
         </div>
 
         {/* Routing mode */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.routingMode", "路由模式")}</span>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.routingMode", "Routing mode")}</span>
           <Select value={cMode} onValueChange={(v) => onCMode(v as RoutingMode)}>
             <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad }}>
               <SelectValue />
@@ -94,9 +94,9 @@ export function GroupCreateModal({
 
       {/* Platforms（与编辑视图共用 PlatformPicker；创建时选定，保存后一并关联） */}
       <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
-        <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("group.platforms", "关联平台")}</div>
+        <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("group.platforms", "Platforms")}</div>
         <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
-          {t("group.platformsHint", "选择并排序此分组使用的平台，顺序决定优先级")}
+          {t("group.platformsHint", "Select and reorder platforms for this group; order defines priority")}
         </div>
         <PlatformPicker
           platformIds={cPlatformIds}

@@ -69,12 +69,12 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
       background: "var(--bg-glass)", border: "1px solid var(--border)",
     }}>
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>
-        {t("platform.mockConfig")}（{t("platform.mockConfigHint")}）
+        {t("platform.mockConfig")} ({t("platform.mockConfigHint")})
       </div>
 
       {/* 响应文本 */}
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockResponseText")}（response_text）</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockResponseText")} (response_text)</span>
         <Textarea
           className="input"
           style={{ minHeight: 60, resize: "vertical" }}
@@ -94,20 +94,20 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
 
       {/* 数值字段网格 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        {numberField(`${t("platform.mockStatusCode")}（status_code）`, "status_code")}
-        {numberField(`${t("platform.mockDelayMs")}（delay_ms）`, "delay_ms")}
-        {numberField(`${t("platform.mockInputTokens")}（input_tokens）`, "input_tokens")}
-        {numberField(`${t("platform.mockOutputTokens")}（output_tokens）`, "output_tokens")}
-        {numberField(`${t("platform.mockCacheTokens")}（cache_tokens）`, "cache_tokens")}
-        {numberField(`${t("platform.mockChunkCount")}（chunk_count）`, "chunk_count")}
-        {optionalNumberField(`${t("platform.mockTtftMs")}（ttft_ms）`, "ttft_ms", t("platform.mockTtftMsHint"), { min: 0 })}
-        {optionalNumberField(`${t("platform.mockInterChunkMs")}（inter_chunk_ms）`, "inter_chunk_ms", t("platform.mockInterChunkMsHint"), { min: 0 })}
+        {numberField(`${t("platform.mockStatusCode")} (status_code)`, "status_code")}
+        {numberField(`${t("platform.mockDelayMs")} (delay_ms)`, "delay_ms")}
+        {numberField(`${t("platform.mockInputTokens")} (input_tokens)`, "input_tokens")}
+        {numberField(`${t("platform.mockOutputTokens")} (output_tokens)`, "output_tokens")}
+        {numberField(`${t("platform.mockCacheTokens")} (cache_tokens)`, "cache_tokens")}
+        {numberField(`${t("platform.mockChunkCount")} (chunk_count)`, "chunk_count")}
+        {optionalNumberField(`${t("platform.mockTtftMs")} (ttft_ms)`, "ttft_ms", t("platform.mockTtftMsHint"), { min: 0 })}
+        {optionalNumberField(`${t("platform.mockInterChunkMs")} (inter_chunk_ms)`, "inter_chunk_ms", t("platform.mockInterChunkMsHint"), { min: 0 })}
       </div>
 
       {/* error_mode + stream_override */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockErrorMode")}（error_mode）</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockErrorMode")} (error_mode)</span>
           <Select
             value={config.error_mode}
             onValueChange={(v) => setField("error_mode", v as MockErrorMode)}
@@ -123,7 +123,7 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
           </Select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockStreamOverride")}（stream_override）</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockStreamOverride")} (stream_override)</span>
           <Select
             value={streamValue}
             onValueChange={(v) => {
@@ -134,9 +134,9 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="follow">{t("platform.mockStreamFollow")}（null）</SelectItem>
-              <SelectItem value="force_on">{t("platform.mockStreamForceOn")}（true）</SelectItem>
-              <SelectItem value="force_off">{t("platform.mockStreamForceOff")}（false）</SelectItem>
+              <SelectItem value="follow">{t("platform.mockStreamFollow")} (null)</SelectItem>
+              <SelectItem value="force_on">{t("platform.mockStreamForceOn")} (true)</SelectItem>
+              <SelectItem value="force_off">{t("platform.mockStreamForceOff")} (false)</SelectItem>
             </SelectContent>
           </Select>
         </label>
@@ -144,7 +144,7 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
 
       {/* error_rate：留空 = 不启用概率注入，每次请求都按 error_mode 判定（向后兼容） */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        {optionalNumberField(`${t("platform.mockErrorRate")}（error_rate）`, "error_rate", t("platform.mockErrorRateHint"), { min: 0, max: 1, step: 0.01 })}
+        {optionalNumberField(`${t("platform.mockErrorRate")} (error_rate)`, "error_rate", t("platform.mockErrorRateHint"), { min: 0, max: 1, step: 0.01 })}
       </div>
     </div>
   );

@@ -33,7 +33,7 @@ export function McpView({ d }: { d: McpData }) {
           onClick={(e) => { makeRipple(e); openAdd(); }}
           disabled={busyKey !== null}
         >
-          {t("mcp.add", "添加 MCP")}
+          {t("mcp.add", "Add MCP")}
         </Button>
         <Button
           variant="outline"
@@ -41,29 +41,29 @@ export function McpView({ d }: { d: McpData }) {
           onClick={(e) => { makeRipple(e); setPasteText(""); setMessage(null); setPasteOpen(true); }}
           disabled={busyKey !== null}
         >
-          {t("mcp.pasteImport", "粘贴导入")}
+          {t("mcp.pasteImport", "Paste JSON")}
         </Button>
         <Button
           variant="outline"
           className="ripple"
           onClick={(e) => { makeRipple(e); void handleResync(); }}
           disabled={busyKey !== null}
-          title={t("mcp.resyncHint", "从 aidog 数据库重写所有已启用 agent 的配置文件，修复被外部工具污染的条目")}
+          title={t("mcp.resyncHint", "Rewrite all enabled agent config files from the aidog database, fixing entries polluted by external tools")}
         >
-          {t("mcp.resync", "重新同步")}
+          {t("mcp.resync", "Resync")}
         </Button>
         <Button
           className="ripple"
           onClick={(e) => { makeRipple(e); void openScan(); }}
           disabled={busyKey !== null}
         >
-          {t("mcp.scanImport", "扫描导入")}
+          {t("mcp.scanImport", "Scan & Import")}
         </Button>
       </div>
 
       <PiUnsupportedNote
         reasonKey="pi.unsupportedMcp"
-        reasonFallback="pi 刻意不内置 MCP，能力靠 extension 直接写 TypeScript 提供，没有可写入的 MCP 配置文件。"
+        reasonFallback="pi deliberately ships no built-in MCP; capabilities come from TypeScript extensions, so there is no MCP config file to write."
       />
 
       {/* 消息条 */}
@@ -85,7 +85,7 @@ export function McpView({ d }: { d: McpData }) {
       {/* 列表 */}
       {loading ? (
         <div style={{ color: "var(--text-tertiary)", fontSize: 14 }}>
-          {t("common.loading", "加载中…")}
+          {t("common.loading", "Loading...")}
         </div>
       ) : servers.length === 0 ? (
         <div
@@ -98,7 +98,7 @@ export function McpView({ d }: { d: McpData }) {
             borderRadius: 12,
           }}
         >
-          {t("mcp.empty", "暂无 MCP，点「扫描导入」从 agent 配置拉取")}
+          {t("mcp.empty", "No MCP yet. Click \"Scan & Import\" to pull from agent configs.")}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

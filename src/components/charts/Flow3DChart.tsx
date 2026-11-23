@@ -401,8 +401,8 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
 
   const fmtV = useCallback((v: number) => (metric === "cost" ? formatMoney(v) : formatNumber(Math.round(v))), [metric]);
   const scene = useMemo(() => buildScene(aggregateFlowPaths(rows, columns, metric), (ci, id) => (id === FLOW3D_OTHER
-    ? t("group.flow.other", "其他")
-    : (columns[ci].labelOf?.(id) ?? (id === "" ? t("flow.model.none", "未指定") : id)))), [rows, columns, metric, t]);
+    ? t("group.flow.other", "Other")
+    : (columns[ci].labelOf?.(id) ?? (id === "" ? t("flow.model.none", "Unspecified") : id)))), [rows, columns, metric, t]);
 
   const applyFocus = useCallback((f: Focus | null) => {
     if (f === focusRef.current || sameFocus(f, focusRef.current)) return;
@@ -438,14 +438,14 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
   const L = scene.L, mid = L > 3 ? 2 : -1, total = scene.total || 1;
   const pal = (p: P3) => colorOf(p, dark);
   const chip = (c: string) => <span style={{ width: 12, height: 12, borderRadius: 3, background: c, flex: "none", display: "inline-block" }} />;
-  const ofTotal = (v: number) => `${fmtV(v)} · ${t("flow.3d.ofTotal", { p: formatPct(v / total * 100), defaultValue: "占全部 {{p}}" })}`;
+  const ofTotal = (v: number) => `${fmtV(v)} · ${t("flow.3d.ofTotal", { p: formatPct(v / total * 100), defaultValue: "{{p}} of total" })}`;
   const totStyle = { marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)", fontFamily: MONO, fontWeight: 600 } as const;
   const secStyle = { marginTop: 8, color: "var(--text-secondary)", fontSize: 14 } as const;
 
   const pathCard = (p: P3) => {
     const half = Math.ceil(L / 2);
     return (<>
-      <div style={{ fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>{chip(pal(p))}{t("flow.3d.rank", { n: p.i + 1, defaultValue: "完整链路 · 第 {{n}} 大" })}</div>
+      <div style={{ fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>{chip(pal(p))}{t("flow.3d.rank", { n: p.i + 1, defaultValue: "Full path · #{{n}}" })}</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
         {[0, half].map(o => (
           <div key={o}>{p.nodes.slice(o, o + half).map((n, i) => (
@@ -474,17 +474,17 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
   };
   const nodeCard = (n: N3) => {
     const secs: [string, number][] = n.ci < L - 1
-      ? [...(mid > n.ci ? [mid] : []), L - 1].map(l => [t("flow.3d.toCol", { col: columns[l].title, defaultValue: "去往{{col}}" }), l])
-      : [0, ...(L - 3 > 0 ? [L - 3] : [])].map(l => [t("flow.3d.fromCol", { col: columns[l].title, defaultValue: "来自{{col}}" }), l]);
+      ? [...(mid > n.ci ? [mid] : []), L - 1].map(l => [t("flow.3d.toCol", { col: columns[l].title, defaultValue: "To {{col}}" }), l])
+      : [0, ...(L - 3 > 0 ? [L - 3] : [])].map(l => [t("flow.3d.fromCol", { col: columns[l].title, defaultValue: "From {{col}}" }), l]);
     return (<>
       <div style={{ fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>{n.name}<span style={{ fontWeight: 400, fontSize: 14, color: "var(--text-secondary)" }}>{columns[n.ci].title}</span></div>
-      <div style={{ fontFamily: MONO, fontWeight: 600 }}>{t("flow.3d.via", "经过此节点")} {ofTotal(n.flow)}</div>
+      <div style={{ fontFamily: MONO, fontWeight: 600 }}>{t("flow.3d.via", "Through this node")} {ofTotal(n.flow)}</div>
       <div style={{ display: "grid", gridTemplateColumns: secs.length > 1 ? "1fr 1fr" : "1fr", gap: "0 16px" }}>
         {secs.map(([title, l]) => <div key={l}><div style={secStyle}>{title}</div>{dist(n, l)}</div>)}
       </div>
     </>);
   };
-  const othersLabel = t("flow.3d.others", { n: scene.rest.length, defaultValue: "其他 {{n}} 条" });
+  const othersLabel = t("flow.3d.others", { n: scene.rest.length, defaultValue: "{{n}} other paths" });
   const legendIdx = [...new Set([0, mid, L - 3])].filter(i => i >= 0 && i < L - 1);
   const legendRow = (key: string, color: string, name: string, v: number, f: Focus, on: boolean) => (
     <div key={key} data-testid={`flow-3d-legend-${key}`} data-state={on ? "on" : "off"}
@@ -499,20 +499,20 @@ export function Flow3DChart({ columns, rows, metric, surface }: FlowChartProps) 
   return (
     <div ref={wrapRef} data-testid="flow-3d" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 240px", height: 500, fontSize: 14 }}>
       <div style={{ position: "relative", overflow: "hidden", minWidth: 0 }}>
-        <canvas ref={cvRef} aria-label={t("flow.3d.aria", "请求流向立体图")} style={{ display: "block", width: "100%", height: "100%", cursor: "grab", touchAction: "none" }} />
+        <canvas ref={cvRef} aria-label={t("flow.3d.aria", "3D request flow chart")} style={{ display: "block", width: "100%", height: "100%", cursor: "grab", touchAction: "none" }} />
         <button type="button" data-testid="flow-3d-reset" onClick={() => Object.assign(camRef.current, VIEW0)}
           style={{ position: "absolute", top: 6, right: 8, cursor: "pointer", fontSize: 14, padding: "2px 9px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)" }}>
-          {t("flow.3d.reset", "重置视角")}
+          {t("flow.3d.reset", "Reset view")}
         </button>
         <div data-testid="flow-3d-info" role="status" style={{ position: "absolute", left: 12, bottom: 12, width: focus ? 420 : "auto", maxWidth: "calc(100% - 24px)", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.14)", padding: "10px 12px", lineHeight: 1.5, pointerEvents: "none", color: "var(--foreground)" }}>
-          {!focus ? <div style={{ color: "var(--text-secondary)" }}>{t("flow.3d.hint", "悬停管道、节点或右侧图例查看完整链路 · 拖动旋转 · 滚轮缩放")}</div>
+          {!focus ? <div style={{ color: "var(--text-secondary)" }}>{t("flow.3d.hint", "Hover a tube, node or legend item to see the full path · drag to rotate · scroll to zoom")}</div>
             : focus.kind === "path" ? pathCard(focus.p)
             : focus.kind === "node" ? nodeCard(focus.n)
             : (<><div style={{ fontWeight: 600 }}>{othersLabel}</div><div style={totStyle}>{ofTotal(scene.restValue)}</div></>)}
         </div>
       </div>
       <aside style={{ borderLeft: "1px solid var(--border)", padding: "4px 10px", overflow: "auto" }}>
-        <div style={{ fontSize: 14, fontWeight: 600, margin: "4px 0 6px" }}>{t("flow.3d.legend", "链路排行")}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, margin: "4px 0 6px" }}>{t("flow.3d.legend", "Path ranking")}</div>
         {scene.top.map(p => legendRow(String(p.i), pal(p),
           `${legendIdx.map(i => shortModel(p.nodes[i].name)).join(" · ")} → ${shortModel(p.nodes[L - 1].name)}`, p.value,
           { kind: "path", p }, focus?.kind === "path" && focus.p === p))}
