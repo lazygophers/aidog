@@ -485,7 +485,7 @@ async fn minimax_family_anthropic_endpoint_proxy_response_usage_stream_and_error
         assert!(resp.contains("[DONE]"), "{pt:?}: {resp}");
 
         let (status, resp, hits) = glm_member_call(
-            pt,
+            pt.clone(),
             Protocol::Anthropic,
             gk,
             "/chat/completions",
@@ -2329,4 +2329,263 @@ async fn stepfun_openai_endpoint_error_body() {
     assert!(!hits.is_empty());
     assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
     assert!(resp.contains("模型不存在"), "{resp}");
+}
+
+// ── issue 84：腾讯云家族（tencent_coding / tencent_tokenhub / tencent_tokenhub_intl）──
+// 家族取证（官方文档核对日期 2026-11-23）见 aidog_adapter platform::registry
+// `TencentFamilyAdapter` 模块注释。本节全部经真实 gateway handle_proxy → 分组路由 →
+// 用户端点 (protocol, base_url=本地假上游) → 协议转换 / 透传 → 上游。
+
+/// TokenHub openai 非流式：reasoning_content 思考 + prompt_tokens_details.cached_tokens
+/// 缓存（135872 usage 表；顶层 cache_read_tokens 与 prompt_tokens 包含关系未证实，不在断言内）。
+const TC_OPENAI_RESP: &str = r#"{"id":"tc_1","created":1,"model":"tc-code-latest","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi","reasoning_content":"think"}}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+/// TokenHub openai 流式：delta.reasoning_content → delta.content → 末帧 finish + usage → [DONE]。
+const TC_OPENAI_SSE: &str = "data: {\"id\":\"tc_1\",\"created\":1,\"model\":\"tc-code-latest\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"think\"}}]}\n\n\
+data: {\"id\":\"tc_1\",\"created\":1,\"model\":\"tc-code-latest\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
+data: {\"id\":\"tc_1\",\"created\":1,\"model\":\"tc-code-latest\",\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"delta\":{}}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\n\
+data: [DONE]\n\n";
+/// TokenHub anthropic 非流式（135874：标准 Messages 形状 + cache 两件）。
+const TC_ANTHROPIC_RESP: &str = r#"{"id":"msg_tc","type":"message","role":"assistant","model":"tc-code-latest","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":4,"cache_creation_input_tokens":2}}"#;
+/// TokenHub anthropic 流式：标准事件链 + message_start/message_delta 部分帧 usage。
+const TC_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_tc\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"tc-code-latest\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":4}}}\n\n\
+event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+/// TokenHub 错误体：6 位业务码、前三位对应 HTTP 状态；早期拦截错误 type=gateway_error
+/// （130079 错误处理节 / 135872 错误响应节）。模型不存在按基座特征归模型类。
+const TC_ERR_400: &str = r#"{"error":{"message":"模型不存在或无权限","message_zh":"模型不存在或无权限","code":"400001","type":"invalid_request_error","request_id":"req_1"}}"#;
+
+/// issue 84：三成员 openai 端点禁思考逐成员作用域（经真实 gateway）——TokenHub 两成员写
+/// 平台标准 `thinking.type=disabled`（135872）；Coding Plan 官方未列思考参数（130092），
+/// 保持框架默认 `chat_template_kwargs.enable_thinking=false`。
+#[tokio::test]
+async fn tencent_family_openai_endpoint_disable_thinking_per_member_scope() {
+    let inbound = r#"{"model":"tc-code-latest","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    for (i, (pt, official_thinking)) in [
+        (Protocol::TencentCoding, false),
+        (Protocol::TencentTokenhub, true),
+        (Protocol::TencentTokenhubIntl, true),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &format!("gk84do{i}"),
+            "/v1/messages",
+            inbound,
+            (200, "application/json", TC_OPENAI_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits.len(), 1, "{pt:?}: {hits:?}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert!(up.get("disable_thinking").is_none(), "{pt:?}: {up}");
+        if official_thinking {
+            assert_eq!(up["thinking"]["type"], "disabled", "{pt:?}: {up}");
+            assert!(up.get("chat_template_kwargs").is_none(), "{pt:?}: {up}");
+        } else {
+            assert!(up.get("thinking").is_none(), "{pt:?}: {up}");
+            assert_eq!(
+                up["chat_template_kwargs"]["enable_thinking"],
+                false,
+                "{pt:?}: {up}"
+            );
+        }
+    }
+}
+
+/// issue 84：三成员 anthropic 端点禁思考——基座 anthropic 臂标准 `thinking.type=disabled`
+/// （135874 thinking 对象为平台标准参数），家族一致。
+#[tokio::test]
+async fn tencent_family_anthropic_endpoint_disable_thinking_default_shape() {
+    let inbound = r#"{"model":"tc-code-latest","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    for (i, pt) in [
+        Protocol::TencentCoding,
+        Protocol::TencentTokenhub,
+        Protocol::TencentTokenhubIntl,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &format!("gk84da{i}"),
+            "/v1/messages",
+            inbound,
+            (200, "application/json", TC_ANTHROPIC_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["thinking"]["type"], "disabled", "{pt:?}: {up}");
+        assert!(up.get("disable_thinking").is_none(), "{pt:?}: {up}");
+    }
+}
+
+/// issue 84：三成员 openai 端点非流式——入站 anthropic 转 openai 打 `/chat/completions`；
+/// 响应回 anthropic：reasoning_content → thinking 块、cached_tokens → cache_read_input_tokens。
+#[tokio::test]
+async fn tencent_family_openai_endpoint_non_stream_request_response_usage() {
+    for (i, pt) in [
+        Protocol::TencentCoding,
+        Protocol::TencentTokenhub,
+        Protocol::TencentTokenhubIntl,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &format!("gk84on{i}"),
+            "/v1/messages",
+            GLM_ANTHROPIC_IN,
+            (200, "application/json", TC_OPENAI_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits.len(), 1, "{pt:?}: {hits:?}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["model"], "glm-test", "{pt:?}: {up}");
+        assert_eq!(up["max_tokens"], 32, "{pt:?}: {up}");
+        let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        let content = v["content"].as_array().unwrap();
+        assert!(
+            content.iter().any(|b| b["type"] == "thinking" && b["thinking"] == "think"),
+            "{pt:?}: {v}"
+        );
+        assert!(content.iter().any(|b| b["type"] == "text" && b["text"] == "hi"), "{pt:?}: {v}");
+        assert_eq!(v["usage"]["cache_read_input_tokens"], 4, "{pt:?}: {v}");
+        assert_eq!(v["usage"]["output_tokens"], 3, "{pt:?}: {v}");
+    }
+}
+
+/// issue 84：三成员 anthropic 端点非流式——入站 openai 转 anthropic 打 `/v1/messages`；
+/// 响应回 openai 形状（usage.completion_tokens 沿 completion_tokens）。
+#[tokio::test]
+async fn tencent_family_anthropic_endpoint_non_stream_request_response_usage() {
+    for (i, pt) in [
+        Protocol::TencentCoding,
+        Protocol::TencentTokenhub,
+        Protocol::TencentTokenhubIntl,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &format!("gk84an{i}"),
+            "/chat/completions",
+            GLM_OPENAI_IN,
+            (200, "application/json", TC_ANTHROPIC_RESP),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits.len(), 1, "{pt:?}: {hits:?}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}");
+        let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(up["max_tokens"], 32, "{pt:?}: {up}");
+        let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+        assert_eq!(v["choices"][0]["message"]["content"], "hi", "{pt:?}: {v}");
+        assert_eq!(v["usage"]["completion_tokens"], 3, "{pt:?}: {v}");
+    }
+}
+
+/// issue 84：三成员 openai 端点流式——delta.reasoning_content → thinking_delta、
+/// delta.content → text_delta、`[DONE]` 收尾 message_stop。
+#[tokio::test]
+async fn tencent_family_openai_endpoint_stream() {
+    for (i, pt) in [
+        Protocol::TencentCoding,
+        Protocol::TencentTokenhub,
+        Protocol::TencentTokenhubIntl,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &format!("gk84os{i}"),
+            "/v1/messages",
+            GLM_ANTHROPIC_IN_STREAM,
+            (200, "text/event-stream", TC_OPENAI_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}");
+        assert!(resp.contains("thinking_delta") && resp.contains("think"), "{pt:?}: {resp}");
+        assert!(resp.contains("text_delta") && resp.contains("\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("message_stop"), "{pt:?}: {resp}");
+    }
+}
+
+/// issue 84：三成员 anthropic 端点流式——标准事件链转 openai chunk，结尾 `[DONE]`。
+#[tokio::test]
+async fn tencent_family_anthropic_endpoint_stream() {
+    for (i, pt) in [
+        Protocol::TencentCoding,
+        Protocol::TencentTokenhub,
+        Protocol::TencentTokenhubIntl,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::Anthropic,
+            &format!("gk84as{i}"),
+            "/chat/completions",
+            GLM_OPENAI_IN_STREAM,
+            (200, "text/event-stream", TC_ANTHROPIC_SSE),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{pt:?}: {resp}");
+        assert_eq!(hits[0].0, "/v1/messages", "{pt:?}");
+        assert!(resp.contains("\"hi\""), "{pt:?}: {resp}");
+        assert!(resp.contains("[DONE]"), "{pt:?}: {resp}");
+    }
+}
+
+/// issue 84：OpenAI Chat 错误——三成员都将 HTTP 400 + 腾讯云 6 位业务码原样送到客户端，
+/// 模型不存在文案按基座特征归类。错误格式证据仅取自 OpenAI Chat 官方页（135872）；
+/// Anthropic 专属错误形状未证实，保持框架默认，不在此伪造契约。
+#[tokio::test]
+async fn tencent_family_openai_endpoint_error_body() {
+    let pa = aidog_adapter::platform::adapter_for("tencent_tokenhub");
+    assert_eq!(
+        pa.classify_error(400, TC_ERR_400),
+        aidog_adapter::platform::error::UpstreamErrorClass::Model
+    );
+    for (i, pt) in [
+        Protocol::TencentCoding,
+        Protocol::TencentTokenhub,
+        Protocol::TencentTokenhubIntl,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (status, resp, hits) = glm_member_call(
+            pt.clone(),
+            Protocol::OpenAI,
+            &format!("gk84er{i}"),
+            "/v1/messages",
+            GLM_ANTHROPIC_IN,
+            (400, "application/json", TC_ERR_400),
+        )
+        .await;
+        assert!(!hits.is_empty(), "{pt:?}: {hits:?}");
+        assert_eq!(hits[0].0, "/chat/completions", "{pt:?}");
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{pt:?}: {resp}");
+        assert!(resp.contains("模型不存在"), "{pt:?}: {resp}");
+    }
 }

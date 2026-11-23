@@ -2,9 +2,9 @@
 
 use super::error::UpstreamErrorClass;
 use super::hooks;
-use crate::types::ChatRequest;
+use crate::types::{ChatRequest, ChatStreamEvent};
 use aidog_db::models::Protocol;
-use serde_json::json;
+use serde_json::{json, Value};
 
 /// 门禁（issue 68）：registry 全量平台（含无内置默认端点的 devin / newapi / passthrough）
 /// 都有适配器注册项；收集全量缺失后一次报错，不逐条 panic。
@@ -1424,4 +1424,357 @@ fn stepfun_general_reasoning_and_cached_usage_are_supported() {
     });
     let events = adapter.parse_sse_frame(&delta, &Protocol::OpenAI);
     assert!(format!("{events:?}").contains("thought"), "{events:?}");
+}
+
+/// 本地假上游（禁真实外呼）：分块循环完整读取请求至 Content-Length 声明的 body 末尾
+/// （不受单次 read 上限影响），服务端断言请求行路径与 body JSON 后回写预置响应并关闭连接。
+async fn tencent_serve_one(
+    response: Vec<u8>,
+    expect_path: &'static str,
+    assert_body: impl FnOnce(&Value) + Send + 'static,
+) -> (String, tokio::task::JoinHandle<()>) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut buf = Vec::new();
+        let mut chunk = [0u8; 4096];
+        let header_end = loop {
+            let n = stream.read(&mut chunk).await.unwrap();
+            assert!(n > 0, "upstream closed before headers complete");
+            buf.extend_from_slice(&chunk[..n]);
+            if let Some(pos) = tencent_find(&buf, b"\r\n\r\n") {
+                break pos;
+            }
+        };
+        let head = String::from_utf8_lossy(&buf[..header_end]).to_string();
+        let path = head
+            .lines()
+            .next()
+            .and_then(|l| l.split(' ').nth(1))
+            .unwrap_or("")
+            .to_string();
+        let content_length: usize = head
+            .lines()
+            .find(|l| l.to_ascii_lowercase().starts_with("content-length:"))
+            .and_then(|l| l.split(':').nth(1))
+            .and_then(|v| v.trim().parse().ok())
+            .unwrap_or(0);
+        let body_start = header_end + 4;
+        while buf.len() < body_start + content_length {
+            let n = stream.read(&mut chunk).await.unwrap();
+            assert!(n > 0, "upstream closed before body complete");
+            buf.extend_from_slice(&chunk[..n]);
+        }
+        let body: Value = serde_json::from_slice(&buf[body_start..body_start + content_length])
+            .expect("upstream request body should be valid JSON");
+        assert_eq!(path, expect_path, "upstream request path");
+        assert_body(&body);
+        stream.write_all(&response).await.unwrap();
+    });
+    (addr.to_string(), task)
+}
+
+fn tencent_find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+fn tencent_json_response(response: &str) -> Vec<u8> {
+    format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}",
+        response.len()
+    )
+    .into_bytes()
+}
+
+/// SSE 响应：frames 各元素为完整 `data: ...\n\n` 帧，`[DONE]` 由调用方拼在末尾。
+fn tencent_sse_response(frames: &[String]) -> Vec<u8> {
+    let body = frames.join("");
+    format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    )
+    .into_bytes()
+}
+
+/// 真实生产 HTTP client 往返：用 reqwest POST 序列化适配器构造的 body，读取完整响应。
+async fn tencent_roundtrip(addr: &str, path: &str, body: &Value) -> (u16, Vec<u8>) {
+    let response = reqwest::Client::new()
+        .post(format!("http://{addr}{path}"))
+        .json(body)
+        .send()
+        .await
+        .unwrap();
+    let status = response.status().as_u16();
+    (status, response.bytes().await.unwrap().to_vec())
+}
+
+/// SSE 帧切分：按 `\n\n` 拆帧、剥 `data: ` 前缀、跳过 `[DONE]`，解析成 JSON。
+fn tencent_sse_frames(raw_body: &str) -> Vec<Value> {
+    raw_body
+        .split("\n\n")
+        .filter_map(|frame| frame.lines().find_map(|line| line.strip_prefix("data: ")))
+        .filter(|data| data.trim() != "[DONE]")
+        .map(|data| serde_json::from_str(data).unwrap())
+        .collect()
+}
+
+/// 验证三个家族成员的 OpenAI 与 Anthropic 协议都走本地假上游的完整 HTTP 往返
+/// （服务端对请求行路径与请求体 JSON 断言），并按平台已证实的缓存字段抽取 usage。
+#[tokio::test]
+async fn tencent_family_protocols_use_local_upstream_and_extract_usage() {
+    let req: ChatRequest = serde_json::from_value(json!({
+        "model": "tc-code-latest",
+        "max_tokens": 64,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let generic = super::adapter_for("deepseek");
+    for code in ["tencent_coding", "tencent_tokenhub", "tencent_tokenhub_intl"] {
+        let adapter = super::adapter_for(code);
+        assert!(super::lookup(code).is_some(), "{code} registration");
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let platform = match code {
+                "tencent_coding" => Protocol::TencentCoding,
+                "tencent_tokenhub" => Protocol::TencentTokenhub,
+                _ => Protocol::TencentTokenhubIntl,
+            };
+            let (body, path) = adapter.build_request(&req, &wire, &platform);
+            let (base_body, base_path) = generic.build_request(&req, &wire, &platform);
+            assert_eq!((body.clone(), path.clone()), (base_body, base_path), "{code}/{wire:?}");
+            let (response, expect_path, expected) = if wire == Protocol::OpenAI {
+                (
+                    tencent_json_response(
+                        r#"{"id":"cmpl-local","model":"tc-code-latest","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120,"prompt_tokens_details":{"cached_tokens":30}}}"#,
+                    ),
+                    "/chat/completions",
+                    (70, 20, 30, 0),
+                )
+            } else {
+                (
+                    tencent_json_response(
+                        r#"{"id":"msg_local","type":"message","role":"assistant","model":"tc-code-latest","content":[],"stop_reason":"end_turn","usage":{"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":30,"cache_creation_input_tokens":5}}"#,
+                    ),
+                    "/v1/messages",
+                    (100, 20, 30, 5),
+                )
+            };
+            let body_for_assert = body.clone();
+            let (addr, upstream) = tencent_serve_one(response, expect_path, move |received| {
+                assert_eq!(received["model"].as_str(), Some("tc-code-latest"), "{code} upstream model");
+                assert_eq!(received["messages"][0]["role"].as_str(), Some("user"), "{code} upstream messages");
+                assert!(received["messages"][0].get("content").is_some(), "{code} upstream content: {received}");
+                assert_eq!(received, &body_for_assert, "{code} wire body == build_request output");
+            })
+            .await;
+            let (status, raw) = tencent_roundtrip(&addr, expect_path, &body).await;
+            upstream.await.unwrap();
+            assert_eq!(status, 200, "{code}/{wire:?}");
+            let upstream_body = String::from_utf8_lossy(&raw);
+            let (input, output, cache_read, cache_write, _, _) = adapter.extract_usage(&upstream_body);
+            assert_eq!((input, output, cache_read, cache_write), expected, "{code}/{wire:?}");
+        }
+    }
+}
+
+/// 禁思考逐成员作用域（官方取证核对 2026-11-23）：TokenHub 两成员 openai wire 写平台标准
+/// `thinking: {"type":"disabled"}`（135872 思考模式参数表「标准方式」+ 工具调用节「需显式传入
+/// `thinking: {"type": "disabled"}` 后使用」），剥开启型参数；Coding Plan（`tencent_coding`）
+/// 官方文档（130092）只给专属 Key / Base URL 与动态模型库、未列任何思考参数——未证实范围
+/// 按票面保持框架默认（第三方端点 `chat_template_kwargs.enable_thinking=false`），
+/// 成员 issue 137 取证后再收窄。断言经本地假上游完整 HTTP 往返、服务端对线上 body JSON 判定。
+#[tokio::test]
+async fn tencent_disable_thinking_reaches_wire_per_member_scope() {
+    let mut body = json!({
+        "model": "tc-code-latest",
+        "thinking": { "type": "enabled", "budget_tokens": 8192 },
+        "thinking_budget": 4096,
+        "reasoning_effort": "high"
+    });
+    let response = tencent_json_response(
+        r#"{"id":"cmpl-local","model":"tc-code-latest","choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#,
+    );
+    for (code, expected_thinking, expected_ctk) in [
+        ("tencent_tokenhub", Some("disabled"), None),
+        ("tencent_tokenhub_intl", Some("disabled"), None),
+        ("tencent_coding", None, Some(false)),
+    ] {
+        let adapter = super::adapter_for(code);
+        let mut outbound = body.clone();
+        adapter.apply_disable_thinking(
+            &mut outbound,
+            true,
+            &Protocol::OpenAI,
+            "http://127.0.0.1:1/v1",
+            false,
+        );
+        let (addr, upstream) = tencent_serve_one(response.clone(), "/chat/completions", move |received| {
+            let thinking_type = received
+                .get("thinking")
+                .and_then(|t| t.get("type"))
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            assert_eq!(
+                thinking_type.as_deref(),
+                expected_thinking,
+                "{code} upstream thinking.type: {received}"
+            );
+            assert_eq!(
+                received
+                    .get("chat_template_kwargs")
+                    .and_then(|c| c.get("enable_thinking"))
+                    .and_then(Value::as_bool),
+                expected_ctk,
+                "{code} upstream chat_template_kwargs.enable_thinking: {received}"
+            );
+        })
+        .await;
+        let (status, _) = tencent_roundtrip(&addr, "/chat/completions", &outbound).await;
+        upstream.await.unwrap();
+        assert_eq!(status, 200, "{code}");
+    }
+    // 客户端侧同判：TokenHub 成员开启型参数被剥净；family 其它接口不涉。
+    let adapter = super::adapter_for("tencent_tokenhub");
+    adapter.apply_disable_thinking(&mut body, true, &Protocol::OpenAI, "http://127.0.0.1:1/v1", false);
+    assert_eq!(body["thinking"]["type"], "disabled");
+    assert!(body.get("thinking_budget").is_none(), "{body}");
+    assert!(body.get("reasoning_effort").is_none(), "{body}");
+}
+
+/// 两端点流式（本地假上游完整 SSE 往返）：openai wire `data: {chunk}` 帧流
+/// （delta.reasoning_content 先于 content、`data: [DONE]` 结束、末帧 usage）与
+/// anthropic wire 标准事件链（message_start / content_block_delta / message_delta /
+/// message_stop），经基座构件逐帧解析并从 openai 末帧 usage 抽取用量。
+#[tokio::test]
+async fn tencent_family_stream_frames_parse_via_local_upstream() {
+    let adapter = super::adapter_for("tencent_tokenhub");
+    let stream_req: ChatRequest = serde_json::from_value(json!({
+        "model": "hy3",
+        "max_tokens": 32,
+        "stream": true,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let (mut openai_request, openai_path) =
+        adapter.build_request(&stream_req, &Protocol::OpenAI, &Protocol::TencentTokenhub);
+    super::hooks::apply_field_passthrough(
+        &mut openai_request,
+        &json!({ "stream_options": { "include_usage": true } }),
+        &Protocol::OpenAI,
+        "http://127.0.0.1",
+    );
+    let openai_request_for_assert = openai_request.clone();
+    assert_eq!(openai_path, "/chat/completions");
+    assert_eq!(openai_request["stream"], true);
+    let openai_frames = [
+        format!(
+            "data: {}\n\n",
+            r#"{"id":"c1","choices":[{"index":0,"delta":{"role":"assistant"}}]}"#
+        ),
+        format!(
+            "data: {}\n\n",
+            r#"{"id":"c1","choices":[{"index":0,"delta":{"reasoning_content":"think"}}]}"#
+        ),
+        format!(
+            "data: {}\n\n",
+            r#"{"id":"c1","choices":[{"index":0,"delta":{"content":"ok"}}]}"#
+        ),
+        format!(
+            "data: {}\n\n",
+            r#"{"id":"c1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":90,"completion_tokens":24,"total_tokens":114}}"#
+        ),
+        "data: [DONE]\n\n".to_string(),
+    ];
+    let (addr, upstream) = tencent_serve_one(
+        tencent_sse_response(&openai_frames),
+        "/chat/completions",
+        move |received| {
+            assert_eq!(
+                received["stream_options"]["include_usage"],
+                json!(true),
+                "openai stream request should request usage: {received}"
+            );
+            assert_eq!(
+                received,
+                &openai_request_for_assert,
+                "openai wire body == build_request output"
+            );
+        },
+    )
+    .await;
+    let (status, raw) = tencent_roundtrip(&addr, "/chat/completions", &openai_request).await;
+    upstream.await.unwrap();
+    assert_eq!(status, 200);
+    let raw_body = String::from_utf8_lossy(&raw);
+    let events: Vec<ChatStreamEvent> = tencent_sse_frames(&raw_body)
+        .iter()
+        .flat_map(|frame| adapter.parse_sse_frame(frame, &Protocol::OpenAI))
+        .collect();
+    assert!(
+        events.iter().any(|e| matches!(e, ChatStreamEvent::ReasoningDelta { text } if text == "think")),
+        "openai reasoning event: {events:?}"
+    );
+    assert!(
+        events.iter().any(|e| matches!(e, ChatStreamEvent::Delta { text } if text == "ok")),
+        "openai content event: {events:?}"
+    );
+    assert!(
+        events.iter().any(|e| matches!(e, ChatStreamEvent::Stop { .. })),
+        "openai stop event: {events:?}"
+    );
+    assert!(
+        events.iter().any(|e| matches!(e, ChatStreamEvent::Usage { usage }
+            if usage.prompt_tokens == Some(90) && usage.completion_tokens == Some(24))),
+        "openai stream usage event: {events:?}"
+    );
+
+    let anthropic_frames = [
+        "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"hy3\",\"content\":[],\"usage\":{\"input_tokens\":12,\"output_tokens\":0}}}\n\n".to_string(),
+        "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\"}}\n\n".to_string(),
+        "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\n\n".to_string(),
+        "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n".to_string(),
+        "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":6}}\n\n".to_string(),
+        "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n".to_string(),
+    ];
+    let (anthropic_request, anthropic_path) =
+        adapter.build_request(&stream_req, &Protocol::Anthropic, &Protocol::TencentTokenhub);
+    assert_eq!(anthropic_path, "/v1/messages");
+    assert_eq!(anthropic_request["stream"], true);
+    let anthropic_request_for_assert = anthropic_request.clone();
+    let (addr, upstream) = tencent_serve_one(
+        tencent_sse_response(&anthropic_frames),
+        "/v1/messages",
+        move |received| {
+            assert_eq!(
+                received,
+                &anthropic_request_for_assert,
+                "anthropic wire body == build_request output"
+            );
+        },
+    )
+    .await;
+    let (status, raw) = tencent_roundtrip(&addr, "/v1/messages", &anthropic_request).await;
+    upstream.await.unwrap();
+    assert_eq!(status, 200);
+    let raw_body = String::from_utf8_lossy(&raw);
+    let events: Vec<ChatStreamEvent> = tencent_sse_frames(&raw_body)
+        .iter()
+        .flat_map(|frame| adapter.parse_sse_frame(frame, &Protocol::Anthropic))
+        .collect();
+    assert!(
+        events.iter().any(|e| matches!(e, ChatStreamEvent::Delta { text } if text == "ok")),
+        "anthropic text event: {events:?}"
+    );
+    let mut merged = crate::types::Usage::default();
+    for event in &events {
+        if let ChatStreamEvent::Usage { usage } = event {
+            merged.merge_partial(usage);
+        }
+    }
+    assert_eq!(
+        (merged.prompt_tokens, merged.completion_tokens),
+        (Some(12), Some(6)),
+        "anthropic partial usage events (message_start input + message_delta output) merged: {events:?}"
+    );
 }
