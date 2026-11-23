@@ -362,13 +362,17 @@ pub(crate) async fn handle_proxy_core(
     // 入站客户端识别（只看 UA）：此后所有选平台转发的路径共用同一闸门（客户端白名单）。
     let client_gate = ClientGate::On(super::client_detect::client_probe(&orig_headers));
 
-    // ── 透传平台（ADR 0008）认领协议子端点：下方三个分流按协议处理、不认识透传平台 ──
+    // ── 透传平台（ADR 0008）认领协议子端点：下方各分流按协议处理、不认识透传平台 ──
+    // 生图 / 编辑（票 09）与 embeddings / rerank 同列：透传平台不识别协议，
+    // 原样转发（model 不改写），不进 image 槽位分流。
     // 白名单拦下整组 → 直接 403/503，不得落回协议分支（那些分支各自有闸门，但此处先收口）。
     if is_responses_subendpoint(&path)
         || is_count_tokens_endpoint(&path)
         || is_decision_endpoint(&path)
         || is_embedding_endpoint(&path)
         || is_rerank_endpoint(&path)
+        || is_image_endpoint(&path)
+        || is_image_edit_endpoint(&path)
     {
         match super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model, client_gate.clone())
             .await

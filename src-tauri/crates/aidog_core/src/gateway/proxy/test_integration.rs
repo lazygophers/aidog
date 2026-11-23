@@ -13691,6 +13691,81 @@ async fn image_route_fail_no_image_platform() {
     assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
 }
 
+// ══ 票 09：透传平台（Protocol::Passthrough）生图 / 编辑——ADR 0008 原样转发契约 ══
+// 透传平台不识别协议：/v1/images/{generations,edits} 与 embeddings / rerank 同受
+// handler 分流前的透传认领，body 字节不动（model 保持客户端原名）、认证头按平台配置、
+// est_cost 恒 0（ADR 0008 决策 1，显式语义非静默）、usage 能解析则记 tokens。
+
+/// 透传平台 /v1/images/generations：请求原样转发（model 不改写、prompt/n/size 保留）、
+/// Authorization 为平台 key、响应原样回传、est_cost 恒 0、usage 照记。
+#[tokio::test]
+async fn passthrough_platform_image_generations_relayed_verbatim() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group(&state, "gkptimg", &up).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkptimg", IMG_REQ, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&body).unwrap()["data"][0]["b64_json"],
+        "aGk=",
+        "响应原样回传"
+    );
+
+    let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/images/generations", "原始 path 不改写");
+    assert_eq!(req_body, IMG_REQ, "body 字节不动：model 保持客户端原名，字段全保留");
+    assert_eq!(auth, "Bearer sk-up", "认证头按平台凭据注入");
+
+    let log = last_log_for(&state, "gkptimg").await;
+    assert_eq!(log.status_code, 200);
+    // ADR 0008 决策 1：透传平台 est_cost 恒 0（显式拍板，不查 registry 也不走 fallback）。
+    assert_eq!(log.est_cost, 0.0);
+    // usage 能解析则照记（ADR 0008 决策 4）。
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 50));
+}
+
+/// 透传平台 /v1/images/edits（multipart）：表单字节原样转发（model 部件不改写），
+/// 认证头按平台凭据注入。
+#[tokio::test]
+async fn passthrough_platform_image_edits_multipart_relayed_verbatim() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group(&state, "gkptedit", &up).await;
+
+    const B: &str = "testboundary";
+    let form = format!(
+        "--{B}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nclient-img\r\n\
+         --{B}\r\nContent-Disposition: form-data; name=\"prompt\"\r\n\r\na cat\r\n\
+         --{B}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"a.png\"\r\n\
+         Content-Type: image/png\r\n\r\npng-bytes-01\r\n--{B}--\r\n"
+    );
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/images/edits")
+        .header("authorization", "Bearer gkptedit")
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={B}"),
+        )
+        .body(Body::from(form.clone()))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/images/edits", "原始 path 不改写");
+    assert_eq!(req_body, form, "multipart 字节原样转发（model 部件不改写）");
+    assert_eq!(auth, "Bearer sk-up", "认证头按平台凭据注入");
+}
+
 // ══ 票 08：MCP 生图统一分组（tools/call generate_image 走调用方分组 image 槽位链）══
 
 /// 经 POST /mcp 调 generate_image（handle_mcp 直调：loopback ConnectInfo + 分组 Bearer）。
