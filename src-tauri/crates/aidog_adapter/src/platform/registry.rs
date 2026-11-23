@@ -1357,15 +1357,23 @@ impl PlatformAdapter for StepFunFamilyAdapter {
 ///   `prompt_tokens` 的包含关系、错误体在流式帧内的完整 JSON 形状（官方只给外层
 ///   `{"error":{...}}`）、anthropic 端点非 Claude 系模型对 `signature` 回传的校验强度
 ///   （官方自述按模型而异）。
-pub struct TencentFamilyAdapter;
+pub struct TencentFamilyAdapter {
+    /// TokenHub 两成员（官方 135872 取证 `thinking.type` 标准形态）openai wire 禁思考写
+    /// `thinking: {"type":"disabled"}`；Coding Plan 官方文档（130092）未列思考参数、模型库
+    /// 动态——未证实范围保持框架默认（false），成员 issue 137 取证后再收窄。
+    official_openai_thinking: bool,
+}
 
 impl PlatformAdapter for TencentFamilyAdapter {
-    /// 差异：openai 端点禁思考写平台标准 `thinking: {"type": "disabled"}`，不写基座第三方
-    /// 端点用的 vLLM 式 `chat_template_kwargs.enable_thinking`（TokenHub 文档无此参数；
-    /// `enable_thinking` 布尔仅是部分模型的「简化开关」，统一标准形态是 `thinking.type`）。
-    /// 一并剥平台扩展的 `thinking_budget` / `interleaved_thinking`（开启型/思考态参数，
-    /// 与显式禁用矛盾）。其余 wire 与强制思考路径同基座。
+    /// 差异（仅 TokenHub 两成员，`official_openai_thinking: true`）：openai 端点禁思考写平台
+    /// 标准 `thinking: {"type": "disabled"}`，不写基座第三方端点用的 vLLM 式
+    /// `chat_template_kwargs.enable_thinking`（TokenHub 文档无此参数；`enable_thinking` 布尔
+    /// 仅是部分模型的「简化开关」，统一标准形态是 `thinking.type`）。一并剥平台扩展的
+    /// `thinking_budget` / `interleaved_thinking`（开启型/思考态参数，与显式禁用矛盾）。
+    /// 其余 wire、强制思考路径与 `official_openai_thinking: false`（Coding Plan，官方未列
+    /// 思考参数，130092）同基座框架默认。
     /// https://cloud.tencent.com/document/product/1823/135872
+    /// https://cloud.tencent.com/document/product/1823/130092
     fn apply_disable_thinking(
         &self,
         body: &mut Value,
@@ -1374,7 +1382,7 @@ impl PlatformAdapter for TencentFamilyAdapter {
         upstream_url: &str,
         forced_thinking: bool,
     ) {
-        if wire != &Protocol::OpenAI || forced_thinking {
+        if wire != &Protocol::OpenAI || forced_thinking || !self.official_openai_thinking {
             return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
         }
         let Some(obj) = body.as_object_mut() else {
@@ -1437,7 +1445,12 @@ static ARK: ArkFamilyAdapter = ArkFamilyAdapter;
 static QIANFAN: QianfanFamilyAdapter = QianfanFamilyAdapter;
 static SILICONFLOW: SiliconFlowFamilyAdapter = SiliconFlowFamilyAdapter;
 static STEPFUN: StepFunFamilyAdapter = StepFunFamilyAdapter;
-static TENCENT: TencentFamilyAdapter = TencentFamilyAdapter;
+static TENCENT: TencentFamilyAdapter = TencentFamilyAdapter {
+    official_openai_thinking: true,
+};
+static TENCENT_CODING: TencentFamilyAdapter = TencentFamilyAdapter {
+    official_openai_thinking: false,
+};
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
@@ -1497,7 +1510,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("siliconflow_en", &SILICONFLOW),
     ("stepfun", &STEPFUN),
     ("stepfun_en", &STEPFUN),
-    ("tencent_coding", &TENCENT),
+    ("tencent_coding", &TENCENT_CODING),
     ("tencent_tokenhub", &TENCENT),
     ("tencent_tokenhub_intl", &TENCENT),
     ("therouter", &GENERIC),
