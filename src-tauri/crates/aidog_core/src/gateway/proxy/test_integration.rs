@@ -12063,10 +12063,7 @@ async fn opencode_family_members_forward_openai_chat_stream_and_nonstream() {
     const CHAT_OK: &str = r#"{"id":"chatcmpl-opencode","object":"chat.completion","created":0,"model":"glm-5.3","choices":[{"index":0,"message":{"role":"assistant","content":"opencode-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#;
     const CHAT_SSE: &str = "data: {\"id\":\"chatcmpl-opencode\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"opencode-family-stream\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-opencode\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}\n\ndata: [DONE]\n\n";
 
-    for (member, platform) in [
-        ("go", Protocol::OpenCode),
-        ("zen", Protocol::OpenCodeZen),
-    ] {
+    for (member, platform) in [("go", Protocol::OpenCode), ("zen", Protocol::OpenCodeZen)] {
         for streaming in [false, true] {
             let content_type = if streaming {
                 "text/event-stream"
@@ -12091,23 +12088,171 @@ async fn opencode_family_members_forward_openai_chat_stream_and_nonstream() {
                 .header("authorization", format!("Bearer {gk}"))
                 .body(Body::from(request_body.to_string()))
                 .unwrap();
-            let response = handle_proxy(AxumState(state), request).await;
-            assert_eq!(response.status(), StatusCode::OK, "{member}, streaming={streaming}");
+            let response = handle_proxy(AxumState(state.clone()), request).await;
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "{member}, streaming={streaming}"
+            );
             let response = axum::body::to_bytes(response.into_body(), 1 << 20)
                 .await
                 .unwrap();
             let response = String::from_utf8(response.to_vec()).unwrap();
-            assert!(response.contains(if streaming { "opencode-family-stream" } else { "opencode-family-ok" }));
+            assert!(response.contains(if streaming {
+                "opencode-family-stream"
+            } else {
+                "opencode-family-ok"
+            }));
             if streaming {
                 assert!(response.contains("[DONE]"));
                 assert!(response.contains("\"prompt_tokens\":1"));
             } else {
                 assert!(response.contains("\"total_tokens\":2"));
             }
+            let log = only_log_of(&state, &gk).await;
+            assert_eq!(
+                (log.input_tokens, log.output_tokens),
+                (1, 1),
+                "{member}, streaming={streaming}"
+            );
         }
     }
 }
 
+#[tokio::test]
+async fn opencode_family_members_reach_upstream_record_usage_and_forward_errors() {
+    const CHAT_OK: &str = r#"{"id":"chatcmpl-opencode","object":"chat.completion","created":0,"model":"glm-5.3","choices":[{"index":0,"message":{"role":"assistant","content":"opencode-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}"#;
+    const UPSTREAM_ERROR: &str =
+        r#"{"error":{"type":"invalid_request_error","message":"opencode-family-error"}}"#;
+
+    for (member, platform) in [("go", Protocol::OpenCode), ("zen", Protocol::OpenCodeZen)] {
+        let (upstream, requests) = spawn_recording_upstream(CHAT_OK).await;
+        let state = make_state(test_db().await).await;
+        let success_group = format!("gkopencode{member}success");
+        setup_openai_group_for_platform(&state, &success_group, &upstream, platform.clone()).await;
+        let request_body =
+            r#"{"model":"glm-5.3","messages":[{"role":"user","content":"family request"}]}"#;
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {success_group}"))
+                .body(Body::from(request_body))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK, "{member}");
+        let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let response_json: serde_json::Value = serde_json::from_slice(&response_body).unwrap();
+        assert_eq!(
+            response_json["choices"][0]["message"]["content"],
+            "opencode-family-ok"
+        );
+        assert_eq!(response_json["usage"]["total_tokens"], 5);
+
+        let captured = requests.lock().unwrap().clone();
+        assert_eq!(
+            captured.len(),
+            1,
+            "{member}: fake upstream must receive one request"
+        );
+        assert!(
+            captured[0].0.ends_with("/chat/completions"),
+            "{member}: {}",
+            captured[0].0
+        );
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["model"], "glm-5.3");
+        assert_eq!(sent["messages"][0]["content"], "family request");
+        let success_log = only_log_of(&state, &success_group).await;
+        assert_eq!(
+            (success_log.input_tokens, success_log.output_tokens),
+            (3, 2),
+            "{member}"
+        );
+
+        let (error_upstream, error_requests) =
+            spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+        let error_group = format!("gkopencode{member}error");
+        setup_openai_group_for_platform(&state, &error_group, &error_upstream, platform).await;
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {error_group}"))
+                .body(Body::from(request_body))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{member}");
+        let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&response_body).contains("opencode-family-error"),
+            "{member}"
+        );
+        let captured = error_requests.lock().unwrap().clone();
+        assert_eq!(
+            captured.len(),
+            1,
+            "{member}: error request must reach fake upstream"
+        );
+        assert!(
+            captured[0].0.ends_with("/chat/completions"),
+            "{member}: {}",
+            captured[0].0
+        );
+        let error_log = only_log_of(&state, &error_group).await;
+        assert_eq!(
+            error_log.status_code,
+            StatusCode::BAD_REQUEST.as_u16() as i32,
+            "{member}"
+        );
+        assert!(
+            error_log.done,
+            "{member}: upstream error must be recorded as terminal"
+        );
+    }
+}
+
+async fn spawn_recording_response_upstream(
+    status: u16,
+    body: &'static str,
+) -> (String, Arc<std::sync::Mutex<Vec<(String, String)>>>) {
+    use axum::routing::any;
+    let rec = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let rec_srv = rec.clone();
+    let app = axum::Router::new().fallback(any(move |req: HttpRequest<Body>| {
+        let rec = rec_srv.clone();
+        async move {
+            let uri = req.uri().to_string();
+            let bytes = axum::body::to_bytes(req.into_body(), 1 << 20)
+                .await
+                .unwrap_or_default();
+            rec.lock()
+                .unwrap()
+                .push((uri, String::from_utf8_lossy(&bytes).to_string()));
+            (
+                axum::http::StatusCode::from_u16(status).unwrap(),
+                [("content-type", "application/json")],
+                body,
+            )
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    (format!("http://{addr}"), rec)
+}
 async fn setup_openai_group_for_platform(
     state: &Arc<ProxyState>,
     gk: &str,
