@@ -1574,6 +1574,38 @@ pub struct OpenCodeFamilyAdapter;
 
 impl PlatformAdapter for OpenCodeFamilyAdapter {}
 
+/// OpenAI 官方家族基座（issue 90；成员 openai / codex 共用，成员差异见后续 issue）。
+///
+/// 官方文档核对日期：2026-11-23。
+/// - OpenAI API reference 将 Responses API 列为文本、图像与工具调用首选接口；请求含 `model`、`input`，
+///   可选 `instructions`、`stream`、`tools`、`tool_choice`、`reasoning.effort`；本文仅记录 schema，
+///   框架现有转换器负责协议映射。https://platform.openai.com/docs/api-reference
+///   https://developers.openai.com/api/reference/resources/responses/methods/create.md
+/// - Codex 文档说明 Codex 是 OpenAI 编码 agent；未证实 Codex 服务端对网关请求有额外字段约定，
+///   因此沿用协议构件默认行为。https://platform.openai.com/docs/codex
+/// - Chat Completions 的请求 / 响应以及参数默认值按 API reference；`stream` 默认值、不同模型参数支持范围，
+///   以及 system/developer 消息、工具调用与图片具体限制依模型而异。基座不覆写请求构造。
+///   https://platform.openai.com/docs/api-reference
+/// - reasoning：Responses 接口用 `reasoning.effort`，文档列 none / minimal / low / medium / high / xhigh / max；
+///   Chat Completions 的 reasoning 字段依模型而异。基座不猜测转换之外的默认值。
+///   https://developers.openai.com/api/reference/resources/responses/methods/create.md
+/// - usage：Chat Completions `prompt_tokens_details.cached_tokens`；Responses `input_tokens_details.cached_tokens`、
+///   `cache_write_tokens`。现有 usage extractor 已识别两臂并扣除计入 input 的缓存 token。
+///   https://developers.openai.com/api/reference/resources/responses/methods/create.md
+/// - Responses SSE 使用 `response.output_text.delta` 等事件，终帧 `response.completed` 携带 usage；现有
+///   converter 按 Responses 事件结构解析。https://developers.openai.com/api/reference/resources/responses/methods/create.md
+/// - 错误对象字段 `type`、`message`、`param`、`code`；OpenAI 错误指南列出 HTTP 错误处理，框架已有解析。
+///   https://developers.openai.com/api/reference/resources/responses/methods/create.md
+///   https://platform.openai.com/docs/guides/error-codes
+/// - Codex API 独有的错误形状、缓存 token 计量语义以及 Chat Completions 的逐模型默认值未证实，保持框架默认。
+///
+/// 两成员无可证实的网关覆写；均继承协议构件默认实现。
+///
+/// 官方未证实项不外推；本适配器保持空实现。
+pub struct OpenAIFamilyAdapter;
+
+impl PlatformAdapter for OpenAIFamilyAdapter {}
+
 /// Cline 家族基座（issue 86；成员 cline / cline_pass 共用，成员差异见 issue 143 / 144）。
 ///
 /// 家族共性取证（官方文档，核对日期 2026-11-23）：
@@ -1663,6 +1695,7 @@ pub struct AnthropicFamilyAdapter;
 impl PlatformAdapter for AnthropicFamilyAdapter {}
 
 static GENERIC: GenericAdapter = GenericAdapter;
+static OPENAI: OpenAIFamilyAdapter = OpenAIFamilyAdapter;
 static ANTHROPIC_FAMILY: AnthropicFamilyAdapter = AnthropicFamilyAdapter;
 static COMPSHARE: CompshareFamilyAdapter = CompshareFamilyAdapter;
 static OPENCODE: OpenCodeFamilyAdapter = OpenCodeFamilyAdapter;
@@ -1718,7 +1751,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("claude_code", &ANTHROPIC_FAMILY),
     ("cline", &CLINE),
     ("cline_pass", &CLINE),
-    ("codex", &GENERIC),
+    ("codex", &OPENAI),
     ("commandcode", &GENERIC),
     ("compshare", &COMPSHARE),
     ("compshare_coding", &COMPSHARE),
@@ -1747,7 +1780,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("newapi", &GENERIC),
     ("novita", &GENERIC),
     ("nvidia", &GENERIC),
-    ("openai", &GENERIC),
+    ("openai", &OPENAI),
     ("opencode", &OPENCODE),
     ("opencode_zen", &OPENCODE),
     ("openrouter", &GENERIC),
@@ -1942,6 +1975,22 @@ mod opencode_family_tests {
 
         assert!(std::ptr::eq(go, zen));
         assert!(!std::ptr::eq(go, adapter_for("openai")));
+    }
+}
+
+#[cfg(test)]
+mod openai_family_tests {
+    use super::*;
+
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let openai = lookup("openai").expect("OpenAI adapter must be registered");
+        let codex = lookup("codex").expect("Codex adapter must be registered");
+        assert!(std::ptr::eq(openai, codex));
+        // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
+        assert!(!std::ptr::eq(openai, adapter_for("deepseek")));
+        assert!(!std::ptr::eq(codex, adapter_for("deepseek")));
+        assert!(!std::ptr::eq(openai, adapter_for("anthropic")));
     }
 }
 
