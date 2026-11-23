@@ -111,6 +111,30 @@ fn apply_context_tier_partial_override() {
     assert_eq!(r.cache_read_input_token_cost, 5e-7); // 继承 base
 }
 
+#[test]
+fn apply_context_tier_overrides_dual_cache_write_tiers() {
+    // 档内 cache_write / cache_write_1h（1h TTL 双档，Anthropic 官方 2× input 价）：
+    // 非 null 才覆盖 base，缺档字段继承 base（overlay_prices 语义，spec B3）。
+    let pd = serde_json::json!({
+        "cache_write": 2.5e-6,
+        "cache_write_1h": 3.125e-5,
+        "context_tiers": [{
+            "min_tokens": 272000,
+            "input": 1e-5,
+            "output": 4.5e-5,
+            "cache_write": 1.25e-5,
+            "cache_write_1h": 1.5625e-4
+        }]
+    });
+    let base = base_price("model_entry");
+    let short = apply_context_tier(base.clone(), &pd, 100_000);
+    assert_eq!(short.cache_write_input_token_cost, 0.0, "短档继承 base（夹具 base 为 0），不吃档内价");
+    assert_eq!(short.cache_write_1h_input_token_cost, 0.0); // 继承 base（夹具 base 为 0）
+    let long = apply_context_tier(base, &pd, 300_000);
+    assert_eq!(long.cache_write_input_token_cost, 1.25e-5, "长档 5m 档价覆盖");
+    assert_eq!(long.cache_write_1h_input_token_cost, 1.5625e-4, "长档 1h 档价覆盖");
+}
+
 /// registry 里 glm-5-turbo 的真实形状：`price` 子树 + time_tiers（内嵌 context_tiers）。
 fn glm_turbo_pd() -> serde_json::Value {
     serde_json::json!({
