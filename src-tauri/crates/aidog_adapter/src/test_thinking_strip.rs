@@ -189,6 +189,39 @@ fn sse_strip_openai_reasoning_delta_frames() {
     assert!(out.contains("[DONE]"), "终止哨兵原样过: {out}");
 }
 
+/// StepFun 默认 reasoning_format=general：流式思考在 delta.reasoning（reasoning_content 是
+/// deepseek-style 别名），透传分支同样要剥；thinking-only 流在 [DONE] 处换 error 帧。
+#[test]
+fn sse_strip_openai_reasoning_field_delta_frames() {
+    let upstream = concat!(
+        "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning\":\"想\"}}]}\n\n",
+        "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"答\"}}]}\n\n",
+        "data: [DONE]\n\n",
+    );
+    let mut s = SseThinkingStripper::new(Protocol::OpenAI);
+    let out = format!("{}{}", s.push(upstream), s.finish());
+    assert!(!out.contains("reasoning"), "reasoning delta 丢: {out}");
+    assert!(!out.contains("想"), "思考内容不下发: {out}");
+    assert!(out.contains("\"content\":\"答\""), "正文 delta 保留: {out}");
+    assert!(out.contains("[DONE]"), "终止哨兵原样过: {out}");
+}
+
+/// StepFun reasoning-only 流：剥完无内容 → [DONE] 换 error 帧，不发思考。
+#[test]
+fn sse_strip_openai_reasoning_only_stream_yields_error_frame() {
+    let upstream = concat!(
+        "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning\":\"想\"}}]}\n\n",
+        "data: [DONE]\n\n",
+    );
+    let mut s = SseThinkingStripper::new(Protocol::OpenAI);
+    let out = format!("{}{}", s.push(upstream), s.finish());
+    assert!(!out.contains("想"), "思考内容不下发: {out}");
+    assert!(
+        out.contains("thinking-only response"),
+        "thinking-only 换 error 帧: {out}"
+    );
+}
+
 /// legacy function_call delta 也是有效输出：终止帧不得误报 thinking-only。
 #[test]
 fn sse_strip_openai_function_call_delta_counts_as_content() {

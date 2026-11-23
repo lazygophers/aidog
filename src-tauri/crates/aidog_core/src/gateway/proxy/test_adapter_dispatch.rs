@@ -2225,6 +2225,30 @@ async fn stepfun_openai_endpoint_disable_thinking_injects_nothing() {
     assert!(up.get("thinking").is_none(), "{up}");
 }
 
+/// issue 83：禁思考经 openai 端点 + openai 客户端透传流式——StepFun 默认
+/// `reasoning_format=general` 的 `delta.reasoning` 思考帧被剥，正文与 `[DONE]` 保留
+/// （覆盖 SseThinkingStripper 透传分支，与 anthropic 客户端转换分支的
+/// `stepfun_normalize_reasoning` 互补）。
+#[tokio::test]
+async fn stepfun_openai_passthrough_stream_disable_thinking_strips_reasoning() {
+    let inbound = r#"{"model":"step-5-preview","max_tokens":32,"stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFun,
+        Protocol::OpenAI,
+        "gk83op",
+        "/v1/chat/completions",
+        inbound,
+        (200, "text/event-stream", STEPFUN_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    assert!(!resp.contains("reasoning"), "思考帧被剥: {resp}");
+    assert!(!resp.contains("think"), "思考内容不下发: {resp}");
+    assert!(resp.contains("\"content\":\"hi\""), "正文保留: {resp}");
+    assert!(resp.contains("[DONE]"), "终止哨兵保留: {resp}");
+}
+
 /// issue 83：禁思考经 anthropic 端点出站——`thinking` 认受性未证实保持框架默认
 /// （`thinking.type=disabled`），官方 `output_config.effort` 思考档位剥除。
 #[tokio::test]

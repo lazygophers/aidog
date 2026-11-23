@@ -577,7 +577,7 @@ pub fn wire_error_body(
     }
 }
 
-/// OpenAI chat 流帧：剔 `delta.reasoning_content`；delta 因此变空则整帧丢弃。
+/// OpenAI chat 流帧：剔 `delta.reasoning_content` / `delta.reasoning`；delta 因此变空则整帧丢弃。
 /// 返回是否保留该帧。
 fn strip_openai_stream_delta(json: &mut Value) -> bool {
     let Some(choices) = json.get_mut("choices").and_then(|v| v.as_array_mut()) else {
@@ -587,6 +587,7 @@ fn strip_openai_stream_delta(json: &mut Value) -> bool {
     for c in choices.iter_mut() {
         if let Some(delta) = c.get_mut("delta").and_then(|v| v.as_object_mut()) {
             delta.remove("reasoning_content");
+            delta.remove("reasoning");
             if !delta.is_empty() {
                 any_content = true;
             }
