@@ -12055,12 +12055,71 @@ async fn exhausted_429_lock_aux_and_chat() {
 
 /// 注册一个 OpenAI 平台（endpoint 协议 openai，base_url=stub）+ group 关联。
 async fn setup_openai_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
+    setup_openai_group_for_platform(state, gk, base_url, Protocol::OpenAI).await;
+}
+
+#[tokio::test]
+async fn opencode_family_members_forward_openai_chat_stream_and_nonstream() {
+    const CHAT_OK: &str = r#"{"id":"chatcmpl-opencode","object":"chat.completion","created":0,"model":"glm-5.3","choices":[{"index":0,"message":{"role":"assistant","content":"opencode-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#;
+    const CHAT_SSE: &str = "data: {\"id\":\"chatcmpl-opencode\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"opencode-family-stream\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-opencode\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}\n\ndata: [DONE]\n\n";
+
+    for (member, platform) in [
+        ("go", Protocol::OpenCode),
+        ("zen", Protocol::OpenCodeZen),
+    ] {
+        for streaming in [false, true] {
+            let content_type = if streaming {
+                "text/event-stream"
+            } else {
+                "application/json"
+            };
+            let body = if streaming { CHAT_SSE } else { CHAT_OK };
+            let upstream = spawn_unified_upstream(200, content_type, body).await;
+            let state = make_state(test_db().await).await;
+            let gk = format!("gkopencode{member}{streaming}");
+            setup_openai_group_for_platform(&state, &gk, &upstream, platform.clone()).await;
+            let request_body = serde_json::json!({
+                "model": "glm-5.3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": streaming,
+                "stream_options": {"include_usage": true}
+            });
+            let request = HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap();
+            let response = handle_proxy(AxumState(state), request).await;
+            assert_eq!(response.status(), StatusCode::OK, "{member}, streaming={streaming}");
+            let response = axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            let response = String::from_utf8(response.to_vec()).unwrap();
+            assert!(response.contains(if streaming { "opencode-family-stream" } else { "opencode-family-ok" }));
+            if streaming {
+                assert!(response.contains("[DONE]"));
+                assert!(response.contains("\"prompt_tokens\":1"));
+            } else {
+                assert!(response.contains("\"total_tokens\":2"));
+            }
+        }
+    }
+}
+
+async fn setup_openai_group_for_platform(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    base_url: &str,
+    platform_type: Protocol,
+) {
     use crate::gateway::models::PlatformEndpoint;
     let plat = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
             name: "oi".into(),
-            platform_type: Protocol::OpenAI,
+            platform_type,
             base_url: base_url.to_string(),
             api_key: "sk-oi".into(),
             extra: String::new(),
