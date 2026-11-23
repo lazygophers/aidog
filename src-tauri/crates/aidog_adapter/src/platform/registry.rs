@@ -1651,8 +1651,52 @@ impl PlatformAdapter for ClineFamilyAdapter {
     }
 }
 
+/// Anthropic 家族基座（issue 89；成员 anthropic / claude_code 共用，成员差异见各成员 issue）。
+///
+/// 官方文档核对日期：2026-11-23。
+/// - 协议与端点（`anthropic`）：Messages API `POST /v1/messages`，`model` 与 `messages`
+///   必填、`max_tokens` 必填；默认 base_url `https://api.anthropic.com`。鉴权头
+///   `x-api-key`，版本头 `anthropic-version: 2023-06-01`（网关 build_upstream_headers /
+///   headers.rs 名单已带）。https://docs.anthropic.com/en/api/messages
+///   https://docs.anthropic.com/en/api/overview
+/// - 思考：`thinking` 配置 `{"type":"enabled","budget_tokens":≥1024}` / `{"type":"disabled"}`
+///   （另有 `adaptive` / `between_tools`，模型相关）；thinking 块须原样回传，篡改返回
+///   400 invalid_request_error。与框架 hooks / converter 现行为一致，无家族覆写。
+///   https://docs.anthropic.com/en/api/messages
+/// - 工具调用：`tools[]`（name/input_schema/description）+ `tool_choice`；响应
+///   `tool_use` / `tool_result` 块。框架 converter anthropic 臂已覆盖，无覆写。
+///   https://docs.anthropic.com/en/api/messages
+/// - 图片多模态：`source.type = "base64" | "url"` 的 `image` 内容块。converter 已支持，
+///   无覆写。https://docs.anthropic.com/en/api/messages
+/// - system：顶层 `system` 字符串或内容块数组（可带 `cache_control`）。converter 已支持。
+/// - usage：`input_tokens` / `output_tokens` + 缓存 `cache_read_input_tokens` /
+///   `cache_creation_input_tokens`（细粒度 `cache_creation.ephemeral_5m/1h_input_tokens`）
+///   + 按次 `server_tool_use`。框架 `usage.rs` `usage_cache_arms` anthropic 臂已按官方
+///     语义采集（input 不含缓存、扁平 creation 记 5m 桶），无覆写。
+///     https://docs.anthropic.com/en/api/messages
+/// - 流式：SSE `message_start` / `content_block_start` / `content_block_delta`
+///   （text_delta / input_json_delta / thinking_delta / signature_delta）/
+///   `content_block_stop` / `message_delta`（带累积 usage.output_tokens）/ `message_stop`，
+///   `data: [DONE]` 不发（以 message_stop 结束）。converter `parse_sse` anthropic 臂已覆盖。
+///   https://docs.anthropic.com/en/api/messages
+/// - 错误体：`{"type":"error","error":{"type":"<error type>","message":"..."}}`，状态码
+///   400/401/403/404/405/409/413/429/500/529（overloaded）。框架 `classify_upstream_error`
+///   已按该形状分类，无覆写。https://docs.anthropic.com/en/api/errors
+/// - `claude_code`（Claude Code 订阅）为透传平台（ADR 0008）：`Protocol::ClaudeCode`
+///   平台请求在 handler.rs 透传拦截分支原样 relay（handler.rs:784 起，test_endpoint.rs
+///   注释明示不引用 convert_request / build_upstream_headers），不经过 PlatformAdapter
+///   转换链；家族基座对它只承担注册语义（`adapter_for("claude_code")` 统一指向本基座，
+///   与 `anthropic` 成员指针相同），不产生行为差异。
+///
+/// 结论：官方行为与框架协议构件默认实现一致，无可证实的家族级覆写；两成员均继承
+/// trait 默认（与 OpenCodeFamilyAdapter 同形）。
+pub struct AnthropicFamilyAdapter;
+
+impl PlatformAdapter for AnthropicFamilyAdapter {}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static OPENAI: OpenAIFamilyAdapter = OpenAIFamilyAdapter;
+static ANTHROPIC_FAMILY: AnthropicFamilyAdapter = AnthropicFamilyAdapter;
 static COMPSHARE: CompshareFamilyAdapter = CompshareFamilyAdapter;
 static OPENCODE: OpenCodeFamilyAdapter = OpenCodeFamilyAdapter;
 static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
@@ -1697,14 +1741,14 @@ static TENCENT_CODING: TencentFamilyAdapter = TencentFamilyAdapter {
 /// 未列入家族适配器的平台走默认家族基座）。
 static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("aihubmix", &GENERIC),
-    ("anthropic", &GENERIC),
+    ("anthropic", &ANTHROPIC_FAMILY),
     ("atlascloud", &GENERIC),
     ("bailian", &BAILIAN),
     ("bailian_coding", &BAILIAN),
     ("bailian_coding_en", &BAILIAN),
     ("bailian_en", &BAILIAN),
     ("byteplus", &ARK),
-    ("claude_code", &GENERIC),
+    ("claude_code", &ANTHROPIC_FAMILY),
     ("cline", &CLINE),
     ("cline_pass", &CLINE),
     ("codex", &OPENAI),
@@ -1946,6 +1990,21 @@ mod openai_family_tests {
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
         assert!(!std::ptr::eq(openai, adapter_for("deepseek")));
         assert!(!std::ptr::eq(codex, adapter_for("deepseek")));
+        assert!(!std::ptr::eq(openai, adapter_for("anthropic")));
+    }
+}
+
+#[cfg(test)]
+mod anthropic_family_tests {
+    use super::*;
+
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let anthropic = lookup("anthropic").expect("Anthropic adapter must be registered");
+        let claude_code = lookup("claude_code").expect("Claude Code adapter must be registered");
+
+        assert!(std::ptr::eq(anthropic, claude_code));
+        assert!(!std::ptr::eq(anthropic, adapter_for("openai")));
     }
 }
 
