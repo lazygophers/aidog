@@ -12866,6 +12866,8 @@ async fn openai_family_forwards_upstream_errors_to_client() {
             assert!(error_log.done, "{member} {wire:?}: error must be terminal");
         }
     }
+}
+
 /// issue 89（Anthropic 家族基座）：上游 400（anthropic 官方错误体形状 `type` +
 /// `error.type` / `error.message`）→ 客户端原样透传；URI /v1/messages；proxy_log
 /// 终态记账。官方错误体格式：https://docs.anthropic.com/en/api/errors（核对 2026-11-23）。
