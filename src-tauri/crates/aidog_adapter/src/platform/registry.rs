@@ -1640,8 +1640,8 @@ impl PlatformAdapter for ClineFamilyAdapter {
 /// - usage：`input_tokens` / `output_tokens` + 缓存 `cache_read_input_tokens` /
 ///   `cache_creation_input_tokens`（细粒度 `cache_creation.ephemeral_5m/1h_input_tokens`）
 ///   + 按次 `server_tool_use`。框架 `usage.rs` `usage_cache_arms` anthropic 臂已按官方
-///   语义采集（input 不含缓存、扁平 creation 记 5m 桶），无覆写。
-///   https://docs.anthropic.com/en/api/messages
+///     语义采集（input 不含缓存、扁平 creation 记 5m 桶），无覆写。
+///     https://docs.anthropic.com/en/api/messages
 /// - 流式：SSE `message_start` / `content_block_start` / `content_block_delta`
 ///   （text_delta / input_json_delta / thinking_delta / signature_delta）/
 ///   `content_block_stop` / `message_delta`（带累积 usage.output_tokens）/ `message_stop`，
