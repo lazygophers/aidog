@@ -4451,6 +4451,7 @@
   "middleware.target.status": "ステータスコード",
   "middleware.toCards": "カードモード",
   "middleware.toDsl": "DSL ソース",
+  "test.modeImage": "画像生成テスト",
   "test.modeTool": "ツール呼び出しテスト",
   "jsonEditor.format": "整形",
   "jsonEditor.searchHint": "Ctrl/⌘+F で検索、Ctrl/⌘+Alt+F で置換",

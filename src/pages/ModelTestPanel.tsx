@@ -20,7 +20,7 @@ interface Props {
   onResult?: (success: boolean) => void;
 }
 
-type TestMode = "quick" | "single" | "batch" | "random" | "custom" | "tool";
+type TestMode = "quick" | "single" | "batch" | "random" | "custom" | "tool" | "image";
 
 export function ModelTestPanel({ platform, onClose, onResult }: Props) {
   const { t, i18n } = useTranslation();
@@ -33,11 +33,11 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
   // 协议本地化 label（共享 hook：首帧 ""，fallback PROTOCOL_LABELS → key）
   const protocolLabel = useProtocolLabel(platform?.platform_type, i18n.language);
 
-  // jev / embedding / rerank 槽位是专用模型（jev-decision-proxy §3.6.2；向量化 / 重排序），不进聊天测试列表
+  // jev / embedding / rerank / image 槽位是专用模型（jev-decision-proxy §3.6.2；向量化 / 重排序 / 生图），不进聊天测试列表
   const allModels = (platform.available_models.length > 0
     ? platform.available_models
     : [platform.models.default, platform.models.sonnet, platform.models.opus, platform.models.haiku, platform.models.gpt].map(slotPrimary).filter(Boolean)
-  ).filter(m => m !== slotPrimary(platform.models.jev) && m !== slotPrimary(platform.models.embedding) && m !== slotPrimary(platform.models.rerank));
+  ).filter(m => m !== slotPrimary(platform.models.jev) && m !== slotPrimary(platform.models.embedding) && m !== slotPrimary(platform.models.rerank) && m !== slotPrimary(platform.models.image));
 
   const defaultModel = slotPrimary(platform.models.default) || allModels[0] || "";
 
@@ -50,6 +50,8 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
       case "custom": return selectedModels.length > 0 ? [selectedModels[0]] : [defaultModel];
       // 工具调用探测（builtin-tool-compat）：对全部模型发起 get_weather 工具测试
       case "tool": return allModels;
+      // 生图连通性测试（票 10）：image 槽位模型链逐一生图
+      case "image": return platform.models.image ?? [];
     }
   }, [mode, selectedModels, allModels, defaultModel]);
 
@@ -70,12 +72,15 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
     for (let i = 0; i < models.length; i++) {
       setCurrentIdx(i);
       try {
-        const r = await modelTestApi.test({
+        const req = {
           platform_id: platform.id,
           model: models[i],
           prompt: (mode === "custom" && customPrompt) ? customPrompt : undefined,
           tool_test: mode === "tool" || undefined,
-        });
+        };
+        const r = mode === "image"
+          ? await modelTestApi.imageTest(req)
+          : await modelTestApi.test(req);
         res.push(r);
         setResults([...res]);
       } catch (e) {
@@ -106,6 +111,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
     { key: "random", label: t("test.modeRandom", "Random Prompts Batch") },
     { key: "custom", label: t("test.modeCustom", "Custom Prompt") },
     { key: "tool", label: t("test.modeTool", "Tool-call probe") },
+    { key: "image", label: t("test.modeImage", "Image Test") },
   ];
 
   const needsModelSelect = mode === "single" || mode === "batch" || mode === "custom";

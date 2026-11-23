@@ -4451,6 +4451,7 @@
   "middleware.target.status": "رمز الحالة",
   "middleware.toCards": "وضع البطاقات",
   "middleware.toDsl": "مصدر DSL",
+  "test.modeImage": "اختبار توليد الصور",
   "test.modeTool": "اختبار استدعاء الأدوات",
   "jsonEditor.format": "تنسيق",
   "jsonEditor.searchHint": "Ctrl/⌘+F للبحث، Ctrl/⌘+Alt+F للاستبدال",

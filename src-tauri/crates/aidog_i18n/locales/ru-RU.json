@@ -4451,6 +4451,7 @@
   "middleware.target.status": "Код статуса",
   "middleware.toCards": "Режим карточек",
   "middleware.toDsl": "DSL-код",
+  "test.modeImage": "Тест изображений",
   "test.modeTool": "Тест вызова инструмента",
   "jsonEditor.format": "Форматировать",
   "jsonEditor.searchHint": "Ctrl/⌘+F поиск, Ctrl/⌘+Alt+F замена",

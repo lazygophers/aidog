@@ -4363,6 +4363,7 @@
   "middleware.target.status": "Código de estado",
   "middleware.toCards": "Modo tarjetas",
   "middleware.toDsl": "Fuente DSL",
+  "test.modeImage": "Prueba de imagen",
   "test.modeTool": "Prueba de llamada a herramienta",
   "jsonEditor.format": "Formatear",
   "jsonEditor.searchHint": "Ctrl/⌘+F buscar, Ctrl/⌘+Alt+F reemplazar",

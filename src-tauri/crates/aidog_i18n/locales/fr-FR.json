@@ -4451,6 +4451,7 @@
   "middleware.target.status": "Code de statut",
   "middleware.toCards": "Mode cartes",
   "middleware.toDsl": "Source DSL",
+  "test.modeImage": "Test d'image",
   "test.modeTool": "Test d'appel d'outil",
   "jsonEditor.format": "Formater",
   "jsonEditor.searchHint": "Ctrl/⌘+F rechercher, Ctrl/⌘+Alt+F remplacer",

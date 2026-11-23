@@ -91,7 +91,7 @@ pub(crate) const RERANK: AuxSpec = AuxSpec {
 
 /// image：OpenAI Images usage（gpt-image 系 `usage.input_tokens` / `output_tokens`；旧形态
 /// `prompt_tokens` 兼容）。计量张数：响应 `data` 长度 → 请求 `n`（推算）→ 官方缺省 1。
-fn image_usage(body: &str) -> (i32, i32) {
+pub(crate) fn image_usage(body: &str) -> (i32, i32) {
     let v: Value = serde_json::from_str(body).unwrap_or_default();
     let tok = |field: &str, legacy: &str| {
         v.pointer(&format!("/usage/{field}"))

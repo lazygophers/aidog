@@ -337,6 +337,7 @@ pub fn run() {
             aidog_core::platform_cmd::stats::scatter_histogram,
             aidog_core::platform_cmd::stats::quota_snapshots,
             aidog_core::ai_tools_cmd::model_test::model_test,
+            aidog_core::ai_tools_cmd::model_test::image_test,
             // Platform Usage
             aidog_core::proxy_cmd::proxy_log::platform_usage_stats,
             aidog_core::proxy_cmd::proxy_log::group_usage_stats,

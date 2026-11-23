@@ -118,11 +118,12 @@ pub use passthrough::build_models_url;
 
 // 子模块内部互用项（crate 内可见，便于 handler/各模块交叉调用）。
 pub(crate) use count_tokens::{estimate_input_tokens, handle_count_tokens, is_count_tokens_endpoint};
+pub(crate) use aux_model::image_usage;
 pub(crate) use endpoint::{
     detect_source_protocol, infer_passthrough_protocol_from_ua, is_api_endpoint,
     match_platform_by_host, model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
     select_endpoint_for_model, select_endpoint_for_decision_model,
-    select_endpoint_for_openai_family_model,
+    select_endpoint_for_openai_family, select_endpoint_for_openai_family_model,
     should_fallback_passthrough, is_decision_endpoint, is_tools_endpoint,
     is_embedding_endpoint, is_rerank_endpoint, is_image_endpoint, is_image_edit_endpoint,
     KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};

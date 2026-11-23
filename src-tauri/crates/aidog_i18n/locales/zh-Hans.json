@@ -4363,6 +4363,7 @@
   "middleware.target.status": "状态码",
   "middleware.toCards": "卡片模式",
   "middleware.toDsl": "DSL 源码",
+  "test.modeImage": "生图测试",
   "test.modeTool": "工具调用探测",
   "jsonEditor.format": "格式化",
   "jsonEditor.searchHint": "Ctrl/⌘+F 搜索，Ctrl/⌘+Alt+F 替换",
