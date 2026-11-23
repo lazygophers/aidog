@@ -42,6 +42,7 @@ mod decision;
 mod devin;
 mod endpoint;
 mod failure_verdict;
+mod image_dialect;
 mod finish;
 pub(crate) mod attempt_plan;
 mod forward;

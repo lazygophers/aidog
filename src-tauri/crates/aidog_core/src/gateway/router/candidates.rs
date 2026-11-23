@@ -248,12 +248,14 @@ pub(crate) fn platform_supports_kind(
                 && !time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
                     .is_dedicated_only()
         }
-        // Image（生图-模型类型 票 04）：同 Embedding 口径——生图槽位非空 且 有 OpenAI 系 endpoint。
+        // Image（生图-模型类型 票 04/06）：生图槽位非空 且（OpenAI 系 endpoint 或
+        // extra.image_dialect=gemini 方言平台——方言独立配置，不从聊天协议推断）。
         RequestKind::Image => {
             time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
                 .image_slot()
                 .is_some()
-                && has_openai_family_endpoint(platform)
+                && (has_openai_family_endpoint(platform)
+                    || db::image_dialect_is_gemini(&platform.extra))
         }
         RequestKind::Tools(path) => {
             crate::gateway::billing::default_tools_endpoints(&platform.platform_type.wire_str())

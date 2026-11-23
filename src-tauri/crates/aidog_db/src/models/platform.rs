@@ -463,6 +463,12 @@ pub fn parse_breaker(extra: &str) -> PlatformBreaker {
     PlatformExtra::parse(extra).breaker
 }
 
+/// 生图出站方言是否为 Gemini 原生（票 06）：`extra.image_dialect == "gemini"`；
+/// 其余值 / 缺省 = OpenAI Images。
+pub fn image_dialect_is_gemini(extra: &str) -> bool {
+    PlatformExtra::parse(extra).image_dialect.as_deref() == Some("gemini")
+}
+
 // ─── PlatformExtra（`platform.extra` JSON 收敛 struct）──────────
 
 /// `platform.extra.devin` 嵌套对象：Devin（Cognition）平台专属配置。
@@ -512,6 +518,10 @@ pub struct PlatformExtra {
     pub devin: Option<DevinExtra>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mock: Option<serde_json::Value>,
+    /// 生图出站方言（生图-模型类型 票 06）：`"gemini"` = Gemini Interactions API 原生；
+    /// 缺省 = OpenAI Images。平台方言独立配置，不从聊天协议推断。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_dialect: Option<String>,
     /// 未建模键（`_ui_*` 前端私有态 + 尚未收敛的业务键）往返保留，禁丢。
     #[serde(flatten)]
     pub rest: serde_json::Map<String, serde_json::Value>,

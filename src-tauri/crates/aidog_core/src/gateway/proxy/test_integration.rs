@@ -13865,6 +13865,408 @@ async fn image_edit_log_switches_hide_image_bytes() {
     assert_eq!(log.upstream_request_body, "", "multipart 恒不落上游侧原文");
 }
 
+// ══ 票 06：Gemini 原生方言（Interactions API）跨协议转换 ══
+
+type GeminiHits = std::sync::Arc<StdMutex<Vec<(String, String, String, String)>>>;
+
+/// 记录 (path, body, x-goog-api-key, api-revision) 的假上游（Interactions 形状，禁外呼）。
+async fn spawn_gemini_upstream(responses: Vec<(u16, &'static str)>) -> (String, GeminiHits) {
+    let hits: GeminiHits = std::sync::Arc::new(StdMutex::new(Vec::new()));
+    let queue = std::sync::Arc::new(StdMutex::new(std::collections::VecDeque::from(responses)));
+    let h2 = hits.clone();
+    let app = axum::Router::new().fallback(axum::routing::any(move |req: Request| {
+        let hits = h2.clone();
+        let queue = queue.clone();
+        async move {
+            let path = req.uri().path().to_string();
+            let hdr = req.headers();
+            let xkey = hdr
+                .get("x-goog-api-key")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let revision = hdr
+                .get("api-revision")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let body = axum::body::to_bytes(req.into_body(), 8 * 1024 * 1024)
+                .await
+                .map(|b| String::from_utf8_lossy(&b).to_string())
+                .unwrap_or_default();
+            hits.lock().unwrap().push((path, body, xkey, revision));
+            let (status, resp) = queue.lock().unwrap().pop_front().unwrap_or((200, "{}"));
+            (
+                axum::http::StatusCode::from_u16(status).unwrap(),
+                [("content-type", "application/json")],
+                resp,
+            )
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    (format!("http://{addr}"), hits)
+}
+
+/// 同 setup_aux_group，但每平台可带 extra JSON（票 06：gemini 方言 image_dialect 配置）。
+async fn setup_aux_group_extra(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    plats: &[(&str, PlatformModels, Protocol, &str, &str)],
+) {
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    let mut inputs = Vec::new();
+    for (i, (base, slot, proto, name, extra)) in plats.iter().enumerate() {
+        let plat = aidog_db::create_platform(
+            &state.db,
+            CreatePlatform {
+                name: format!("{gk}-{name}"),
+                platform_type: proto.clone(),
+                base_url: base.to_string(),
+                api_key: format!("sk-{name}"),
+                extra: extra.to_string(),
+                models: Some(slot.clone()),
+                available_models: None,
+                endpoints: Some(vec![crate::gateway::models::PlatformEndpoint {
+                    protocol: proto.clone(),
+                    base_url: format!("{base}/v1"),
+                    client_type: "default".into(),
+                    coding_plan: false,
+                }]),
+                manual_budgets: None,
+                auto_group: None,
+                join_group_ids: None,
+                expires_at: None,
+                quota_source: None,
+            },
+        )
+        .await
+        .unwrap();
+        inputs.push(GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(i as i32),
+            weight: Some(1),
+            level_priority: Some(0),
+        });
+    }
+    aidog_db::set_group_platforms(&state.db, group.id, &inputs)
+        .await
+        .unwrap();
+}
+
+/// 指定 model_id / platform_code 的生图条目（gemini 槽位 / 跨平台用例）。
+fn image_entry_named(model: &str, platform_code: &str, price: &str) -> ModelEntry {
+    ModelEntry {
+        model_id: model.into(),
+        display_name: model.into(),
+        canonical_model: model.into(),
+        platform_code: platform_code.into(),
+        capabilities: vec!["image".into()],
+        ..embedding_entry(price)
+    }
+}
+
+const GEMINI_INTERACTION: &str = r#"{"id":"abc","object":"interaction","model":"gemini-img","status":"completed","steps":[{"type":"model_output","content":[{"type":"text","text":"here you go"},{"type":"image","mime_type":"image/png","data":"aGk="}]}],"usage":{"total_input_tokens":10,"total_output_tokens":50,"total_tokens":60}}"#;
+
+/// Gemini 原生生图端到端：OpenAI 形状入口 → Interactions 出站（等价参数转换：
+/// prompt→input 文本块、1024x1024→1K+1:1、png→mime_type），interaction 响应回转
+/// ImagesResponse（b64_json + usage 换算），x-goog-api-key / Api-Revision 头，token 计价。
+#[tokio::test]
+async fn gemini_image_generation_end_to_end() {
+    let (up, hits) = spawn_gemini_upstream(vec![(200, GEMINI_INTERACTION)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry_named(
+            "gemini-img",
+            "gemini",
+            r#"{"input":2e-8,"output":1e-8}"#,
+        )],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkgem",
+        &[(
+            &up,
+            image_slot("gemini-img"),
+            Protocol::Gemini,
+            "g",
+            r#"{"image_dialect":"gemini"}"#,
+        )],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request(
+            "gkgem",
+            r#"{"model":"client-img","prompt":"a cat","size":"1024x1024","output_format":"png"}"#,
+            "/v1/images/generations",
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v["model"], "client-img", "响应 model 回写客户端原名");
+    assert_eq!(v["data"][0]["b64_json"], "aGk=", "图块 → b64_json");
+    assert_eq!(v["data"].as_array().map(Vec::len), Some(1));
+    assert_eq!(v["usage"]["input_tokens"], 10, "usage 换算回 OpenAI 形状");
+    assert_eq!(v["usage"]["output_tokens"], 50);
+
+    let (path, sent, xkey, revision) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/interactions", "base_url + /interactions");
+    assert_eq!(xkey, "sk-g", "API key 走 x-goog-api-key 头");
+    assert_eq!(revision, "2026-05-20", "Api-Revision 头（官方 REST 示例）");
+    let sent_v: serde_json::Value = serde_json::from_str(&sent).unwrap();
+    assert_eq!(sent_v["model"], "gemini-img", "槽位模型覆盖");
+    assert_eq!(sent_v["input"][0]["type"], "text");
+    assert_eq!(sent_v["input"][0]["text"], "a cat", "prompt → input 文本块");
+    assert_eq!(sent_v["response_format"]["type"], "image");
+    assert_eq!(sent_v["response_format"]["image_size"], "1K", "1024x1024 → 1K");
+    assert_eq!(sent_v["response_format"]["aspect_ratio"], "1:1");
+    assert_eq!(sent_v["response_format"]["mime_type"], "image/png");
+    assert!(sent_v.get("n").is_none());
+    assert!(sent_v.get("stream").is_none());
+
+    let log = last_log_for(&state, "gkgem").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(
+        (log.source_protocol.as_str(), log.target_protocol.as_str()),
+        ("images", "images")
+    );
+    assert_eq!(log.model, "client-img");
+    assert_eq!(log.actual_model, "gemini-img");
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 50));
+    assert!(
+        (log.est_cost - (10.0 * 2e-8 + 50.0 * 1e-8)).abs() < 1e-15,
+        "token 计价按换算后 usage，got {}",
+        log.est_cost
+    );
+}
+
+/// Gemini 原生编辑端到端：multipart 入站 → Interactions input 块（文本 + 参考图 base64），
+/// mime 取 part Content-Type。
+#[tokio::test]
+async fn gemini_image_edit_end_to_end() {
+    let (up, hits) = spawn_gemini_upstream(vec![(200, GEMINI_INTERACTION)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry_named(
+            "gemini-img",
+            "gemini",
+            r#"{"input":2e-8,"output":1e-8}"#,
+        )],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkgemedit",
+        &[(
+            &up,
+            image_slot("gemini-img"),
+            Protocol::Gemini,
+            "g",
+            r#"{"image_dialect":"gemini"}"#,
+        )],
+    )
+    .await;
+
+    let (ct, body) = image_edit_multipart("client-img");
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/images/edits")
+        .header("authorization", "Bearer gkgemedit")
+        .header("content-type", ct)
+        .body(Body::from(body))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let resp_body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
+    assert_eq!(v["model"], "client-img");
+    assert_eq!(v["data"][0]["b64_json"], "aGk=");
+
+    let (path, sent, _xkey, _rev) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/interactions");
+    let sent_v: serde_json::Value = serde_json::from_str(&sent).unwrap();
+    assert_eq!(sent_v["model"], "gemini-img", "multipart model part 被槽位覆盖");
+    let input = sent_v["input"].as_array().unwrap();
+    assert_eq!(input.len(), 3, "文本 + 两张参考图");
+    assert_eq!(input[0]["text"], "a cat on a mat");
+    assert_eq!(input[1]["type"], "image");
+    assert_eq!(input[1]["mime_type"], "image/png");
+    assert!(
+        sent.contains("UE5HREFUQS1BQUFB"),
+        "参考图字节 base64 进 input 块（PNGDATA-AAAA）"
+    );
+
+    let log = last_log_for(&state, "gkgemedit").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(
+        (log.source_protocol.as_str(), log.target_protocol.as_str()),
+        ("image_edits", "image_edits")
+    );
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 50));
+}
+
+/// 客户端要求流式中间图 + gemini 方言平台（Interactions 无 partial 图语义）→
+/// 明确报 501 不支持，不发上游（票 00：不伪装不降级）。
+#[tokio::test]
+async fn gemini_stream_explicitly_unsupported() {
+    let (up, hits) = spawn_gemini_upstream(vec![(200, GEMINI_INTERACTION)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry_named("gemini-img", "gemini", r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkgemstream",
+        &[(
+            &up,
+            image_slot("gemini-img"),
+            Protocol::Gemini,
+            "g",
+            r#"{"image_dialect":"gemini"}"#,
+        )],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request(
+            "gkgemstream",
+            r#"{"model":"client-img","prompt":"a cat","stream":true}"#,
+            "/v1/images/generations",
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::NOT_IMPLEMENTED);
+    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024).await.unwrap();
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains("streaming"), "报不支持的明确文案：{text}");
+    assert!(hits.lock().unwrap().is_empty(), "未发上游请求");
+
+    let log = last_log_for(&state, "gkgemstream").await;
+    assert_eq!(log.status_code, 501);
+    assert!(log.done, "终态落库");
+    assert!(
+        log.attempts
+            .iter()
+            .any(|a| a.kind.as_deref() == Some("stream_unsupported")),
+        "attempts 留 stream_unsupported 标记"
+    );
+}
+
+/// 跨协议分组：gemini 平台遇不可等价参数（quality）按平台排除，换 OpenAI 平台成功；
+/// attempts 留 param_incompatible 标记（可核查，非静默）。
+#[tokio::test]
+async fn cross_dialect_non_equivalent_param_fails_over() {
+    let (gem_up, gem_hits) = spawn_gemini_upstream(vec![(200, GEMINI_INTERACTION)]).await;
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![
+            image_entry_named("gemini-img", "gemini", r#"{"input":2e-8,"output":1e-8}"#),
+            image_entry(r#"{"input":2e-8,"output":1e-8}"#),
+        ],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkmix",
+        &[
+            (
+                &gem_up,
+                image_slot("gemini-img"),
+                Protocol::Gemini,
+                "g",
+                r#"{"image_dialect":"gemini"}"#,
+            ),
+            (&up, image_slot("img-slot"), Protocol::OpenAI, "a", ""),
+        ],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request(
+            "gkmix",
+            r#"{"model":"client-img","prompt":"a cat","quality":"high"}"#,
+            "/v1/images/generations",
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK, "failover 到 OpenAI 平台");
+    assert!(gem_hits.lock().unwrap().is_empty(), "gemini 平台未发上游");
+    assert_eq!(hits.lock().unwrap().len(), 1, "OpenAI 平台承接");
+
+    let log = last_log_for(&state, "gkmix").await;
+    assert_eq!(log.status_code, 200);
+    assert!(
+        log.attempts
+            .iter()
+            .any(|a| a.kind.as_deref() == Some("param_incompatible")),
+        "attempts 留 param_incompatible 标记"
+    );
+}
+
+/// 单 gemini 平台 + 不可等价参数 → 末位直返 400 并点名参数。
+#[tokio::test]
+async fn gemini_non_equivalent_param_terminal_bad_request() {
+    let (up, hits) = spawn_gemini_upstream(vec![(200, GEMINI_INTERACTION)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry_named("gemini-img", "gemini", r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkgemq",
+        &[(
+            &up,
+            image_slot("gemini-img"),
+            Protocol::Gemini,
+            "g",
+            r#"{"image_dialect":"gemini"}"#,
+        )],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request(
+            "gkgemq",
+            r#"{"model":"client-img","prompt":"a cat","quality":"high"}"#,
+            "/v1/images/generations",
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024).await.unwrap();
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains("quality"), "报错点名不可等价参数：{text}");
+    assert!(hits.lock().unwrap().is_empty(), "未发上游请求");
+    let log = last_log_for(&state, "gkgemq").await;
+    assert_eq!(log.status_code, 400);
+}
+
 const IMAGE_SSE: &str = concat!(
     "event: image_generation.partial_image\r\n",
     "data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"AA==\",\"partial_image_index\":0}\r\n\r\n",

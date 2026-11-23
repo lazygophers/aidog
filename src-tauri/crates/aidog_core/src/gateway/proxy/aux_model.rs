@@ -319,7 +319,7 @@ fn validate_image_edit_form(bytes: &[u8], content_type: Option<&str>) -> Option<
     None
 }
 
-fn find_sub(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+pub(crate) fn find_sub(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() || haystack.len() < needle.len() {
         return None;
     }
@@ -653,31 +653,118 @@ async fn aux_attempt(
     let (route, log_settings, group) = (scope.route, scope.log_settings, scope.group);
     let (is_last_candidate, has_next_model) = (scope.is_last_candidate, scope.has_next_model);
     let stream_requested = spec.stream_capable && image_stream_requested(spec, req);
-    // endpoint：OpenAI 系优先，否则回退平台主 base_url（零端点平台）。
-    // supported_protocols 约束（4dbbc7c4 同族）：模型支持子集内硬序，无数据（None→空集）全回落。
-    let supported = aidog_db::model_supported_protocols(
-        &route.platform.platform_type.wire_str(),
-        &route.target_model,
-    );
-    let ep =
-        select_endpoint_for_openai_family_model(&route.platform.endpoints, supported.unwrap_or(&[]));
-    let base_url = ep
-        .map(|e| e.base_url.clone())
-        .unwrap_or_else(|| route.platform.base_url.clone());
-    // URL = endpoint base_url（含版本前缀）+ 出站后缀，禁额外拼接。
-    let url = join_upstream_path(&base_url, spec.api_path);
-
-    // 出站 Content-Type：multipart 原样透传（含 boundary），其余 JSON。
-    let out_ct = if spec.multipart {
-        req.content_type.unwrap_or("multipart/form-data").to_string()
+    // 票 06：gemini 方言平台（extra.image_dialect=gemini）走 Interactions 出站。
+    let gemini =
+        matches!(spec.kind, RequestKind::Image)
+            && aidog_db::image_dialect_is_gemini(&route.platform.extra);
+    // 客户端要求流式中间图 + gemini 方言（Interactions 流为 step 事件，无 partial 图语义，
+    // 官方 streaming 页无 image_generation.partial_image 对应物）→ 明确报不支持
+    //（票 00：不伪装不降级）：按平台排除换下一候选，末位 501。确定性配置能力缺失，
+    // 不记熔断 / 降权（非平台故障）。
+    if gemini && stream_requested {
+        attempts.push(ProxyAttempt {
+            kind: Some("stream_unsupported".into()),
+            exclusion: Some(ExcludeScope::Platform),
+            chain_stop: has_next_model.then(|| "service".to_string()),
+            platform_id: route.platform.id,
+            platform_name: route.platform.name.clone(),
+            status_code: 0,
+            error: "gemini image dialect does not support streaming partial images (Interactions API has no partial-image events)".into(),
+            duration_ms: scope.attempt_start.elapsed().as_millis() as i64,
+            ts: scope.attempt_ts,
+            model: Some(route.target_model.clone()),
+            ..Default::default()
+        });
+        tracing::warn!(platform = %route.platform.name, "gemini image stream unsupported: failover");
+        if !is_last_candidate {
+            return AttemptOutcome::Next { connect_failed: false };
+        }
+        return image_terminal(
+            scope,
+            log,
+            attempts,
+            route,
+            StatusCode::NOT_IMPLEMENTED,
+            "image streaming not supported by gemini dialect (no intermediate images available)"
+                .to_string(),
+        )
+        .await;
+    }
+    // 票 06：gemini 方言平台跳过 OpenAI 系 endpoint 选择，走平台主 base_url + /interactions
+    //（Gemini base_url 已含版本前缀 /v1beta，官方端点 POST {base}/v1beta/interactions）。
+    let (base_url, api_path) = if gemini {
+        (
+            route.platform.base_url.clone(),
+            super::image_dialect::GEMINI_API_PATH,
+        )
     } else {
+        // endpoint：OpenAI 系优先，否则回退平台主 base_url（零端点平台）。
+        // supported_protocols 约束（4dbbc7c4 同族）：模型支持子集内硬序，无数据（None→空集）全回落。
+        let supported = aidog_db::model_supported_protocols(
+            &route.platform.platform_type.wire_str(),
+            &route.target_model,
+        );
+        let ep = select_endpoint_for_openai_family_model(
+            &route.platform.endpoints,
+            supported.unwrap_or(&[]),
+        );
+        (
+            ep.map(|e| e.base_url.clone())
+                .unwrap_or_else(|| route.platform.base_url.clone()),
+            spec.api_path,
+        )
+    };
+    // URL = base_url（含版本前缀）+ 出站后缀，禁额外拼接。
+    let url = join_upstream_path(&base_url, api_path);
+
+    // 出站 Content-Type：gemini 方言恒 JSON（multipart 入站已转换）；multipart 原样透传
+    //（含 boundary），其余 JSON。
+    let out_ct = if gemini || !spec.multipart {
         "application/json".to_string()
+    } else {
+        req.content_type.unwrap_or("multipart/form-data").to_string()
     };
 
-    // 出站 body：JSON 请求仅改写 model（槽位值），其余字段原样；multipart 原样透传
+    // 出站 body：gemini 方言先跨协议转换（OpenAI→Interactions，不可等价参数明确报错，
+    // 票 00）；JSON 请求仅改写 model（槽位值），其余字段原样；multipart 原样透传
     //（模型名由路由层 target_model 决定，body 不可重序列化）。
     let actual_model = route.target_model.clone();
-    let upstream_body: Vec<u8> = if spec.multipart {
+    let upstream_body: Vec<u8> = if gemini {
+        let converted = if spec.multipart {
+            let boundary = req
+                .content_type
+                .and_then(boundary_from_content_type)
+                .unwrap_or_default();
+            super::image_dialect::edit_to_gemini(req.bytes, &boundary, &actual_model)
+        } else {
+            super::image_dialect::generation_to_gemini(req.value, &actual_model)
+        };
+        match converted {
+            Ok(v) => serde_json::to_vec(&v).unwrap_or_default(),
+            // 不可等价表达（票 00 明确报错）：按平台排除试其他候选，末位直返 400 点名参数。
+            Err(msg) => {
+                attempts.push(ProxyAttempt {
+                    kind: Some("param_incompatible".into()),
+                    exclusion: Some(ExcludeScope::Platform),
+                    chain_stop: has_next_model.then(|| "service".to_string()),
+                    platform_id: route.platform.id,
+                    platform_name: route.platform.name.clone(),
+                    status_code: 0,
+                    error: msg.clone(),
+                    duration_ms: scope.attempt_start.elapsed().as_millis() as i64,
+                    ts: scope.attempt_ts,
+                    model: Some(actual_model.clone()),
+                    ..Default::default()
+                });
+                tracing::warn!(platform = %route.platform.name, error = %msg, "image params not expressible in gemini dialect: failover");
+                if !is_last_candidate {
+                    return AttemptOutcome::Next { connect_failed: false };
+                }
+                return image_terminal(scope, log, attempts, route, StatusCode::BAD_REQUEST, msg)
+                    .await;
+            }
+        }
+    } else if spec.multipart {
         if matches!(spec.kind, RequestKind::Image) {
             // 编辑（票 05）：model part 改写为槽位模型，其余字节原样保留。
             let boundary = req
@@ -700,24 +787,40 @@ async fn aux_attempt(
     log.platform_id = route.platform.id;
     log.actual_model = actual_model.clone();
     log.upstream_request_url = url.clone();
-    log.upstream_request_headers = format!(
-        r#"{{"authorization":"[REDACTED]","content-type":"{out_ct}"}}"#
-    );
-    log.upstream_request_body = if log_settings.log_upstream_request && !spec.multipart {
+    log.upstream_request_headers = if gemini {
+        // Gemini API key 走 x-goog-api-key 头（官方 REST 示例）；Bearer 为 OAuth 专用不发。
+        format!(
+            r#"{{"x-goog-api-key":"[REDACTED]","content-type":"{out_ct}","api-revision":"{}"}}"#,
+            super::image_dialect::GEMINI_API_REVISION
+        )
+    } else {
+        format!(
+            r#"{{"authorization":"[REDACTED]","content-type":"{out_ct}"}}"#
+        )
+    };
+    log.upstream_request_body = if log_settings.log_upstream_request && (!spec.multipart || gemini)
+    {
         String::from_utf8_lossy(&upstream_body).to_string()
     } else {
         String::new()
     };
 
     let client = scope.build_client().await;
-    let rb = client
-        .post(&url)
-        .header("Content-Type", out_ct)
-        .header(
+    let mut rb = client.post(&url).header("Content-Type", out_ct);
+    if gemini {
+        rb = rb
+            .header("x-goog-api-key", &route.platform.api_key)
+            .header(
+                "Api-Revision",
+                super::image_dialect::GEMINI_API_REVISION,
+            );
+    } else {
+        rb = rb.header(
             "Authorization",
             format!("Bearer {}", route.platform.api_key),
-        )
-        .body(upstream_body.clone());
+        );
+    }
+    let rb = rb.body(upstream_body.clone());
     tracing::info!(group = %group.name, platform = %route.platform.name, model = %actual_model, url = %url, kind = spec.label, "aux upstream request");
 
     let resp = match rb.send().await {
@@ -798,27 +901,71 @@ async fn aux_attempt(
             if !is_last_candidate {
                 return AttemptOutcome::Next { connect_failed: false };
             }
-            log.platform_id = route.platform.id;
-            log.status_code = 501;
-            log.done = true;
-            log.upstream_status_code = status.as_u16() as i32;
-            let err_body = "image streaming not supported by upstream (no intermediate images available)";
-            log.response_body = err_body.to_string();
-            log.user_response_body = err_body.to_string();
-            log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-            log.duration_ms = scope.start.elapsed().as_millis() as i32;
-            log.retry_count = aidog_db::models::retry_count_of(attempts);
-            log.attempts = std::mem::take(attempts);
-            upsert_log(scope.state, log, log_settings).await;
-            let mut r = (StatusCode::NOT_IMPLEMENTED, err_body).into_response();
-            inject_trace_header(&mut r);
-            return AttemptOutcome::Respond(r);
+            return image_terminal(
+                scope,
+                log,
+                attempts,
+                route,
+                StatusCode::NOT_IMPLEMENTED,
+                "image streaming not supported by upstream (no intermediate images available)"
+                    .to_string(),
+            )
+            .await;
         }
         return image_stream_respond(scope, log, attempts, resp, resp_ct).await;
     }
 
-    // ── 2xx：非流式。JSON 响应 model 回写客户端原名；二进制音频原样回客户端。──
+    // ── 2xx：非流式。gemini 方言先把 interaction 转 ImagesResponse（票 06）；
+    // JSON 响应 model 回写客户端原名；二进制音频原样回客户端。──
     let body = resp.bytes().await.unwrap_or_default();
+    // gemini 方言：0 图 / 坏 JSON = 上游契约不符 → 服务类失败换平台，末位 502。
+    let body: Vec<u8> = if gemini {
+        match serde_json::from_slice::<Value>(&body)
+            .map_err(|e| e.to_string())
+            .and_then(|v| super::image_dialect::interaction_to_openai(&v, &actual_model))
+            .and_then(|v| serde_json::to_vec(&v).map_err(|e| e.to_string()))
+        {
+            Ok(b) => b,
+            Err(e) => {
+                let msg = format!("gemini interaction response not convertible: {e}");
+                attempts.push(ProxyAttempt {
+                    kind: Some("response_unconvertible".into()),
+                    error_class: Some("service".into()),
+                    exclusion: Some(ExcludeScope::Platform),
+                    chain_stop: has_next_model.then(|| "service".to_string()),
+                    effects: vec!["penalty_server".into()],
+                    platform_id: route.platform.id,
+                    platform_name: route.platform.name.clone(),
+                    status_code: status.as_u16() as i32,
+                    error: msg.clone(),
+                    duration_ms: scope.attempt_start.elapsed().as_millis() as i64,
+                    ts: scope.attempt_ts,
+                    model: Some(actual_model.clone()),
+                    ..Default::default()
+                });
+                scope.state.scheduler.record_penalty(
+                    route.platform.id,
+                    super::scheduling::PenaltyTier::Server,
+                    aidog_db::now(),
+                );
+                tracing::warn!(platform = %route.platform.name, error = %e, "gemini interaction response unconvertible: failover");
+                if !is_last_candidate {
+                    return AttemptOutcome::Next { connect_failed: false };
+                }
+                return image_terminal(
+                    scope,
+                    log,
+                    attempts,
+                    route,
+                    StatusCode::BAD_GATEWAY,
+                    msg,
+                )
+                .await;
+            }
+        }
+    } else {
+        body.to_vec()
+    };
     let body_str = String::from_utf8_lossy(&body).to_string();
     let client_body = if spec.binary_response || req.model.is_empty() {
         body.to_vec()
@@ -894,6 +1041,33 @@ async fn aux_attempt(
         .into_response();
     inject_trace_header(&mut response);
     AttemptOutcome::Respond(response)
+}
+
+// ══ 票 05/06：image 确定性终态与流式转发 ══
+
+/// image 链路的确定性终态（票 05 上游不回 SSE → 501；票 06 不可等价参数 → 400、
+/// 响应不可转换 → 502、gemini 方言流式 → 501）：落库 + 直返文本错误体。
+async fn image_terminal(
+    scope: &super::call_scope::CallScope<'_>,
+    log: &mut ProxyLog,
+    attempts: &mut Vec<ProxyAttempt>,
+    route: &RouteResult,
+    status: StatusCode,
+    msg: String,
+) -> AttemptOutcome {
+    log.platform_id = route.platform.id;
+    log.status_code = status.as_u16() as i32;
+    log.done = true;
+    log.response_body = msg.clone();
+    log.user_response_body = msg.clone();
+    log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+    log.duration_ms = scope.start.elapsed().as_millis() as i32;
+    log.retry_count = aidog_db::models::retry_count_of(attempts);
+    log.attempts = std::mem::take(attempts);
+    upsert_log(scope.state, log, scope.log_settings).await;
+    let mut r = (status, msg).into_response();
+    inject_trace_header(&mut r);
+    AttemptOutcome::Respond(r)
 }
 
 // ══ 票 05：image 流式转发 ══
