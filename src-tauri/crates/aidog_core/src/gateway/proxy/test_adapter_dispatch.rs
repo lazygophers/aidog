@@ -2965,6 +2965,41 @@ const CLINE_FAMILY: [(Protocol, &str); 2] = [
 const CLINE_OPENAI_RESP: &str = r#"{"id":"cline_1","model":"anthropic/claude-sonnet-4-6","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":3},"cost":0.00012}}"#;
 const CLINE_OPENAI_SSE: &str = "data: {\"id\":\"cline_1\",\"model\":\"cline-pass/qwen3.7-max\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"hi\"}}]}\n\ndata: {\"id\":\"cline_1\",\"model\":\"cline-pass/qwen3.7-max\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2,\"prompt_tokens_details\":{\"cached_tokens\":3},\"cost\":0.00012}}\n\ndata: [DONE]\n\n";
 
+/// 非流式请求必须发出官方格式头，并覆盖客户端提供的冲突值。
+#[tokio::test]
+async fn cline_family_gateway_sends_openai_response_header() {
+    for (i, (pt, _)) in CLINE_FAMILY.iter().enumerate() {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let sink = seen.clone();
+        let app = axum::Router::new().fallback(move |headers: axum::http::HeaderMap| async move {
+            sink.lock().unwrap().push(headers);
+            ([ ("content-type", "application/json") ], CLINE_OPENAI_RESP)
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let state = make_state(test_db().await).await;
+        let pid = aidog_db::test_support::create_platform_at_fake_upstream(
+            &state.db, pt.clone(), &base, &[Protocol::OpenAI],
+        ).await;
+        let key = format!("gk86header{i}");
+        let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(&key, vec![])).await.unwrap();
+        aidog_db::set_group_platforms(&state.db, group.id, &[GroupPlatformInput {
+            platform_id: pid, priority: Some(0), weight: Some(1), level_priority: Some(0),
+        }]).await.unwrap();
+        let req = HttpRequest::builder().method("POST").uri("/chat/completions")
+            .header("authorization", format!("Bearer {key}"))
+            .header("content-type", "application/json")
+            .header("x-response-format", "wrapped")
+            .body(Body::from(r#"{"model":"test","stream":false,"messages":[{"role":"user","content":"hi"}]}"#)).unwrap();
+        let response = handle_proxy(AxumState(state.clone()), req).await;
+        assert_eq!(response.status(), StatusCode::OK, "{pt:?}");
+        let headers = seen.lock().unwrap();
+        assert_eq!(headers.len(), 1, "{pt:?}");
+        assert_eq!(headers[0].get("x-response-format").unwrap(), "openai", "{pt:?}");
+    }
+}
+
 /// issue 86：Cline 的非流式 OpenAI 端点走真实 gateway，经本地假上游返回 usage 与缓存 token。
 #[tokio::test]
 async fn cline_family_openai_endpoint_non_stream() {

@@ -70,6 +70,16 @@ pub trait PlatformAdapter: Send + Sync {
 
     // ══ 平台差异钩子（家族成员覆盖差异；默认 = 现状通用行为）══
 
+    /// 适配器额外出站请求头；默认不添加。返回静态名值对，由网关用于真实请求与日志。
+    fn additional_request_headers(
+        &self,
+        wire: &Protocol,
+        is_stream: bool,
+    ) -> &'static [(&'static str, &'static str)] {
+        let _ = (wire, is_stream);
+        &[]
+    }
+
     /// Coding Plan 端点注入（端点 `coding_plan` flag 命中时调用）。默认按平台协议分派
     /// （仅 Kimi 协议 + openai wire 注入 prompt_cache_key），与历史 headers.rs 同名函数等价。
     /// `wire` = 端点协议：注入键按 wire 语义校验（Kimi 的 prompt_cache_key 仅 Chat

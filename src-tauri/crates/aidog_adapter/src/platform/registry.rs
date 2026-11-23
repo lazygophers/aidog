@@ -1574,13 +1574,27 @@ impl PlatformAdapter for MimoFamilyAdapter {
 ///   `finish_reason=error` 及 `error` 对象表达。https://docs.cline.bot/api/chat-completions
 /// - 错误：`error.code` 为数字或字符串，含 `message` 与可选 `metadata`；文档列出 400/401/402/
 ///   403/404/429/500/502/503。https://docs.cline.bot/api/errors
-/// - ClinePass 非流式响应可用 `X-Response-Format: openai` 选择顶层 OpenAI 形状；这是成员级
-///   行为，留给 issue 144。https://docs.cline.bot/getting-started/clinepass
+/// - 非流式响应：请求头 `X-Response-Format: openai` 选择顶层 OpenAI 响应形状；不带该头时
+///   completion 嵌在 `data` 中。流式响应始终为标准形状。基座只在非流式 OpenAI 请求添加该头。
+///   https://docs.cline.bot/api/chat-completions
+///   https://docs.cline.bot/getting-started/clinepass
 ///
-/// 官方未证实的请求行为保持协议构件默认值；基座不增加协议覆写。
+/// 官方未证实的请求行为保持协议构件默认值；基座不增加其他协议覆写。
 pub struct ClineFamilyAdapter;
 
-impl PlatformAdapter for ClineFamilyAdapter {}
+impl PlatformAdapter for ClineFamilyAdapter {
+    fn additional_request_headers(
+        &self,
+        wire: &Protocol,
+        is_stream: bool,
+    ) -> &'static [(&'static str, &'static str)] {
+        if wire == &Protocol::OpenAI && !is_stream {
+            &[("x-response-format", "openai")]
+        } else {
+            &[]
+        }
+    }
+}
 
 static GENERIC: GenericAdapter = GenericAdapter;
 static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
@@ -1712,12 +1726,16 @@ mod cline_family_tests {
     use super::*;
 
     #[test]
-    fn cline_members_share_family_adapter() {
+    fn cline_members_request_openai_response_shape() {
         for code in ["cline", "cline_pass"] {
-            assert!(
-                std::ptr::addr_eq(adapter_for(code), &CLINE as &dyn PlatformAdapter),
-                "{code} must use ClineFamilyAdapter"
+            let adapter = adapter_for(code);
+            assert_eq!(
+                adapter.additional_request_headers(&Protocol::OpenAI, false),
+                &[("x-response-format", "openai")],
+                "{code} non-stream OpenAI response shape"
             );
+            assert!(adapter.additional_request_headers(&Protocol::OpenAI, true).is_empty());
+            assert!(adapter.additional_request_headers(&Protocol::Anthropic, false).is_empty());
         }
     }
 }

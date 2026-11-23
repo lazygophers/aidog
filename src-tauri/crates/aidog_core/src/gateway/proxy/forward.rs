@@ -1433,6 +1433,7 @@ async fn send_upstream(
         url,
         model,
     } = outbound;
+    let adapter = aidog_adapter::platform::adapter_for(&route.platform.platform_type.wire_str());
 
     // ── 解析超时：模型 > 分组 > 系统 ──（system_timeout + proxy_client 一次缓存借齐）
     let (system_timeout, proxy_client) = {
@@ -1480,6 +1481,15 @@ async fn send_upstream(
             v.to_str().unwrap_or("").to_string()
         };
         upstream_headers.push((n.to_string(), shown));
+    }
+
+    // ── 适配器专用请求头（家族基座要求的响应格式等）──
+    for &(name, value) in adapter.additional_request_headers(target_protocol_enum, is_stream) {
+        let header_name = reqwest::header::HeaderName::from_static(name);
+        let header_value = reqwest::header::HeaderValue::from_static(value);
+        passthrough_base.insert(header_name.clone(), header_value.clone());
+        upstream_headers.retain(|(key, _)| !key.eq_ignore_ascii_case(name));
+        upstream_headers.push((name.to_string(), header_value.to_str().unwrap().to_string()));
     }
 
     // ── anthropic-beta 自动降级的备用请求（与主请求同构，只少这一个头）──
