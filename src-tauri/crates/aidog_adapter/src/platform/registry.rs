@@ -1551,7 +1551,39 @@ impl PlatformAdapter for MimoFamilyAdapter {
     }
 }
 
+/// Cline 家族基座（issue 86；成员 cline / cline_pass 共用，成员差异见 issue 143 / 144）。
+///
+/// 家族共性取证（官方文档，核对日期 2026-11-23）：
+/// - 协议：两成员使用 `POST /api/v1/chat/completions`，兼容 OpenAI Chat Completions；运行时
+///   使用用户配置端点。`model` 与 `messages` 必填；`stream` 默认 true，`temperature` 范围
+///   0.0–2.0、缺省采用模型默认值。https://docs.cline.bot/api/overview
+///   https://docs.cline.bot/api/chat-completions
+/// - 思考：部分模型支持 reasoning；响应可带 `reasoning` / `reasoning_details`，模型目录以
+///   `supportsReasoning` 标记。无通用请求开关、档位或预算参数证据，未证实，保持框架默认。
+///   https://docs.cline.bot/api/models
+/// - 工具：请求使用 OpenAI function tools，响应使用 `tool_calls` 与 `finish_reason=tool_calls`；
+///   未证实 Cline 自有服务端工具。https://docs.cline.bot/api/chat-completions
+/// - 图片：仅支持图片的模型接受 `image_url` 内容块；音频、视频支持未证实。
+///   https://docs.cline.bot/api/models
+/// - system：支持 `role: system`，建议作为首条 message；无注入的默认 system prompt。
+///   https://docs.cline.bot/api/chat-completions
+/// - usage：`prompt_tokens`、`completion_tokens`、`prompt_tokens_details.cached_tokens` 与 USD `cost`；
+///   缓存 token 计入 prompt tokens 的关系未证实，保持框架默认。
+///   https://docs.cline.bot/api/chat-completions
+/// - 流式：SSE `data: {chunk}`，以 `data: [DONE]` 结束；末帧可带 usage。流中错误以
+///   `finish_reason=error` 及 `error` 对象表达。https://docs.cline.bot/api/chat-completions
+/// - 错误：`error.code` 为数字或字符串，含 `message` 与可选 `metadata`；文档列出 400/401/402/
+///   403/404/429/500/502/503。https://docs.cline.bot/api/errors
+/// - ClinePass 非流式响应可用 `X-Response-Format: openai` 选择顶层 OpenAI 形状；这是成员级
+///   行为，留给 issue 144。https://docs.cline.bot/getting-started/clinepass
+///
+/// 官方未证实的请求行为保持协议构件默认值；基座不增加协议覆写。
+pub struct ClineFamilyAdapter;
+
+impl PlatformAdapter for ClineFamilyAdapter {}
+
 static GENERIC: GenericAdapter = GenericAdapter;
+static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
     carry_history_reasoning_openai: true,
@@ -1601,8 +1633,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("bailian_en", &BAILIAN),
     ("byteplus", &ARK),
     ("claude_code", &GENERIC),
-    ("cline", &GENERIC),
-    ("cline_pass", &GENERIC),
+    ("cline", &CLINE),
+    ("cline_pass", &CLINE),
     ("codex", &GENERIC),
     ("commandcode", &GENERIC),
     ("compshare", &GENERIC),
@@ -1673,4 +1705,19 @@ pub fn lookup(code: &str) -> Option<&'static dyn PlatformAdapter> {
 /// 平台 code → 出站适配器；未登记 code（registry 清单外的用户协议变体）回落通用适配。
 pub fn adapter_for(code: &str) -> &'static dyn PlatformAdapter {
     table().get(code).copied().unwrap_or(&GENERIC)
+}
+
+#[cfg(test)]
+mod cline_family_tests {
+    use super::*;
+
+    #[test]
+    fn cline_members_share_family_adapter() {
+        for code in ["cline", "cline_pass"] {
+            assert!(
+                std::ptr::addr_eq(adapter_for(code), &CLINE as &dyn PlatformAdapter),
+                "{code} must use ClineFamilyAdapter"
+            );
+        }
+    }
 }
