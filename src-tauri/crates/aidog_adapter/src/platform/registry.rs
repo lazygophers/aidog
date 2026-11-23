@@ -1003,6 +1003,100 @@ impl PlatformAdapter for QianfanFamilyAdapter {
     }
 }
 
+/// SiliconFlow（硅基流动）家族基座（issue 82；成员 siliconflow / siliconflow_en 共用，
+/// 成员差异见各成员子 issue）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-23；docs.siliconflow.cn 与
+/// docs.siliconflow.com 同一文档结构，本页为 Next.js 站、正文由原始 HTML 直读）：
+/// - 思考开关（openai 端点）：顶层布尔参数 `enable_thinking`（「在推理模式与非推理模式之间切换。
+///   该字段适用于大多数推理模型」），同层另有 `thinking_budget`（128–32768）与
+///   `reasoning_effort`（仅 `"high"` / `"max"`，「low 和 medium 会映射为 high，xhigh 会映射为 max」，
+///   适用于 DeepSeek-V4、GLM-5.2 等少数模型；**无 `none` 值**）。文档无 `thinking` 对象、
+///   无 vLLM 式 `chat_template_kwargs`，故覆写 openai 臂（见下，写官方 `enable_thinking: false`，
+///   与百炼基座同形）。默认值文档未列（「Value in false | true」无 default）——aidog 不注入
+///   默认值，行为即官方默认。https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions
+///   https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions
+/// - 思考开关（anthropic 端点）：官方 Messages 端点 `https://api.siliconflow.cn/v1/messages`
+///   （「创建对话请求（Anthropic）POST」），`thinking` 取 `{"type": "disabled"}` /
+///   `{"type": "enabled"}`（「思维链控制参数。用于开启或关闭模型的思维链（thinking）功能」），
+///   与基座 anthropic 臂同形，不覆盖。https://docs.siliconflow.cn/cn/docs/api/messages-post
+/// - 流式（openai 端点）：SSE 以 `data: [DONE]` 结束（「Stream terminates with `data: [DONE]`」），
+///   思考增量在 `reasoning_content`；基座 openai 流式构件已按 delta.reasoning_content 抽取，
+///   不覆盖。https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions
+/// - usage（openai 端点）：`usage.prompt_tokens_details.cached_tokens`，另有 DeepSeek 系
+///   `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`；基座构件两者都已抽取并从 input
+///   扣除（`usage.rs`），不覆盖。
+/// - usage（anthropic 端点）：`cache_read_input_tokens` / `cache_creation_input_tokens`
+///   （Anthropic 标准两件），与基座 anthropic 臂一致，不覆盖。
+///   https://docs.siliconflow.cn/cn/docs/api/messages-post
+/// - 错误体：顶层 JSON `{"code": <int>, "message": ..., "data": null}`（无 `error` 包裹；
+///   示例 `code: 20012`「Model does not exist. Please check it carefully.」）——基座
+///   `error.message/code/type` 读法对无 `error` 包裹的 body 读顶层，message 含
+///   model + does not exist 命中模型类特征；401（API Key 未设置）/ 402（欠费）/
+///   403（权限/实名认证）/ 429（rate limits）按状态码归服务类。基座双形态读法已覆盖，
+///   不扩展。https://docs.siliconflow.cn/cn/docs/userguide/faqs/error-code
+/// - 工具 / 图片与多模态 / system：Chat Completions 标准 OpenAI 形状（`tools[].function`、
+///   `tool_choice`、`image_url`、`role: "system"`），Messages 页同样支持 system / tools /
+///   `tool_choice`（Auto | Tool | None + disable_parallel_tool_use）；均与基座构件一致，不覆盖。
+///   https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions
+///   https://docs.siliconflow.cn/cn/docs/api/messages-post
+/// - coding_plan 注入：两成员均非编码套餐，基座按平台协议分派对 SiliconFlow / SiliconFlowEn
+///   协议为 no-op，行为不变。
+/// - 未证实（保持基座默认）：`enable_thinking` 默认值、max_tokens 统一上限、
+///   `reasoning_effort` 对清单外模型的认受性、错误体在流式帧内的形态。
+pub struct SiliconFlowFamilyAdapter;
+
+impl PlatformAdapter for SiliconFlowFamilyAdapter {
+    /// 差异：openai 端点禁思考写官方顶层布尔 `enable_thinking: false`，不写基座第三方端点用的
+    /// vLLM 式 `chat_template_kwargs.enable_thinking`（SiliconFlow Chat Completions 文档无此
+    /// 参数；写 false 前同样剥掉客户端带来的旧 `enable_thinking` / `thinking` /
+    /// `reasoning_effort` 等开启型参数）。其余 wire 与强制思考路径同基座；
+    /// `Protocol::OpenAICompletions` 不在覆写范围内（家族成员内置默认端点仅 openai /
+    /// anthropic，用户手配 openai_completions 端点仍走基座 `chat_template_kwargs` 写法，
+    /// 与 GLM / 百炼 / 方舟 / 千帆基座同口径）。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI || forced_thinking {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        if !disable {
+            return;
+        }
+        for k in [
+            "thinking",
+            "context_management",
+            "reasoning_effort",
+            "reasoning",
+            "enable_thinking",
+        ] {
+            obj.remove(k);
+        }
+        if let Some(ctk) = obj
+            .get_mut("chat_template_kwargs")
+            .and_then(|o| o.as_object_mut())
+        {
+            ctk.remove("enable_thinking");
+        }
+        if let Some(gc) = obj
+            .get_mut("generationConfig")
+            .and_then(|o| o.as_object_mut())
+        {
+            gc.remove("thinkingConfig");
+        }
+        obj.insert("enable_thinking".to_string(), Value::Bool(false));
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
@@ -1024,6 +1118,7 @@ static GLM: GlmFamilyAdapter = GlmFamilyAdapter;
 static BAILIAN: BailianFamilyAdapter = BailianFamilyAdapter;
 static ARK: ArkFamilyAdapter = ArkFamilyAdapter;
 static QIANFAN: QianfanFamilyAdapter = QianfanFamilyAdapter;
+static SILICONFLOW: SiliconFlowFamilyAdapter = SiliconFlowFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
@@ -1079,8 +1174,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("sensenova", &GENERIC),
     ("sensenova_en", &GENERIC),
     ("shengsuanyun", &GENERIC),
-    ("siliconflow", &GENERIC),
-    ("siliconflow_en", &GENERIC),
+    ("siliconflow", &SILICONFLOW),
+    ("siliconflow_en", &SILICONFLOW),
     ("stepfun", &GENERIC),
     ("stepfun_en", &GENERIC),
     ("tencent_coding", &GENERIC),
