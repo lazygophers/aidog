@@ -1759,13 +1759,8 @@ pub fn adapter_for(code: &str) -> &'static dyn PlatformAdapter {
 ///   https://www.compshare.cn/docs/modelverse/models/text_api/claude_compatible
 /// - 思考开关（openai 端点，仅官方证实支持模型）：顶层对象参数 `thinking.type`，
 ///   `enabled` / `disabled`（DeepSeek V3.1 系；Doubao 系另列 `auto`），请求示例
-///   `"thinking": {"type": "enabled"}`。基座第三方端点写法 vLLM 式
-///   `chat_template_kwargs.enable_thinking` 官方文档无此参数，故 openai wire 禁思考
-///   按基座 anthropic 臂执行（写官方 `thinking.type=disabled`）。该参数仅对官方列出的
-///   DeepSeek V3.1 / Doubao 系模型证实，未对全模型外推；其余模型传入是否被接受未证实，
-///   保持同一覆写（禁思考时写 disabled 与官方词表一致）。官方未见 temperature/top_p
-///   覆盖语义（对照 MiMo 的静默覆盖），不额外剥除。`Protocol::OpenAICompletions` /
-///   openai_responses 用户手配端点不在覆写范围，仍走基座。
+///   `"thinking": {"type": "enabled"}`。其他模型及套餐成员是否支持未证实，家族层保持
+///   框架默认，不将特定模型的参数推广到全部模型。
 ///   https://www.compshare.cn/docs/modelverse/models/text_api/thinking/deepseek
 ///   https://www.compshare.cn/docs/modelverse/models/text_api/thinking/doubao
 /// - 工具调用、图片与多模态、system 提示、usage 缓存 token 字段、错误体格式、流式
@@ -1776,28 +1771,11 @@ pub fn adapter_for(code: &str) -> &'static dyn PlatformAdapter {
 ///   https://www.compshare.cn/docs/modelverse/models/quick-start 未给 API 参数差异；
 ///   cp.compshare.cn 文档站不可达 HTTP 404）：成员差异未证实，继承家族基座。
 ///
-/// 已证实差异只有 openai 端点禁思考写法；其余接口继承协议构件默认实现。
+/// 目前无可证实的家族级覆写（思考参数仅特定模型证实，不外推到全家族）；成员均继承
+/// 协议构件默认实现。
 pub struct CompshareFamilyAdapter;
 
-impl PlatformAdapter for CompshareFamilyAdapter {
-    /// 差异：openai 端点禁思考写官方 `thinking: {"type": "disabled"}`（词表与基座 anthropic
-    /// 臂同形），不写基座第三方端点的 vLLM 式 `chat_template_kwargs.enable_thinking`。
-    /// 其余 wire 与强制思考路径同基座。依据见结构体注释（官方核对日期 2026-11-23）。
-    fn apply_disable_thinking(
-        &self,
-        body: &mut Value,
-        disable: bool,
-        wire: &Protocol,
-        upstream_url: &str,
-        forced_thinking: bool,
-    ) {
-        let wire = match wire {
-            Protocol::OpenAI => &Protocol::Anthropic,
-            w => w,
-        };
-        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
-    }
-}
+impl PlatformAdapter for CompshareFamilyAdapter {}
 
 #[cfg(test)]
 mod compshare_family_tests {
@@ -1809,34 +1787,6 @@ mod compshare_family_tests {
         let coding = lookup("compshare_coding").unwrap();
         assert!(std::ptr::eq(standard, coding));
         assert!(!std::ptr::eq(standard, adapter_for("openai")));
-    }
-
-    /// openai 端点禁思考写官方 `thinking: {"type": "disabled"}`（官方词表 enabled/disabled，
-    /// 见结构体注释），不写基座第三方 vLLM 式 `chat_template_kwargs.enable_thinking`；
-    /// 非 openai wire 与强制思考路径同基座（不写关闭参数）。
-    #[test]
-    fn openai_disable_thinking_writes_official_thinking_disabled() {
-        let pa = adapter_for("compshare");
-
-        let mut body = serde_json::json!({"messages": [], "enable_thinking": true});
-        pa.apply_disable_thinking(&mut body, true, &Protocol::OpenAI, "https://stub", false);
-        assert_eq!(body["thinking"], serde_json::json!({"type": "disabled"}));
-        assert!(body.get("enable_thinking").is_none());
-        assert!(body.get("chat_template_kwargs").is_none());
-
-        // anthropic / gemini wire 与基座一致（基座 anthropic 臂同写 thinking.type=disabled，
-        // gemini 臂写 thinkingConfig.thinkingBudget=0），此处锁不回归即可。
-        let mut body = serde_json::json!({});
-        pa.apply_disable_thinking(&mut body, true, &Protocol::Gemini, "https://stub", false);
-        assert_eq!(
-            body["generationConfig"]["thinkingConfig"],
-            serde_json::json!({"thinkingBudget": 0})
-        );
-
-        // 强制思考：只剥禁用形参数、不写任何关闭参数。
-        let mut body = serde_json::json!({"thinking": {"type": "disabled"}});
-        pa.apply_disable_thinking(&mut body, true, &Protocol::OpenAI, "https://stub", true);
-        assert!(body.get("thinking").is_none());
     }
 }
 
