@@ -137,7 +137,7 @@ export function WaterLevel({ platformId, extra }: { platformId: number; extra?: 
               <span style={{ color: "var(--text-secondary)" }}>
                 {t(DIM_KEY[w.dimension] ?? w.dimension, w.dimension)}
                 <span style={{ color: "var(--muted-foreground)" }}>
-                  {" "}（{t(MODE_KEY[w.reset_mode] ?? w.reset_mode, w.reset_mode)}）
+                  {" "}({t(MODE_KEY[w.reset_mode] ?? w.reset_mode, w.reset_mode)})
                 </span>
               </span>
               <span style={{ fontFamily: "var(--font-mono, monospace)" }}>

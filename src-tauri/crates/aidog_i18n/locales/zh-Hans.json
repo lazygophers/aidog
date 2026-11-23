@@ -157,6 +157,7 @@
   "common.priceFree": "免费",
   "common.pricePeak": "峰",
   "common.sectionTabs": "设置分区",
+  "common.listSeparator": "、",
   "app.title": "AiDog",
   "app.version": "版本",
   "appLog.desc": "控制台日志始终输出；以下设置仅影响日志文件",

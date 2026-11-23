@@ -871,7 +871,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                   title={t("stats.requestTrend", "Request Trend")}
                   subtitle={
                     <>
-                      {t("stats.granularityLabel", "Granularity")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
+                      {t("stats.granularityLabel", "Granularity")}: {granLabel(effectiveGran, effectiveGran !== granularity, t)}
                       {(effectiveGran === "minute" || effectiveGran === "5min") && (
                         <span title={t("stats.fineGranHint", "Minute-level data comes from request logs and is only available short-term (limited by log retention)")}
                           style={{ marginLeft: 6, color: "var(--color-warning, var(--text-tertiary))", cursor: "help" }}>
@@ -889,7 +889,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                   title={t("stats.requestTrend", "Request Trend")}
                   subtitle={
                     <>
-                      {t("stats.granularityLabel", "Granularity")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
+                      {t("stats.granularityLabel", "Granularity")}: {granLabel(effectiveGran, effectiveGran !== granularity, t)}
                       {(effectiveGran === "minute" || effectiveGran === "5min") && (
                         <span title={t("stats.fineGranHint", "Minute-level data comes from request logs and is only available short-term (limited by log retention)")}
                           style={{ marginLeft: 6, color: "var(--color-warning, var(--text-tertiary))", cursor: "help" }}>

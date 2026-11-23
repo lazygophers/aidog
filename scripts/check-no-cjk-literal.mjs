@@ -12,7 +12,8 @@ const ROOT = new URL("..", import.meta.url).pathname;
 // shortcut: 根目录 typescript 是 7.x（Go 版，无 createSourceFile），借 docs workspace 声明的 typescript 6；根包换回带 JS API 的版本后改为直接 import。
 const ts = createRequire(join(ROOT, "docs/package.json"))("typescript");
 
-const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+// 含全角标点：U+3000–U+303F（CJK 符号与标点）、U+FF01–U+FF5E（全角 ASCII 变体）。
+const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}　-〿！-～]/u;
 const LITERAL_KINDS = new Set([
   ts.SyntaxKind.StringLiteral,
   ts.SyntaxKind.NoSubstitutionTemplateLiteral,
@@ -36,6 +37,9 @@ export const ALLOWLIST = [
   // 与后端逐字一致的内部名：改了就对不上后端。
   { file: "src/components/settings/CodingToolsSettings.tsx", match: '"内置·日期格式改写防检测"', reason: "内置规则名，须与 Rust schema.rs builtin_rule_specs 逐字一致（按名查 middleware_rule）" },
   { file: "src/pages/Groups/useGroupData.ts", match: '"未匹配"', reason: "后端 fallback 直通落库的虚拟桶 group_key，按此键取统计" },
+  { file: "src/pages/TrayConfigTab.tsx", match: '"｜"', reason: "托盘分隔符预设值（全角竖线），须与 Rust tray_render.rs SEPARATOR_PRESETS 逐字一致，是用户可选的字符本身" },
+  // 识别中文输入：正则字符类须覆盖全角字符，才能从中文粘贴文本里截出 key。
+  { file: "src/utils/platformPaste.ts", match: "　-〿＀-￯", reason: "粘贴识别正则的字符类，匹配中文文本里的全角字符边界，不是界面文案" },
 ];
 
 /**

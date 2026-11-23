@@ -274,7 +274,7 @@ export function GroupListView(props: GroupListViewProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {t("group.delete", "Delete group")}
-              {deleteGroupName && `：${deleteGroupName}`}
+              {deleteGroupName && `: ${deleteGroupName}`}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {t("group.deleteConfirm", "Deleting this group also drops its routing configuration. This cannot be undone. Delete it?")}

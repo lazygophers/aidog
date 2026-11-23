@@ -387,12 +387,12 @@ export const GroupListItem = memo(function GroupListItem({
             <SelectContent>
               {PLATFORM_STATUS_OPTIONS.map(o => (
                 <SelectItem key={o.value} value={o.value} data-testid={`group-batch-status-opt-${o.value}`} style={{ fontSize: 14 }}>
-                  {`${t(o.labelKey, o.fallback)}（${fullPlats.filter(p => p.status === o.status).length}）`}
+                  {`${t(o.labelKey, o.fallback)} (${fullPlats.filter(p => p.status === o.status).length})`}
                 </SelectItem>
               ))}
               {statusOptions.map(o => (
                 <SelectItem key={o.value} value={o.value} data-testid={`group-batch-status-opt-${o.value}`} style={{ fontSize: 14 }}>
-                  {`${t(o.labelKey, o.fallback)}（${o.count}）`}
+                  {`${t(o.labelKey, o.fallback)} (${o.count})`}
                 </SelectItem>
               ))}
             </SelectContent>

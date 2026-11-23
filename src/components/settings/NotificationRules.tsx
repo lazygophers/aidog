@@ -219,7 +219,7 @@ export function NotificationRulesSection({ settings, persist }: { settings: Noti
   const copyPreset = (r: Rule) => setRules(rs => [...rs, {
     ...r,
     id: `copy-of-${r.id}-${Date.now()}`,
-    name: `${r.name}（${t("notif.rules.copy", "copy")}）`,
+    name: `${r.name} (${t("notif.rules.copy", "copy")})`,
     preset: false,
   }]);
 

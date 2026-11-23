@@ -759,7 +759,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
               {removeTarget?.groupCount && removeTarget.groupCount > 1
                 ? t("group.deletePlatformMultiDesc",
                     "\"{{name}}\" belongs to {{count}} groups: {{groups}}. Choose an action:",
-                    { name: removeTarget.platform.name, count: removeTarget.groupCount, groups: removeTarget.groupNames.join("、") })
+                    { name: removeTarget.platform.name, count: removeTarget.groupCount, groups: removeTarget.groupNames.join(t("common.listSeparator", ", ")) })
                 : t("group.deletePlatformConfirm",
                     "\"{{name}}\" belongs only to this group. Removing it will permanently delete the platform and all its associations. This cannot be undone. Delete it?",
                     { name: removeTarget?.platform.name ?? "" })}

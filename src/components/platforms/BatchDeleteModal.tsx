@@ -119,7 +119,7 @@ export function BatchDeleteModal({
                 </div>
                 {isCross && (
                   <div style={{ fontSize: 14, color: "var(--color-danger)", paddingLeft: 18, lineHeight: 1.4 }}>
-                    {t("group.batchDeleteCrossGroupItem", "In {{count}} groups: {{groups}}", { count: groups.length, groups: groups.join("、") })}
+                    {t("group.batchDeleteCrossGroupItem", "In {{count}} groups: {{groups}}", { count: groups.length, groups: groups.join(t("common.listSeparator", ", ")) })}
                   </div>
                 )}
               </div>

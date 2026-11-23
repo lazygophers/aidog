@@ -493,7 +493,7 @@ export function About() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 14, color: "var(--text-secondary)" }}>
                 <div>
-                  <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.version", "Version")}：</span>
+                  <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.version", "Version")}: </span>
                   <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
                     {s.version || (s.installed ? t("about.localEnv.unknown", "unknown") : "—")}
                   </span>
@@ -504,7 +504,7 @@ export function About() {
                   )}
                 </div>
                 <div style={{ wordBreak: "break-all" }}>
-                  <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.path", "Path")}：</span>
+                  <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.path", "Path")}: </span>
                   <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
                     {s.path || "—"}
                   </span>
@@ -588,7 +588,7 @@ export function About() {
                   ))}
                   {conflict.suggestion && (
                     <div style={{ fontSize: 14, color: "var(--text-secondary)", marginTop: 2 }}>
-                      <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.suggestion", "Suggestion")}：</span>
+                      <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.suggestion", "Suggestion")}: </span>
                       {conflict.suggestion}
                     </div>
                   )}

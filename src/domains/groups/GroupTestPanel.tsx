@@ -62,7 +62,7 @@ export function GroupTestPanel({ groupName, rows, running, onClose, t }: {
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>
-            {t("group.testAllTitle", "Test group platforms")}：{groupName}
+            {t("group.testAllTitle", "Test group platforms")}: {groupName}
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} title={t("action.dismiss", "Dismiss")}>
             <IconClose size={16} />

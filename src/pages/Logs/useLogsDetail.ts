@@ -40,9 +40,9 @@ export function buildLogMarkdown(d: ProxyLogDetail, t: TFunction): string {
       if (d.routing.mode) lines.push(`- Mode: ${d.routing.mode}`);
       lines.push(``);
       for (const c of d.routing.entries) {
-        const tagText = (c.tags ?? []).map(tg => t(`logs.routing.tag.${tg}`, { defaultValue: tg })).join("、");
+        const tagText = (c.tags ?? []).map(tg => t(`logs.routing.tag.${tg}`, { defaultValue: tg })).join(t("common.listSeparator", ", "));
         const modelText = c.target_model ? ` · ${c.target_model}` : "";
-        lines.push(`${c.order}. ${c.platform} — ${t(`logs.routing.reason.${c.reason}`, { defaultValue: c.reason })}${tagText ? `（${tagText}）` : ""} · ${t("logs.copy.priority", "Priority L{{level}}/P{{prio}}", { level: c.level_priority, prio: c.priority })}${modelText}`);
+        lines.push(`${c.order}. ${c.platform} — ${t(`logs.routing.reason.${c.reason}`, { defaultValue: c.reason })}${tagText ? ` (${tagText})` : ""} · ${t("logs.copy.priority", "Priority L{{level}}/P{{prio}}", { level: c.level_priority, prio: c.priority })}${modelText}`);
       }
       lines.push(``);
     }

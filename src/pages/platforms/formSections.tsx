@@ -848,7 +848,7 @@ function formatWindowPreview(w: TimeWindow, tzMode: TzMode, t: TFunction): strin
     ? t("platform.peak_next_day", "Next day")
     : "";
 
-  return `${startStr} - ${endStr}（${tzLabel}）${nextDayLabel ? `（${nextDayLabel}）` : ""}`;
+  return `${startStr} - ${endStr} (${tzLabel})${nextDayLabel ? ` (${nextDayLabel})` : ""}`;
 }
 
 export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, platformCalendar, themeMode, t }: {
@@ -2099,7 +2099,7 @@ export function AppbuilderKeySection({ value, onChange, t }: {
       <Input
         data-testid="appbuilder-key-input"
         value={value}
-        placeholder={t("platform.appbuilder_key_placeholder", "AppBuilder API Key（bce-v3/...）")}
+        placeholder={t("platform.appbuilder_key_placeholder", "AppBuilder API Key (bce-v3/...)")}
         onChange={e => onChange(e.target.value)}
         style={{ width: "100%", fontFamily: "var(--font-mono, monospace)", fontSize: 14, height: 28 }}
       />

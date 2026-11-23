@@ -33,7 +33,7 @@ function Detail({ row }: { row: ToolLogRow }) {
   return (
     <div data-testid={`tool-log-detail-${row.id}`} className="flex flex-col gap-2">
       {row.platform && (
-        <div className="text-sm text-secondary">{t("toolLog.platform", "Bypassed platform")}：{row.platform}</div>
+        <div className="text-sm text-secondary">{t("toolLog.platform", "Bypassed platform")}: {row.platform}</div>
       )}
       {row.error && (
         <div className="text-sm text-destructive">{row.error}</div>

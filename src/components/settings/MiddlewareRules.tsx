@@ -126,6 +126,7 @@ function MultiSelect<T extends number | string>({
   emptyLabel: string;
   testId?: string;
 }) {
+  const { t } = useTranslation();
   const labels = options.filter((o) => selected.includes(o.value)).map((o) => o.label);
   return (
     <DropdownMenu>
@@ -147,7 +148,7 @@ function MultiSelect<T extends number | string>({
             color: labels.length ? undefined : "var(--text-tertiary)",
           }}
         >
-          {labels.length ? labels.join("、") : emptyLabel}
+          {labels.length ? labels.join(t("common.listSeparator", ", ")) : emptyLabel}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" style={{ maxHeight: 280, overflowY: "auto" }}>

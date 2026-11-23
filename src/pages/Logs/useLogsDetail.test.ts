@@ -62,7 +62,7 @@ describe("buildLogMarkdown", () => {
     } as unknown as ProxyLogDetail, t);
     expect(md).toContain("## Routing Decision");
     expect(md).toContain("- Mode: failover");
-    expect(md).toContain("1. platB — 选中（映射提升） · Priority L5/P0 · mapped-b");
+    expect(md).toContain("1. platB — 选中 (映射提升) · Priority L5/P0 · mapped-b");
     expect(md).toContain("2. platC — 熔断 · Priority L3/P2");
     expect(md).toContain("## Attempts");
     expect(md).toContain("1. platA — status 500 — 50 ms — mapped-a — upstream error");

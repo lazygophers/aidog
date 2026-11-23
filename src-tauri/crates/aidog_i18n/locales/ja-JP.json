@@ -157,6 +157,7 @@
   "common.priceFree": "無料",
   "common.pricePeak": "ピーク",
   "common.sectionTabs": "セクション",
+  "common.listSeparator": "、",
   "app.title": "AiDog",
   "app.version": "バージョン",
   "appLog.desc": "コンソールログは常に出力されます。以下の設定はログファイルのみに影響します",

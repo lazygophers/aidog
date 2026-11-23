@@ -63,7 +63,7 @@ function describeWindow(w: TimeWindow, tzMode: TzMode, t: TFunction): string {
   const tzLabel = tzMode === "local"
     ? t("platform.timezone_local", "Local")
     : t("platform.timezone_utc", "UTC+0");
-  return `${timePart}${dayPart}（${tzLabel}）`;
+  return `${timePart}${dayPart} (${tzLabel})`;
 }
 
 export function describeWindows(windows: TimeWindow[], tzMode: TzMode, t: TFunction): string {

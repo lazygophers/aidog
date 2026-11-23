@@ -19,6 +19,11 @@ test("字符串与模板字面量命中", () => {
   assert.deepEqual(scan([f], root, []).map((h) => h.line), [2, 3, 4]);
 });
 
+test("全角标点字面量命中", () => {
+  const f = put("punct.ts", 'const a = "Name（x）";\nconst b = "key：";\nconst c = "a　b";\nconst d = "ok (x): y";');
+  assert.deepEqual(scan([f], root, []).map((h) => h.line), [1, 2, 3]);
+});
+
 test("JSX 文本命中", () => {
   const f = put("jsx.tsx", "export const X = () => (\n  <div>\n    保存\n  </div>\n);");
   const hits = scan([f], root, []);
