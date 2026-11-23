@@ -150,17 +150,32 @@ describe("Sessions 页（票 02）", () => {
     expect(priced).toEqual(["all", "partial", "none"]);
   });
 
-  it("context-mode 压缩比：有数据的行显示徽标，展开详情同样带比值", async () => {
+  it("context-mode 仅在展开对应详情区后读取", async () => {
     cctx.contextModeSessions.mockResolvedValue([{ session_id: "c1", reduction_pct: 50.4, tokens_saved: 135051, total_calls: 77 }]);
     api.sessionDetail.mockResolvedValue({ modelChain: [], points: [{ callTimeMs: 1, inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 }], agents: [] });
     api.status.mockResolvedValue(statusPayload(ALL_ON));
     api.sessions.mockResolvedValue(SESSIONS);
     render(<Sessions onNavigate={vi.fn()} />);
     const rows = await screen.findAllByTestId("sessions-row");
-    expect(rows.find((r) => r.getAttribute("data-session") === "c1")!.querySelector('[data-testid="sessions-row-ctx"]')!.getAttribute("data-pct")).toBe("50.4");
-    expect(rows.find((r) => r.getAttribute("data-session") === "x1")!.querySelector('[data-testid="sessions-row-ctx"]')).toBeNull();
+    expect(cctx.contextModeSessions).not.toHaveBeenCalled();
+    expect(rows.every((r) => r.querySelector('[data-testid="sessions-row-ctx"]') === null)).toBe(true);
     fireEvent.click(rows.find((r) => r.getAttribute("data-session") === "c1")!);
-    expect(await screen.findByTestId("session-detail-ctx")).toHaveAttribute("data-pct", "50.4");
+    const detail = await screen.findByTestId("session-detail");
+    expect(cctx.contextModeSessions).not.toHaveBeenCalled();
+    fireEvent.click(within(detail).getByTestId("session-detail-context-mode-toggle"));
+    expect(await screen.findByTestId("session-detail-context-mode-value")).toHaveAttribute("data-pct", "50.4");
+    expect(cctx.contextModeSessions).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(detail).getByTestId("session-detail-context-mode-toggle"));
+    fireEvent.click(within(detail).getByTestId("session-detail-context-mode-toggle"));
+    expect(cctx.contextModeSessions).toHaveBeenCalledTimes(1);
+    fireEvent.click(rows.find((r) => r.getAttribute("data-session") === "c1")!);
+    fireEvent.click(rows.find((r) => r.getAttribute("data-session") === "x1")!);
+    const nextDetail = await screen.findByTestId("session-detail");
+    await waitFor(() => expect(nextDetail).toHaveAttribute("data-state", "ready"));
+    fireEvent.click(within(nextDetail).getByTestId("session-detail-context-mode-toggle"));
+    await waitFor(() => expect(within(nextDetail).getByTestId("session-detail-context-mode-block")).toHaveAttribute("data-state", "ready"));
+    expect(within(nextDetail).queryByTestId("session-detail-context-mode-value")).toBeNull();
+    expect(cctx.contextModeSessions).toHaveBeenCalledTimes(2);
   });
 
   it("搜索按标题与目录过滤", async () => {
@@ -288,9 +303,15 @@ describe("Sessions 页（票 03：缓存 token、模型链、消耗图）", () =
     fireEvent.click(first);
     const detail = await screen.findByTestId("session-detail");
     await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
-    expect(within(detail).getByTestId("session-detail-sqz")).toHaveTextContent("sqz");
-    expect(within(detail).getByTestId("session-detail-rtk")).toHaveTextContent("rtk");
-    expect(within(detail).getByTestId("session-detail-context-mode-value")).toHaveAttribute("data-pct", "50.4");
+    const staticBlocks = ["session-detail-sqz", "session-detail-rtk", "session-detail-context-mode"];
+    for (const id of staticBlocks) {
+      expect(within(detail).getByTestId(`${id}-toggle`)).toHaveAttribute("aria-expanded", "false");
+      expect(within(detail).getByTestId(`${id}-block`).querySelector("p")).toBeNull();
+    }
+    for (const id of staticBlocks) fireEvent.click(within(detail).getByTestId(`${id}-toggle`));
+    expect(within(detail).getByTestId("session-detail-sqz-block")).toHaveTextContent("sqz");
+    expect(within(detail).getByTestId("session-detail-rtk-block")).toHaveTextContent("rtk");
+    expect(await within(detail).findByTestId("session-detail-context-mode-value")).toHaveAttribute("data-pct", "50.4");
     expect(api.sessionDetail).not.toHaveBeenCalledWith("claude_code", "c1", "interactions");
     fireEvent.click(within(detail).getByTestId("session-detail-history-toggle"));
     expect(await within(detail).findByTestId("session-detail-interaction")).toHaveTextContent("fixture prompt");
