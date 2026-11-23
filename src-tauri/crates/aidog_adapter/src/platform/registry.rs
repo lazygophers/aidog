@@ -1104,8 +1104,7 @@ impl PlatformAdapter for SiliconFlowFamilyAdapter {
 /// platform.stepfun.ai 文档结构一致，均 Mintlify 站、正文走 `llms.txt` 列出的 `.md` 原文页）：
 /// - Chat Completions（openai 端点）：OpenAI 兼容形状，`POST {base}/v1/chat/completions`；
 ///   system 用 `role: "system"`，工具 `tools` / `tool_choice`，图片 / 文档输入在
-///   `messages[].content` 多模态块（`image_url` / 文档块）；请求参数无家族专属默认值说明
-///   （`reasoning_effort` / `reasoning_format` 均 optional、文档未列 default）。
+///   `messages[].content` 多模态块（`image_url` / 文档块）；请求参数按官方定义处理，思考字段详见下文。
 ///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
 ///   https://platform.stepfun.ai/docs/en/api-reference/chat/chat-completion-create.md
 /// - 思考开关（openai 端点）：推理深度用顶层 `reasoning_effort`（`low` / `medium` / `high`，

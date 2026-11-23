@@ -153,10 +153,15 @@ fn strip_openai_chat(body: &mut Value) -> bool {
     };
     let mut changed = false;
     for c in choices {
-        if let Some(msg) = c.get_mut("message").and_then(|v| v.as_object_mut())
-            && msg.remove("reasoning_content").is_some()
-        {
-            changed = true;
+        if let Some(msg) = c.get_mut("message").and_then(|v| v.as_object_mut()) {
+            // StepFun 默认 reasoning_format=general 用 `reasoning` 字段（reasoning_content 是
+            // deepseek-style 别名），两字段都要剥。
+            if msg.remove("reasoning_content").is_some() {
+                changed = true;
+            }
+            if msg.remove("reasoning").is_some() {
+                changed = true;
+            }
         }
     }
     changed

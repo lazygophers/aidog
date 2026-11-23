@@ -47,12 +47,22 @@ fn strip_noop_when_no_thinking() {
 #[test]
 fn strip_openai_chat_reasoning_content() {
     let mut body = json!({
-        "choices": [{ "message": { "role": "assistant", "content": "答案", "reasoning_content": "想" } }]
+        "choices": [{ "message": {
+            "role": "assistant",
+            "content": "答案",
+            "reasoning_content": "思考（deepseek-style）",
+            "reasoning": "思考（StepFun general）"
+        } }]
     });
     assert!(strip_thinking_in_body(&mut body, &Protocol::OpenAI));
     assert!(
         body["choices"][0]["message"]
             .get("reasoning_content")
+            .is_none()
+    );
+    assert!(
+        body["choices"][0]["message"]
+            .get("reasoning")
             .is_none()
     );
     assert_eq!(body["choices"][0]["message"]["content"], "答案");
