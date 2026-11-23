@@ -403,7 +403,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
             <p className="border-t py-10 text-muted-foreground" data-testid="sessions-no-match">{t("sessions.noMatch", "No matching sessions")}</p>
           ) : (
             <>
-              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} isResuming={isResuming} onResume={onResume} onOpenDir={onOpenDir} onHide={onHide} ctxRatioOf={(r) => ctxRatios.get(r.sessionId)} installed={installed} transcriptOn={transcriptOn} onCarry={onCarry} onNeedTranscript={onNeedTranscript} />
+              <SessionGroups rows={shown} pinned={pinned} stateOf={stateOf} isResuming={isResuming} onResume={onResume} onOpenDir={onOpenDir} onHide={onHide} ctxRatioOf={(r) => r.clientCode === "claude_code" ? ctxRatios.get(r.sessionId) : undefined} installed={installed} transcriptOn={transcriptOn} onCarry={onCarry} onNeedTranscript={onNeedTranscript} />
               <p className="text-sm text-muted-foreground">{t("sessions.footHint", "A + on cost means some calls are unpriced.")}</p>
             </>
           )}

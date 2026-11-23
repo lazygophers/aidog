@@ -235,6 +235,7 @@ const DETAIL = {
   modelChain: [seg("演示-sonnet", 2, NOW - 3000), seg("演示-opus", 1, NOW - 1000)],
   points: [pt(NOW - 3000), pt(NOW - 2000), pt(NOW - 1000)],
   agents: [],
+  interactions: [],
 };
 
 describe("Sessions 页（票 03：缓存 token、模型链、消耗图）", () => {
@@ -262,6 +263,7 @@ describe("Sessions 页（票 03：缓存 token、模型链、消耗图）", () =
     await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
     expect(api.sessionDetail).toHaveBeenCalledWith("claude_code", "c1", "points");
     expect(within(detail).getByTestId("session-detail-chart")).toHaveAttribute("data-points", "3");
+    expect(within(detail).getByTestId("session-detail-context-chart")).toHaveAttribute("data-points", "3");
     fireEvent.click(within(detail).getByTestId("session-detail-chain-toggle"));
     const segs = await within(detail).findAllByTestId("session-detail-seg");
     expect(segs.map((s) => [s.getAttribute("data-model"), s.getAttribute("data-calls")])).toEqual([["演示-sonnet", "2"], ["演示-opus", "1"]]);
@@ -271,6 +273,28 @@ describe("Sessions 页（票 03：缓存 token、模型链、消耗图）", () =
     fireEvent.keyDown(second, { key: "Enter" });
     expect(second).toHaveAttribute("data-state", "open");
     await waitFor(() => expect(api.sessionDetail).toHaveBeenLastCalledWith("codex", "x1", "points"));
+  });
+
+  it("交互记录按需从来源读取；工具统计只标记可归属数据", async () => {
+    cctx.contextModeSessions.mockResolvedValue([{ session_id: "c1", reduction_pct: 50.4, tokens_saved: 1200, total_calls: 4 }]);
+    api.status.mockResolvedValue(statusPayload(ALL_ON));
+    api.sessions.mockResolvedValue(SESSIONS);
+    api.sessionDetail.mockImplementation(async (_client, _session, part) => ({
+      ...DETAIL,
+      interactions: part === "interactions" ? [{ timestamp: "2026-11-23T10:00:00Z", role: "user", content: "fixture prompt" }] : [],
+    }));
+    render(<Sessions onNavigate={vi.fn()} />);
+    const first = (await screen.findAllByTestId("sessions-row"))[0];
+    fireEvent.click(first);
+    const detail = await screen.findByTestId("session-detail");
+    await waitFor(() => expect(detail).toHaveAttribute("data-state", "ready"));
+    expect(within(detail).getByTestId("session-detail-sqz")).toHaveTextContent("sqz");
+    expect(within(detail).getByTestId("session-detail-rtk")).toHaveTextContent("rtk");
+    expect(within(detail).getByTestId("session-detail-context-mode-value")).toHaveAttribute("data-pct", "50.4");
+    expect(api.sessionDetail).not.toHaveBeenCalledWith("claude_code", "c1", "interactions");
+    fireEvent.click(within(detail).getByTestId("session-detail-history-toggle"));
+    expect(await within(detail).findByTestId("session-detail-interaction")).toHaveTextContent("fixture prompt");
+    expect(api.sessionDetail).toHaveBeenLastCalledWith("claude_code", "c1", "interactions");
   });
 
   it("详情空数据与失败两态", async () => {

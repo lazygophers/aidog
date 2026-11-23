@@ -78,6 +78,10 @@ pub fn consent_allows(c: &ClientUsageConsent, code: &str) -> bool {
     c.enabled.get(code).copied().unwrap_or(false)
 }
 
+fn transcript_allowed(consent: &ClientUsageConsent, transcript_on: bool, client_code: &str) -> bool {
+    transcript_on && consent_allows(consent, client_code)
+}
+
 pub async fn save_consent(db: &aidog_db::Db, consent: &ClientUsageConsent) -> Result<(), String> {
     aidog_db::set_setting(
         db,
@@ -747,17 +751,236 @@ pub async fn client_usage_hidden_sessions(
 }
 }
 
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientUsageTranscriptEntry {
+    pub timestamp: String,
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientUsageSessionDetailResponse {
+    #[serde(flatten)]
+    pub detail: aidog_db::ClientUsageSessionDetail,
+    pub interactions: Vec<ClientUsageTranscriptEntry>,
+}
+
+fn transcript_entry(v: &serde_json::Value, role: &str, content: &serde_json::Value) -> ClientUsageTranscriptEntry {
+    ClientUsageTranscriptEntry {
+        timestamp: v.get("timestamp").or_else(|| v.pointer("/time/created")).map(|v| v.as_str().map(str::to_owned).unwrap_or_else(|| v.to_string())).unwrap_or_default(),
+        role: role.to_owned(),
+        content: match content {
+            serde_json::Value::String(s) => s.clone(),
+            _ => content.to_string(),
+        },
+    }
+}
+
+fn transcript_jsonl_entry(client: &str, session_id: &str, v: &serde_json::Value) -> Option<ClientUsageTranscriptEntry> {
+    match client {
+        "claude_code" if v.get("sessionId").and_then(serde_json::Value::as_str) == Some(session_id) => {
+            let role = v.get("type")?.as_str()?;
+            if !matches!(role, "user" | "assistant") { return None; }
+            Some(transcript_entry(v, role, v.pointer("/message/content").or_else(|| v.get("message"))?))
+        }
+        "codex" => {
+            if v.get("type").and_then(serde_json::Value::as_str) == Some("response_item") {
+                let item = v.pointer("/payload/item")?;
+                let kind = item.get("type").and_then(serde_json::Value::as_str)?;
+                if kind == "reasoning" { return None; }
+                let role = item.get("role").and_then(serde_json::Value::as_str).unwrap_or(match kind {
+                    "function_call" | "custom_tool_call" => "tool call",
+                    "function_call_output" | "custom_tool_call_output" => "tool result",
+                    _ => "assistant",
+                });
+                Some(transcript_entry(v, role, item.get("content").unwrap_or(item)))
+            } else if v.pointer("/payload/type").and_then(serde_json::Value::as_str) == Some("user_message") {
+                Some(transcript_entry(v, "user", v.pointer("/payload/message")?))
+            } else { None }
+        }
+        "gemini_cli" => {
+            if v.get("id").and_then(serde_json::Value::as_str).unwrap_or("").is_empty() { return None; }
+            let role = v.get("type").and_then(serde_json::Value::as_str)?;
+            let role = match role { "user" => "user", "gemini" => "assistant", _ => return None };
+            Some(transcript_entry(v, role, v.get("content").or_else(|| v.get("message"))?))
+        }
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod transcript_tests {
+    use super::*;
+
+    #[test]
+    fn transcript_read_requires_both_consents() {
+        let mut consent = ClientUsageConsent::default();
+        consent.enabled.insert("claude_code".into(), true);
+        assert!(!transcript_allowed(&consent, false, "claude_code"));
+        assert!(!transcript_allowed(&ClientUsageConsent::default(), true, "claude_code"));
+        assert!(transcript_allowed(&consent, true, "claude_code"));
+        assert!(!transcript_allowed(&consent, true, "codex"));
+    }
+
+    #[test]
+    fn extracts_only_supported_message_shapes() {
+        let claude = serde_json::json!({"type":"user","sessionId":"c1","timestamp":"t1","message":{"content":"hello"}});
+        let codex = serde_json::json!({"type":"event_msg","payload":{"type":"user_message","message":"hello"}});
+        let gemini = serde_json::json!({"type":"user","id":"u1","content":"hello"});
+        let gemini_meta = serde_json::json!({"sessionId":"g1","projectHash":"abc"});
+        assert_eq!(transcript_jsonl_entry("claude_code", "c1", &claude).unwrap().content, "hello");
+        assert_eq!(transcript_jsonl_entry("codex", "x1", &codex).unwrap().role, "user");
+        assert_eq!(transcript_jsonl_entry("gemini_cli", "g1", &gemini).unwrap().content, "hello");
+        assert!(transcript_jsonl_entry("claude_code", "other", &claude).is_none());
+        assert!(transcript_jsonl_entry("gemini_cli", "g1", &gemini_meta).is_none(), "metadata row must not become an interaction");
+    }
+
+    #[test]
+    fn reads_opencode_parent_and_child_messages_read_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("opencode.db");
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch("CREATE TABLE session_v2(id TEXT, parent_id TEXT); CREATE TABLE session_message(id TEXT, session_id TEXT, type TEXT, seq INTEGER, data TEXT);").unwrap();
+        conn.execute("INSERT INTO session_v2 VALUES('root', NULL), ('child', 'root')", []).unwrap();
+        conn.execute("INSERT INTO session_message VALUES('m1','root','user',1,?1), ('m2','child','assistant',1,?2)", rusqlite::params![r#"{"type":"user","parts":[{"type":"text","text":"prompt"}]}"#, r#"{"type":"assistant","parts":[{"type":"text","text":"reply"}]}"#]).unwrap();
+        drop(conn);
+        let rows = read_opencode_transcript(&path, "root").unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].role, "user");
+        assert_eq!(rows[1].role, "assistant");
+    }
+}
+
+fn read_jsonl_transcript(path: &std::path::Path, client: &str, session_id: &str) -> Result<Vec<ClientUsageTranscriptEntry>, String> {
+    let text = std::fs::read_to_string(path).map_err(|e| format!("read client transcript: {e}"))?;
+    let rows: Vec<serde_json::Value> = text.lines().filter_map(|line| serde_json::from_str(line).ok()).collect();
+    if client == "codex" && !rows.iter().any(|v| v.pointer("/payload/id").and_then(serde_json::Value::as_str) == Some(session_id)) {
+        return Ok(Vec::new());
+    }
+    if client == "gemini_cli" && !rows.iter().any(|v| v.get("sessionId").or_else(|| v.get("session_id")).or_else(|| v.pointer("/$set/sessionId")).and_then(serde_json::Value::as_str) == Some(session_id)) {
+        return Ok(Vec::new());
+    }
+    if client == "opencode" {
+        let belongs = path.components().any(|c| c.as_os_str() == session_id);
+        if !belongs { return Ok(Vec::new()); }
+        return Ok(rows.iter().filter_map(|v| {
+            let role = v.get("role").or_else(|| v.get("type")).and_then(serde_json::Value::as_str)?;
+            if !matches!(role, "user" | "assistant") { return None; }
+            Some(transcript_entry(v, role, v.get("parts").or_else(|| v.get("content")).unwrap_or(v)))
+        }).collect());
+    }
+    Ok(rows.iter().filter_map(|v| transcript_jsonl_entry(client, session_id, v)).collect())
+}
+
+fn read_opencode_transcript(path: &std::path::Path, session_id: &str) -> Result<Vec<ClientUsageTranscriptEntry>, String> {
+    use rusqlite::{Connection, OpenFlags};
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX)
+        .map_err(|e| format!("open OpenCode transcript: {e}"))?;
+    let (session_table, message_table) = if table_exists(&conn, "session_v2")? { ("session_v2", "session_message") } else { ("session", "message") };
+    if !table_exists(&conn, session_table)? || !table_exists(&conn, message_table)? { return Ok(Vec::new()); }
+    let mut sessions = vec![session_id.to_owned()];
+    if column_exists(&conn, session_table, "parent_id")? {
+        let mut stmt = conn.prepare(&format!("SELECT id, parent_id FROM {session_table}" )).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))).map_err(|e| e.to_string())?;
+        let parents: Vec<_> = rows.collect::<Result<_, _>>().map_err(|e| e.to_string())?;
+        loop {
+            let mut added = false;
+            for (id, parent) in &parents {
+                if parent.as_ref().is_some_and(|p| sessions.contains(p)) && !sessions.contains(id) {
+                    sessions.push(id.clone()); added = true;
+                }
+            }
+            if !added { break; }
+        }
+    }
+    let mut out = Vec::new();
+    for sid in sessions {
+        let sql = format!("SELECT data FROM {message_table} WHERE session_id = ?1 ORDER BY rowid");
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([sid], |r| r.get::<_, String>(0)).map_err(|e| e.to_string())?;
+        for data in rows {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(&data.map_err(|e| e.to_string())?) else { continue; };
+            let role = v.get("role").or_else(|| v.get("type")).and_then(serde_json::Value::as_str).unwrap_or("");
+            if !matches!(role, "user" | "assistant") { continue; }
+            let content = v.get("parts").or_else(|| v.get("content")).unwrap_or(&v);
+            out.push(transcript_entry(&v, role, content));
+        }
+    }
+    Ok(out)
+}
+
+fn table_exists(conn: &rusqlite::Connection, table: &str) -> Result<bool, String> {
+    conn.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?1)", [table], |r| r.get(0)).map_err(|e| e.to_string())
+}
+
+fn column_exists(conn: &rusqlite::Connection, table: &str, column: &str) -> Result<bool, String> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})")).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], |r| r.get::<_, String>(1)).map_err(|e| e.to_string())?;
+    Ok(rows.filter_map(Result::ok).any(|name| name == column))
+}
+
+fn enumerate_transcript_files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
+    if root.is_file() { return vec![root.to_path_buf()]; }
+    let mut files = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(dir) else { continue; };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(path) = path.canonicalize() else { continue; };
+            if !path.starts_with(root) { continue; }
+            if path.is_dir() {
+                stack.push(path);
+            } else if matches!(path.extension().and_then(|e| e.to_str()), Some("jsonl" | "json")) {
+                files.push(path);
+            }
+        }
+    }
+    files.sort();
+    files
+}
+
+async fn read_session_transcript(client_code: &str, session_id: &str) -> Result<Vec<ClientUsageTranscriptEntry>, String> {
+    if !SUPPORTED_CLIENTS.contains(&client_code) { return Err("unsupported client".into()); }
+    let db = aidog_ctx::db();
+    let consent = load_consent(db).await;
+    if !transcript_allowed(&consent, load_transcript_consent(db).await, client_code) {
+        return Err("Transcript reading requires both client usage and transcript consent".into());
+    }
+    let root = client_root(client_code).ok_or_else(|| "client data root unavailable".to_owned())?;
+    let root = root.canonicalize().map_err(|e| format!("client data root: {e}"))?;
+    let mut out = Vec::new();
+    for path in enumerate_transcript_files(&root) {
+        if client_code == "opencode" && path.extension().and_then(|e| e.to_str()) == Some("db") {
+            out.extend(read_opencode_transcript(&path, session_id)?);
+        } else if path.extension().and_then(|e| e.to_str()) == Some("jsonl")
+            || (client_code == "opencode" && path.extension().and_then(|e| e.to_str()) == Some("json"))
+        {
+            out.extend(read_jsonl_transcript(&path, client_code, session_id)?);
+        }
+    }
+    out.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+    Ok(out)
+}
+
 crate::tauri_command! {
-/// 单会话详情：模型链（相邻同模型合并）+ token 时间序列 + 主线 / 子代理分组。
-/// `part`（票 12）：points / chain / agents 只读对应部分，缺省全部。
+/// 单会话详情：统计从 client_usage 读，原文按需直接从客户端文件只读加载。
+/// `part`：points / chain / agents / interactions 只读对应部分，缺省全部。
 pub async fn client_usage_session_detail(
     client_code: String,
     session_id: String,
     part: Option<String>,
-) -> Result<aidog_db::ClientUsageSessionDetail, String> {
-    let mut d = aidog_db::client_usage_session_detail(aidog_ctx::db(), &client_code, &session_id, part.as_deref()).await?;
-    d.agents = agents::group_agents(&client_code, std::mem::take(&mut d.files));
-    Ok(d)
+) -> Result<ClientUsageSessionDetailResponse, String> {
+    let interactions = if part.as_deref() == Some("interactions") { read_session_transcript(&client_code, &session_id).await? } else { Vec::new() };
+    let mut detail = if part.as_deref() == Some("interactions") {
+        aidog_db::ClientUsageSessionDetail::default()
+    } else {
+        aidog_db::client_usage_session_detail(aidog_ctx::db(), &client_code, &session_id, part.as_deref()).await?
+    };
+    detail.agents = agents::group_agents(&client_code, std::mem::take(&mut detail.files));
+    Ok(ClientUsageSessionDetailResponse { detail, interactions })
 }
 }
 

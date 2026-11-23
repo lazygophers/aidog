@@ -4,13 +4,13 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown } from "lucide-react";
-import { StackedAreaChart } from "../charts";
+import { LineChart, StackedAreaChart } from "../charts";
 import { clientUsageApi, type ClientUsageAgentGroup, type ClientUsageSessionDetail } from "../../services/api/clientUsage";
 import { formatNumber, formatPercent } from "../../utils/formatters";
 import { SessionCost } from "./SessionCost";
 
 type Load = { state: "loading" } | { state: "error"; error: string } | { state: "ready"; detail: ClientUsageSessionDetail };
-type Part = "chain" | "agents";
+type Part = "chain" | "agents" | "interactions";
 
 /** 折叠块：首次展开才调 fetch，之后收起 / 展开只切显示。 */
 function LazyBlock({ title, testId, fetch, children }: {
@@ -77,6 +77,10 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRa
     output: { label: t("sessions.seriesOutput", "Output"), color: "var(--chart-4)" },
   }), [t]);
   const points = load.state === "ready" ? load.detail.points : [];
+  const contextConfig = useMemo(() => ({
+    context: { label: t("sessions.contextTokens", "Prompt tokens per call"), color: "var(--data-primary)" },
+  }), [t]);
+  const contextData = useMemo(() => points.map((p) => ({ x: p.callTimeMs, context: p.inputTokens })), [points]);
   const data = useMemo(() => {
     const rows = points.map((p) => ({
       x: p.callTimeMs, input: p.inputTokens, output: p.outputTokens, cacheRead: p.cacheReadTokens, cacheWrite: p.cacheWriteTokens,
@@ -97,7 +101,7 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRa
         <p role="alert" className="break-all text-sm text-destructive">{t("sessions.detailError", "Failed to load details: {{error}}", { error: load.error })}</p>
       )}
       {state === "empty" && <p className="text-sm text-muted-foreground">{t("sessions.detailEmpty", "No call records for this session within the retention period")}</p>}
-      {state === "ready" && (
+      {load.state === "ready" && (
         <>
           {ctxRatio != null && (
             <p className="text-sm text-muted-foreground" title={t("sessions.ctxTitle", "context-mode context compression ratio")} data-testid="session-detail-ctx" data-pct={String(ctxRatio)}>
@@ -109,6 +113,38 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0, ctxRa
             <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t("sessions.detailChart", "Token usage")}</h4>
             <StackedAreaChart bare config={config} data={data} height={200} valueFormat={formatNumber} />
           </div>
+          <div data-testid="session-detail-context-chart" data-points={String(contextData.length)}>
+            <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t("sessions.contextChart", "Context tokens per call")}</h4>
+            <LineChart config={contextConfig} data={contextData} height={180} valueFormat={formatNumber} />
+          </div>
+          <details data-testid="session-detail-sqz">
+            <summary className="cursor-pointer text-sm font-medium">sqz</summary>
+            <p className="mt-2 text-sm text-muted-foreground">{t("sessions.toolSessionUnavailable", "The source does not identify this session; session totals are unavailable.")}</p>
+          </details>
+          <details data-testid="session-detail-rtk">
+            <summary className="cursor-pointer text-sm font-medium">rtk</summary>
+            <p className="mt-2 text-sm text-muted-foreground">{t("sessions.toolSessionUnavailable", "The source does not identify this session; session totals are unavailable.")}</p>
+          </details>
+          <details data-testid="session-detail-context-mode">
+            <summary className="cursor-pointer text-sm font-medium">context-mode</summary>
+            {ctxRatio == null
+              ? <p className="mt-2 text-sm text-muted-foreground">{t("sessions.toolSessionUnavailable", "The source does not identify this session; session totals are unavailable.")}</p>
+              : <p className="mt-2 text-sm text-muted-foreground" data-testid="session-detail-context-mode-value" data-pct={String(ctxRatio)}>{t("sessions.ctxRatio", "Compressed {{pct}}", { pct: formatPercent(ctxRatio) })}</p>}
+          </details>
+          <LazyBlock title={t("sessions.detailHistory", "Interactions")} testId="session-detail-history" fetch={fetchPart("interactions")}>
+            {(d) => d.interactions.length === 0
+              ? <p className="text-sm text-muted-foreground">{t("sessions.detailHistoryEmpty", "No interactions found in the source files.")}</p>
+              : <ol className="max-h-[32rem] list-none space-y-3 overflow-y-auto rounded-md border p-3" data-testid="session-detail-history-list">
+                {d.interactions.map((item, i) => (
+                  <li key={`${item.timestamp}:${i}`} className="min-w-0 border-b pb-3 last:border-0 last:pb-0" data-testid="session-detail-interaction" data-role={item.role}>
+                    <div className="mb-1 flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
+                      <span dir="ltr">{item.role}</span><time dir="ltr">{item.timestamp}</time>
+                    </div>
+                    <pre dir="auto" className="whitespace-pre-wrap break-words font-sans text-sm">{item.content}</pre>
+                  </li>
+                ))}
+              </ol>}
+          </LazyBlock>
           <LazyBlock title={t("sessions.detailChain", "Model chain")} testId="session-detail-chain" fetch={fetchPart("chain")}>
             {(d) => (
               <ol className="flex flex-wrap items-center gap-1.5" data-testid="session-detail-chain">

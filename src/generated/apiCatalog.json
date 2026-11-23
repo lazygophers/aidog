@@ -562,7 +562,7 @@
           "type": "Option<String>"
         }
       ],
-      "returns": "aidog_db::ClientUsageSessionDetail"
+      "returns": "ClientUsageSessionDetailResponse"
     },
     {
       "name": "client_usage_session_hide",
