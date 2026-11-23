@@ -153,10 +153,15 @@ fn strip_openai_chat(body: &mut Value) -> bool {
     };
     let mut changed = false;
     for c in choices {
-        if let Some(msg) = c.get_mut("message").and_then(|v| v.as_object_mut())
-            && msg.remove("reasoning_content").is_some()
-        {
-            changed = true;
+        if let Some(msg) = c.get_mut("message").and_then(|v| v.as_object_mut()) {
+            // StepFun 默认 reasoning_format=general 用 `reasoning` 字段（reasoning_content 是
+            // deepseek-style 别名），两字段都要剥。
+            if msg.remove("reasoning_content").is_some() {
+                changed = true;
+            }
+            if msg.remove("reasoning").is_some() {
+                changed = true;
+            }
         }
     }
     changed
@@ -572,7 +577,7 @@ pub fn wire_error_body(
     }
 }
 
-/// OpenAI chat 流帧：剔 `delta.reasoning_content`；delta 因此变空则整帧丢弃。
+/// OpenAI chat 流帧：剔 `delta.reasoning_content` / `delta.reasoning`；delta 因此变空则整帧丢弃。
 /// 返回是否保留该帧。
 fn strip_openai_stream_delta(json: &mut Value) -> bool {
     let Some(choices) = json.get_mut("choices").and_then(|v| v.as_array_mut()) else {
@@ -582,6 +587,7 @@ fn strip_openai_stream_delta(json: &mut Value) -> bool {
     for c in choices.iter_mut() {
         if let Some(delta) = c.get_mut("delta").and_then(|v| v.as_object_mut()) {
             delta.remove("reasoning_content");
+            delta.remove("reasoning");
             if !delta.is_empty() {
                 any_content = true;
             }

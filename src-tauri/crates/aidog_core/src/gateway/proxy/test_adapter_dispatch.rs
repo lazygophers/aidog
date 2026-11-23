@@ -2121,3 +2121,212 @@ async fn qianfan_disable_thinking_reaches_local_upstream_for_each_wire() {
         );
     }
 }
+
+// ══ issue 83：StepFun 家族（stepfun / stepfun_en）端点协议护栏（本地假上游）══
+// 官方出处（核对日期 2026-11-23）：
+// - Chat Completions https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+//   （`reasoning_format` 默认 general → 思考在 message/delta.reasoning；
+//   usage.prompt_tokens_details.cached_tokens；流式 `data: [DONE]` 结束）
+// - Messages API https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+//   （官方参数表无 `thinking` 对象；思考深度 = `output_config.effort` 三档）
+// - 错误码 https://platform.stepfun.com/docs/zh/api-reference/error-codes.md
+//   （400 案由「模型不存在或无权限」；错误体 JSON 形状未在错误码页给出——按 OpenAI 兼容
+//   惯例构造，字段未证实）
+
+/// 官方响应形状（reasoning_format 默认 general：思考在 message.reasoning；含 cached_tokens）。
+const STEPFUN_OPENAI_RESP: &str = r#"{"id":"chatcmpl-step1","object":"chat.completion","model":"step-5-preview","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi","reasoning":"think"}}],"usage":{"prompt_tokens":90,"completion_tokens":24,"total_tokens":114,"prompt_tokens_details":{"cached_tokens":40}}}"#;
+/// 官方流式形状（general 格式 delta.reasoning → delta.content → finish + usage → `data: [DONE]`）。
+const STEPFUN_OPENAI_SSE: &str = "data: {\"id\":\"chatcmpl-step1\",\"object\":\"chat.completion.chunk\",\"model\":\"step-5-preview\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning\":\"think\"}}]}\n\n\
+data: {\"id\":\"chatcmpl-step1\",\"object\":\"chat.completion.chunk\",\"model\":\"step-5-preview\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
+data: {\"id\":\"chatcmpl-step1\",\"object\":\"chat.completion.chunk\",\"model\":\"step-5-preview\",\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"delta\":{}}],\"usage\":{\"prompt_tokens\":90,\"completion_tokens\":24,\"total_tokens\":114,\"prompt_tokens_details\":{\"cached_tokens\":40}}}\n\n\
+data: [DONE]\n\n";
+const STEPFUN_ANTHROPIC_RESP: &str = r#"{"id":"msg_step1","type":"message","role":"assistant","model":"step-5-preview","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":90,"output_tokens":24}}"#;
+const STEPFUN_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_step1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"step-5-preview\",\"content\":[],\"usage\":{\"input_tokens\":90,\"output_tokens\":0}}}\n\n\
+event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":24}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+const STEPFUN_ERR_400: &str = r#"{"error":{"message":"模型不存在或无权限","type":"request_params_invalid"}}"#;
+const STEPFUN_ANTHROPIC_IN: &str =
+    r#"{"model":"step-5-preview","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
+const STEPFUN_ANTHROPIC_IN_STREAM: &str =
+    r#"{"model":"step-5-preview","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+
+/// issue 83：`stepfun` openai 端点非流式——入站 anthropic 转 openai 打 `/chat/completions`；
+/// general 格式 message.reasoning → thinking 块，cached_tokens → cache_read_input_tokens。
+#[tokio::test]
+async fn stepfun_openai_endpoint_non_stream_request_response_usage() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFun,
+        Protocol::OpenAI,
+        "gk83on",
+        "/v1/messages",
+        STEPFUN_ANTHROPIC_IN,
+        (200, "application/json", STEPFUN_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(up["model"], "step-5-preview", "{up}");
+    let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    let content = v["content"].as_array().unwrap();
+    assert!(
+        content.iter().any(|b| b["type"] == "thinking" && b["thinking"] == "think"),
+        "{v}"
+    );
+    assert!(content.iter().any(|b| b["type"] == "text" && b["text"] == "hi"), "{v}");
+    assert_eq!(v["usage"]["cache_read_input_tokens"], 40, "{v}");
+    assert_eq!(v["usage"]["output_tokens"], 24, "{v}");
+}
+
+/// issue 83：`stepfun` openai 端点流式——general 格式 delta.reasoning → thinking_delta，
+/// delta.content → text_delta，`[DONE]` 收尾 message_stop。
+#[tokio::test]
+async fn stepfun_openai_endpoint_stream() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFun,
+        Protocol::OpenAI,
+        "gk83os",
+        "/v1/messages",
+        STEPFUN_ANTHROPIC_IN_STREAM,
+        (200, "text/event-stream", STEPFUN_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    assert!(resp.contains("thinking_delta") && resp.contains("think"), "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("\"hi\""), "{resp}");
+    assert!(resp.contains("message_stop"), "{resp}");
+}
+
+/// issue 83：禁思考经 openai 端点出站——官方无关闭形态，出站不注入任何禁思考参数
+/// （基座非官方 host 的 `chat_template_kwargs.enable_thinking=false` 不出现）。
+#[tokio::test]
+async fn stepfun_openai_endpoint_disable_thinking_injects_nothing() {
+    let inbound = r#"{"model":"step-5-preview","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFun,
+        Protocol::OpenAI,
+        "gk83od",
+        "/v1/messages",
+        inbound,
+        (200, "application/json", STEPFUN_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert!(up.get("disable_thinking").is_none(), "{up}");
+    assert!(up.get("enable_thinking").is_none(), "{up}");
+    assert!(up.get("chat_template_kwargs").is_none(), "{up}");
+    assert!(up.get("reasoning_effort").is_none(), "{up}");
+    assert!(up.get("thinking").is_none(), "{up}");
+}
+
+/// issue 83：禁思考经 openai 端点 + openai 客户端透传流式——StepFun 默认
+/// `reasoning_format=general` 的 `delta.reasoning` 思考帧被剥，正文与 `[DONE]` 保留
+/// （覆盖 SseThinkingStripper 透传分支，与 anthropic 客户端转换分支的
+/// `stepfun_normalize_reasoning` 互补）。
+#[tokio::test]
+async fn stepfun_openai_passthrough_stream_disable_thinking_strips_reasoning() {
+    let inbound = r#"{"model":"step-5-preview","max_tokens":32,"stream":true,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFun,
+        Protocol::OpenAI,
+        "gk83op",
+        "/v1/chat/completions",
+        inbound,
+        (200, "text/event-stream", STEPFUN_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    assert!(!resp.contains("reasoning"), "思考帧被剥: {resp}");
+    assert!(!resp.contains("think"), "思考内容不下发: {resp}");
+    assert!(resp.contains("\"content\":\"hi\""), "正文保留: {resp}");
+    assert!(resp.contains("[DONE]"), "终止哨兵保留: {resp}");
+}
+
+/// issue 83：禁思考经 anthropic 端点出站——`thinking` 认受性未证实保持框架默认
+/// （`thinking.type=disabled`），官方 `output_config.effort` 思考档位剥除。
+#[tokio::test]
+async fn stepfun_anthropic_endpoint_disable_thinking_uses_default_shape() {
+    let inbound = r#"{"model":"step-5-preview","max_tokens":32,"disable_thinking":true,"output_config":{"effort":"high"},"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFun,
+        Protocol::Anthropic,
+        "gk83ad",
+        "/v1/messages",
+        inbound,
+        (200, "application/json", STEPFUN_ANTHROPIC_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(up["thinking"]["type"], "disabled", "{up}");
+    assert!(up.get("disable_thinking").is_none(), "{up}");
+}
+
+/// issue 83：`stepfun` anthropic 端点非流式——入站 openai 转 anthropic 打 `/v1/messages`；
+/// 响应回 openai 形状。
+#[tokio::test]
+async fn stepfun_anthropic_endpoint_non_stream_request_response() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFun,
+        Protocol::Anthropic,
+        "gk83an",
+        "/chat/completions",
+        GLM_OPENAI_IN,
+        (200, "application/json", STEPFUN_ANTHROPIC_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let up: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(up["max_tokens"], 32, "{up}");
+    let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["choices"][0]["message"]["content"], "hi", "{v}");
+    assert_eq!(v["usage"]["completion_tokens"], 24, "{v}");
+}
+
+/// issue 83：`stepfun` anthropic 端点流式——anthropic 事件转 openai chunk，结尾 `[DONE]`。
+#[tokio::test]
+async fn stepfun_anthropic_endpoint_stream() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFun,
+        Protocol::Anthropic,
+        "gk83as",
+        "/chat/completions",
+        GLM_OPENAI_IN_STREAM,
+        (200, "text/event-stream", STEPFUN_ANTHROPIC_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert!(resp.contains("\"hi\""), "{resp}");
+    assert!(resp.contains("[DONE]"), "{resp}");
+}
+
+/// issue 83：`stepfun` 错误——400「模型不存在或无权限」归模型类，客户端拿到上游原状态码。
+#[tokio::test]
+async fn stepfun_openai_endpoint_error_body() {
+    let pa = aidog_adapter::platform::adapter_for("stepfun");
+    assert_eq!(
+        pa.classify_error(400, STEPFUN_ERR_400),
+        aidog_adapter::platform::error::UpstreamErrorClass::Model
+    );
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFun,
+        Protocol::OpenAI,
+        "gk83oe",
+        "/v1/messages",
+        STEPFUN_ANTHROPIC_IN,
+        (400, "application/json", STEPFUN_ERR_400),
+    )
+    .await;
+    assert!(!hits.is_empty());
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("模型不存在"), "{resp}");
+}

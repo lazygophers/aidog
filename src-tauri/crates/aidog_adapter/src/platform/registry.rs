@@ -1097,6 +1097,188 @@ impl PlatformAdapter for SiliconFlowFamilyAdapter {
     }
 }
 
+/// StepFun（阶跃星辰）家族基座（issue 83；成员 stepfun / stepfun_en 共用，成员差异见各成员子
+/// issue）。
+///
+/// 家族共性取证（官方文档原文，核对日期 2026-11-23；中国站 platform.stepfun.com 与国际站
+/// platform.stepfun.ai 文档结构一致，均 Mintlify 站、正文走 `llms.txt` 列出的 `.md` 原文页）：
+/// - Chat Completions（openai 端点）：OpenAI 兼容形状，`POST {base}/v1/chat/completions`；
+///   system 用 `role: "system"`，工具 `tools` / `tool_choice`，图片 / 文档输入在
+///   `messages[].content` 多模态块（`image_url` / 文档块）；请求参数按官方定义处理，思考字段详见下文。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+///   https://platform.stepfun.ai/docs/en/api-reference/chat/chat-completion-create.md
+/// - 思考开关（openai 端点）：推理深度用顶层 `reasoning_effort`（`low` / `medium` / `high`，
+///   `step-3.5-flash-2603` 兼容 `low`/`high`；「值越高，模型会进行更深入的思考」）——**文档无
+///   关闭思考的参数**（无 `none` 值；全文 grep 无 `enable_thinking` / `chat_template_kwargs`）。
+///   禁思考覆写 openai 臂只剥开启型参数、不注入任何关闭参数（官方无该形态，写
+///   `chat_template_kwargs.enable_thinking=false` 是未经证实的第三方形态，有 400 风险；
+///   剥后模型按官方默认行为运行）；强制思考路径同基座（只剥不写）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - 思考开关（anthropic 端点）：Messages API 参数表（官方请求参数逐字段列表）思考深度仅
+///   `output_config.effort`（`low` / `medium` / `high`；`step-3.5-flash-2603` 兼容
+///   `low`/`high`；step-router-v1 下该字段「会被忽略」）——参数表**无 `thinking` 对象**。
+///   `thinking` 对象认受性未证实，按票面「未证实保持框架默认」：anthropic 臂不覆盖基座
+///   （基座写 Anthropic 标准形 `thinking.type=disabled`）；仅额外剥已证实的
+///   `output_config.effort`（禁思考时档位参数与禁用矛盾，剥 effort、保留同对象其他字段）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - 思考内容字段（openai 端点）：请求参数 `reasoning_format` **默认 `general`**——「使用
+///   `reasoning` 字段返回结果」；`deepseek-style` 才用 `reasoning_content`。响应格式页
+///   `message` / `delta` 同时列出 `reasoning` 与 `reasoning_content`（「一同返回且内容一致
+///   （DeepSeek 兼容字段名），仅在 step 推理模型下返回」）。基座 openai 构件只读
+///   reasoning_content，适配器在转换前把缺 reasoning_content 的 message/delta 用 reasoning
+///   补齐（已带 reasoning_content 的帧不动，与通用构件逐字节等价）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - 流式（openai 端点）：SSE `data: {chunk}` 帧、`data: [DONE]` 结束；思考增量字段同上
+///   （`reasoning` / `reasoning_content`，经补齐后基座构件按 delta.reasoning_content 抽取）。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - 流式（anthropic 端点）：Messages API「支持流式输出」，Anthropic 兼容事件流（基座
+///   anthropic 流式构件），不覆盖。https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - usage（openai 端点）：`usage.prompt_tokens / completion_tokens / total_tokens`（流式帧
+///   逐帧携带）+ `usage.prompt_tokens_details.cached_tokens`（响应格式页非流式与流式两臂
+///   均列出，「提示信息中命中缓存的 token 数量」；官方示例含 `prompt_tokens_details: null`
+///   形态）——基座 usage 构件已按 cached_tokens 抽取并从 input 扣除，不覆盖。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+/// - usage（anthropic 端点）：Anthropic 兼容 `input_tokens / output_tokens`；缓存两件未见
+///   （官方响应示例仅 input/output）——「未证实」，基座构件读不到即缺省，不覆盖。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - 错误体：错误码按 HTTP 状态码分（400 `request_params_invalid` / 图片下载失败 /
+///   模型不存在等；401 认证；429 限频），`unsupported_content_type` 等业务码以字符串出现在
+///   错误信息中——基座 `error.message/code/type` 读法覆盖（模型不存在命中模型类特征，
+///   401/402/403/429 按状态码归服务类），不扩展。
+///   https://platform.stepfun.com/docs/zh/api-reference/error-codes.md
+/// - 工具 / 图片与多模态 / system：Chat Completions 标准 OpenAI 形状；Messages API 支持
+///   system 顶层字段、工具调用、图片输入（「支持流式输出、工具调用、图片输入与思考深度配置」）
+///   ——均与基座构件一致，不覆盖。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+/// - coding_plan 注入：两成员均非编码套餐（`step_plan` 通道是套餐路径但平台 code 非
+///   `*_coding`），基座按平台协议分派对 StepFun / StepFunEn 协议为 no-op，行为不变。
+/// - 未证实（保持基座默认/不注入）：`reasoning_effort` 默认档位、anthropic 端点 `thinking`
+///   对象认受性（按票面保持框架默认）、错误体在流式帧内的形态、`step_plan` 通道 `max_tokens`
+///   64K 上限之外的字段约束、非推理模型收到禁思考时是否需要显式参数（官方无关闭形态可写，
+///   剥净即默认）。
+pub struct StepFunFamilyAdapter;
+
+/// StepFun 默认 `reasoning_format: general`：思考内容在 `reasoning` 字段（`deepseek-style`
+/// 才写 `reasoning_content`；官方响应格式页两字段并存且「内容一致」）。基座 openai 构件只读
+/// reasoning_content，转换前把缺 reasoning_content 的 message/delta 用 reasoning 补齐；
+/// 已带 reasoning_content 的帧不动，保持与通用构件逐字节等价。
+fn stepfun_normalize_reasoning(body: &Value) -> Value {
+    let mut out = body.clone();
+    let Some(choices) = out.get_mut("choices").and_then(Value::as_array_mut) else {
+        return out;
+    };
+    for choice in choices {
+        for key in ["message", "delta"] {
+            if let Some(slot) = choice.get_mut(key).and_then(Value::as_object_mut) {
+                let has_rc = slot
+                    .get("reasoning_content")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| !s.is_empty());
+                if !has_rc
+                    && let Some(r) = slot
+                        .get("reasoning")
+                        .and_then(Value::as_str)
+                        .filter(|s| !s.is_empty())
+                {
+                    let r = r.to_string();
+                    slot.insert("reasoning_content".to_string(), Value::String(r));
+                }
+            }
+        }
+    }
+    out
+}
+
+impl PlatformAdapter for StepFunFamilyAdapter {
+    /// 差异一：openai 端点禁思考只剥开启型参数、不注入关闭参数——官方 Chat Completions
+    /// 文档无关闭形态（`reasoning_effort` 仅 low/medium/high，全文无 `enable_thinking` /
+    /// `chat_template_kwargs`），基座非官方 host 的 `chat_template_kwargs.enable_thinking=false`
+    /// 是未经证实的第三方形态。强制思考路径与其余 wire（openai_completions /
+    /// openai_responses 等用户手配端点）同基座。
+    /// 差异二：anthropic 端点保持框架默认（基座写 `thinking.type=disabled`——`thinking` 对象
+    /// 在官方参数表未列出、认受性未证实，按票面「未证实保持框架默认」），仅额外剥已证实的
+    /// `output_config.effort` 思考档位（剥 effort、保留同对象其他字段）。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        if wire != &Protocol::OpenAI {
+            hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+            if disable && !forced_thinking
+                && let Some(obj) = body.as_object_mut()
+            {
+                let config_empty = obj
+                    .get_mut("output_config")
+                    .and_then(Value::as_object_mut)
+                    .map(|config| {
+                        config.remove("effort");
+                        config.is_empty()
+                    })
+                    .unwrap_or(false);
+                if config_empty {
+                    obj.remove("output_config");
+                }
+            }
+            return;
+        }
+        if forced_thinking || !disable {
+            return hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking);
+        }
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        obj.remove("disable_thinking");
+        for k in [
+            "thinking",
+            "context_management",
+            "reasoning_effort",
+            "reasoning",
+            "enable_thinking",
+        ] {
+            obj.remove(k);
+        }
+        if let Some(ctk) = obj
+            .get_mut("chat_template_kwargs")
+            .and_then(|o| o.as_object_mut())
+        {
+            ctk.remove("enable_thinking");
+        }
+        if let Some(gc) = obj
+            .get_mut("generationConfig")
+            .and_then(|o| o.as_object_mut())
+        {
+            gc.remove("thinkingConfig");
+        }
+    }
+
+    /// 差异三：openai 端点响应/流式的思考内容在 `reasoning` 字段（`reasoning_format` 默认
+    /// `general`），基座构件只读 reasoning_content——转换前补齐（见
+    /// [`stepfun_normalize_reasoning`]）；其余 wire 原样走基座构件。
+    fn convert_response(
+        &self,
+        body: &Value,
+        wire: &Protocol,
+        client: &Protocol,
+        model: &str,
+    ) -> Option<Value> {
+        if wire == &Protocol::OpenAI {
+            return converter::convert_response(&stepfun_normalize_reasoning(body), wire, client, model);
+        }
+        converter::convert_response(body, wire, client, model)
+    }
+
+    fn parse_sse_frame(&self, data: &Value, wire: &Protocol) -> Vec<crate::types::ChatStreamEvent> {
+        if wire == &Protocol::OpenAI {
+            return converter::parse_sse(&stepfun_normalize_reasoning(data), wire);
+        }
+        converter::parse_sse(data, wire)
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
@@ -1119,6 +1301,7 @@ static BAILIAN: BailianFamilyAdapter = BailianFamilyAdapter;
 static ARK: ArkFamilyAdapter = ArkFamilyAdapter;
 static QIANFAN: QianfanFamilyAdapter = QianfanFamilyAdapter;
 static SILICONFLOW: SiliconFlowFamilyAdapter = SiliconFlowFamilyAdapter;
+static STEPFUN: StepFunFamilyAdapter = StepFunFamilyAdapter;
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
@@ -1176,8 +1359,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("shengsuanyun", &GENERIC),
     ("siliconflow", &SILICONFLOW),
     ("siliconflow_en", &SILICONFLOW),
-    ("stepfun", &GENERIC),
-    ("stepfun_en", &GENERIC),
+    ("stepfun", &STEPFUN),
+    ("stepfun_en", &STEPFUN),
     ("tencent_coding", &GENERIC),
     ("tencent_tokenhub", &GENERIC),
     ("tencent_tokenhub_intl", &GENERIC),
