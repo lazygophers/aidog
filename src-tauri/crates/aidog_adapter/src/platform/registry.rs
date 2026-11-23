@@ -1422,7 +1422,144 @@ impl PlatformAdapter for TencentFamilyAdapter {
     }
 }
 
+/// 小米 MiMo 家族基座（issue 85；成员 xiaomi_mimo / xiaomi_mimo_coding /
+/// xiaomi_mimo_coding_en 共用，成员差异见各成员 issue）。
+///
+/// 家族共性取证（官方文档 `.md` 原文页，核对日期 2026-11-23；本地留档
+/// `.tmp/issue-85/docs/`）：
+/// - 端点：openai `https://api.xiaomimimo.com/v1/chat/completions`、anthropic
+///   `https://api.xiaomimimo.com/anthropic/v1/messages`（registry 内置默认 base_url
+///   `…/v1` / `…/anthropic` 与官方一致）；Token Plan 套餐三集群
+///   `token-plan-cn|sgp|ams.xiaomimimo.com` 的 `/v1` 与 `/anthropic`（订阅页）。
+///   鉴权 `api-key` 头与 `Authorization: Bearer` 双形态官方均认收（网关注入 Bearer），
+///   网关层注入，适配器不涉。运行时只用用户平台配置的端点。
+///   https://mimo.mi.com/static/docs/api/chat/openai-api-post.md
+///   https://mimo.mi.com/static/docs/api/chat/anthropic-api-post.md
+///   https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription
+/// - 思考开关（openai 端点）：顶层对象参数 `thinking.type`——「Set the `thinking.type`
+///   parameter in the request to control deep thinking: `enabled` to enable deep thinking
+///   or `disabled` to disable deep thinking」（官方示例 `extra_body={"thinking":{"type":"disabled"}}`）；
+///   全文 grep 无 `chat_template_kwargs` / `enable_thinking` / `reasoning_effort`（基座第三方
+///   写法未经本平台证实）。已证实差异 → 覆写 openai 臂按基座 anthropic 臂执行
+///   （写 `thinking.type=disabled`）。`Protocol::OpenAICompletions` 不在覆写范围（家族成员
+///   内置默认端点仅 openai / anthropic，用户手配端点仍走基座写法，与 GLM / 百炼 / 方舟 /
+///   千帆基座同口径）。
+///   https://mimo.mi.com/static/docs/quick-start/usage-guide/text-generation/deep-thinking.md
+/// - 思考开关（anthropic 端点）：参数表 `thinking` 对象 `type` 取 `enabled` / `disabled`
+///   （v2.6 系默认 `enabled`），与基座 anthropic 臂同形，不覆盖。
+///   https://mimo.mi.com/static/docs/api/chat/anthropic-api-post.md
+/// - temperature / top_p：思考模式下 v2.6 系「不支持自定义，即使传入也会被强制覆盖为推荐
+///   默认值 1.0 / 0.95」——静默覆盖**不报错**（与 Kimi「传入其他值会报错」不同），禁思考
+///   不剥 temperature（传了无害）。https://mimo.mi.com/static/docs/api/guidance/model-hyperparameters.md
+/// - reasoning_content（openai 端点）：`message.reasoning_content` / 流式
+///   `delta.reasoning_content`；多轮工具调用 thinking 模式「历史 assistant 消息必须完整回传
+///   `reasoning_content`，否则 API 返回 400」——anthropic 客户端回灌的 thinking 块在
+///   openai 转换中被跳过 → assistant tool-call 消息缺字段 → 上游 400，与 Kimi Code
+///   （issue 119）同形。按官方证实证据开启 [`hooks::carry_history_reasoning`]（仅
+///   `xiaomi_mimo`；套餐成员官方文档未列 API 行为，不外推，见成员节）。
+///   https://mimo.mi.com/static/docs/quick-start/usage-guide/text-generation/deep-thinking.md
+///   https://mimo.mi.com/static/docs/api/guidance/error-codes.md
+/// - 流式（openai 端点）：`data: {chunk}` 帧、`data: [DONE]` 结束；末帧 `choices` 空、
+///   顶层带 `usage`（官方示例，请求侧未出现 `stream_options.include_usage`）——基座构件
+///   逐帧解析一致，不覆盖。
+///   https://mimo.mi.com/static/docs/quick-start/usage-guide/text-generation/deep-thinking.md
+/// - usage（openai 端点）：`prompt_tokens_details.cached_tokens`（「Number of tokens served
+///   from cache」）与 `completion_tokens_details.reasoning_tokens`——基座构件已抽取
+///   cached_tokens 并从 input 扣除、reasoning_tokens 并入 output，不覆盖。
+///   https://mimo.mi.com/static/docs/api/chat/openai-api-post.md
+/// - usage（anthropic 端点）：`input_tokens / output_tokens / cache_read_input_tokens`
+///   （**无 `cache_creation_input_tokens`**，全文零命中）——基座构件读不到即缺省 0，
+///   不覆盖。https://mimo.mi.com/static/docs/api/chat/anthropic-api-post.md
+/// - 错误体：错误码页仅「400 / 401 / 429 + 原因 / 解决建议」表格，**无 JSON 错误体形状
+///   示例**——未证实，不扩展错误特征、不在测试伪造模型类契约；401 / 429 按状态码归
+///   服务类（换平台）。https://mimo.mi.com/static/docs/api/guidance/error-codes.md
+/// - 工具 / 图片与多模态 / system：openai 端点标准形状（`tools` / `tool_choice`、
+///   `image_url` 等、`role: "system"`）；anthropic 端点标准 Messages 形状（顶层 `system`、
+///   `input_schema`、image/audio/video 内容块、thinking 块带 `signature` 回传）——均与
+///   基座构件一致，不覆盖。tool_choice 两端点官方均只列 `auto`，且「传非 auto 值后端
+///   默认移除该字段、行为等价 auto」（不报错）→ 不降级、不覆盖 [`PlatformAdapter::adjust_tool_choice`]。
+///   https://mimo.mi.com/static/docs/api/chat/openai-api-post.md
+///   https://mimo.mi.com/static/docs/api/chat/anthropic-api-post.md
+/// - coding_plan 注入：Token Plan 订阅页只给套餐专属 Key（`tp-xxxxx`）与 Base URL，未列
+///   必填请求字段（无 prompt_cache_key 类要求）；基座按平台协议分派对 XiaomiMimoCoding /
+///   XiaomiMimoCodingEn 为 no-op，行为不变。
+///   https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription
+/// - 未证实（保持基座默认）：错误体 JSON 形状与「模型不存在」确定性文案、openai 端点对
+///   基座出站键 `max_tokens` 的认受性（官方参数表只列 `max_completion_tokens`；基座 openai
+///   构件出站统一写 `max_tokens` 第三方通行写法，不改名；复活条件：实测 400 / 被忽略时
+///   评估换名）、`stream_options.include_usage` 认受性、anthropic 端点 signature 回传校验
+///   强度、max_tokens 统一上限。
+///
+/// 成员 `xiaomi_mimo`（小米 MiMo，api.xiaomimimo.com 标准平台；成员 issue 待建）：
+/// 本成员官方文档即家族取证来源，登记为 [`MimoFamilyAdapter`] 全量开启家族覆写
+/// （`official_openai_thinking` / `carry_history_reasoning_openai` 均 true）。
+///
+/// 成员 `xiaomi_mimo_coding`（小米 MiMo 套餐（小米），token-plan-cn/sgp/ams；成员 issue 待建）、
+/// `xiaomi_mimo_coding_en`（小米 MiMo 套餐国际版，token-plan-sgp/ams；成员 issue 待建）：
+/// 官方文档（订阅页）只给套餐专属 Key 与三集群 Base URL，未列任何 API 请求参数与行为
+/// 差异——未证实范围按票面保持框架默认（`official_openai_thinking: false` → openai wire
+/// 禁思考走基座 vLLM 式 `chat_template_kwargs.enable_thinking=false`；`carry_history_reasoning_openai:
+/// false`），成员 issue 取证后收窄。腾讯 Coding Plan（issue 84 `official_openai_thinking: false`）
+/// 同口径先例。registry 端点标 `coding_plan: true`，基座注入对两协议为 no-op。
+pub struct MimoFamilyAdapter {
+    /// openai 端点禁思考是否写官方 `thinking: {"type":"disabled"}`（仅 `xiaomi_mimo` 为
+    /// true——标准平台官方证实；套餐两成员官方未列 API 参数，保持框架默认）。
+    official_openai_thinking: bool,
+    /// openai wire 多轮工具历史是否携带 reasoning_content（官方 400 校验；仅 `xiaomi_mimo`
+    /// 为 true，套餐成员不外推）。https://mimo.mi.com/static/docs/api/guidance/error-codes.md
+    carry_history_reasoning_openai: bool,
+}
+
+impl PlatformAdapter for MimoFamilyAdapter {
+    /// 差异（仅 `carry_history_reasoning_openai` 成员，openai wire）：多轮工具历史的
+    /// assistant tool-call 消息携带 reasoning_content（官方 400 校验，见
+    /// [`hooks::carry_history_reasoning`]）。
+    fn build_request(
+        &self,
+        chat_req: &crate::types::ChatRequest,
+        wire: &Protocol,
+        platform: &Protocol,
+    ) -> (Value, String) {
+        let (mut body, path) = converter::convert_request(chat_req, wire, platform);
+        if self.carry_history_reasoning_openai && wire == &Protocol::OpenAI {
+            hooks::carry_history_reasoning(&mut body, chat_req);
+        }
+        (body, path)
+    }
+
+    /// 差异（仅 `official_openai_thinking` 成员）：openai 端点禁思考写官方
+    /// `thinking: {"type": "disabled"}`，不写基座第三方端点用的 vLLM 式
+    /// `chat_template_kwargs.enable_thinking`（MiMo 官方 API 文档无此参数）。写出值与
+    /// 基座 anthropic 臂相同，故按 anthropic 臂执行；禁思考**不剥** `temperature` /
+    /// `top_p`（官方：思考模式传入会被静默覆盖为 1.0 / 0.95，不报错，与 Kimi 报错语义
+    /// 不同）。其余 wire 与强制思考路径同基座。
+    /// https://mimo.mi.com/static/docs/quick-start/usage-guide/text-generation/deep-thinking.md
+    /// https://mimo.mi.com/static/docs/api/guidance/model-hyperparameters.md
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI if self.official_openai_thinking => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+}
+
 static GENERIC: GenericAdapter = GenericAdapter;
+static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
+    official_openai_thinking: true,
+    carry_history_reasoning_openai: true,
+};
+static MIMO_CODING: MimoFamilyAdapter = MimoFamilyAdapter {
+    official_openai_thinking: false,
+    carry_history_reasoning_openai: false,
+};
 static MINIMAX_FAMILY: MiniMaxFamilyAdapter = MiniMaxFamilyAdapter;
 static MINIMAX: MiniMaxAdapter = MiniMaxAdapter;
 static MINIMAX_CODING: MiniMaxCodingAdapter = MiniMaxCodingAdapter;
@@ -1517,9 +1654,9 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("tokenrhythm", &GENERIC),
     ("typesafe", &GENERIC),
     ("xai", &GENERIC),
-    ("xiaomi_mimo", &GENERIC),
-    ("xiaomi_mimo_coding", &GENERIC),
-    ("xiaomi_mimo_coding_en", &GENERIC),
+    ("xiaomi_mimo", &MIMO),
+    ("xiaomi_mimo_coding", &MIMO_CODING),
+    ("xiaomi_mimo_coding_en", &MIMO_CODING),
 ];
 
 fn table() -> &'static std::collections::HashMap<&'static str, &'static dyn PlatformAdapter> {

@@ -1778,3 +1778,328 @@ async fn tencent_family_stream_frames_parse_via_local_upstream() {
         "anthropic partial usage events (message_start input + message_delta output) merged: {events:?}"
     );
 }
+
+// ── issue 85：小米 MiMo 家族（xiaomi_mimo / xiaomi_mimo_coding / xiaomi_mimo_coding_en）──
+// 家族取证（官方文档核对日期 2026-11-23）见 aidog_adapter platform::registry
+// `MimoFamilyAdapter` 模块注释。本节全部走本地假上游，禁真实外呼。
+
+fn mimo_platform(code: &str) -> Protocol {
+    match code {
+        "xiaomi_mimo" => Protocol::XiaomiMimo,
+        "xiaomi_mimo_coding" => Protocol::XiaomiMimoCoding,
+        _ => Protocol::XiaomiMimoCodingEn,
+    }
+}
+
+/// 三成员 openai/anthropic 两 wire 经本地假上游完整 HTTP 往返（服务端读满
+/// Content-Length、对请求行路径与请求体 JSON 断言），usage 按官方字段抽取：
+/// openai `prompt_tokens_details.cached_tokens`（从 input 扣除）；anthropic
+/// `cache_read_input_tokens`（官方无 cache_creation 字段，读不到即 0）。
+#[tokio::test]
+async fn mimo_family_protocols_use_local_upstream_and_extract_usage() {
+    let req: ChatRequest = serde_json::from_value(json!({
+        "model": "mimo-v2.6-pro",
+        "max_tokens": 64,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let generic = super::adapter_for("deepseek");
+    for code in ["xiaomi_mimo", "xiaomi_mimo_coding", "xiaomi_mimo_coding_en"] {
+        let adapter = super::adapter_for(code);
+        assert!(super::lookup(code).is_some(), "{code} registration");
+        let platform = mimo_platform(code);
+        for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+            let (body, path) = adapter.build_request(&req, &wire, &platform);
+            let (base_body, base_path) = generic.build_request(&req, &wire, &platform);
+            assert_eq!((body.clone(), path.clone()), (base_body, base_path), "{code}/{wire:?}");
+            let (response, expect_path, expected) = if wire == Protocol::OpenAI {
+                (
+                    tencent_json_response(
+                        r#"{"id":"cmpl-local","model":"mimo-v2.6-pro","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120,"completion_tokens_details":{"reasoning_tokens":5},"prompt_tokens_details":{"cached_tokens":30}}}"#,
+                    ),
+                    "/chat/completions",
+                    (70, 20, 30, 0),
+                )
+            } else {
+                (
+                    tencent_json_response(
+                        r#"{"id":"msg_local","type":"message","role":"assistant","model":"mimo-v2.6-pro","content":[],"stop_reason":"end_turn","usage":{"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":30}}"#,
+                    ),
+                    "/v1/messages",
+                    (100, 20, 30, 0),
+                )
+            };
+            let body_for_assert = body.clone();
+            let (addr, upstream) = tencent_serve_one(response, expect_path, move |received| {
+                assert_eq!(received["model"].as_str(), Some("mimo-v2.6-pro"), "{code} upstream model");
+                assert_eq!(received["messages"][0]["role"].as_str(), Some("user"), "{code} upstream messages");
+                assert_eq!(received, &body_for_assert, "{code} wire body == build_request output");
+            })
+            .await;
+            let (status, raw) = tencent_roundtrip(&addr, expect_path, &body).await;
+            upstream.await.unwrap();
+            assert_eq!(status, 200, "{code}/{wire:?}");
+            let upstream_body = String::from_utf8_lossy(&raw);
+            let (input, output, cache_read, cache_write, _, _) = adapter.extract_usage(&upstream_body);
+            assert_eq!((input, output, cache_read, cache_write), expected, "{code}/{wire:?}");
+        }
+    }
+}
+
+/// 禁思考逐成员作用域（官方取证核对 2026-11-23）：`xiaomi_mimo` openai wire 写平台官方
+/// `thinking: {"type":"disabled"}`（deep-thinking.md），剥开启型参数（`thinking` /
+/// `reasoning_effort` 等）但**不剥 temperature**（官方思考模式传入会被静默覆盖为 1.0，
+/// 不报错，与 Kimi 报错语义不同）；套餐两成员官方文档未列 API 参数（订阅页），保持框架
+/// 默认 `chat_template_kwargs.enable_thinking=false`，成员 issue 取证后收窄。anthropic
+/// wire 三成员同基座标准 `thinking.type=disabled`（官方参数表 enabled/disabled）。断言经
+/// 本地假上游完整 HTTP 往返、服务端对线上 body JSON 判定。
+#[tokio::test]
+async fn mimo_disable_thinking_reaches_wire_per_member_scope() {
+    let mut body = json!({
+        "model": "mimo-v2.6-pro",
+        "thinking": { "type": "enabled" },
+        "reasoning_effort": "high",
+        "temperature": 0.7
+    });
+    let response = tencent_json_response(
+        r#"{"id":"cmpl-local","model":"mimo-v2.6-pro","choices":[],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#,
+    );
+    for (code, expected_thinking, expected_ctk) in [
+        ("xiaomi_mimo", Some("disabled"), None),
+        ("xiaomi_mimo_coding", None, Some(false)),
+        ("xiaomi_mimo_coding_en", None, Some(false)),
+    ] {
+        let adapter = super::adapter_for(code);
+        let mut outbound = body.clone();
+        adapter.apply_disable_thinking(
+            &mut outbound,
+            true,
+            &Protocol::OpenAI,
+            "http://127.0.0.1:1/v1",
+            false,
+        );
+        let (addr, upstream) = tencent_serve_one(response.clone(), "/chat/completions", move |received| {
+            let thinking_type = received
+                .get("thinking")
+                .and_then(|t| t.get("type"))
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            assert_eq!(
+                thinking_type.as_deref(),
+                expected_thinking,
+                "{code} upstream thinking.type: {received}"
+            );
+            assert_eq!(
+                received
+                    .get("chat_template_kwargs")
+                    .and_then(|c| c.get("enable_thinking"))
+                    .and_then(Value::as_bool),
+                expected_ctk,
+                "{code} upstream chat_template_kwargs.enable_thinking: {received}"
+            );
+        })
+        .await;
+        let (status, _) = tencent_roundtrip(&addr, "/chat/completions", &outbound).await;
+        upstream.await.unwrap();
+        assert_eq!(status, 200, "{code}");
+    }
+    // 客户端侧同判：标准平台成员开启型参数被剥净、temperature 保留、thinking 写 disabled。
+    let adapter = super::adapter_for("xiaomi_mimo");
+    adapter.apply_disable_thinking(&mut body, true, &Protocol::OpenAI, "http://127.0.0.1:1/v1", false);
+    assert_eq!(body["thinking"]["type"], "disabled");
+    assert!(body.get("reasoning_effort").is_none(), "{body}");
+    assert_eq!(body["temperature"], json!(0.7), "temperature 官方静默覆盖非报错，不剥: {body}");
+    let anthropic_body = json!({ "model": "mimo-v2.6-pro", "thinking": { "type": "enabled" } });
+    for code in ["xiaomi_mimo", "xiaomi_mimo_coding", "xiaomi_mimo_coding_en"] {
+        let mut b = anthropic_body.clone();
+        super::adapter_for(code).apply_disable_thinking(
+            &mut b,
+            true,
+            &Protocol::Anthropic,
+            "http://127.0.0.1:1/anthropic",
+            false,
+        );
+        assert_eq!(b["thinking"]["type"], "disabled", "{code}: {b}");
+    }
+}
+
+/// 多轮工具历史携带 reasoning_content（官方 400 校验）逐成员作用域：anthropic 客户端回灌
+/// 的 thinking 块在 openai 转换中被跳过，`xiaomi_mimo` 按 ChatRequest thinking 块取回补写；
+/// 套餐成员官方文档未列该行为，不外推、不补写。
+#[tokio::test]
+async fn mimo_openai_tool_history_reasoning_content_per_member_scope() {
+    let req: ChatRequest = serde_json::from_value(json!({
+        "model": "mimo-v2.6-pro",
+        "max_tokens": 64,
+        "messages": [
+            { "role": "user", "content": "北京天气?" },
+            { "role": "assistant", "content": [
+                { "type": "thinking", "thinking": "需要调用天气工具", "signature": "sig" },
+                { "type": "tool_use", "id": "tu1", "name": "get_weather", "input": { "city": "北京" } }
+            ]},
+            { "role": "user", "content": [ { "type": "tool_result", "tool_use_id": "tu1", "content": "晴" } ] }
+        ]
+    }))
+    .unwrap();
+    for (code, expected) in [
+        ("xiaomi_mimo", Some("需要调用天气工具")),
+        ("xiaomi_mimo_coding", None),
+        ("xiaomi_mimo_coding_en", None),
+    ] {
+        let adapter = super::adapter_for(code);
+        let (body, _) = adapter.build_request(&req, &Protocol::OpenAI, &mimo_platform(code));
+        let asst = body["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["role"] == "assistant" && m.get("tool_calls").is_some_and(|v| !v.is_null()))
+            .expect("出站应含 assistant tool-call 消息");
+        assert_eq!(
+            asst.get("reasoning_content").and_then(Value::as_str),
+            expected,
+            "{code} assistant tool-call 历史 reasoning_content: {asst}"
+        );
+    }
+}
+
+/// 两端点流式（本地假上游完整 SSE 往返）：openai wire `data: {chunk}` 帧流
+///（delta.reasoning_content → delta.content、末帧 choices 空 + 顶层 usage、`data: [DONE]`
+/// 结束）与 anthropic wire 标准事件链（message_start / content_block_delta thinking_delta /
+/// message_delta / message_stop），经基座构件逐帧解析并抽取用量。
+#[tokio::test]
+async fn mimo_family_stream_frames_parse_via_local_upstream() {
+    let adapter = super::adapter_for("xiaomi_mimo");
+    let stream_req: ChatRequest = serde_json::from_value(json!({
+        "model": "mimo-v2.6-pro",
+        "max_tokens": 32,
+        "stream": true,
+        "messages": [{ "role": "user", "content": "hello" }]
+    }))
+    .unwrap();
+    let (openai_request, openai_path) =
+        adapter.build_request(&stream_req, &Protocol::OpenAI, &Protocol::XiaomiMimo);
+    let openai_request_for_assert = openai_request.clone();
+    assert_eq!(openai_path, "/chat/completions");
+    assert_eq!(openai_request["stream"], true);
+    let openai_frames = [
+        format!(
+            "data: {}\n\n",
+            r#"{"id":"c1","choices":[{"index":0,"delta":{"role":"assistant","reasoning_content":"think"}}]}"#
+        ),
+        format!(
+            "data: {}\n\n",
+            r#"{"id":"c1","choices":[{"index":0,"delta":{"content":"ok"}}]}"#
+        ),
+        format!(
+            "data: {}\n\n",
+            r#"{"id":"c1","choices":[],"usage":{"prompt_tokens":61,"completion_tokens":467,"total_tokens":528,"prompt_tokens_details":{"cached_tokens":0}}}"#
+        ),
+        "data: [DONE]\n\n".to_string(),
+    ];
+    let (addr, upstream) = tencent_serve_one(
+        tencent_sse_response(&openai_frames),
+        "/chat/completions",
+        move |received| {
+            assert_eq!(
+                received,
+                &openai_request_for_assert,
+                "openai wire body == build_request output"
+            );
+        },
+    )
+    .await;
+    let (status, raw) = tencent_roundtrip(&addr, "/chat/completions", &openai_request).await;
+    upstream.await.unwrap();
+    assert_eq!(status, 200);
+    let raw_body = String::from_utf8_lossy(&raw);
+    let events: Vec<ChatStreamEvent> = tencent_sse_frames(&raw_body)
+        .iter()
+        .flat_map(|frame| adapter.parse_sse_frame(frame, &Protocol::OpenAI))
+        .collect();
+    assert!(
+        events.iter().any(|e| matches!(e, ChatStreamEvent::ReasoningDelta { text } if text == "think")),
+        "openai reasoning event: {events:?}"
+    );
+    assert!(
+        events.iter().any(|e| matches!(e, ChatStreamEvent::Delta { text } if text == "ok")),
+        "openai content event: {events:?}"
+    );
+    assert!(
+        events.iter().any(|e| matches!(e, ChatStreamEvent::Usage { usage }
+            if usage.prompt_tokens == Some(61) && usage.completion_tokens == Some(467))),
+        "openai stream usage event: {events:?}"
+    );
+
+    let anthropic_frames = [
+        "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"mimo-v2.6-pro\",\"content\":[],\"usage\":{\"input_tokens\":12,\"output_tokens\":0}}}\n\n".to_string(),
+        "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}\n\n".to_string(),
+        "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"plan\"}}\n\n".to_string(),
+        "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n".to_string(),
+        "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n".to_string(),
+        "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\n\n".to_string(),
+        "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":6}}\n\n".to_string(),
+        "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n".to_string(),
+    ];
+    let (anthropic_request, anthropic_path) =
+        adapter.build_request(&stream_req, &Protocol::Anthropic, &Protocol::XiaomiMimo);
+    assert_eq!(anthropic_path, "/v1/messages");
+    assert_eq!(anthropic_request["stream"], true);
+    let anthropic_request_for_assert = anthropic_request.clone();
+    let (addr, upstream) = tencent_serve_one(
+        tencent_sse_response(&anthropic_frames),
+        "/v1/messages",
+        move |received| {
+            assert_eq!(
+                received,
+                &anthropic_request_for_assert,
+                "anthropic wire body == build_request output"
+            );
+        },
+    )
+    .await;
+    let (status, raw) = tencent_roundtrip(&addr, "/v1/messages", &anthropic_request).await;
+    upstream.await.unwrap();
+    assert_eq!(status, 200);
+    let raw_body = String::from_utf8_lossy(&raw);
+    let events: Vec<ChatStreamEvent> = tencent_sse_frames(&raw_body)
+        .iter()
+        .flat_map(|frame| adapter.parse_sse_frame(frame, &Protocol::Anthropic))
+        .collect();
+    assert!(
+        events.iter().any(|e| matches!(e, ChatStreamEvent::Delta { text } if text == "ok")),
+        "anthropic text event: {events:?}"
+    );
+    let mut merged = crate::types::Usage::default();
+    for event in &events {
+        if let ChatStreamEvent::Usage { usage } = event {
+            merged.merge_partial(usage);
+        }
+    }
+    assert_eq!(
+        (merged.prompt_tokens, merged.completion_tokens),
+        (Some(12), Some(6)),
+        "anthropic partial usage events (message_start input + message_delta output) merged: {events:?}"
+    );
+}
+
+/// 错误分类（错误码页仅有状态码表格、无 JSON 错误体形状示例——未证实，不伪造模型类
+/// 契约）：401 / 429 按状态码归服务类；400 中性错误体按基座 Unknown（调用方按模型类
+/// 处理）。
+#[test]
+fn mimo_error_classification_status_code_only() {
+    let adapter = super::adapter_for("xiaomi_mimo");
+    // 官方未给 JSON 错误体示例，body 形状用基座通用读法可解析的最小形态。
+    assert_eq!(
+        adapter.classify_error(401, r#"{"error":{"message":"invalid api key"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        adapter.classify_error(429, r#"{"error":{"message":"rate limit exceeded"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        adapter.classify_error(400, r#"{"error":{"message":"bad request"}}"#),
+        super::error::classify_upstream_error(400, r#"{"error":{"message":"bad request"}}"#),
+        "400 未证实文案不扩展特征，同基座"
+    );
+}
