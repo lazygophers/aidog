@@ -13527,3 +13527,166 @@ async fn audio_route_fail_no_audio_platform() {
     assert_eq!(log.est_cost, 0.0);
     assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
 }
+
+// ══ image：/v1/images/generations 生图槽位转发端到端（本地假上游，禁外呼）══
+
+const IMG_REQ: &str = r#"{"model":"client-img","prompt":"a cat","n":2,"size":"1024x1024"}"#;
+const IMG_RESPONSE: &str = r#"{"created":1730000000,"data":[{"b64_json":"aGk="},{"b64_json":"aGk="}],"usage":{"input_tokens":10,"output_tokens":50,"total_tokens":60}}"#;
+
+fn image_slot(v: &str) -> PlatformModels {
+    PlatformModels {
+        image: vec![v.into()],
+        ..Default::default()
+    }
+}
+
+fn image_entry(price: &str) -> ModelEntry {
+    ModelEntry {
+        model_id: "img-slot".into(),
+        display_name: "img-slot".into(),
+        canonical_model: "img-slot".into(),
+        capabilities: vec!["image".into()],
+        ..embedding_entry(price)
+    }
+}
+
+/// 路径 /images/generations、model 被槽位覆盖、prompt/n/size 原样、Authorization 为平台 key、
+/// 响应 model 回写、usage 入账、日志协议标签 images。
+#[tokio::test]
+async fn image_request_end_to_end() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkimg",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkimg", IMG_REQ, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v["model"], "client-img", "响应 model 回写客户端原名");
+    assert_eq!(v["data"][0]["b64_json"], "aGk=", "图片结果原样回传");
+    assert_eq!(v["data"].as_array().map(Vec::len), Some(2));
+
+    let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(
+        path, "/v1/images/generations",
+        "base_url(/v1) + /images/generations"
+    );
+    let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
+    assert_eq!(sent["model"], "img-slot", "客户端模型名被槽位覆盖");
+    assert_eq!(sent["prompt"], "a cat");
+    assert_eq!(sent["n"], 2);
+    assert_eq!(sent["size"], "1024x1024");
+    assert_eq!(auth, "Bearer sk-a");
+
+    let log = last_log_for(&state, "gkimg").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(
+        (log.source_protocol.as_str(), log.target_protocol.as_str()),
+        ("images", "images")
+    );
+    assert_eq!(log.model, "client-img");
+    assert_eq!(log.actual_model, "img-slot");
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 50));
+    assert!(
+        (log.est_cost - (10.0 * 2e-8 + 50.0 * 1e-8)).abs() < 1e-15,
+        "got {}",
+        log.est_cost
+    );
+}
+
+/// 计费口径：条目按张（unit:"image"）→ 张数 × unit_price。张数取响应 data 长度；
+/// 响应缺 data 按请求 n 推算；都缺按官方缺省 1 张。
+#[tokio::test]
+async fn image_cost_units_per_image() {
+    let cases: [(&str, &str, &str, &str, f64); 4] = [
+        ("gku1", IMG_REQ, r#"{"unit":"image","unit_price":0.05}"#, IMG_RESPONSE, 0.10),
+        (
+            "gku2",
+            IMG_REQ,
+            r#"{"unit":"image","unit_price":0.05}"#,
+            r#"{"created":1,"data":[{"b64_json":"aGk="}]}"#,
+            0.05,
+        ),
+        // 响应无 data → 按请求 n=2 推算
+        ("gku3", IMG_REQ, r#"{"unit":"image","unit_price":0.05}"#, r#"{"created":1}"#, 0.10),
+        // 请求无 n、响应无 data → 官方缺省 1 张
+        (
+            "gku4",
+            r#"{"model":"client-img","prompt":"x"}"#,
+            r#"{"unit":"image","unit_price":0.05}"#,
+            r#"{"created":1}"#,
+            0.05,
+        ),
+    ];
+    for (gk, req_body, price, resp_body, expected) in cases {
+        let (up, _h) = spawn_embedding_upstream(vec![(200, resp_body)]).await;
+        let state = make_state(test_db().await).await;
+        aidog_db::upsert_model_entries(&state.db, vec![image_entry(price)])
+            .await
+            .unwrap();
+        setup_aux_group(
+            &state,
+            gk,
+            &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+        )
+        .await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request(gk, req_body, "/v1/images/generations"),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::OK, "{gk}");
+        let log = last_log_for(&state, gk).await;
+        assert!(
+            (log.est_cost - expected).abs() < 1e-12,
+            "{gk}: want {expected}, got {}",
+            log.est_cost
+        );
+    }
+}
+
+/// 无候选 → 404 + blocked_reason=no_image_platform。三种成因：槽位未配 / 纯空白 / 非 OpenAI 系协议。
+#[tokio::test]
+async fn image_route_fail_no_image_platform() {
+    let (up, hits) = spawn_embedding_upstream(vec![]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkni1",
+        &[(&up, PlatformModels::default(), Protocol::OpenAI, "a")],
+    )
+    .await;
+    setup_aux_group(&state, "gkni2", &[(&up, image_slot("  "), Protocol::OpenAI, "b")]).await;
+    setup_aux_group(&state, "gkni3", &[(&up, image_slot("img"), Protocol::Anthropic, "c")]).await;
+    for gk in ["gkni1", "gkni2", "gkni3"] {
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request(gk, IMG_REQ, "/v1/images/generations"),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{gk}");
+        let log = last_log_for(&state, gk).await;
+        assert_eq!(log.status_code, 404, "{gk}");
+        assert_eq!(log.blocked_by, "router", "{gk}");
+        assert_eq!(log.blocked_reason, "no_image_platform", "{gk}");
+        assert_eq!(log.est_cost, 0.0, "{gk}");
+    }
+    assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
+}

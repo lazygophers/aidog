@@ -2251,6 +2251,7 @@
   "platform.modelJev": "意思決定モデル",
   "platform.modelEmbedding": "埋め込み",
   "platform.modelRerank": "リランク",
+  "platform.modelImage": "画像生成",
   "platform.dedicatedSlotNoOpenAIEndpointHint": "このプラットフォームには OpenAI 系エンドポイントがないため、この種のリクエストでは選択されません",
   "platform.timeSlotDedicatedEmptyHint": "この時間帯ではこのプラットフォームはこの種のリクエストを受け付けません",
   "platform.timeSlotFallbackDefault": "この時間帯の default に回ります：{{model}}",

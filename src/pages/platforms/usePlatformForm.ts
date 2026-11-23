@@ -210,7 +210,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   // 创建态 + 非 keyOptional + splitApiKeys.length>1 → setBatchPreviewKeys(keys) 触发 MultiKeyPreview。
   const [batchPreviewKeys, setBatchPreviewKeys] = useState<string[] | null>(null);
   const [models, setModels] = useState<Record<ModelSlot, string[]>>({
-    default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [],
+    default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [],
   });
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [endpoints, setEndpoints] = useState<PlatformEndpoint[]>([]);

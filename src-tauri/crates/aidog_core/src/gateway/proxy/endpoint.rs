@@ -206,6 +206,13 @@ pub(crate) fn is_rerank_endpoint(path: &str) -> bool {
     path.trim_end_matches('/').ends_with("/rerank")
 }
 
+/// 生图请求端点判定：路径以 `/images/generations` 结尾（标准生成路径；编辑 /v1/images/edits
+/// 不在此判定内，见生图-模型类型票 05）。
+pub(crate) fn is_image_endpoint(path: &str) -> bool {
+    path.trim_end_matches('/')
+        .ends_with("/images/generations")
+}
+
 /// 辅助模型请求（embedding / rerank）的 endpoint 选择：OpenAI 系优先（openai → completions → responses）。
 /// 都没有返回 None → 调用方回退平台主 `base_url`。
 pub(crate) fn select_endpoint_for_openai_family(

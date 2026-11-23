@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 /** 与 manual.ts `ModelSlot` 一致的内置槽名，自定义槽不得重名。 */
-export const BUILTIN_SLOT_NAMES = ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank"];
+export const BUILTIN_SLOT_NAMES = ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank", "image"];
 
 export type SlotNameError = "invalid" | "builtin" | "duplicate";
 

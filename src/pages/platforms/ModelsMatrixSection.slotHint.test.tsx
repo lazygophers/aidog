@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("../../domains/platforms/modelPrices", () => ({ useModelPrices: () => new Map() }));
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 
-const base = { embedding: [], rerank: [], default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [] };
+const base = { embedding: [], rerank: [], image: [], default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [] };
 
 function mount(models: Record<string, string[]>, endpoints: { protocol: string }[], protocol = "anthropic") {
   return render(

@@ -475,6 +475,22 @@ pub(crate) async fn handle_proxy_core(
         .await;
     }
 
+    // ── 生图请求分流（生图-模型类型 票 04，标准生成路径；编辑 / 流式见票 05）──
+    // /v1/images/generations 的 body 无 messages，进 parse_incoming_request 会本地 400。
+    // 一律用平台 image 槽位模型，出站 /images/generations（aux_model.rs，非流式）。
+    if is_image_endpoint(&path) {
+        return super::aux_model::handle_aux_model(
+            &super::aux_model::IMAGE,
+            &state,
+            &mut log,
+            &group,
+            &bytes,
+            None,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
+        )
+        .await;
+    }
+
     // ── 音频请求分流（issue #167，必须在 parse_incoming_request 之前）──
     // /v1/audio/{speech,transcriptions,translations}：模型名随请求直转（无专用槽），
     // 字符数 / 秒数经 SEARCH_UNITS_KEY 入计价链（speech 为 JSON 入站二进制出站，

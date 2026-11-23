@@ -107,3 +107,52 @@ fn audio_spec_shape_and_extractors() {
     assert_eq!(af(&req, r#"{"text":"hi"}"#), 0);
     assert_eq!(af(&req, "not json"), 0);
 }
+
+/// image spec 形状与计量提取器（生图-模型类型 票 04）。
+const _: () = {
+    assert!(!IMAGE.multipart && !IMAGE.binary_response);
+};
+
+#[test]
+fn image_spec_shape_and_extractors() {
+    for p in [
+        "/v1/images/generations",
+        "/images/generations",
+        "/proxy/v1/images/generations",
+        "/v1/images/generations/",
+    ] {
+        assert!(is_image_endpoint(p), "{p}");
+    }
+    for p in [
+        "/v1/images/edits",
+        "/v1/images",
+        "/v1/chat/completions",
+        "/v1/images/generationsx",
+    ] {
+        assert!(!is_image_endpoint(p), "{p}");
+    }
+    assert_eq!(IMAGE.label, "images");
+    assert_eq!(IMAGE.api_path, "/images/generations");
+
+    let (i, o) = (IMAGE.extract_usage)(
+        r#"{"usage":{"input_tokens":10,"output_tokens":50,"total_tokens":60}}"#,
+    );
+    assert_eq!((i, o), (10, 50));
+    assert_eq!((IMAGE.extract_usage)(r#"{"usage":{"prompt_tokens":8}}"#), (8, 0));
+    assert_eq!((IMAGE.extract_usage)("not json"), (0, 0));
+
+    let uf = IMAGE.extract_units.expect("image has units");
+    let req = serde_json::json!({"model":"m","prompt":"x","n":2});
+    assert_eq!(
+        uf(&req, r#"{"created":1,"data":[{"b64_json":"a"},{"b64_json":"b"}]}"#),
+        2,
+        "张数取响应 data 长度"
+    );
+    assert_eq!(uf(&req, r#"{"created":1}"#), 2, "响应无 data → 按请求 n 推算");
+    let req_no_n = serde_json::json!({"model":"m","prompt":"x"});
+    assert_eq!(
+        uf(&req_no_n, r#"{"created":1}"#),
+        1,
+        "无 data 无 n → 官方缺省 1 张"
+    );
+}

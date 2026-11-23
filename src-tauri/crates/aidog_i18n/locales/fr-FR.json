@@ -2251,6 +2251,7 @@
   "platform.modelJev": "Modèle de décision",
   "platform.modelEmbedding": "Vectorisation",
   "platform.modelRerank": "Reclassement",
+  "platform.modelImage": "Image",
   "platform.dedicatedSlotNoOpenAIEndpointHint": "Cette plateforme n'a pas de endpoint de la famille OpenAI et ne sera pas sélectionnée pour ce type de requête",
   "platform.timeSlotDedicatedEmptyHint": "Cette plateforme n'accepte pas ce type de requête pendant cette plage horaire",
   "platform.timeSlotFallbackDefault": "Retombe sur le défaut de cette plage : {{model}}",

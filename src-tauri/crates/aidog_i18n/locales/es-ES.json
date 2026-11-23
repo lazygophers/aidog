@@ -2163,6 +2163,7 @@
   "platform.modelJev": "Modelo de decisión",
   "platform.modelEmbedding": "Incrustación",
   "platform.modelRerank": "Reordenación",
+  "platform.modelImage": "Imagen",
   "platform.dedicatedSlotNoOpenAIEndpointHint": "Esta plataforma no tiene un endpoint de la familia OpenAI y no se seleccionará para este tipo de solicitud",
   "platform.timeSlotDedicatedEmptyHint": "Esta plataforma no acepta este tipo de solicitud durante esta franja",
   "platform.timeSlotFallbackDefault": "Recurre al default de esta franja: {{model}}",

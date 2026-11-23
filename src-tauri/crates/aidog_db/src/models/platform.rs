@@ -96,8 +96,9 @@ pub fn retry_count_of(attempts: &[ProxyAttempt]) -> i32 {
 
 // ─── Platform Models ───────────────────────────────────────
 
-/// 平台模型配置：8 个固定槽位（jev 为决策模型专用槽，见 jev-decision-proxy R2/R3；
-/// embedding / rerank 为向量化 / 重排序专用槽，见 .scratch/embedding-槽位/spec.md）。
+/// 平台模型配置：9 个固定槽位（jev 为决策模型专用槽，见 jev-decision-proxy R2/R3；
+/// embedding / rerank 为向量化 / 重排序专用槽，见 .scratch/embedding-槽位/spec.md；
+/// image 为生图专用槽，见 .scratch/生图-模型类型/spec.md）。
 /// embedding / rerank 路由读 `effective_models`（`candidates.rs` 现行为）；time_windows 档与 preset
 /// `models.peak` 档各自带完整 `PlatformModels`，两槽随命中的档整支替换。
 #[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
@@ -130,6 +131,10 @@ pub struct PlatformModels {
     #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
     #[ts(optional, as = "Option<Vec<String>>")]
     pub rerank: Vec<String>,
+    /// 生图模型槽（/v1/images/generations 专用路径上游固定用此模型，生图-模型类型 票 04）
+    #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
+    pub image: Vec<String>,
 }
 
 impl PlatformModels {
@@ -172,13 +177,14 @@ impl PlatformModels {
         v
     }
 
-    /// 8 槽位全 None 时为空（用于分享串 `skip_serializing_if`）。
+    /// 9 槽位全 None 时为空（用于分享串 `skip_serializing_if`）。
     /// 直接字段判定零分配，避免 `all_values().is_empty()` 的 Vec 分配。
     pub fn is_empty(&self) -> bool {
         !self.has_chat_slot()
             && self.jev_slot().is_none()
             && self.embedding_slot().is_none()
             && self.rerank_slot().is_none()
+            && self.image_slot().is_none()
     }
 
     /// 5 个聊天槽是否至少一个已配置（`Some("")` / 纯空白不算：批量覆盖会持久化空串槽）。
@@ -203,14 +209,22 @@ impl PlatformModels {
         slot_filled(&self.rerank)
     }
 
+    /// 生图槽的有效值（trim 后非空才算配置）。
+    pub fn image_slot(&self) -> Option<&str> {
+        slot_filled(&self.image)
+    }
+
     /// 平台支持决策请求（jev 槽非空 ⇔ 决策请求可路由到该平台，R2 前半）。
     pub fn supports_decision_slot(&self) -> bool {
         self.jev_slot().is_some()
     }
 
-    /// 平台只有专用槽（jev / embedding / rerank 任一非空且 5 个聊天槽全空，R3：聊天请求须剔除该平台）。
+    /// 平台只有专用槽（jev / embedding / rerank / image 任一非空且 5 个聊天槽全空，R3：聊天请求须剔除该平台）。
     pub fn is_dedicated_only(&self) -> bool {
-        (self.jev_slot().is_some() || self.embedding_slot().is_some() || self.rerank_slot().is_some())
+        (self.jev_slot().is_some()
+            || self.embedding_slot().is_some()
+            || self.rerank_slot().is_some()
+            || self.image_slot().is_some())
             && !self.has_chat_slot()
     }
 }
@@ -865,7 +879,7 @@ mod tests {
         .is_empty());
     }
 
-    // ── PlatformModels::embedding / rerank 槽位 ──
+    // ── PlatformModels::embedding / rerank / image 槽位 ──
 
     #[test]
     fn platform_models_embedding_rerank_serde_roundtrip() {
@@ -887,6 +901,16 @@ mod tests {
         assert_eq!(json, r#"{"rerank":["jina-reranker-v2"]}"#);
         let back: PlatformModels = serde_json::from_str(&json).unwrap();
         assert_eq!(back.rerank_slot(), Some("jina-reranker-v2"));
+
+        let i = PlatformModels {
+            image: vec!["gpt-image-2".into()],
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&i).unwrap();
+        assert_eq!(json, r#"{"image":["gpt-image-2"]}"#);
+        let back: PlatformModels = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.image_slot(), Some("gpt-image-2"));
+        assert!(!back.is_empty(), "image 槽非空 → 非空配置");
     }
 
     #[test]

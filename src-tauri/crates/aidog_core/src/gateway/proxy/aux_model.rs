@@ -85,6 +85,41 @@ pub(crate) const RERANK: AuxSpec = AuxSpec {
     binary_response: false,
 };
 
+/// image：OpenAI Images usage（gpt-image 系 `usage.input_tokens` / `output_tokens`；旧形态
+/// `prompt_tokens` 兼容）。计量张数：响应 `data` 长度 → 请求 `n`（推算）→ 官方缺省 1。
+fn image_usage(body: &str) -> (i32, i32) {
+    let v: Value = serde_json::from_str(body).unwrap_or_default();
+    let tok = |field: &str, legacy: &str| {
+        v.pointer(&format!("/usage/{field}"))
+            .or_else(|| v.pointer(&format!("/usage/{legacy}")))
+            .and_then(Value::as_i64)
+            .unwrap_or(0) as i32
+    };
+    (tok("input_tokens", "prompt_tokens"), tok("output_tokens", "completion_tokens"))
+}
+
+/// image 计量张数：响应 `data` 数组长度；缺失按请求 `n`（OpenAI 官方缺省 1）推算（票 03 口径：
+/// 能从请求或结果推算则记录）。
+fn image_units(req: &Value, body: &str) -> i64 {
+    if let Ok(v) = serde_json::from_str::<Value>(body)
+        && let Some(data) = v.get("data").and_then(Value::as_array)
+        && !data.is_empty()
+    {
+        return data.len() as i64;
+    }
+    req.get("n").and_then(Value::as_i64).unwrap_or(1).max(1)
+}
+
+pub(crate) const IMAGE: AuxSpec = AuxSpec {
+    kind: RequestKind::Image,
+    api_path: "/images/generations",
+    label: "images",
+    extract_usage: image_usage,
+    extract_units: Some(image_units),
+    multipart: false,
+    binary_response: false,
+};
+
 /// audio 请求无 token usage（计费走 char / second 计数，issue #167）。
 fn no_usage(_body: &str) -> (i32, i32) {
     (0, 0)

@@ -2251,6 +2251,7 @@
   "platform.modelJev": "Entscheidungsmodell",
   "platform.modelEmbedding": "Einbettung",
   "platform.modelRerank": "Neurangordnung",
+  "platform.modelImage": "Bild",
   "platform.dedicatedSlotNoOpenAIEndpointHint": "Diese Plattform hat keinen OpenAI-kompatiblen Endpunkt und wird für diesen Anfragetyp nicht ausgewählt",
   "platform.timeSlotDedicatedEmptyHint": "Diese Plattform nimmt diesen Anfragetyp in diesem Zeitfenster nicht an",
   "platform.timeSlotFallbackDefault": "Fällt auf den Standard dieses Zeitfensters: {{model}}",

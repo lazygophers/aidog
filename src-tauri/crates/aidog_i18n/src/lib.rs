@@ -137,6 +137,8 @@ pub enum ErrorKey {
     QuotaExhaustedCodingPlanResume,
     /// 全组额度用完（402）：按量余额不足
     BalanceInsufficient,
+    /// 分组无可用生图平台（生图-模型类型 票 04：image 槽位全空 / 无 OpenAI 系 endpoint）
+    NoImagePlatform,
 }
 
 /// 返回翻译后的错误消息
@@ -176,6 +178,9 @@ fn t_en(key: ErrorKey) -> &'static str {
         ErrorKey::QuotaExhaustedCodingPlan => "Plan quota exhausted",
         ErrorKey::QuotaExhaustedCodingPlanResume => "Plan quota exhausted, will resume at {{time}}",
         ErrorKey::BalanceInsufficient => "Insufficient balance",
+        ErrorKey::NoImagePlatform => {
+            "no image platform in this group: configure image model slots for a platform"
+        }
     }
 }
 
@@ -200,6 +205,7 @@ fn t_zh(key: ErrorKey) -> &'static str {
         ErrorKey::QuotaExhaustedCodingPlan => "套餐额度已用完",
         ErrorKey::QuotaExhaustedCodingPlanResume => "套餐额度已用完，将于 {{time}} 恢复",
         ErrorKey::BalanceInsufficient => "余额不足",
+        ErrorKey::NoImagePlatform => "分组内没有可用的生图平台：请为平台配置生图模型槽位",
     }
 }
 
@@ -226,6 +232,9 @@ fn t_ja(key: ErrorKey) -> &'static str {
         ErrorKey::QuotaExhaustedCodingPlan => "プランの割り当てを使い切りました",
         ErrorKey::QuotaExhaustedCodingPlanResume => "プランの割り当てを使い切りました。{{time}} に再開します",
         ErrorKey::BalanceInsufficient => "残高不足です",
+        ErrorKey::NoImagePlatform => {
+            "このグループには画像生成プラットフォームがありません：プラットフォームに画像モデルスロットを設定してください"
+        }
     }
 }
 
@@ -252,6 +261,9 @@ fn t_fr(key: ErrorKey) -> &'static str {
         ErrorKey::QuotaExhaustedCodingPlan => "Quota du forfait épuisé",
         ErrorKey::QuotaExhaustedCodingPlanResume => "Quota du forfait épuisé, reprise à {{time}}",
         ErrorKey::BalanceInsufficient => "Solde insuffisant",
+        ErrorKey::NoImagePlatform => {
+            "aucune plateforme d'image dans ce groupe : configurez des emplacements de modèles d'image"
+        }
     }
 }
 
@@ -282,6 +294,9 @@ fn t_de(key: ErrorKey) -> &'static str {
         ErrorKey::QuotaExhaustedCodingPlan => "Kontingent des Tarifs aufgebraucht",
         ErrorKey::QuotaExhaustedCodingPlanResume => "Kontingent des Tarifs aufgebraucht, Fortsetzung um {{time}}",
         ErrorKey::BalanceInsufficient => "Guthaben unzureichend",
+        ErrorKey::NoImagePlatform => {
+            "keine Bildplattform in dieser Gruppe: konfigurieren Sie Bildmodell-Slots für eine Plattform"
+        }
     }
 }
 
@@ -308,6 +323,9 @@ fn t_ru(key: ErrorKey) -> &'static str {
         ErrorKey::QuotaExhaustedCodingPlan => "Квота тарифа исчерпана",
         ErrorKey::QuotaExhaustedCodingPlanResume => "Квота тарифа исчерпана, возобновится в {{time}}",
         ErrorKey::BalanceInsufficient => "Недостаточно средств",
+        ErrorKey::NoImagePlatform => {
+            "в группе нет платформы для изображений: настройте слоты моделей изображений"
+        }
     }
 }
 
@@ -336,6 +354,9 @@ fn t_ar(key: ErrorKey) -> &'static str {
         ErrorKey::QuotaExhaustedCodingPlan => "استُنفدت حصة الباقة",
         ErrorKey::QuotaExhaustedCodingPlanResume => "استُنفدت حصة الباقة، وستُستأنف في {{time}}",
         ErrorKey::BalanceInsufficient => "الرصيد غير كافٍ",
+        ErrorKey::NoImagePlatform => {
+            "لا توجد منصة لتوليد الصور في هذه المجموعة: قم بإعداد خانات نماذج الصور للمنصة"
+        }
     }
 }
 
@@ -366,6 +387,9 @@ fn t_es(key: ErrorKey) -> &'static str {
         ErrorKey::QuotaExhaustedCodingPlan => "Cuota del plan agotada",
         ErrorKey::QuotaExhaustedCodingPlanResume => "Cuota del plan agotada, se reanudará a las {{time}}",
         ErrorKey::BalanceInsufficient => "Saldo insuficiente",
+        ErrorKey::NoImagePlatform => {
+            "no hay plataforma de imágenes en este grupo: configure ranuras de modelos de imagen"
+        }
     }
 }
 

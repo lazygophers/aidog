@@ -2163,6 +2163,7 @@
   "platform.modelJev": "Decision model",
   "platform.modelEmbedding": "Embedding",
   "platform.modelRerank": "Rerank",
+  "platform.modelImage": "Image",
   "platform.dedicatedSlotNoOpenAIEndpointHint": "This platform has no OpenAI-family endpoint and will not be selected for this request type",
   "platform.timeSlotDedicatedEmptyHint": "This platform does not accept this request type during this time rule",
   "platform.timeSlotFallbackDefault": "Falls to this rule's default: {{model}}",

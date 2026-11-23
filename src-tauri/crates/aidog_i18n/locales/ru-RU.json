@@ -2251,6 +2251,7 @@
   "platform.modelJev": "Модель принятия решений",
   "platform.modelEmbedding": "Векторизация",
   "platform.modelRerank": "Переранжирование",
+  "platform.modelImage": "Изображения",
   "platform.dedicatedSlotNoOpenAIEndpointHint": "У этой платформы нет эндпоинта семейства OpenAI, она не будет выбрана для запросов этого типа",
   "platform.timeSlotDedicatedEmptyHint": "В этот период платформа не принимает запросы этого типа",
   "platform.timeSlotFallbackDefault": "Переходит на default этого периода: {{model}}",
