@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "stepfun/step-3.7-flash",
+  "canonical_model": "step-3.7-flash",
+  "display_name": "Step 3.7 Flash",
+  "family": "stepfun",
+  "version": "3.7",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1.875e-7,
+    "output": 0.000001125
+  },
+  "context_window": 256000,
+  "max_output_tokens": 256000
+}

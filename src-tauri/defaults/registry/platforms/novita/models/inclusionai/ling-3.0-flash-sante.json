@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "inclusionai/ling-3.0-flash-sante",
+  "display_name": "Ling 3.0 Flash Sante",
   "canonical_model": "ling-3.0-flash-sante",
   "family": "ling",
   "version": "3.0",
@@ -16,9 +17,8 @@
   "official": true,
   "price": {
     "currency": "USD",
-    "free": true,
-    "input": 0.0,
-    "output": 0.0,
+    "input": 7.5e-8,
+    "output": 2.2e-7,
     "cache_read": 0.0
   },
   "context_window": 262144,

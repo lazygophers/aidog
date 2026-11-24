@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "pixverse-video-v5.6",
+  "canonical_model": "pixverse-video-v5.6",
+  "version": "5.6",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "unit": "request",
+    "unit_price": 0
+  }
+}

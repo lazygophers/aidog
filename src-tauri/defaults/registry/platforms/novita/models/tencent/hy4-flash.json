@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "tencent/hy4-flash",
+  "canonical_model": "hy4-flash",
+  "display_name": "Hy4 Flash",
+  "family": "hunyuan",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 7e-8,
+    "output": 2.8100000000000004e-7
+  },
+  "context_window": 1000000,
+  "max_output_tokens": 64000
+}

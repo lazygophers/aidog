@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "grok-4.7",
+  "canonical_model": "grok-4.7",
+  "family": "grok",
+  "version": "4.7",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.000006
+  },
+  "context_window": 500000
+}

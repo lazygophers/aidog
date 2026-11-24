@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "hy4",
+  "canonical_model": "hy4",
+  "family": "hunyuan",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 4.47761e-7,
+    "output": 0.00000134328
+  },
+  "context_window": 1048576
+}

@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "deepseek-v4.1-flash",
+  "canonical_model": "deepseek-v4.1-flash",
+  "family": "deepseek",
+  "version": "4.1",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1.49254e-7,
+    "output": 5.97015e-7
+  },
+  "context_window": 1048576
+}

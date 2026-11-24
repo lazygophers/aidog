@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "dots-studio/dots-3-note-prev-free",
+  "display_name": "Dots 3 Note Preview",
   "canonical_model": "dots-3-note-prev-free",
   "family": "dots",
   "thinking_supported": true,

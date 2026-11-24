@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "bytedance/doubao-seed-character-260628",
+  "display_name": "Doubao Seed Character",
   "canonical_model": "doubao-seed-character-260628",
   "family": "doubao-seed-character",
   "capabilities": [
@@ -19,6 +20,15 @@
     "input": 2e-07,
     "output": 8e-07,
     "cache_read": 4e-08
+  ,
+    "context_tiers": [
+      {
+        "min_tokens": 32768,
+        "input": 4e-7,
+        "output": 0.0000016,
+        "cache_read": 4e-8
+      }
+    ]
   },
   "max_input_tokens": 131072,
   "context_window": 131072,

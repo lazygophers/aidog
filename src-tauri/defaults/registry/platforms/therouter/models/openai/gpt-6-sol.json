@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "openai/gpt-6-sol",
+  "canonical_model": "gpt-6-sol",
+  "family": "gpt",
+  "version": "6",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1100000,
+  "context_window": 1100000,
+  "max_output_tokens": 128000,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.00000216,
+    "output": 0.0000108
+  }
+}

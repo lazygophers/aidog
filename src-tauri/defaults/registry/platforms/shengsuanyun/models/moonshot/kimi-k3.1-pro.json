@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "moonshot/kimi-k3.1-pro",
+  "canonical_model": "kimi-k3.1-pro",
+  "display_name": "Kimi K3.1 Pro",
+  "family": "kimi",
+  "version": "3.1",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000018055555555555555,
+    "output": 0.000009444444444444445
+  },
+  "context_window": 1000000,
+  "max_output_tokens": 1000000
+}

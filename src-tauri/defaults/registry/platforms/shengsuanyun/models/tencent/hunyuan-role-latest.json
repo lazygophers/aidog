@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "tencent/hunyuan-role-latest",
+  "canonical_model": "hunyuan-role-latest",
+  "display_name": "Hy-Role-Latest",
+  "family": "hunyuan",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 3.333333333333333e-7,
+    "output": 0.0000013333333333333332,
+    "cache_read": 0
+  },
+  "context_window": 32000,
+  "max_output_tokens": 4000
+}

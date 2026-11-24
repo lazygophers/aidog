@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "ali/qwen4-max",
+  "canonical_model": "qwen4-max",
+  "display_name": "Qwen4-Max",
+  "family": "qwen",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000013888888888888887,
+    "output": 0.000004166666666666667,
+    "cache_read": 6.944444444444445e-8
+  },
+  "context_window": 1000000,
+  "max_output_tokens": 384000
+}

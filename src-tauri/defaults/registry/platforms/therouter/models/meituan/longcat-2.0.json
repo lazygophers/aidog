@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -18,7 +18,7 @@
   "official": true,
   "price": {
     "currency": "USD",
-    "input": 8.1e-07,
+    "input": 7.992e-7,
     "output": 3.24e-06
   },
   "max_input_tokens": 1000000,

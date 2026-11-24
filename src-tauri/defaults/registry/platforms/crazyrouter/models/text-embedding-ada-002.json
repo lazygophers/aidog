@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "text-embedding-ada-002",
+  "canonical_model": "text-embedding-ada-002",
+  "version": "2",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 1e-7
+  },
+  "context_window": 8192
+}

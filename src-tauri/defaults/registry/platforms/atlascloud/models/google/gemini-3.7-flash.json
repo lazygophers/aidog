@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "google/gemini-3.7-flash",
+  "canonical_model": "gemini-3.7-flash",
+  "display_name": "Gemini 3.7 Flash",
+  "family": "gemini",
+  "version": "3.7",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.0000075
+  },
+  "context_window": 1048576,
+  "max_output_tokens": 65536
+}

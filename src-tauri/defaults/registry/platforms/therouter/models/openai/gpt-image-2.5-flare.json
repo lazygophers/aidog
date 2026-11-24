@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "openai/gpt-image-2.5-flare",
+  "canonical_model": "gpt-image-2.5-flare",
+  "family": "gpt",
+  "version": "2.5",
+  "official": false,
+  "capabilities": [
+    "text_to_image"
+  ],
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.0000054
+  }
+}
