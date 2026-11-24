@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "minimax-m3.1-flash",
+  "canonical_model": "minimax-m3.1-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000001,
+    "output": 0.000004
+  },
+  "context_window": 1000000
+}

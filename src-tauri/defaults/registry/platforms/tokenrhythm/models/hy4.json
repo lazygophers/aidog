@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "hy4",
+  "display_name": "Hy4",
+  "canonical_model": "hy4",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 1048576,
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000003,
+    "output": 0.000009,
+    "cache_read": 1.5e-7
+  }
+}

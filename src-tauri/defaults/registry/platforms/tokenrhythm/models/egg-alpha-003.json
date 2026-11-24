@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "egg-alpha-003",
+  "display_name": "Egg Alpha 003",
+  "canonical_model": "egg-alpha-003",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 1000000,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 192000,
+  "price": {
+    "currency": "CNY",
+    "input": 0,
+    "output": 0,
+    "cache_read": 0
+  }
+}

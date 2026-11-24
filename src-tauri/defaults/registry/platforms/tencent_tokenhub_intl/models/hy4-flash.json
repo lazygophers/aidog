@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "openai_responses",
+    "anthropic"
+  ],
+  "model_id": "hy4-flash",
+  "display_name": "Hy4 flash",
+  "canonical_model": "hy4-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 1048576,
+  "max_input_tokens": 983040,
+  "max_output_tokens": 65536,
+  "price": {
+    "currency": "CNY",
+    "input": 5e-7,
+    "output": 0.000002,
+    "cache_read": 2e-8
+  }
+}

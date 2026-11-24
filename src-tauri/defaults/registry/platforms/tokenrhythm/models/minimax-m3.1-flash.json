@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "minimax-m3.1-flash",
+  "display_name": "MiniMax M3.1-Flash",
+  "canonical_model": "minimax-m3.1-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 1000000,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 524288,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000001,
+    "output": 0.000004,
+    "cache_read": 1.0000000000000001e-7
+  }
+}

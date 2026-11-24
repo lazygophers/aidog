@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "minimax-h3-context-ir",
+  "canonical_model": "minimax-h3-context-ir",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.0000057999999999999995,
+    "output": 0.000023
+  }
+}
