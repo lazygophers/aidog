@@ -1,11 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499859,
   "supported_protocols": [
     "openai",
     "openai_responses",
     "anthropic"
   ],
   "model_id": "deepseek-v4-flash-202605deepseek/deepseek-v4-flash-0731deepseek/deepseek-v4-flash",
+  "context_window": 1000000,
   "canonical_model": "deepseek-v4-flash-202605deepseek/deepseek-v4-flash-0731deepseek/deepseek-v4-flash",
   "capabilities": [
     "text"

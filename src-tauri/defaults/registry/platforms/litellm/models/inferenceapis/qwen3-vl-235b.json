@@ -1,12 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499859,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "inferenceapis/qwen3-vl-235b",
   "canonical_model": "qwen3-vl-235b",
   "family": "qwen",
-  "version": "235b",
   "capabilities": [
     "text",
     "vision",

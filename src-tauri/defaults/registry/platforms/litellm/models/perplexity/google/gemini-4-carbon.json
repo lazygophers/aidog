@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "perplexity/google/gemini-4-carbon",
+  "context_window": 1048576,
   "canonical_model": "gemini-4-carbon",
   "family": "gemini",
   "version": "4",

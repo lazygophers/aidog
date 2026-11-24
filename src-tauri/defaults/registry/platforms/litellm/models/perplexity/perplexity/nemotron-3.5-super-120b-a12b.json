@@ -1,9 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499859,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "perplexity/perplexity/nemotron-3.5-super-120b-a12b",
+  "context_window": 1048576,
   "canonical_model": "perplexity/nemotron-3.5-super-120b-a12b",
   "family": "perplexity",
   "version": "3.5",

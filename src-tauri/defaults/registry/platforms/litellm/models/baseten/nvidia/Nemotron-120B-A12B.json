@@ -1,9 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499858,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "baseten/nvidia/Nemotron-120B-A12B",
+  "context_window": 1048576,
   "canonical_model": "nvidia/Nemotron-120B-A12B",
   "family": "nvidia",
   "version": "120B",

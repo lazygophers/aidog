@@ -1,10 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499858,
   "supported_protocols": [
     "openai",
     "anthropic"
   ],
   "model_id": "ZHIPU/GLM-5.3-FlashX",
+  "context_window": 1000000,
+  "context_window": 1000000,
   "display_name": "ZHIPU/GLM-5.3-FlashX",
   "canonical_model": "ZHIPU/GLM-5.3-FlashX",
   "family": "glm",

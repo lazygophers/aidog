@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "replicate/moonshotai/kimi-k2.5",
+  "context_window": 262144,
   "canonical_model": "kimi-k2.5",
   "family": "kimi",
   "version": "2.5",

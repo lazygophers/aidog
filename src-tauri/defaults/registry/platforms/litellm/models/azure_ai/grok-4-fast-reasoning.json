@@ -1,9 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499858,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure_ai/grok-4-fast-reasoning",
+  "context_window": 2000000,
   "canonical_model": "grok-4-fast-reasoning",
   "family": "grok",
   "version": "4",

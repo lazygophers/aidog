@@ -6,7 +6,7 @@
   "model_id": "empiriolabs/seed-2-1-turbo",
   "canonical_model": "seed-2-1-turbo",
   "family": "seed",
-  "version": "2",
+  "version": "2.1",
   "capabilities": [
     "text",
     "vision",

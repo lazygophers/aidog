@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "replicate/google/gemini-2.5-flash",
+  "context_window": 1048576,
   "canonical_model": "gemini-2.5-flash",
   "family": "gemini",
   "version": "2.5",

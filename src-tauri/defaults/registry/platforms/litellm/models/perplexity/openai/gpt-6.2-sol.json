@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "perplexity/openai/gpt-6.2-sol",
+  "context_window": 1050000,
   "canonical_model": "gpt-6.2-sol",
   "family": "gpt",
   "version": "6.2",
