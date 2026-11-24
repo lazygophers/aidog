@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "minimax/minimax-m3.1-flash",
+  "display_name": "MiniMax M3.1 Flash",
+  "canonical_model": "minimax-m3.1-flash",
+  "family": "minimax",
+  "version": "3.1",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1000000,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-7,
+    "output": 6e-7,
+    "cache_read": 1.5e-8
+  }
+}

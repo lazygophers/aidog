@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "meta/muse-ember",
+  "display_name": "Muse Ember",
+  "canonical_model": "muse-ember",
+  "family": "muse",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1048576,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 5e-7,
+    "cache_read": 4e-9
+  }
+}

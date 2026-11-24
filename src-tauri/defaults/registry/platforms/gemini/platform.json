@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795303737,
+  "last_updated": 1795488925,
   "holiday_calendar": "US-CA",  "endpoints": {
     "default": [
       {
@@ -126,7 +126,14 @@
       "gemini-3-pro-image-preview",
       "gemini-3.1-flash-image-preview",
       "antigravity-preview-09-2026",
-      "gemini-4-argon"
+      "gemini-4-argon",
+      "gemini-4-carbon",
+      "gemini-4-neon",
+      "gemini-4-hydrogen",
+      "genie-4",
+      "gemini-omni-1.1-flash",
+      "gemini-decision-1",
+      "gemini-2.5-flash-image"
     ]
   },
   "name": {

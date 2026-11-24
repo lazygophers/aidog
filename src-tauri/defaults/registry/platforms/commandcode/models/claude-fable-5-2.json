@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "claude-fable-5-2",
+  "display_name": "Claude Fable 5.2",
+  "canonical_model": "claude-fable-5-2",
+  "family": "claude",
+  "version": "5.2",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1000000,
+  "supported_protocols": [
+    "anthropic"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.000008,
+    "output": 0.00004,
+    "cache_read": 2e-7,
+    "cache_write": 0.00001
+  }
+}

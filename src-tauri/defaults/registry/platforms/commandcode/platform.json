@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795269050,
+  "last_updated": 1795488925,
   "holiday_calendar": "US-CA",  "is_coding_plan": true,
   "name": {
     "en-US": "Command Code",
@@ -154,8 +154,35 @@
       "zai-org/GLM-5.1",
       "zai-org/GLM-5.2",
       "zai-org/GLM-5.2-Fast",
-      "zai-org/GLM-5.3"
-    ]
+      "zai-org/GLM-5.3",
+      "stealth/glyph-cluster:free",
+      "recursive/flint-v1.0:free",
+      "tencent/hy4-flash",
+      "tencent/hy4",
+      "moonshotai/Kimi-K3.1-Pro",
+      "minimax/minimax-m3.1-flash",
+      "ornith/ornith-1.5-122b",
+      "deepseek/deepseek-v4.1-flash-ultrafast",
+      "Qwen/Qwen4-Max",
+      "Qwen/Qwen3.8-Max-Prime",
+      "inclusionai/ling-3.1-flash-1019",
+      "inclusionai/ling-3.1-flash",
+      "nvidia/nemotron-3.5-super-vl",
+      "claude-fable-5-2",
+      "claude-haiku-5-5",
+      "gpt-6.2-astra",
+      "gpt-6.2-sol",
+      "gpt-6.1-terra",
+      "google/gemini-4-carbon",
+      "google/gemini-4-neon",
+      "google/gemini-4-argon",
+      "meta/muse-wonder-1.0",
+      "meta/muse-ember",
+      "meta/muse-spark-open",
+      "xai/grok-4.6",
+      "xai/grok-4.5",
+      "mistral/mistral-large-4",
+      "thinkingmachines/inkling-2-mini"]
   },
   "peak": [
     {

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "google/gemini-4-neon",
+  "display_name": "Gemini 4 Neon",
+  "canonical_model": "gemini-4-neon",
+  "family": "gemini",
+  "version": "4",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1000000,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.000003,
+    "output": 0.000015,
+    "cache_read": 1.5e-7
+  }
+}

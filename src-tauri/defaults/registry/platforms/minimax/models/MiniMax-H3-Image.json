@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "MiniMax-H3-Image",
+  "canonical_model": "MiniMax-H3-Image",
+  "family": "minimax",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000015,
+    "output": 0.000025
+  }
+}

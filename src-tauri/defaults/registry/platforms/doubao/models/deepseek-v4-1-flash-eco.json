@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
+  "model_id": "deepseek-v4-1-flash-economy",
+  "display_name": "DeepSeek V4.1 Flash Eco",
+  "canonical_model": "deepseek-v4-1-flash-economy",
+  "version": "4.1",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "CNY",
+    "input": 8.000000000000001e-7,
+    "output": 0.0000032000000000000003,
+    "cache_read": 1.6e-08
+  }
+}

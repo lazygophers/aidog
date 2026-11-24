@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "Qwen/Qwen3.8-Max-Prime",
+  "display_name": "Qwen 3.8 Max Prime",
+  "canonical_model": "Qwen3.8-Max-Prime",
+  "family": "qwen3.8",
+  "version": "3.8",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1000000,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.000004,
+    "output": 0.000012,
+    "cache_read": 5e-7,
+    "cache_write": 0.000005
+  }
+}

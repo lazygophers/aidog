@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -7,6 +7,7 @@
   "model_id": "kimi-for-coding-highspeed",
   "canonical_model": "kimi-for-coding-highspeed",
   "family": "kimi",
+  "version": "2.7",
   "display_name": "Kimi K2.7 Code HighSpeed",
   "capabilities": [
     "text",
