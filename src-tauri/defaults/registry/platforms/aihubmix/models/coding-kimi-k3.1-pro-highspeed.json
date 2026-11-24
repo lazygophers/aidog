@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "coding-kimi-k3.1-pro-highspeed",
+  "context_window": 1048576,
+  "canonical_model": "coding-kimi-k3.1-pro-highspeed",
+  "display_name": "Coding Kimi K3.1 Pro Highspeed",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000176,
+    "output": 0.00000646,
+    "cache_read": 2.6400000000000003e-7
+  }
+}

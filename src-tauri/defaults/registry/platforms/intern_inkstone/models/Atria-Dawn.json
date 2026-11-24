@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "openai_responses"
+  ],
+  "model_id": "Atria-Dawn",
+  "display_name": "Atria-Dawn",
+  "canonical_model": "atria-dawn",
+  "family": "atria",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 524288,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0,
+    "output": 0
+  }
+}

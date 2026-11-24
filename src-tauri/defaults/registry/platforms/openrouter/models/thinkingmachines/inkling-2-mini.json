@@ -1,0 +1,30 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "thinkingmachines/inkling-2-mini",
+  "canonical_model": "inkling-2-mini",
+  "family": "inkling",
+  "version": "2",
+  "display_name": "Thinking Machines: Inkling 2 Mini",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 65536,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 7.5e-8,
+    "output": 3e-7,
+    "cache_read": 1.5e-8
+  }
+}

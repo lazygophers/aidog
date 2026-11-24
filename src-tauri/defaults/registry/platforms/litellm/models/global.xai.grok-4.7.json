@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "global.xai.grok-4.7",
+  "canonical_model": "global.xai.grok-4.7",
+  "family": "global",
+  "version": "4.7",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 524288,
+  "context_window": 524288,
+  "max_output_tokens": 524288,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 5e-7
+  }
+}

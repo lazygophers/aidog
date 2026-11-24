@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "tencent/hunyuan-vision-video",
+  "canonical_model": "hunyuan-vision-video",
+  "display_name": "HY-Vision-Video",
+  "family": "hunyuan",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 4.166666666666666e-7,
+    "output": 0.00000125,
+    "cache_read": 0
+  },
+  "context_window": 32000,
+  "max_output_tokens": 8000
+}

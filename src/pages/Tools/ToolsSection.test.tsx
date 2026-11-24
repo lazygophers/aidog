@@ -72,15 +72,10 @@ describe("toolStatus 纯函数", () => {
     expect(toolStatus("web_fetch", { fetch: { enabled: false } })).toBe("disabled");
     expect(toolStatus("web_fetch", {})).toBe("configured");
   });
-  it("generate_image：缺 / 部分填写 → unconfigured；三项齐 → configured；无 disabled 态", () => {
-    expect(toolStatus("generate_image", {})).toBe("unconfigured");
-    expect(toolStatus("generate_image", { image: { base_url: "https://a", api_key: "", model: "" } })).toBe("unconfigured");
-    expect(toolStatus("generate_image", { image: { base_url: "https://a", api_key: "k", model: "m" } })).toBe("configured");
-  });
 });
 
 describe("ToolsSection 总控台", () => {
-  it("rail 三态：搜索已配置（sources 有引擎）/ 抓网页已停用 / 生图未配置", async () => {
+  it("rail 三态：搜索已配置（sources 有引擎）/ 抓网页已停用；生图卡已移除（票 08）", async () => {
     h.get.mockResolvedValue({
       search: { enabled: true, sources: ["ddg"], mode: "parallel", services: {}, searxng_base_urls: [] },
       fetch: { enabled: false },
@@ -88,7 +83,7 @@ describe("ToolsSection 总控台", () => {
     render(<ToolsSection />);
     await waitFor(() => expect(statusOf("web_search")).toBe("configured"));
     expect(statusOf("web_fetch")).toBe("disabled");
-    expect(statusOf("generate_image")).toBe("unconfigured");
+    expect(screen.queryByTestId("tools-rail-generate_image")).toBeNull();
     expect(railItem("web_search").getAttribute("data-state")).toBe("configured");
   });
 
@@ -186,29 +181,6 @@ describe("ToolsSection 总控台", () => {
     });
   });
 
-  it("生图卡密码框默认隐藏、眼睛切换显隐；三字段齐保存写出 image", async () => {
-    render(<ToolsSection />);
-    await waitFor(() => expect(railItem("generate_image").getAttribute("data-state")).toBe("unconfigured"));
-    fireEvent.click(railItem("generate_image"));
-    const key = screen.getByTestId("mcp-tools-image-api-key") as HTMLInputElement;
-    expect(key.type).toBe("password");
-    fireEvent.click(screen.getByTestId("mcp-tools-image-api-key-eye"));
-    expect((screen.getByTestId("mcp-tools-image-api-key") as HTMLInputElement).type).toBe("text");
-    fireEvent.change(screen.getByTestId("mcp-tools-image-base-url"), { target: { value: "https://p/v1/" } });
-    fireEvent.change(key, { target: { value: "sk" } });
-    fireEvent.change(screen.getByTestId("mcp-tools-image-model"), { target: { value: "m1" } });
-    expect(statusOf("generate_image")).toBe("unconfigured"); // 保存前状态按已存值算
-    fireEvent.click(screen.getByTestId("tools-image-save"));
-    await waitFor(() => {
-      // settings 为空（全新安装）→ 只写本卡 image 段，其余段由后端缺省兜底
-      expect(h.set.mock.calls[0][2]).toEqual({
-        image: { base_url: "https://p/v1/", api_key: "sk", model: "m1" },
-      });
-    });
-    // 保存成功后快照更新，rail 状态变已配置
-    await waitFor(() => expect(statusOf("generate_image")).toBe("configured"));
-  });
-
   it("key 服务行内密码框默认隐藏、可显隐、可增删；空行保存时剔除；*** 原样保留", async () => {
     h.get.mockResolvedValue({
       search: { enabled: true, sources: ["tavily"], mode: "sequential", services: { tavily: { keys: ["***"] } }, searxng_base_urls: [] },
@@ -275,16 +247,19 @@ describe("ToolsSection 总控台", () => {
     expect(screen.queryByTestId("tools-leave-dialog")).toBeNull();
   });
 
-  it("generate_video 与「未验证」标记不出现；搜索卡不含 video 字段写出", async () => {
+  it("generate_video 与「未验证」标记不出现；生图卡已移除（票 08），搜索卡保存不含 video 字段写出", async () => {
     render(<ToolsSection />);
     await waitFor(() => expect(screen.getByTestId("tools-rail-web_search")).toBeTruthy());
     expect(screen.queryByTestId(/video/i)).toBeNull();
+    expect(screen.queryByTestId("tools-rail-generate_image")).toBeNull();
     expect(JSON.stringify(document.body.textContent)).not.toContain("generate_video");
     expect(JSON.stringify(document.body.textContent)).not.toContain("未验证");
-    fireEvent.click(railItem("generate_image"));
-    fireEvent.click(screen.getByTestId("tools-image-save"));
+    fireEvent.click(screen.getByTestId("tools-mode-parallel"));
+    fireEvent.click(screen.getByTestId("mcp-tools-save"));
     await waitFor(() => {
-      expect((h.set.mock.calls[0][2] as any).video).toBeUndefined();
+      const next = h.set.mock.calls[0][2] as any;
+      expect(next.video).toBeUndefined();
+      expect(next.image).toBeUndefined();
     });
   });
 

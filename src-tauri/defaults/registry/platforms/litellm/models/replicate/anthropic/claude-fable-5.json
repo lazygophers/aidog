@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/anthropic/claude-fable-5",
+  "context_window": 1000000,
+  "canonical_model": "anthropic/claude-fable-5",
+  "family": "anthropic",
+  "version": "5",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00001,
+    "output": 0.00005
+  }
+}

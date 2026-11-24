@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/us-gov-east-1/anthropic.claude-fable-5-2",
+  "canonical_model": "us-gov-east-1/anthropic.claude-fable-5-2",
+  "family": "us",
+  "version": "5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000096,
+    "output": 0.000048,
+    "cache_read": 2.4e-7,
+    "cache_write": 0.000012
+  }
+}

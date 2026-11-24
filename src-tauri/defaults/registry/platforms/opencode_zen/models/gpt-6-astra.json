@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "openai"
   ],
@@ -15,21 +15,25 @@
   ],
   "max_output_tokens": 128000,
   "context_window": 1050000,
+  "max_input_tokens": 922000,
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
     "currency": "USD",
-    "input": 1e-05,
-    "output": 5e-05,
-    "cache_read": 1e-06,
-    "cache_write": 1.25e-05,
+    "input": 0.00001,
+    "output": 0.00005,
+    "cache_read": 0.000001,
+    "cache_write": 0.0000125,
+    "cache_write_1h": 0.000025,
     "context_tiers": [
       {
         "min_tokens": 272001,
-        "input": 2e-05,
-        "output": 7.5e-05,
-        "cache_read": 2e-06
+        "input": 0.00002,
+        "output": 0.000075,
+        "cache_read": 0.000002,
+        "cache_write": 0.000025,
+        "cache_write_1h": 0.00005
       }
     ]
   }

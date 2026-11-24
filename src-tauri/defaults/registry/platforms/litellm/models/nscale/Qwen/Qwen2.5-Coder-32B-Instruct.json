@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nscale/Qwen/Qwen2.5-Coder-32B-Instruct",
+  "context_window": 131072,
+  "canonical_model": "Qwen/Qwen2.5-Coder-32B-Instruct",
+  "family": "Qwen",
+  "version": "2.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-8,
+    "output": 2e-7
+  }
+}

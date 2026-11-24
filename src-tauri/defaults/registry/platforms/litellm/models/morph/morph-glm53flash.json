@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "morph/morph-glm53flash",
+  "canonical_model": "morph-glm53flash",
+  "family": "morph",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-7,
+    "output": 7e-7,
+    "cache_read": 4e-8
+  }
+}

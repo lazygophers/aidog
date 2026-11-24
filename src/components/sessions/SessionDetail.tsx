@@ -6,8 +6,7 @@ import { useTranslation } from "react-i18next";
 import { ChevronDown } from "lucide-react";
 import { LineChart, StackedAreaChart } from "../charts";
 import { clientUsageApi, type ClientUsageAgentGroup, type ClientUsageSessionDetail } from "../../services/api/clientUsage";
-import { contextCompressApi } from "../../services/api/contextCompress";
-import { formatNumber, formatPercent } from "../../utils/formatters";
+import { formatNumber } from "../../utils/formatters";
 import { SessionCost } from "./SessionCost";
 
 type Load<T> = { state: "loading" } | { state: "error"; error: string } | { state: "ready"; detail: T };
@@ -116,19 +115,6 @@ export function SessionDetail({ clientCode, sessionId, sidechainCalls = 0 }: { c
             <h4 className="mb-2 text-sm font-medium text-muted-foreground">{t("sessions.contextChart", "Context tokens per call")}</h4>
             <LineChart config={contextConfig} data={contextData} height={180} valueFormat={formatNumber} />
           </div>
-          <LazyBlock title="sqz" testId="session-detail-sqz" content={() =>
-            <p className="text-sm text-muted-foreground">{t("sessions.toolSessionUnavailable", "The source does not identify this session; session totals are unavailable.")}</p>
-          } />
-          <LazyBlock title="rtk" testId="session-detail-rtk" content={() =>
-            <p className="text-sm text-muted-foreground">{t("sessions.toolSessionUnavailable", "The source does not identify this session; session totals are unavailable.")}</p>
-          } />
-          <LazyBlock title="context-mode" testId="session-detail-context-mode" fetch={async () =>
-            (await contextCompressApi.contextModeSessions()).find((r) => r.session_id === sessionId)?.reduction_pct
-          }>
-            {(ratio) => ratio == null
-              ? <p className="text-sm text-muted-foreground">{t("sessions.toolSessionUnavailable", "The source does not identify this session; session totals are unavailable.")}</p>
-              : <p className="text-sm text-muted-foreground" data-testid="session-detail-context-mode-value" data-pct={String(ratio)}>{t("sessions.ctxRatio", "Compressed {{pct}}", { pct: formatPercent(ratio) })}</p>}
-          </LazyBlock>
           <LazyBlock title={t("sessions.detailHistory", "Interactions")} testId="session-detail-history" fetch={fetchPart("interactions")}>
             {(d) => d.interactions.length === 0
               ? <p className="text-sm text-muted-foreground">{t("sessions.detailHistoryEmpty", "No interactions found in the source files.")}</p>

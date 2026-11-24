@@ -36,7 +36,7 @@ pub struct Col {
     pub large: Option<(u8, bool)>,
 }
 
-/// proxy_log 全列目录：52 列，按表定义顺序。
+/// proxy_log 全列目录：53 列，按表定义顺序。
 pub const PROXY_LOG_CATALOG: &[Col] = &[
     Col { name: "id", side: Side::Meta, large: None },
     Col { name: "group_key", side: Side::Meta, large: None },
@@ -90,11 +90,13 @@ pub const PROXY_LOG_CATALOG: &[Col] = &[
     Col { name: "compaction", side: Side::Meta, large: None },
     Col { name: "context_compacted", side: Side::Meta, large: None },
     Col { name: "prev_tool_durations", side: Side::Meta, large: None },
+    // 生图费用状态（20261124-01）：Meta，恒落库，不参与两侧 strip。
+    Col { name: "fee_state", side: Side::Meta, large: None },
 ];
 
 // ---- 派生：列清单与写入 SQL ------------------------------------------------
 
-/// 全 52 列 CSV（`LazyLock` 派生，运行期文本不变）。替代旧手写 `PROXY_LOG_COLUMNS`；
+/// 全 53 列 CSV（`LazyLock` 派生，运行期文本不变）。替代旧手写 `PROXY_LOG_COLUMNS`；
 /// 列序 == 目录序 == 表定义序（tests 锁定逐字相等）。
 static COLUMNS_CSV: LazyLock<String> = LazyLock::new(|| {
     PROXY_LOG_CATALOG
@@ -239,8 +241,8 @@ mod tests {
     /// 目录列序逐字锁定旧手写列清单（row_to_proxy_log 位置下标依赖此序，漂移即红）。
     #[test]
     fn columns_csv_matches_legacy_handwritten_order() {
-        const LEGACY_52: &str = "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, cache_write_tokens, cache_write_1h_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, done, field_trace, body_omitted, routing, client, user_agent, session_key, up_bytes, down_bytes, request_class, agent_type, prompt_id, session_id, agent_id, parent_agent_id, compaction, context_compacted, prev_tool_durations";
-        assert_eq!(columns_csv(), LEGACY_52);
+        const LEGACY_53: &str = "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, cache_write_tokens, cache_write_1h_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, done, field_trace, body_omitted, routing, client, user_agent, session_key, up_bytes, down_bytes, request_class, agent_type, prompt_id, session_id, agent_id, parent_agent_id, compaction, context_compacted, prev_tool_durations, fee_state";
+        assert_eq!(columns_csv(), LEGACY_53);
     }
 
     /// 派生 SQL 运行期文本不变（验收 2）：连续两次取到同一 `&'static str` 指针。
@@ -258,12 +260,12 @@ mod tests {
         assert!(insert_sql(true).ends_with(&format!("VALUES ({})", values_placeholders())));
     }
 
-    /// 占位符数 = 目录列数 = 52，编号连续。
+    /// 占位符数 = 目录列数 = 53，编号连续。
     #[test]
     fn placeholders_match_catalog_len() {
         let p = values_placeholders();
-        assert_eq!(p, (1..=52).map(|i| format!("?{i}")).collect::<Vec<_>>().join(","));
-        assert_eq!(PROXY_LOG_CATALOG.len(), 52);
+        assert_eq!(p, (1..=53).map(|i| format!("?{i}")).collect::<Vec<_>>().join(","));
+        assert_eq!(PROXY_LOG_CATALOG.len(), 53);
     }
 
     /// 大字段位 0..7 唯一连续；响应侧恰 4 列且与终态强制携带清单一致（不变量 ③）。

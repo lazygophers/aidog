@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795488925,
   "holiday_calendar": "US-NY",
   "endpoints": {
     "default": [
@@ -15,33 +15,33 @@
   },
   "models": {
     "default": {
-      "default": ["openai/gpt-5.5"],
-      "opus": ["anthropic/claude-opus-4.8"],
-      "haiku": ["anthropic/claude-haiku-4.5-20251001"]
+      "default": ["openai/gpt-5.5"]
+
+
     }
   },
   "model_list": {
     "default": [
-      "anthropic/claude-haiku-4.5-20251001",
-      "anthropic/claude-haiku-4.5-20251001-coding",
-      "anthropic/claude-opus-4-20250514",
-      "anthropic/claude-opus-4-20250514-coding",
-      "anthropic/claude-opus-4.1-20250805",
-      "anthropic/claude-opus-4.1-20250805-coding",
-      "anthropic/claude-opus-4.5-20251101",
-      "anthropic/claude-opus-4.5-20251101-coding",
-      "anthropic/claude-opus-4.6",
-      "anthropic/claude-opus-4.6-coding",
-      "anthropic/claude-opus-4.7",
-      "anthropic/claude-opus-4.7-coding",
-      "anthropic/claude-opus-4.8",
-      "anthropic/claude-opus-4.8-coding",
-      "anthropic/claude-sonnet-4-20250514",
-      "anthropic/claude-sonnet-4-20250514-coding",
-      "anthropic/claude-sonnet-4.5-20250929",
-      "anthropic/claude-sonnet-4.5-20250929-coding",
-      "anthropic/claude-sonnet-4.6",
-      "anthropic/claude-sonnet-4.6-coding",
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       "bytedance/doubao-seed-1.6-251015",
       "bytedance/doubao-seed-1.6-flash-250828",
       "bytedance/doubao-seed-1.8-251228",
@@ -52,60 +52,60 @@
       "bytedance/doubao-seed-2.1-pro-260628",
       "bytedance/doubao-seed-2.1-turbo-260628",
       "bytedance/doubao-seed-evolving",
-      "deepseek-ai/DeepSeek-V3.1",
-      "deepseek-ai/DeepSeek-V3.1-Terminus",
+      
+      
       "deepseek-ai/DeepSeek-V3.2-Exp",
-      "deepseek-ai/deepseek-ocr",
+      
       "deepseek-ai/deepseek-v3.2",
       "deepseek-ai/deepseek-v4-flash",
       "deepseek-ai/deepseek-v4-pro",
-      "google/gemini-2.5-flash",
-      "google/gemini-2.5-flash-image",
-      "google/gemini-2.5-flash-lite",
-      "google/gemini-2.5-pro",
+      
+      
+      
+      
       "google/gemini-3-flash-preview",
-      "google/gemini-3.1-flash-image",
+      
       "google/gemini-3.1-flash-lite",
       "google/gemini-3.1-pro-preview",
       "google/gemini-3.5-flash",
       "kwaipilot/kat-coder-air-v2.5",
-      "kwaipilot/kat-coder-pro-v2",
-      "kwaipilot/kat-coder-pro-v2.5",
+      
+      
       "meituan-longcat/longcat-2.0",
-      "minimaxai/minimax-m2.5",
-      "minimaxai/minimax-m2.7",
-      "minimaxai/minimax-m3",
+      
+      
+      
       "moonshotai/kimi-k2.5",
       "moonshotai/kimi-k2.6",
       "moonshotai/kimi-k2.7-code",
-      "openai/gpt-4.1",
-      "openai/gpt-4.1-mini",
-      "openai/gpt-4.1-nano",
-      "openai/gpt-4o",
-      "openai/gpt-4o-mini",
-      "openai/gpt-5",
-      "openai/gpt-5-chat",
-      "openai/gpt-5-codex",
-      "openai/gpt-5-mini",
-      "openai/gpt-5-nano",
-      "openai/gpt-5-pro",
-      "openai/gpt-5.1",
-      "openai/gpt-5.1-chat",
-      "openai/gpt-5.1-codex",
-      "openai/gpt-5.1-codex-max",
-      "openai/gpt-5.1-codex-mini",
-      "openai/gpt-5.2",
-      "openai/gpt-5.2-chat",
-      "openai/gpt-5.2-codex",
-      "openai/gpt-5.3-codex",
-      "openai/gpt-5.4",
-      "openai/gpt-5.4-mini",
-      "openai/gpt-5.4-nano",
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       "openai/gpt-5.5",
-      "openai/gpt-image-2",
-      "openai/o3",
-      "openai/o3-pro",
-      "qwen/qwen3-vl-235b-a22b-thinking",
+      
+      
+      
+      
       "qwen/qwen3.5-122b-a10b",
       "qwen/qwen3.5-27b",
       "qwen/qwen3.5-35b-a3b",
@@ -121,42 +121,82 @@
       "xai/grok-build-0.1",
       "xiaomi/mimo-v2.5",
       "xiaomi/mimo-v2.5-pro",
-      "zai-org/GLM-4.6",
-      "zai-org/glm-4.7",
+      
+      
       "zai-org/glm-5",
-      "zai-org/glm-5-turbo",
+      
       "zai-org/glm-5.1",
       "zai-org/glm-5.2",
       "zai-org/glm-5v-turbo",
-      "anthropic/claude-haiku-4.5-20251001-aws",
-      "anthropic/claude-opus-4.6-aws",
-      "anthropic/claude-opus-4.7-aws",
-      "anthropic/claude-opus-4.8-aws",
-      "anthropic/claude-opus-4.8-ccmax",
-      "anthropic/claude-opus-5",
-      "anthropic/claude-opus-5-ccmax",
-      "anthropic/claude-sonnet-4.6-aws",
-      "anthropic/claude-sonnet-5",
-      "anthropic/claude-sonnet-5-ccmax",
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       "bytedance/doubao-seed-character-260628",
       "deepseek-ai/deepseek-v4-flash-0731",
       "deepseek-ai/deepseek-v4-pro-0813",
       "dots-studio/dots-3-note-prev-free",
-      "google/gemini-3-pro-image",
+      
       "moonshotai/kimi-k3",
       "openai/gpt-5.6-luna",
-      "openai/gpt-5.6-luna-az",
+      
       "openai/gpt-5.6-sol",
-      "openai/gpt-5.6-sol-az",
+      
       "openai/gpt-5.6-terra",
-      "openai/gpt-5.6-terra-az",
+      
       "qwen/qwen3.8-max",
       "xai/grok-4.5",
       "xai/grok-4.6",
       "zai-org/glm-5.3",
-      "anthropic/claude-opus-5-aws",
-      "anthropic/claude-sonnet-5-aws",
-      "Qwen/Qwen3-235B-A22B-Instruct-2507"
+      "tencent/hy4",
+      "google/gemini-4-carbon-developer",
+      "google/gemini-4-hydrogen",
+      "google/gemini-4-neon-developer",
+      "deepseek-ai/deepseek-v4.1-flash-1017",
+      "moonshotai/kimi-k3.1-pro-highspeed",
+      "moonshotai/kimi-k3.1-pro",
+      "google/gemini-4-argon",
+      "google/gemini-4-argon-developer",
+      "tencent/hy4-preview",
+      "deepseek-ai/deepseek-v4.1-flash",
+      "zai-org/glm-5.3-flash",
+      "xai/grok-4.7",
+      "qwen/qwen3.8-27b",
+      "google/gemini-3.8-flash",
+      "google/gemini-3.8-flash-developer",
+      "google/gemini-3.8-flash-developer-as",
+      "google/gemini-3.5-flash-lite",
+      "google/gemini-3.6-flash",
+      "google/gemini-3.7-flash",
+      "openai/gpt-6.1-sol",
+      "openai/gpt-6.1-sol-codex",
+      "openai/gpt-6.2-sol",
+      "openai/gpt-6.2-sol-codex",
+      "openai/gpt-6.2-sol-developer-az",
+      "google/gemini-3-flash-preview-developer",
+      "google/gemini-3-flash-preview-developer-as",
+      "openai/gpt-6-astra",
+      "openai/gpt-5.6-sol-codex",
+      "openai/gpt-6-sol-codex",
+      "openai/gpt-6-astra-codex",
+      "openai/gpt-6-luna-codex",
+      "openai/gpt-6-luna",
+      "openai/gpt-6-sol",
+      "openai/gpt-6.1-terra-codex",
+      "openai/gpt-6-astra-oai",
+      "openai/gpt-6-luna-oai",
+      "openai/gpt-6-sol-oai",
+      "openai/gpt-6.1-terra",
+      "openai/gpt-6.2-astra",
+      "openai/gpt-6.2-astra-codex",
+      "openai/gpt-6.2-astra-developer-az",
+      "openai/gpt-6-luna-developer-az"
     ]
   },
   "name": {

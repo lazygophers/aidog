@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "twelvelabs.marengo-embed-3-0-v1:0",
+  "canonical_model": "twelvelabs.marengo-embed-3-0-v1",
+  "family": "twelvelabs",
+  "version": "3",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 500,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "unit": "image",
+    "unit_price": 0.0001
+  }
+}

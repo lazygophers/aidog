@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/eu-north-1/amazon.nova-2-5-sonic",
+  "canonical_model": "eu-north-1/amazon.nova-2-5-sonic",
+  "family": "eu",
+  "version": "2",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.63e-7,
+    "output": 0.000002992
+  }
+}

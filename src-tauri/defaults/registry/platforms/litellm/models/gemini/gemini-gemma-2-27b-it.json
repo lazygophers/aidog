@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gemini/gemini-gemma-2-27b-it",
+  "canonical_model": "gemini-gemma-2-27b-it",
+  "family": "gemma",
+  "version": "2",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.5e-7,
+    "output": 0.00000105
+  }
+}

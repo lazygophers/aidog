@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "fal_ai/fal-ai/moondream3-preview/query",
+  "canonical_model": "fal-ai/moondream3-preview/query",
+  "family": "fal",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4e-7,
+    "output": 0.0000035
+  }
+}

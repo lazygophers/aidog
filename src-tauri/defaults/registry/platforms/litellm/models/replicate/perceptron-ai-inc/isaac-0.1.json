@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/perceptron-ai-inc/isaac-0.1",
+  "canonical_model": "perceptron-ai-inc/isaac-0.1",
+  "family": "perceptron",
+  "version": "0.1",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.6e-7,
+    "output": 0.00000217
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure_ai/Cohere-Embed-V5-Fast",
+  "canonical_model": "Cohere-Embed-V5-Fast",
+  "family": "Cohere",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8e-8,
+    "output": 0
+  }
+}

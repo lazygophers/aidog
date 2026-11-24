@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "opencode_go/qwen3.8-flash",
+  "canonical_model": "qwen3.8-flash",
+  "family": "qwen",
+  "version": "3.8",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-7,
+    "output": 4.6999999999999995e-7,
+    "cache_read": 1.6e-8,
+    "cache_write": 2.0000000000000002e-7
+  }
+}

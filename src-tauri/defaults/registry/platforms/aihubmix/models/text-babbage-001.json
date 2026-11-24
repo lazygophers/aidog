@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "text-babbage-001",
   "canonical_model": "text-babbage-001",
+  "version": "001",
   "family": "babbage",
   "display_name": "Text Babbage 001",
   "capabilities": [],
@@ -15,7 +16,7 @@
   "thinking_toggleable": false,
   "price": {
     "currency": "USD",
-    "input": 5e-07,
-    "output": 5e-07
+    "input": 5e-7,
+    "output": 5e-7
   }
 }

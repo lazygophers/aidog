@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/claude-haiku-4-5",
+  "canonical_model": "claude-haiku-4-5",
+  "family": "claude",
+  "version": "4.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000135,
+    "output": 0.00000675,
+    "cache_read": 1.35e-7
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/sa-east-1/openai.gpt-oss-safeguard-20b",
+  "canonical_model": "bedrock/sa-east-1/openai.gpt-oss-safeguard-20b",
+  "family": "bedrock",
+  "version": "20b",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 16000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8e-8,
+    "output": 2.4e-7
+  }
+}

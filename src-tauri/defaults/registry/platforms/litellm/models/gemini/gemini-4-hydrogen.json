@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gemini/gemini-4-hydrogen",
+  "canonical_model": "gemini-4-hydrogen",
+  "family": "gemini",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.0000075,
+    "cache_read": 7.5e-8
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "glm-5.3",
+  "display_name": "glm-5.3",
+  "canonical_model": "glm-5.3",
+  "family": "glm",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000014,
+    "output": 0.0000044
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "context_window": 1048576
+}

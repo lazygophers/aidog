@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "kimi-k3.1-pro-highspeed",
+  "canonical_model": "kimi-k3.1-pro-highspeed",
+  "display_name": "Kimi K3.1 Pro Highspeed",
+  "max_output_tokens": 1048576,
+  "context_window": 1048576,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000004,
+    "output": 0.000021,
+    "cache_read": 2.0000000000000002e-7
+  }
+}

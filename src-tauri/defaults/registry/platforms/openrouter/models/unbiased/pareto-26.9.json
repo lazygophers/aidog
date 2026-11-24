@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "unbiased/pareto-26.9",
+  "canonical_model": "pareto-26.9",
+  "family": "pareto",
+  "version": "26.9",
+  "display_name": "Pareto 26.9",
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 131072,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.0000025,
+    "output": 0.0000075,
+    "cache_read": 2.5e-7
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "radixark/daisyrose-27b",
+  "canonical_model": "daisyrose-27b",
+  "family": "daisyrose",
+  "display_name": "RadixArk: DaisyRose 27B",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 235929,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-7,
+    "output": 0.000001875,
+    "cache_read": 3.75e-8
+  }
+}

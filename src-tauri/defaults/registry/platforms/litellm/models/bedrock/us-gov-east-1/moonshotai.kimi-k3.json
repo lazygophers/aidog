@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/us-gov-east-1/moonshotai.kimi-k3",
+  "canonical_model": "bedrock/us-gov-east-1/moonshotai.kimi-k3",
+  "family": "bedrock",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 868928,
+  "context_window": 868928,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000396,
+    "output": 0.0000198,
+    "cache_read": 3.96e-7,
+    "cache_write": 0.00000495
+  }
+}

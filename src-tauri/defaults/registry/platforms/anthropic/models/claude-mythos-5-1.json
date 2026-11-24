@@ -17,9 +17,12 @@
     "anthropic"
   ],
   "price": {
+    "currency": "USD",
     "input": 1e-05,
     "output": 5e-05,
-    "cache_read": 2.5e-07
+    "cache_read": 2.5e-07,
+    "cache_write": 0.0000125,
+    "cache_write_1h": 0.00002
   },
-  "last_updated": 1794627749
+  "last_updated": 1795488925
 }

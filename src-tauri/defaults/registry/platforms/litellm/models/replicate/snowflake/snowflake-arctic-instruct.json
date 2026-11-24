@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/snowflake/snowflake-arctic-instruct",
+  "canonical_model": "snowflake/snowflake-arctic-instruct",
+  "family": "snowflake",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00002,
+    "output": 0.00002
+  }
+}

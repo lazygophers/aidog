@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "gemini"
+  ],
+  "model_id": "gemini-4-hydrogen",
+  "display_name": "Gemini 4 Hydrogen",
+  "canonical_model": "gemini-4-hydrogen",
+  "version": "4",
+  "family": "gemini",
+  "thinking_supported": true,
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.0000075,
+    "cache_read": 7.5e-8
+  },
+  "context_window": 1048576
+}

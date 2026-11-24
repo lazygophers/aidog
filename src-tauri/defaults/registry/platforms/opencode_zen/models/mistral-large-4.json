@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "mistral-large-4",
+  "display_name": "Mistral Large 4",
+  "canonical_model": "mistral-large-4",
+  "family": "mistral",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6.8e-7,
+    "output": 0.00000209,
+    "cache_read": 7e-8
+  },
+  "context_window": 524288
+}

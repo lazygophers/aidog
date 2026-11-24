@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "deepseek/deepseek-ocr-2",
+  "display_name": "DeepSeek OCR 2",
   "canonical_model": "deepseek-ocr-2",
   "version": "2",
   "family": "deepseek",

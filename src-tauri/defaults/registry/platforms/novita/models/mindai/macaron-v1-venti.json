@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "mindai/macaron-v1-venti",
+  "display_name": "Macaron V1 Venti",
   "canonical_model": "macaron-v1-venti",
   "capabilities": [
     "text",

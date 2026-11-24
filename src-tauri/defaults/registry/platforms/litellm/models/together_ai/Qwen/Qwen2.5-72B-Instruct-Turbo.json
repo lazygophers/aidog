@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "together_ai/Qwen/Qwen2.5-72B-Instruct-Turbo",
+  "canonical_model": "Qwen/Qwen2.5-72B-Instruct-Turbo",
+  "family": "Qwen",
+  "version": "2.5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000012,
+    "output": 0.0000012
+  }
+}

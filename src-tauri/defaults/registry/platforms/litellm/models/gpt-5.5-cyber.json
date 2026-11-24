@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-5.5-cyber",
+  "canonical_model": "gpt-5.5-cyber",
+  "family": "gpt",
+  "version": "5.5",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000125,
+    "output": 0.000075,
+    "cache_read": 0.00000125
+  },
+  "context_window": 1050000
+}

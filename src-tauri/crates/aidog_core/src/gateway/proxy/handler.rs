@@ -189,8 +189,11 @@ pub(crate) async fn handle_proxy_core(
     orig_headers.remove(super::endpoint::GROUP_HEADER);
 
     // ── 读取请求体 ──
+    // 图片编辑（票 05）：官方单文件 <50MB，10MB 缺省装不下多参考图；放宽到 64MB
+    //（官方 16 张 ×50MB 的理论上限不照收，防内存放大；超限走下方读体失败 400 路径）。
+    let body_cap = if is_image_edit_endpoint(&path) { 64 * 1024 * 1024 } else { 10 * 1024 * 1024 };
     let (_parts, body) = req.into_parts();
-    let bytes = match axum::body::to_bytes(body, 10 * 1024 * 1024).await {
+    let bytes = match axum::body::to_bytes(body, body_cap).await {
         Ok(b) => b,
         Err(e) => {
             log.response_body = format!("read body error: {e}");
@@ -359,13 +362,17 @@ pub(crate) async fn handle_proxy_core(
     // 入站客户端识别（只看 UA）：此后所有选平台转发的路径共用同一闸门（客户端白名单）。
     let client_gate = ClientGate::On(super::client_detect::client_probe(&orig_headers));
 
-    // ── 透传平台（ADR 0008）认领协议子端点：下方三个分流按协议处理、不认识透传平台 ──
+    // ── 透传平台（ADR 0008）认领协议子端点：下方各分流按协议处理、不认识透传平台 ──
+    // 生图 / 编辑（票 09）与 embeddings / rerank 同列：透传平台不识别协议，
+    // 原样转发（model 不改写），不进 image 槽位分流。
     // 白名单拦下整组 → 直接 403/503，不得落回协议分支（那些分支各自有闸门，但此处先收口）。
     if is_responses_subendpoint(&path)
         || is_count_tokens_endpoint(&path)
         || is_decision_endpoint(&path)
         || is_embedding_endpoint(&path)
         || is_rerank_endpoint(&path)
+        || is_image_endpoint(&path)
+        || is_image_edit_endpoint(&path)
     {
         match super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model, client_gate.clone())
             .await
@@ -470,6 +477,48 @@ pub(crate) async fn handle_proxy_core(
             &group,
             &bytes,
             None,
+            super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
+        )
+        .await;
+    }
+
+    // ── 未实现的生图子端点：明确报不支持，不落聊天解析（那会报无关 messages/JSON 错误）──
+    // /v1/images/variations（图变体）未实现：400 + blocked_reason 审计行。
+    if is_image_variation_endpoint(&path) {
+        log.blocked_by = "router".to_string();
+        log.blocked_reason = "image_variations_unsupported".to_string();
+        log.done = true;
+        log.status_code = 400;
+        let msg = i18n::t(lang, ErrorKey::ImageVariationsUnsupported).to_string();
+        log.response_body = msg.clone();
+        log.user_response_body = msg.clone();
+        log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(&state, &log, &log_settings).await;
+        let mut r = (StatusCode::BAD_REQUEST, msg).into_response();
+        inject_trace_header(&mut r);
+        return r;
+    }
+
+    // ── 生图请求分流（生图-模型类型 票 04 / 05）──
+    // /images/{generations,edits} 无 messages，进 parse_incoming_request 会本地 400。
+    if is_image_endpoint(&path) || is_image_edit_endpoint(&path) {
+        let spec = if is_image_edit_endpoint(&path) {
+            &super::aux_model::IMAGE_EDITS
+        } else {
+            &super::aux_model::IMAGE
+        };
+        let ct = orig_headers
+            .get(axum::http::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        return super::aux_model::handle_aux_model(
+            spec,
+            &state,
+            &mut log,
+            &group,
+            &bytes,
+            ct.as_deref(),
             super::call_scope::ReqCtx { log_settings: &log_settings, start, lang, client: client_gate },
         )
         .await;

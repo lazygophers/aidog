@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "nvidia-llama-3.3-nemotron-super-49b-v1.5",
   "canonical_model": "nvidia-llama-3.3-nemotron-super-49b-v1.5",
+  "version": "1.5",
   "family": "nemotron",
   "display_name": "Nvidia Llama 3.3 Nemotron Super 49B V1.5",
   "capabilities": [],
@@ -15,7 +16,7 @@
   "thinking_toggleable": true,
   "price": {
     "currency": "USD",
-    "input": 1.1e-07,
-    "output": 4.4e-07
+    "input": 1.1e-7,
+    "output": 4.4e-7
   }
 }

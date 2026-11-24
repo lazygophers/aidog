@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "vercel_ai_gateway/openai/gpt-6-luna-decisions",
+  "canonical_model": "openai/gpt-6-luna-decisions",
+  "family": "openai",
+  "version": "6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1050000,
+  "context_window": 1050000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 0,
+    "cache_read": 1e-8,
+    "cache_write": 1.25e-7
+  }
+}

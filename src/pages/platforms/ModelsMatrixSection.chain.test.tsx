@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("../../domains/platforms/modelPrices", () => ({ useModelPrices: () => new Map() }));
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 
-const empty = { embedding: [], rerank: [], default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [] };
+const empty = { embedding: [], rerank: [], image: [], default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [] };
 
 function mount(over: Record<string, unknown>) {
   const onModelsChange = vi.fn();

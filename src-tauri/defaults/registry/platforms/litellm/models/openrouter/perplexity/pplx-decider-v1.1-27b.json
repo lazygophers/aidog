@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/perplexity/pplx-decider-v1.1-27b",
+  "canonical_model": "perplexity/pplx-decider-v1.1-27b",
+  "family": "perplexity",
+  "version": "1.1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-8,
+    "output": 0
+  }
+}

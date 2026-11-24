@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure_ai/kimi-k3.1-pro",
+  "canonical_model": "kimi-k3.1-pro",
+  "family": "kimi",
+  "version": "3.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000023,
+    "output": 0.0000115,
+    "cache_read": 2.3e-7
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "c4ai-aya-expanse-32b",
+  "canonical_model": "c4ai-aya-expanse-32b",
+  "family": "c4ai",
+  "version": "32b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 4000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-7,
+    "output": 0.0000015
+  }
+}

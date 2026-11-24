@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "sail/deepseek-ai/DeepSeek-V4.1-Flash",
+  "canonical_model": "deepseek-ai/DeepSeek-V4.1-Flash",
+  "family": "deepseek",
+  "version": "4.1",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 9e-8,
+    "output": 3e-7,
+    "cache_read": 6e-9
+  }
+}

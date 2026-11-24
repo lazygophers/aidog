@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "wally/deepseek-v4-flash-0731",
+  "canonical_model": "deepseek-v4-flash-0731",
+  "family": "deepseek",
+  "version": "0731",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 65536,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.4e-7,
+    "output": 0.00000132,
+    "cache_read": 1.4e-8
+  }
+}

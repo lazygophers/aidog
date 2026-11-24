@@ -1,35 +1,12 @@
 //! MCP 工具 provider 设置的数据形状与读取。
 //!
 //! 设置键：scope = `"mcp_tools"`，key = `"settings"`。写入走通用设置命令；内核 `mcp`
-//! 子命令与网关按这份配置取搜索 / 生图 provider。
+//! 子命令与网关按这份配置取搜索 provider（生图 provider 已移除，票 08）。
 
 use aidog_db::{self as db, Db};
 
 /// 搜索设置（定义在 `aidog_search`，供网关 / HTTP MCP / kernel 共用而不成环）。
 pub use aidog_search::SearchProviderConfig;
-
-/// 生图 provider 配置：OpenAI images 兼容端点（D5：走用户配置的平台，
-/// `base_url` 含版本前缀，最终 URL = base_url + 端点路径，禁额外拼接）。
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Default)]
-pub struct MediaProviderConfig {
-    /// 兼容端点 base_url（含版本前缀，如 `https://api.openai.com/v1`）。
-    #[serde(default)]
-    pub base_url: String,
-    #[serde(default)]
-    pub api_key: String,
-    /// 模型名（provider 侧的请求名）。
-    #[serde(default)]
-    pub model: String,
-}
-
-impl MediaProviderConfig {
-    /// 是否已配置到可用。
-    pub fn is_configured(&self) -> bool {
-        !self.base_url.trim().is_empty()
-            && !self.api_key.trim().is_empty()
-            && !self.model.trim().is_empty()
-    }
-}
 
 /// 抓网页（web_fetch）设置：「启用」开关（缺省 true）+ 返回格式（缺省 markdown；旧配置无该键
 /// → markdown，属行为变更但为拍板结果；非法值整个 settings 解析失败回落全默认值）。
@@ -60,9 +37,8 @@ pub struct McpToolsSettings {
     /// 抓网页；缺省启用。
     #[serde(default)]
     pub fetch: FetchConfig,
-    /// 生图 provider；None = generate_image 未配置。
-    #[serde(default)]
-    pub image: Option<MediaProviderConfig>,
+    // 生图 provider 配置已移除（生图-模型类型 票 08）：MCP 生图统一走调用方分组的
+    // image 槽位链。存量 DB 值含 `image` 键 → serde 默认忽略未知字段，反序列化不炸。
 }
 
 /// 读设置。无记录 / 解析失败 → 默认值，不 panic。
@@ -125,7 +101,6 @@ mod test_mcp_tools {
         assert_eq!(partial.search.services["tavily"].keys.len(), 2);
         assert_eq!(partial.search.mode, aidog_search::SearchMode::Sequential, "缺省 mode = sequential");
         assert!(partial.search.enabled);
-        assert_eq!(partial.image, None);
     }
 
     #[test]
@@ -140,20 +115,11 @@ mod test_mcp_tools {
     }
 
     #[test]
-    fn media_is_configured_rejects_blank_values() {
-        let m = MediaProviderConfig {
-            base_url: "https://api.openai.com/v1".into(),
-            api_key: "k".into(),
-            model: String::new(),
-        };
-        assert!(!m.is_configured(), "缺 model 不算配置");
-    }
-
-    #[test]
-    fn legacy_video_key_is_ignored() {
-        // 旧配置残留 video 键：serde 忽略未知字段，不报错。
+    fn legacy_video_and_image_keys_are_ignored() {
+        // 旧配置残留 video / image 键：serde 忽略未知字段，不报错（票 08：image 不迁移）。
         let s: McpToolsSettings = serde_json::from_value(json!({
-            "video": {"base_url": "https://v/v1", "api_key": "k", "model": "m"}
+            "video": {"base_url": "https://v/v1", "api_key": "k", "model": "m"},
+            "image": {"base_url": "https://i/v1", "api_key": "k", "model": "m"}
         }))
         .unwrap();
         assert_eq!(s, McpToolsSettings::default());
@@ -181,7 +147,6 @@ mod test_mcp_tools {
         assert!(!first.search.sources.contains(&"brave".to_string()), "key 服务不进列表");
         assert!(!first.search.sources.contains(&"bing".to_string()), "旧 engines 关掉的不进");
         assert_eq!(first.search.services["brave"].keys, vec!["k1".to_string()], "key 保留");
-        assert_eq!(first.image.as_ref().unwrap().model, "m", "image 不受影响");
         // 已回写：库里已是新形状
         let stored = db::get_setting(&db, "mcp_tools", "settings").await.unwrap().unwrap();
         assert!(stored["search"].get("sources").is_some() && stored["search"].get("provider").is_none(), "{stored}");

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "openai"
   ],
@@ -18,8 +18,10 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
+    "cache_write": 5.0001e-7,
+    "cache_read": 5.0001e-7,
     "currency": "USD",
     "input": 5.0001e-07,
-    "output": 1.5000300000000002e-06
+    "output": 0.00000150003
   }
 }

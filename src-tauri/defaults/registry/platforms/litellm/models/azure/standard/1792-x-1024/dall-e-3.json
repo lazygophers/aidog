@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/standard/1792-x-1024/dall-e-3",
+  "canonical_model": "standard/1792-x-1024/dall-e-3",
+  "family": "standard",
+  "version": "3",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "unit": "mp",
+    "unit_price": 0.0479562
+  }
+}

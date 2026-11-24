@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "longcat-2.5",
+  "display_name": "LongCat-2.5",
+  "canonical_model": "LongCat-2.5",
+  "family": "longcat",
+  "version": "2.5",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 0.0000012,
+    "cache_read": 6e-9,
+    "cache_write": 0
+  },
+  "context_window": 1000000
+}

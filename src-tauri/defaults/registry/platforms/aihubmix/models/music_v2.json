@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "music_v2",
+  "canonical_model": "music_v2",
+  "display_name": "Eleven Music v2",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0
+  }
+}

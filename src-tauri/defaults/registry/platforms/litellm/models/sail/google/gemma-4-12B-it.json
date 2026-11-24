@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "sail/google/gemma-4-12B-it",
+  "canonical_model": "google/gemma-4-12B-it",
+  "family": "google",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 16384,
+  "context_window": 16384,
+  "max_output_tokens": 16384,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 0.000002,
+    "cache_read": 1.5e-7
+  }
+}

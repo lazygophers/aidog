@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "cloudflare/@cf/cloudflare/clairic",
+  "canonical_model": "@cf/cloudflare/clairic",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 65536,
+  "context_window": 65536,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 0
+  }
+}

@@ -1,7 +1,7 @@
 // 模型链编辑器（槽位 / 时段共用）：增 / 删 / 调序 / 去重 / 空值过滤。
 // 选择器锚稳定 data-testid + data-state，不锚文案 / class / DOM 层级；拖拽只断言 onDragEnd 之后状态（落点判定列人工验收）。
-import { describe, it, expect, vi } from "vitest";
-import { render, fireEvent } from "../../test/render";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { render, fireEvent, testI18n } from "../../test/render";
 
 let dragEnd: ((e: unknown) => void) | undefined;
 vi.mock("@dnd-kit/core", async (orig) => {
@@ -14,10 +14,19 @@ vi.mock("@dnd-kit/core", async (orig) => {
     },
   };
 });
-vi.mock("../../domains/platforms/modelPrices", () => ({ useModelPrices: () => new Map() }));
+const { prices } = vi.hoisted(() => ({ prices: new Map() }));
+vi.mock("../../domains/platforms/modelPrices", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../domains/platforms/modelPrices")>(),
+  useModelPrices: () => prices,
+}));
 import { ModelChainEditor } from "./ModelChainEditor";
 
 const t = ((key: string, fallback?: string) => fallback ?? key) as never;
+
+afterEach(() => {
+  prices.clear();
+  testI18n.removeResourceBundle("zh-Hans", "translation");
+});
 
 function mount(value: string[], source: string[] = ["a", "b", "c", "d"]) {
   const onChange = vi.fn();
@@ -31,6 +40,16 @@ const optionIds = () =>
   Array.from(document.body.querySelectorAll('[data-testid^="model-option-"]')).map((e) => e.getAttribute("data-testid"));
 
 describe("ModelChainEditor", () => {
+  it("已选模型胶囊显示紧凑价格和跨平台来源", () => {
+    testI18n.addResource("zh-Hans", "translation", "common.priceFromPlatform", "price from {{platform}}");
+    prices.set("a", { free: false, input: 1e-6, sourcePlatform: "openai" });
+    prices.set("b", { free: false, input: 2e-6 });
+    const { q } = mount(["a", "b"]);
+    expect(q("chip-a")?.textContent).toContain("in $1.00");
+    expect(q("chip-a")?.textContent).toContain("price from openai");
+    expect(q("chip-b")?.textContent).toContain("in $2.00");
+  });
+
   it("chip 按链序渲染，首个 primary 其余 backup", () => {
     const { q } = mount(["a", "b", "c"]);
     expect(q("chip-a")?.getAttribute("data-state")).toBe("primary");

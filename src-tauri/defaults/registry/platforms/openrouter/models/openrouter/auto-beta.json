@@ -1,6 +1,6 @@
 {
   "model_id": "openrouter/auto-beta",
-  "max_output_tokens": 64000,
+  "max_output_tokens": 128000,
   "thinking_supported": true,
   "display_name": "Auto Router (Beta)",
   "canonical_model": "auto-beta",
@@ -13,7 +13,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1794592077,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"

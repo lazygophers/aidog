@@ -27,9 +27,9 @@ function mountTime(over: Record<string, unknown>) {
 const sw = (slot: string) => document.body.querySelector(`[data-testid="time-slot-enabled-${slot}"]`) as HTMLElement;
 
 describe("时段档行的启用开关", () => {
-  it("8 个内置槽各有开关，data-state 反映本档 disabled_slots", () => {
+  it("9 个内置槽各有开关，data-state 反映本档 disabled_slots", () => {
     mountTime({ rules: [{ windows: [], models: {}, disabled_slots: ["opus"] }] });
-    for (const s of ["default", "sonnet", "opus", "haiku", "gpt", "jev", "embedding", "rerank"]) {
+    for (const s of ["default", "sonnet", "opus", "haiku", "gpt", "jev", "embedding", "rerank", "image"]) {
       expect(sw(s)).not.toBeNull();
     }
     expect(sw("opus").getAttribute("data-state")).toBe("unchecked");

@@ -8,7 +8,7 @@ import { useState } from "react";
 import { ManualBudgetsFields, RateLimitsSection, PeakSection, DirectModelsSection, AppbuilderKeySection, ClientWhitelistSection } from "./formSections";
 import type { ManualBudget, RateLimitsBundle, TimeWindow } from "../domains/platforms/defaults";
 import type { PlanQuotaTier } from "../domains/platforms/defaults";
-import { getDefaultModelList } from "../../domains/platforms";
+import { getDefaultModelList, getDefaultPeak } from "../../domains/platforms";
 
 vi.mock("../../domains/platforms", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../../domains/platforms")>();
@@ -237,6 +237,57 @@ function renderPeak(windows: TimeWindow[]) {
 }
 
 describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
+  it("UTC 窗口在时区选择器中可见", () => {
+    const { container } = renderPeak([{ start_hour: 0, end_hour: 24, multiplier: 2, timezone: "UTC" }]);
+    expect(container.querySelectorAll('[role="combobox"]')[0]?.textContent).toContain("UTC");
+  });
+  it("打开编辑区时自动导入默认倍率并填入本地时区", async () => {
+    vi.mocked(getDefaultPeak).mockResolvedValueOnce([
+      { start_hour: 0, end_hour: 24, multiplier: 2 },
+    ]);
+    const { container, setWindows } = renderPeak([]);
+    await waitFor(() => expect(setWindows).toHaveBeenCalledTimes(1));
+    const imported = setWindows.mock.calls[0][0] as TimeWindow[];
+    const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    expect(imported[0].timezone).toBe(localTimezone);
+  });
+
+  it("导入默认倍率窗口 → 给缺失时区填本地值并保留已有时区", async () => {
+    vi.mocked(getDefaultPeak).mockResolvedValueOnce([
+      { start_hour: 0, end_hour: 24, multiplier: 2 },
+      { start_hour: 9, end_hour: 18, multiplier: 3, timezone: "Asia/Tokyo" },
+    ]);
+    const { container, setWindows } = renderPeak([]);
+    await waitFor(() => expect(Array.from(container.querySelectorAll("button")).some(b => b.textContent.includes("Import default"))).toBe(true));
+    fireEvent.click(Array.from(container.querySelectorAll("button")).find(b => b.textContent.includes("Import default"))!);
+    await waitFor(() => expect(Array.from(document.body.querySelectorAll("button")).some(b => b.textContent === "Confirm")).toBe(true));
+    fireEvent.click(Array.from(document.body.querySelectorAll("button")).find(b => b.textContent === "Confirm")!);
+    const imported = setWindows.mock.calls[0][0] as TimeWindow[];
+    expect(imported[0].timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    expect(imported[1].timezone).toBe("Asia/Tokyo");
+  });
+
+  it("新增倍率窗口 → 写入浏览器本地 IANA 时区", () => {
+    const { container, setWindows } = renderPeak([]);
+    const add = Array.from(container.querySelectorAll("button")).find(b => b.textContent.includes("Add window"))!;
+    fireEvent.click(add);
+    const updater = setWindows.mock.calls[0][0] as (prev: TimeWindow[]) => TimeWindow[];
+    expect(updater([])[0].timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+  });
+
+  it("编辑缺失时区的倍率窗口 → 补入本地时区，保留已有自定义时区", () => {
+    const legacy = { start_hour: 0, end_hour: 24, multiplier: 1 };
+    const custom = { ...legacy, timezone: "Asia/Tokyo" };
+    const { container, setWindows } = renderPeak([legacy, custom]);
+    const multipliers = container.querySelectorAll('input[type="number"]');
+    fireEvent.change(multipliers[0], { target: { value: "2" } });
+    fireEvent.change(multipliers[1], { target: { value: "4" } });
+    const legacyUpdate = setWindows.mock.calls[0][0] as (prev: TimeWindow[]) => TimeWindow[];
+    const customUpdate = setWindows.mock.calls[1][0] as (prev: TimeWindow[]) => TimeWindow[];
+    expect(legacyUpdate([legacy, custom])[0].timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    expect(customUpdate([legacy, custom])[1].timezone).toBe("Asia/Tokyo");
+  });
+
   it("全天 ×2 窗口：pill 显示 高峰中 ×2 + 1 个窗口；spark 24 段全亮", () => {
     const { container } = renderPeak([{ start_hour: 0, end_hour: 24, multiplier: 2 }]);
     expect(container.textContent).toContain("Peak ×");

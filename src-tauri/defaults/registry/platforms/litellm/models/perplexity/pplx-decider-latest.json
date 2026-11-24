@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/pplx-decider-latest",
+  "canonical_model": "pplx-decider-latest",
+  "family": "pplx",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-8,
+    "output": 0
+  }
+}

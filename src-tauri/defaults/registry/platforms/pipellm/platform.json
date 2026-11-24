@@ -31,7 +31,7 @@
       "rpm": 600
     }
   ],
-  "last_updated": 1794657886,
+  "last_updated": 1795488926,
   "holiday_calendar": "US-DE",
   "endpoints": {
     "default": [
@@ -54,15 +54,15 @@
   },
   "model_list": {
     "default": [
-      "qwen3.8-max-0902",
+    "qwen3.8-max-0902",
       "gemini-3.8-flash",
       "claude-opus-4-8",
       "claude-sonnet-4-6",
-      "claude-haiku-4-5",
+      
       "claude-opus-4-7",
       "claude-opus-4-6",
-      "claude-opus-4-5",
-      "claude-sonnet-4-5",
+      
+      
       "claude-fable-5",
       "claude-haiku-4-5-20251001",
       "claude-opus-4-5-20251101",
@@ -118,8 +118,8 @@
       "mimo-v2.5",
       "mimo-v2.5-pro",
       "minimax-m2.5",
-      "minimax-m2.7"
-    ]
+      "minimax-m2.7","gemini-4-argon","claude-haiku-5-5","gemini-nano-banana-2.1","gpt-6.1-sol","gpt-6-luna","gpt-6-sol","claude-opus-5-5","deepseek-v4-1-flash","doubao-seedream-5-0-260128","doubao-seedance-2-0-fast-260128","doubao-seedance-2-5-260628","jev-1.13.0","doubao-seedance-2-0-mini-260615","gpt-6-astra","gpt-5.4-nano","gemini-3.5-flash-lite","gemini-3.1-flash-image","rerank-v4.0-pro","rerank-v4.0-fast","seedance-2.0","doubao-seed-2-0-mini-260428","gpt-5.2","kling-o1-text-to-video","kling-2.6pro-image-to-video","kling-2.6pro-text-to-video","sora2-image-to-video","sora2-text-to-video","sora2pro-image-to-video","sora2pro-text-to-video","veo3.1-fast-image-to-video","veo3.1-image-to-video","veo3.1-fast-text-to-video","veo3.1-text-to-video","image-background-remover","gpt-oss-120b","embed-v4.0","gpt-image-2.5-flare","gpt-image-2.5-sunburst","doubao-seed-2-1-pro-260628","doubao-seed-2-0-pro-260215","hy3","glm-5.3-flash","qwen3.7-flash","qwen3.7-max-2026-05-20","qwen3.7-max-2026-06-08","qwen3.7-max","qwen3.7-plus-2026-05-26","qwen3.7-plus","qwen3.8-max","gemini-3.7-flash","gemini-3.1-flash-lite-preview","kimi-k2.5"
+  ]
   },
   "name": {
     "en-US": "PIPELLM",

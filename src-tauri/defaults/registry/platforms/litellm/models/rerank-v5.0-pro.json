@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "rerank-v5.0-pro",
+  "canonical_model": "rerank-v5.0-pro",
+  "family": "rerank",
+  "version": "5.0",
+  "capabilities": [
+    "rerank"
+  ],
+  "max_input_tokens": 32768,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-8,
+    "output": 0
+  }
+}

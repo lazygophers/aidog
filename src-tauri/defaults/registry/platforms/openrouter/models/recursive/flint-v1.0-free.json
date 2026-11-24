@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "recursive/flint-v1.0:free",
+  "canonical_model": "flint-v1.0",
+  "family": "recursive",
+  "display_name": "Recursive: Flint (free)",
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "free": true,
+    "input": 0,
+    "output": 0
+  }
+}

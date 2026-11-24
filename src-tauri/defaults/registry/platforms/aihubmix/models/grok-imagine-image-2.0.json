@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "grok-imagine-image-2.0",
+  "canonical_model": "grok-imagine-image-2.0",
+  "display_name": "Grok Imagine Image 2.0",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001,
+    "output": 0.000001
+  }
+}

@@ -14755,3 +14755,1651 @@ async fn audio_route_fail_no_audio_platform() {
     assert_eq!(log.est_cost, 0.0);
     assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
 }
+
+// ══ image：/v1/images/generations 生图槽位转发端到端（本地假上游，禁外呼）══
+
+const IMG_REQ: &str = r#"{"model":"client-img","prompt":"a cat","n":2,"size":"1024x1024"}"#;
+const IMG_RESPONSE: &str = r#"{"created":1730000000,"data":[{"b64_json":"aGk="},{"b64_json":"aGk="}],"usage":{"input_tokens":10,"output_tokens":50,"total_tokens":60}}"#;
+
+fn image_slot(v: &str) -> PlatformModels {
+    PlatformModels {
+        image: vec![v.into()],
+        ..Default::default()
+    }
+}
+
+fn image_entry(price: &str) -> ModelEntry {
+    ModelEntry {
+        model_id: "img-slot".into(),
+        display_name: "img-slot".into(),
+        canonical_model: "img-slot".into(),
+        capabilities: vec!["image".into()],
+        ..embedding_entry(price)
+    }
+}
+
+/// 路径 /images/generations、model 被槽位覆盖、prompt/n/size 原样、Authorization 为平台 key、
+/// 响应 model 回写、usage 入账、日志协议标签 images。
+#[tokio::test]
+async fn image_request_end_to_end() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkimg",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkimg", IMG_REQ, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v["model"], "client-img", "响应 model 回写客户端原名");
+    assert_eq!(v["data"][0]["b64_json"], "aGk=", "图片结果原样回传");
+    assert_eq!(v["data"].as_array().map(Vec::len), Some(2));
+
+    let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(
+        path, "/v1/images/generations",
+        "base_url(/v1) + /images/generations"
+    );
+    let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
+    assert_eq!(sent["model"], "img-slot", "客户端模型名被槽位覆盖");
+    assert_eq!(sent["prompt"], "a cat");
+    assert_eq!(sent["n"], 2);
+    assert_eq!(sent["size"], "1024x1024");
+    assert_eq!(auth, "Bearer sk-a");
+
+    let log = last_log_for(&state, "gkimg").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(
+        (log.source_protocol.as_str(), log.target_protocol.as_str()),
+        ("images", "images")
+    );
+    assert_eq!(log.model, "client-img");
+    assert_eq!(log.actual_model, "img-slot");
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 50));
+    assert!(
+        (log.est_cost - (10.0 * 2e-8 + 50.0 * 1e-8)).abs() < 1e-15,
+        "got {}",
+        log.est_cost
+    );
+}
+
+/// 计费口径：条目按张（unit:"image"）→ 张数 × unit_price。张数取响应 data 长度；
+/// 响应缺 data 按请求 n 推算；都缺按官方缺省 1 张。
+#[tokio::test]
+async fn image_cost_units_per_image() {
+    let cases: [(&str, &str, &str, &str, f64); 4] = [
+        ("gku1", IMG_REQ, r#"{"unit":"image","unit_price":0.05}"#, IMG_RESPONSE, 0.10),
+        (
+            "gku2",
+            IMG_REQ,
+            r#"{"unit":"image","unit_price":0.05}"#,
+            r#"{"created":1,"data":[{"b64_json":"aGk="}]}"#,
+            0.05,
+        ),
+        // 响应无 data → 按请求 n=2 推算
+        ("gku3", IMG_REQ, r#"{"unit":"image","unit_price":0.05}"#, r#"{"created":1}"#, 0.10),
+        // 请求无 n、响应无 data → 官方缺省 1 张
+        (
+            "gku4",
+            r#"{"model":"client-img","prompt":"x"}"#,
+            r#"{"unit":"image","unit_price":0.05}"#,
+            r#"{"created":1}"#,
+            0.05,
+        ),
+    ];
+    for (gk, req_body, price, resp_body, expected) in cases {
+        let (up, _h) = spawn_embedding_upstream(vec![(200, resp_body)]).await;
+        let state = make_state(test_db().await).await;
+        aidog_db::upsert_model_entries(&state.db, vec![image_entry(price)])
+            .await
+            .unwrap();
+        setup_aux_group(
+            &state,
+            gk,
+            &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+        )
+        .await;
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request(gk, req_body, "/v1/images/generations"),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::OK, "{gk}");
+        let log = last_log_for(&state, gk).await;
+        assert!(
+            (log.est_cost - expected).abs() < 1e-12,
+            "{gk}: want {expected}, got {}",
+            log.est_cost
+        );
+    }
+}
+
+/// 无候选 → 404 + blocked_reason=no_image_platform。三种成因：槽位未配 / 纯空白 / 非 OpenAI 系协议。
+#[tokio::test]
+async fn image_route_fail_no_image_platform() {
+    let (up, hits) = spawn_embedding_upstream(vec![]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gkni1",
+        &[(&up, PlatformModels::default(), Protocol::OpenAI, "a")],
+    )
+    .await;
+    setup_aux_group(&state, "gkni2", &[(&up, image_slot("  "), Protocol::OpenAI, "b")]).await;
+    setup_aux_group(&state, "gkni3", &[(&up, image_slot("img"), Protocol::Anthropic, "c")]).await;
+    for gk in ["gkni1", "gkni2", "gkni3"] {
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            embedding_request(gk, IMG_REQ, "/v1/images/generations"),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "{gk}");
+        let log = last_log_for(&state, gk).await;
+        assert_eq!(log.status_code, 404, "{gk}");
+        assert_eq!(log.blocked_by, "router", "{gk}");
+        assert_eq!(log.blocked_reason, "no_image_platform", "{gk}");
+        assert_eq!(log.est_cost, 0.0, "{gk}");
+    }
+    assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
+}
+
+// ══ 票 09：透传平台（Protocol::Passthrough）生图 / 编辑——ADR 0008 原样转发契约 ══
+// 透传平台不识别协议：/v1/images/{generations,edits} 与 embeddings / rerank 同受
+// handler 分流前的透传认领，body 字节不动（model 保持客户端原名）、认证头按平台配置、
+// est_cost 恒 0（ADR 0008 决策 1，显式语义非静默）、usage 能解析则记 tokens。
+
+/// 透传平台 /v1/images/generations：请求原样转发（model 不改写、prompt/n/size 保留）、
+/// Authorization 为平台 key、响应原样回传、est_cost 恒 0、usage 照记。
+#[tokio::test]
+async fn passthrough_platform_image_generations_relayed_verbatim() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group(&state, "gkptimg", &up).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkptimg", IMG_REQ, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&body).unwrap()["data"][0]["b64_json"],
+        "aGk=",
+        "响应原样回传"
+    );
+
+    let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/images/generations", "原始 path 不改写");
+    assert_eq!(req_body, IMG_REQ, "body 字节不动：model 保持客户端原名，字段全保留");
+    assert_eq!(auth, "Bearer sk-up", "认证头按平台凭据注入");
+
+    let log = last_log_for(&state, "gkptimg").await;
+    assert_eq!(log.status_code, 200);
+    // ADR 0008 决策 1：透传平台 est_cost 恒 0（显式拍板，不查 registry 也不走 fallback）。
+    assert_eq!(log.est_cost, 0.0);
+    // usage 能解析则照记（ADR 0008 决策 4）。
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 50));
+}
+
+/// 透传平台 /v1/images/edits（multipart）：表单字节原样转发（model 部件不改写），
+/// 认证头按平台凭据注入。
+#[tokio::test]
+async fn passthrough_platform_image_edits_multipart_relayed_verbatim() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group(&state, "gkptedit", &up).await;
+
+    const B: &str = "testboundary";
+    let form = format!(
+        "--{B}\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nclient-img\r\n\
+         --{B}\r\nContent-Disposition: form-data; name=\"prompt\"\r\n\r\na cat\r\n\
+         --{B}\r\nContent-Disposition: form-data; name=\"image\"; filename=\"a.png\"\r\n\
+         Content-Type: image/png\r\n\r\npng-bytes-01\r\n--{B}--\r\n"
+    );
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/images/edits")
+        .header("authorization", "Bearer gkptedit")
+        .header(
+            "content-type",
+            format!("multipart/form-data; boundary={B}"),
+        )
+        .body(Body::from(form.clone()))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/images/edits", "原始 path 不改写");
+    assert_eq!(req_body, form, "multipart 字节原样转发（model 部件不改写）");
+    assert_eq!(auth, "Bearer sk-up", "认证头按平台凭据注入");
+}
+
+// ══ 票 08：MCP 生图统一分组（tools/call generate_image 走调用方分组 image 槽位链）══
+
+/// 经 POST /mcp 调 generate_image（handle_mcp 直调：loopback ConnectInfo + 分组 Bearer）。
+async fn mcp_generate_image(state: &Arc<ProxyState>, gk: &str, id: i64) -> serde_json::Value {
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert("authorization", format!("Bearer {gk}").parse().unwrap());
+    headers.insert("user-agent", "claude-cli/2.0 (external, cli)".parse().unwrap());
+    let body = serde_json::json!({"jsonrpc":"2.0","id":id,"method":"tools/call","params":{"name":"generate_image","arguments":{"prompt":"a cat","size":"1024x1024"}}});
+    let resp = handle_mcp(
+        AxumState(state.clone()),
+        headers,
+        axum::extract::ConnectInfo("127.0.0.1:50000".parse().unwrap()),
+        axum::body::Bytes::from(body.to_string()),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+/// 端到端：分组 image 槽位链转发（base_url + /images/generations、槽位覆盖 model、
+/// size 透传、平台 key 鉴权），markdown 链接回包，proxy_log 与 tool_log 各落一行。
+#[tokio::test]
+async fn mcp_generate_image_routes_caller_group_image_chain() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkmcp",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let v = mcp_generate_image(&state, "gkmcp", 9).await;
+    let text = v["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("![generated image]"), "text={text}");
+    assert!(v["result"]["isError"].is_null(), "{v}");
+
+    let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/images/generations", "base_url(/v1) + /images/generations");
+    let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
+    assert_eq!(sent["model"], "img-slot", "槽位链首覆盖 model");
+    assert_eq!(sent["prompt"], "a cat");
+    assert_eq!(sent["n"], 1);
+    assert_eq!(sent["size"], "1024x1024");
+    assert_eq!(auth, "Bearer sk-a");
+
+    // 工具日志照旧写 tool_log：trigger=mcp、调用方分组、成功。
+    let page = aidog_db::list_tool_logs(&state.db, &aidog_db::models::ToolLogFilter::default(), 10, 0)
+        .await
+        .unwrap();
+    assert_eq!(page.total, 1);
+    let row = &page.rows[0];
+    assert_eq!(
+        (row.tool.as_str(), row.trigger.as_str(), row.group_name.as_str()),
+        ("generate_image", "mcp", "gkmcp")
+    );
+    assert!(row.success, "error={}", row.error);
+
+    // 票 04 链内 proxy_log 照常落（计费 / 额度窗口依赖）：槽位模型入账。
+    let log = last_log_for(&state, "gkmcp").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(log.actual_model, "img-slot");
+}
+
+/// 分组无生图平台 → isError=true，错误文案为 aidog_i18n 的 NoImagePlatform 文本，tool_log 记失败。
+#[tokio::test]
+async fn mcp_generate_image_without_image_platform_is_clear_error() {
+    let (up, hits) = spawn_embedding_upstream(vec![]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(
+        &state,
+        "gknoimg",
+        &[(&up, PlatformModels::default(), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let v = mcp_generate_image(&state, "gknoimg", 10).await;
+    assert_eq!(v["result"]["isError"], true, "{v}");
+    let text = v["result"]["content"][0]["text"].as_str().unwrap();
+    // i18n ErrorKey::NoImagePlatform 文本（测试 settings 缺省英文 lang）。
+    assert!(text.contains("image platform"), "text={text}");
+    assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
+
+    let page = aidog_db::list_tool_logs(&state.db, &aidog_db::models::ToolLogFilter::default(), 10, 0)
+        .await
+        .unwrap();
+    assert_eq!(page.total, 1);
+    let row = &page.rows[0];
+    assert!(!row.success, "{:?}", row);
+    assert!(!row.error.is_empty());
+}
+
+/// 客户端白名单平台（extra.allowed_clients=["claude_code"]）+ MCP generate_image 带真实
+/// UA（claude-cli → claude_code）：探测用请求头放行，不被白名单误杀（此前用空 headers
+/// 探测恒 unknown → 403）。
+#[tokio::test]
+async fn mcp_generate_image_respects_client_whitelist_with_real_headers() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkmcpwl",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a", WL_CC_EXTRA)],
+    )
+    .await;
+
+    let v = mcp_generate_image(&state, "gkmcpwl", 11).await;
+    assert!(v["result"]["isError"].is_null(), "{v}");
+    let text = v["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("![generated image]"), "text={text}");
+    assert_eq!(hits.lock().unwrap().len(), 1, "白名单放行后打到上游");
+}
+
+/// 非白名单客户端的 MCP 生图仍被拦（闸门语义不受修复影响）。
+#[tokio::test]
+async fn mcp_generate_image_blocked_for_non_whitelisted_client() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkmcpbl",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a", WL_CC_EXTRA)],
+    )
+    .await;
+
+    // 用 curl UA（词表认不出 → 白名单未命中）直调 handle_mcp
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert("authorization", "Bearer gkmcpbl".parse().unwrap());
+    headers.insert("user-agent", "curl/8.0".parse().unwrap());
+    let body = serde_json::json!({"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"generate_image","arguments":{"prompt":"a cat"}}});
+    let resp = handle_mcp(
+        AxumState(state.clone()),
+        headers,
+        axum::extract::ConnectInfo("127.0.0.1:50000".parse().unwrap()),
+        axum::body::Bytes::from(body.to_string()),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(v["result"]["isError"], true, "{v}");
+    assert!(hits.lock().unwrap().is_empty(), "白名单未命中不得打到上游");
+}
+
+// ══ 票 05：图片编辑与流式（本地假上游，禁外呼）══
+
+/// 与 spawn_embedding_upstream 同形，但 Content-Type 由调用方指定（SSE 流式上游用）。
+async fn spawn_typed_upstream(
+    status: u16,
+    ct: &'static str,
+    body: &'static str,
+) -> (String, EmbHits) {
+    let hits: EmbHits = std::sync::Arc::new(StdMutex::new(Vec::new()));
+    let h2 = hits.clone();
+    let app = axum::Router::new().fallback(axum::routing::any(move |req: Request| {
+        let hits = h2.clone();
+        async move {
+            let path = req.uri().path().to_string();
+            let auth = req
+                .headers()
+                .get("authorization")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let req_body = axum::body::to_bytes(req.into_body(), 1024 * 1024)
+                .await
+                .map(|b| String::from_utf8_lossy(&b).to_string())
+                .unwrap_or_default();
+            hits.lock().unwrap().push((path, req_body, auth));
+            (
+                axum::http::StatusCode::from_u16(status).unwrap(),
+                [("content-type", ct)],
+                body,
+            )
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    (format!("http://{addr}"), hits)
+}
+
+/// 双参考图 multipart 编辑表单（票 05 端到端用例）。
+fn image_edit_multipart(model: &str) -> (String, Vec<u8>) {
+    const B: &str = "aidoge2eboundary";
+    let mut body = Vec::new();
+    let part = |disp: String, data: &[u8], out: &mut Vec<u8>| {
+        out.extend_from_slice(format!("--{B}\r\n{disp}\r\n\r\n").as_bytes());
+        out.extend_from_slice(data);
+        out.extend_from_slice(b"\r\n");
+    };
+    part(
+        "Content-Disposition: form-data; name=\"model\"".into(),
+        model.as_bytes(),
+        &mut body,
+    );
+    part(
+        "Content-Disposition: form-data; name=\"prompt\"".into(),
+        b"a cat on a mat",
+        &mut body,
+    );
+    part(
+        "Content-Disposition: form-data; name=\"image[]\"; filename=\"a.png\"\r\nContent-Type: image/png"
+            .into(),
+        b"PNGDATA-AAAA",
+        &mut body,
+    );
+    part(
+        "Content-Disposition: form-data; name=\"image[]\"; filename=\"b.png\"\r\nContent-Type: image/png"
+            .into(),
+        b"PNGDATA-BBBB",
+        &mut body,
+    );
+    body.extend_from_slice(format!("--{B}--\r\n").as_bytes());
+    (format!("multipart/form-data; boundary={B}"), body)
+}
+
+const EDIT_RESPONSE: &str = r#"{"created":1730000000,"model":"img-slot","data":[{"b64_json":"aGk="}],"usage":{"input_tokens":10,"output_tokens":50,"total_tokens":60}}"#;
+
+/// 编辑端到端（多参考图一例）：/v1/images/edits 判定、multipart model part 槽位改写、
+/// 其余 part 字节原样、响应 model 回写、usage 入账、日志协议标签 image_edits。
+#[tokio::test]
+async fn image_edit_end_to_end_multi_ref() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, EDIT_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkedit",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let (ct, body) = image_edit_multipart("client-img");
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/images/edits")
+        .header("authorization", "Bearer gkedit")
+        .header("content-type", ct)
+        .body(Body::from(body))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let resp_body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
+    assert_eq!(v["model"], "client-img", "响应 model 回写客户端原名");
+    assert_eq!(v["data"][0]["b64_json"], "aGk=");
+
+    let (path, sent, auth) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/v1/images/edits", "base_url(/v1) + /images/edits");
+    assert!(
+        sent.contains("name=\"model\"\r\n\r\nimg-slot\r\n"),
+        "multipart model part 被槽位覆盖: {sent}"
+    );
+    assert!(sent.contains("a cat on a mat"), "prompt part 原样");
+    assert!(
+        sent.contains("PNGDATA-AAAA") && sent.contains("PNGDATA-BBBB"),
+        "两张参考图字节原样"
+    );
+    assert_eq!(auth, "Bearer sk-a");
+
+    let log = last_log_for(&state, "gkedit").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(
+        (log.source_protocol.as_str(), log.target_protocol.as_str()),
+        ("image_edits", "image_edits")
+    );
+    assert_eq!(log.model, "client-img");
+    assert_eq!(log.actual_model, "img-slot");
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 50));
+    assert!(
+        (log.est_cost - (10.0 * 2e-8 + 50.0 * 1e-8)).abs() < 1e-15,
+        "got {}",
+        log.est_cost
+    );
+}
+
+/// 原始信息开关关 → 请求侧 request_body 空（multipart 含图片字节不落库）；
+/// 上游侧 upstream_request_body 恒空（multipart 不落原文，开与不开一致）。
+#[tokio::test]
+async fn image_edit_log_switches_hide_image_bytes() {
+    let (up, _h) = spawn_embedding_upstream(vec![(200, EDIT_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(&state, "gksw", &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")]).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings { log_user_request: false, log_upstream_request: false, ..Default::default() },
+    )
+    .await;
+
+    let (ct, body) = image_edit_multipart("client-img");
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/images/edits")
+        .header("authorization", "Bearer gksw")
+        .header("content-type", ct)
+        .body(Body::from(body))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let log = last_log_for(&state, "gksw").await;
+    assert_eq!(log.request_body, "", "开关关：请求侧不落 multipart 原文");
+    assert_eq!(log.upstream_request_body, "", "multipart 恒不落上游侧原文");
+}
+
+// ══ 票 06：Gemini 原生方言（Interactions API）跨协议转换 ══
+
+type GeminiHits = std::sync::Arc<StdMutex<Vec<(String, String, String, String)>>>;
+
+/// 记录 (path, body, x-goog-api-key, api-revision) 的假上游（Interactions 形状，禁外呼）。
+async fn spawn_gemini_upstream(responses: Vec<(u16, &'static str)>) -> (String, GeminiHits) {
+    let hits: GeminiHits = std::sync::Arc::new(StdMutex::new(Vec::new()));
+    let queue = std::sync::Arc::new(StdMutex::new(std::collections::VecDeque::from(responses)));
+    let h2 = hits.clone();
+    let app = axum::Router::new().fallback(axum::routing::any(move |req: Request| {
+        let hits = h2.clone();
+        let queue = queue.clone();
+        async move {
+            let path = req.uri().path().to_string();
+            let hdr = req.headers();
+            let xkey = hdr
+                .get("x-goog-api-key")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let revision = hdr
+                .get("api-revision")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let body = axum::body::to_bytes(req.into_body(), 8 * 1024 * 1024)
+                .await
+                .map(|b| String::from_utf8_lossy(&b).to_string())
+                .unwrap_or_default();
+            hits.lock().unwrap().push((path, body, xkey, revision));
+            let (status, resp) = queue.lock().unwrap().pop_front().unwrap_or((200, "{}"));
+            (
+                axum::http::StatusCode::from_u16(status).unwrap(),
+                [("content-type", "application/json")],
+                resp,
+            )
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    (format!("http://{addr}"), hits)
+}
+
+/// 同 setup_aux_group，但每平台可带 extra JSON（票 06：gemini 方言 image_dialect 配置）。
+async fn setup_aux_group_extra(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    plats: &[(&str, PlatformModels, Protocol, &str, &str)],
+) {
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    let mut inputs = Vec::new();
+    for (i, (base, slot, proto, name, extra)) in plats.iter().enumerate() {
+        let plat = aidog_db::create_platform(
+            &state.db,
+            CreatePlatform {
+                name: format!("{gk}-{name}"),
+                platform_type: proto.clone(),
+                base_url: base.to_string(),
+                api_key: format!("sk-{name}"),
+                extra: extra.to_string(),
+                models: Some(slot.clone()),
+                available_models: None,
+                endpoints: Some(vec![crate::gateway::models::PlatformEndpoint {
+                    protocol: proto.clone(),
+                    base_url: format!("{base}/v1"),
+                    client_type: "default".into(),
+                    coding_plan: false,
+                }]),
+                manual_budgets: None,
+                auto_group: None,
+                join_group_ids: None,
+                expires_at: None,
+                quota_source: None,
+            },
+        )
+        .await
+        .unwrap();
+        inputs.push(GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(i as i32),
+            weight: Some(1),
+            level_priority: Some(0),
+        });
+    }
+    aidog_db::set_group_platforms(&state.db, group.id, &inputs)
+        .await
+        .unwrap();
+}
+
+/// 指定 model_id / platform_code 的生图条目（gemini 槽位 / 跨平台用例）。
+fn image_entry_named(model: &str, platform_code: &str, price: &str) -> ModelEntry {
+    ModelEntry {
+        model_id: model.into(),
+        display_name: model.into(),
+        canonical_model: model.into(),
+        platform_code: platform_code.into(),
+        capabilities: vec!["image".into()],
+        ..embedding_entry(price)
+    }
+}
+
+const GEMINI_INTERACTION: &str = r#"{"id":"abc","object":"interaction","model":"gemini-img","status":"completed","steps":[{"type":"model_output","content":[{"type":"text","text":"here you go"},{"type":"image","mime_type":"image/png","data":"aGk="}]}],"usage":{"total_input_tokens":10,"total_output_tokens":50,"total_tokens":60}}"#;
+
+/// Gemini 原生生图端到端：OpenAI 形状入口 → Interactions 出站（等价参数转换：
+/// prompt→input 文本块、1024x1024→1K+1:1、png→mime_type），interaction 响应回转
+/// ImagesResponse（b64_json + usage 换算），x-goog-api-key / Api-Revision 头，token 计价。
+#[tokio::test]
+async fn gemini_image_generation_end_to_end() {
+    let (up, hits) = spawn_gemini_upstream(vec![(200, GEMINI_INTERACTION)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry_named(
+            "gemini-img",
+            "gemini",
+            r#"{"input":2e-8,"output":1e-8}"#,
+        )],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkgem",
+        &[(
+            &up,
+            image_slot("gemini-img"),
+            Protocol::Gemini,
+            "g",
+            r#"{"image_dialect":"gemini"}"#,
+        )],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request(
+            "gkgem",
+            r#"{"model":"client-img","prompt":"a cat","size":"1024x1024","output_format":"png"}"#,
+            "/v1/images/generations",
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v["model"], "client-img", "响应 model 回写客户端原名");
+    assert_eq!(v["data"][0]["b64_json"], "aGk=", "图块 → b64_json");
+    assert_eq!(v["data"].as_array().map(Vec::len), Some(1));
+    assert_eq!(v["usage"]["input_tokens"], 10, "usage 换算回 OpenAI 形状");
+    assert_eq!(v["usage"]["output_tokens"], 50);
+
+    let (path, sent, xkey, revision) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/interactions", "base_url + /interactions");
+    assert_eq!(xkey, "sk-g", "API key 走 x-goog-api-key 头");
+    assert_eq!(revision, "2026-05-20", "Api-Revision 头（官方 REST 示例）");
+    let sent_v: serde_json::Value = serde_json::from_str(&sent).unwrap();
+    assert_eq!(sent_v["model"], "gemini-img", "槽位模型覆盖");
+    assert_eq!(sent_v["input"][0]["type"], "text");
+    assert_eq!(sent_v["input"][0]["text"], "a cat", "prompt → input 文本块");
+    assert_eq!(sent_v["response_format"]["type"], "image");
+    assert_eq!(sent_v["response_format"]["image_size"], "1K", "1024x1024 → 1K");
+    assert_eq!(sent_v["response_format"]["aspect_ratio"], "1:1");
+    assert_eq!(sent_v["response_format"]["mime_type"], "image/png");
+    assert!(sent_v.get("n").is_none());
+    assert!(sent_v.get("stream").is_none());
+
+    let log = last_log_for(&state, "gkgem").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(
+        (log.source_protocol.as_str(), log.target_protocol.as_str()),
+        ("images", "images")
+    );
+    assert_eq!(log.model, "client-img");
+    assert_eq!(log.actual_model, "gemini-img");
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 50));
+    assert!(
+        (log.est_cost - (10.0 * 2e-8 + 50.0 * 1e-8)).abs() < 1e-15,
+        "token 计价按换算后 usage，got {}",
+        log.est_cost
+    );
+}
+
+/// Gemini 原生编辑端到端：multipart 入站 → Interactions input 块（文本 + 参考图 base64），
+/// mime 取 part Content-Type。
+#[tokio::test]
+async fn gemini_image_edit_end_to_end() {
+    let (up, hits) = spawn_gemini_upstream(vec![(200, GEMINI_INTERACTION)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry_named(
+            "gemini-img",
+            "gemini",
+            r#"{"input":2e-8,"output":1e-8}"#,
+        )],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkgemedit",
+        &[(
+            &up,
+            image_slot("gemini-img"),
+            Protocol::Gemini,
+            "g",
+            r#"{"image_dialect":"gemini"}"#,
+        )],
+    )
+    .await;
+
+    let (ct, body) = image_edit_multipart("client-img");
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/images/edits")
+        .header("authorization", "Bearer gkgemedit")
+        .header("content-type", ct)
+        .body(Body::from(body))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let resp_body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&resp_body).unwrap();
+    assert_eq!(v["model"], "client-img");
+    assert_eq!(v["data"][0]["b64_json"], "aGk=");
+
+    let (path, sent, _xkey, _rev) = hits.lock().unwrap()[0].clone();
+    assert_eq!(path, "/interactions");
+    let sent_v: serde_json::Value = serde_json::from_str(&sent).unwrap();
+    assert_eq!(sent_v["model"], "gemini-img", "multipart model part 被槽位覆盖");
+    let input = sent_v["input"].as_array().unwrap();
+    assert_eq!(input.len(), 3, "文本 + 两张参考图");
+    assert_eq!(input[0]["text"], "a cat on a mat");
+    assert_eq!(input[1]["type"], "image");
+    assert_eq!(input[1]["mime_type"], "image/png");
+    assert!(
+        sent.contains("UE5HREFUQS1BQUFB"),
+        "参考图字节 base64 进 input 块（PNGDATA-AAAA）"
+    );
+
+    let log = last_log_for(&state, "gkgemedit").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(
+        (log.source_protocol.as_str(), log.target_protocol.as_str()),
+        ("image_edits", "image_edits")
+    );
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 50));
+}
+
+/// 客户端要求流式中间图 + gemini 方言平台（Interactions 无 partial 图语义）→
+/// 明确报 501 不支持，不发上游（票 00：不伪装不降级）。
+#[tokio::test]
+async fn gemini_stream_explicitly_unsupported() {
+    let (up, hits) = spawn_gemini_upstream(vec![(200, GEMINI_INTERACTION)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry_named("gemini-img", "gemini", r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkgemstream",
+        &[(
+            &up,
+            image_slot("gemini-img"),
+            Protocol::Gemini,
+            "g",
+            r#"{"image_dialect":"gemini"}"#,
+        )],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request(
+            "gkgemstream",
+            r#"{"model":"client-img","prompt":"a cat","stream":true}"#,
+            "/v1/images/generations",
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::NOT_IMPLEMENTED);
+    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024).await.unwrap();
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains("streaming"), "报不支持的明确文案：{text}");
+    assert!(hits.lock().unwrap().is_empty(), "未发上游请求");
+
+    let log = last_log_for(&state, "gkgemstream").await;
+    assert_eq!(log.status_code, 501);
+    assert!(log.done, "终态落库");
+    assert!(
+        log.attempts
+            .iter()
+            .any(|a| a.kind.as_deref() == Some("stream_unsupported")),
+        "attempts 留 stream_unsupported 标记"
+    );
+}
+
+/// 跨协议分组：gemini 平台遇不可等价参数（quality）按平台排除，换 OpenAI 平台成功；
+/// attempts 留 param_incompatible 标记（可核查，非静默）。
+#[tokio::test]
+async fn cross_dialect_non_equivalent_param_fails_over() {
+    let (gem_up, gem_hits) = spawn_gemini_upstream(vec![(200, GEMINI_INTERACTION)]).await;
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![
+            image_entry_named("gemini-img", "gemini", r#"{"input":2e-8,"output":1e-8}"#),
+            image_entry(r#"{"input":2e-8,"output":1e-8}"#),
+        ],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkmix",
+        &[
+            (
+                &gem_up,
+                image_slot("gemini-img"),
+                Protocol::Gemini,
+                "g",
+                r#"{"image_dialect":"gemini"}"#,
+            ),
+            (&up, image_slot("img-slot"), Protocol::OpenAI, "a", ""),
+        ],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request(
+            "gkmix",
+            r#"{"model":"client-img","prompt":"a cat","quality":"high"}"#,
+            "/v1/images/generations",
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK, "failover 到 OpenAI 平台");
+    assert!(gem_hits.lock().unwrap().is_empty(), "gemini 平台未发上游");
+    assert_eq!(hits.lock().unwrap().len(), 1, "OpenAI 平台承接");
+
+    let log = last_log_for(&state, "gkmix").await;
+    assert_eq!(log.status_code, 200);
+    assert!(
+        log.attempts
+            .iter()
+            .any(|a| a.kind.as_deref() == Some("param_incompatible")),
+        "attempts 留 param_incompatible 标记"
+    );
+}
+
+/// 单 gemini 平台 + 不可等价参数 → 末位直返 400 并点名参数。
+#[tokio::test]
+async fn gemini_non_equivalent_param_terminal_bad_request() {
+    let (up, hits) = spawn_gemini_upstream(vec![(200, GEMINI_INTERACTION)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry_named("gemini-img", "gemini", r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkgemq",
+        &[(
+            &up,
+            image_slot("gemini-img"),
+            Protocol::Gemini,
+            "g",
+            r#"{"image_dialect":"gemini"}"#,
+        )],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request(
+            "gkgemq",
+            r#"{"model":"client-img","prompt":"a cat","quality":"high"}"#,
+            "/v1/images/generations",
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024).await.unwrap();
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains("quality"), "报错点名不可等价参数：{text}");
+    assert!(hits.lock().unwrap().is_empty(), "未发上游请求");
+    let log = last_log_for(&state, "gkgemq").await;
+    assert_eq!(log.status_code, 400);
+}
+
+const IMAGE_SSE: &str = concat!(
+    "event: image_generation.partial_image\r\n",
+    "data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"AA==\",\"partial_image_index\":0}\r\n\r\n",
+    "event: image_generation.completed\r\n",
+    "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"QQ==\",\"usage\":{\"input_tokens\":10,\"output_tokens\":50,\"total_tokens\":60}}\r\n\r\n",
+    "data: [DONE]\r\n\r\n",
+);
+
+const IMAGE_SSE_INTERRUPTED: &str = concat!(
+    "event: image_generation.partial_image\r\n",
+    "data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"AA==\",\"partial_image_index\":0}\r\n\r\n",
+);
+
+/// 流式端到端：stream:true + SSE 上游 → 事件原文透传（官方事件形态），
+/// usage 从 completed 事件入账，is_stream、done 落库。
+#[tokio::test]
+async fn image_stream_end_to_end() {
+    let (up, hits) = spawn_typed_upstream(200, "text/event-stream", IMAGE_SSE).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkstream",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let req = embedding_request(
+        "gkstream",
+        r#"{"model":"client-img","prompt":"a cat","stream":true,"partial_images":2}"#,
+        "/v1/images/generations",
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert!(
+        resp.headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .contains("text/event-stream"),
+        "SSE content-type 透传"
+    );
+    let body = axum::body::to_bytes(resp.into_body(), 4 * 1024 * 1024).await.unwrap();
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains("image_generation.partial_image"), "partial 事件原样");
+    assert!(text.contains("image_generation.completed"), "completed 事件原样");
+    assert_eq!(hits.lock().unwrap()[0].0, "/v1/images/generations");
+
+    let log = last_log_for(&state, "gkstream").await;
+    assert_eq!(log.status_code, 200);
+    assert!(log.is_stream, "流式标记");
+    assert!(log.done);
+    // 票 07：IMAGE_SSE 带 1 张 partial → completed usage 50 + 官方附加费 100 = 150。
+    assert_eq!((log.input_tokens, log.output_tokens), (10, 150), "completed usage + partial 附加费");
+    assert!(
+        (log.est_cost - (10.0 * 2e-8 + 150.0 * 1e-8)).abs() < 1e-15,
+        "got {}",
+        log.est_cost
+    );
+}
+
+/// 上游不支持流式（200 + JSON）：不静默降级——同组有 SSE 平台则 failover；
+/// 只有 JSON 平台 → 明确 501（attempts 留 stream_unsupported），绝不回非流式结果。
+#[tokio::test]
+async fn image_stream_upstream_unsupported_no_silent_downgrade() {
+    let (up_json, _h1) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let (up_sse, _h2) = spawn_typed_upstream(200, "text/event-stream", IMAGE_SSE).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkfb",
+        &[
+            (&up_json, image_slot("img-json"), Protocol::OpenAI, "pjson"),
+            (&up_sse, image_slot("img-sse"), Protocol::OpenAI, "psse"),
+        ],
+    )
+    .await;
+    let req = embedding_request(
+        "gkfb",
+        r#"{"model":"client-img","prompt":"a cat","stream":true}"#,
+        "/v1/images/generations",
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK, "failover 到 SSE 平台");
+    let body = axum::body::to_bytes(resp.into_body(), 4 * 1024 * 1024).await.unwrap();
+    assert!(String::from_utf8_lossy(&body).contains("image_generation.completed"));
+
+    let (up2, _h3) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state2 = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state2.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(&state2, "gk501", &[(&up2, image_slot("img-slot"), Protocol::OpenAI, "a")]).await;
+    let req2 = embedding_request(
+        "gk501",
+        r#"{"model":"client-img","prompt":"a cat","stream":true}"#,
+        "/v1/images/generations",
+    );
+    let resp2 = handle_proxy(AxumState(state2.clone()), req2).await;
+    assert_eq!(resp2.status(), StatusCode::NOT_IMPLEMENTED, "明确报不支持");
+    let body2 = axum::body::to_bytes(resp2.into_body(), 64 * 1024).await.unwrap();
+    assert!(
+        String::from_utf8_lossy(&body2).contains("stream"),
+        "错误文案说明流式不可用"
+    );
+    let log = last_log_for(&state2, "gk501").await;
+    assert_eq!(log.status_code, 501);
+    assert!(log.done);
+    assert!(
+        log.attempts.iter().any(|a| a.kind.as_deref() == Some("stream_unsupported")),
+        "attempts 留痕 stream_unsupported"
+    );
+}
+
+/// 流式中断（上游只有 partial、无 completed）：票 03 口径——已收到的 billable 用量照计
+///（每张 partial 官方附加费 100 输出 token），标不完整；attempts 留 stream_interrupted 标记。
+#[tokio::test]
+async fn image_stream_interrupted_marks_incomplete() {
+    let (up, _h) = spawn_typed_upstream(200, "text/event-stream", IMAGE_SSE_INTERRUPTED).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkbrk",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let req = embedding_request(
+        "gkbrk",
+        r#"{"model":"client-img","prompt":"a cat","stream":true,"partial_images":1}"#,
+        "/v1/images/generations",
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 4 * 1024 * 1024).await.unwrap();
+    assert!(String::from_utf8_lossy(&body).contains("partial_image"));
+
+    let mut log = last_log_for(&state, "gkbrk").await;
+    for _ in 0..40 {
+        if log.done && log.output_tokens != 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        log = last_log_for(&state, "gkbrk").await;
+    }
+    assert!(log.done, "中断也落终态行");
+    assert_eq!(log.status_code, 200);
+    assert_eq!(
+        (log.input_tokens, log.output_tokens),
+        (0, 100),
+        "无 completed；1 张 partial 按官方附加费计 100 输出 token"
+    );
+    assert!(
+        (log.est_cost - 100.0 * 1e-8).abs() < 1e-15,
+        "中断按已收用量计费（不完整），got {}",
+        log.est_cost
+    );
+    assert!(
+        log.attempts.iter().any(|a| a.kind.as_deref() == Some("stream_interrupted")),
+        "中断标记在 attempts（元数据，不受原始信息开关控）"
+    );
+}
+
+/// 流式完成张数按 completed 事件数计（n=2 两张图两个 completed 事件）：
+/// 按张计价条目 est_cost = 2 × unit_price（此前恒记 1 → 0.05 假少计）。
+#[tokio::test]
+async fn image_stream_units_count_completed_events() {
+    let sse = concat!(
+        "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"QQ==\",\"usage\":{\"input_tokens\":10,\"output_tokens\":50}}\r\n\r\n",
+        "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"Qg==\",\"usage\":{\"input_tokens\":10,\"output_tokens\":50}}\r\n\r\n",
+        "data: [DONE]\r\n\r\n",
+    );
+    let (up, _h) = spawn_typed_upstream(200, "text/event-stream", sse).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"unit":"image","unit_price":0.05}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkunits",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let req = embedding_request(
+        "gkunits",
+        r#"{"model":"client-img","prompt":"a cat","stream":true}"#,
+        "/v1/images/generations",
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    // 消费 SSE body 才会 poll 完流并 Drop ImageStreamGuard 落终态日志。
+    let _ = axum::body::to_bytes(resp.into_body(), 4 * 1024 * 1024).await.unwrap();
+
+    let mut log = last_log_for(&state, "gkunits").await;
+    for _ in 0..40 {
+        if log.done && log.est_cost != 0.0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        log = last_log_for(&state, "gkunits").await;
+    }
+    assert!(log.done);
+    assert!(
+        (log.est_cost - 0.10).abs() < 1e-12,
+        "两张图两个 completed 事件 → 2 × 0.05，got {}",
+        log.est_cost
+    );
+}
+
+/// 非流式 2xx 响应体读取失败（上游中途断开，content-length 不满足）：不得当成功
+/// 回 200 空体并照估算计费——按传输类失败走 failover，末位 502 终态落库。
+#[tokio::test]
+async fn image_response_body_read_error_failover() {
+    // 原始 TCP 上游：回完整响应头（content-length: 100）但只发 4 字节即断开
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        use tokio::io::AsyncWriteExt;
+        let Ok((mut sock, _)) = listener.accept().await else {
+            return;
+        };
+        let _ = sock
+            .write_all(
+                b"HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 100\r\n\r\n{\"da",
+            )
+            .await;
+        // 连接随即关闭：客户端读体失败
+    });
+    let up = format!("http://{addr}");
+
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gktrunc",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gktrunc", IMG_REQ, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "末位候选读体失败 → 502");
+
+    let log = last_log_for(&state, "gktrunc").await;
+    assert_eq!(log.status_code, 502);
+    assert!(log.done, "终态落库");
+    assert!(
+        log.attempts
+            .iter()
+            .any(|a| a.error_class.as_deref() == Some("service")),
+        "读体失败按服务类留痕（同 transport 失败语义）"
+    );
+}
+
+/// /v1/images/variations 未实现：明确报「不支持该端点」（400 + blocked_reason），
+/// 不落聊天解析（那会报无关 messages/JSON 错误），不打上游。
+#[tokio::test]
+async fn image_variations_endpoint_clearly_rejected() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkvar",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request(
+            "gkvar",
+            r#"{"model":"client-img","prompt":"a cat"}"#,
+            "/v1/images/variations",
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024).await.unwrap();
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains("not supported"), "明确不支持文案：{text}");
+    assert!(hits.lock().unwrap().is_empty(), "不打上游");
+    let log = last_log_for(&state, "gkvar").await;
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "image_variations_unsupported");
+}
+
+/// stream + output_format=gif → 官方契约不支持流式，400 明确拒（先于路由，不打上游）。
+#[tokio::test]
+async fn image_stream_gif_rejected_before_upstream() {
+    let (up, hits) = spawn_embedding_upstream(vec![]).await;
+    let state = make_state(test_db().await).await;
+    setup_aux_group(&state, "gkgif", &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")]).await;
+    let req = embedding_request(
+        "gkgif",
+        r#"{"model":"client-img","prompt":"a cat","stream":true,"output_format":"gif"}"#,
+        "/v1/images/generations",
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024).await.unwrap();
+    assert!(String::from_utf8_lossy(&body).contains("gif"));
+    assert!(hits.lock().unwrap().is_empty(), "不得打到上游");
+    let log = last_log_for(&state, "gkgif").await;
+    assert_eq!(log.status_code, 400);
+    assert!(log.done);
+}
+
+// ══ 票 07：计费状态、额度窗口、限频、审核拒绝（本地假上游，禁外呼）══
+
+/// 生图槽位模型链（票 07 同平台多模型用例）。
+fn image_chain(models: &[&str]) -> PlatformModels {
+    PlatformModels {
+        image: models.iter().map(|m| m.to_string()).collect(),
+        ..Default::default()
+    }
+}
+
+/// 模型感知假上游：请求 model == `blocked` 时回 (400, error_body)，否则 (200, ok_body)。
+async fn spawn_model_aware_upstream(
+    blocked: &'static str,
+    error_body: &'static str,
+    ok_body: &'static str,
+) -> (String, EmbHits) {
+    let hits: EmbHits = std::sync::Arc::new(StdMutex::new(Vec::new()));
+    let h2 = hits.clone();
+    let app = axum::Router::new().fallback(axum::routing::any(move |req: Request| {
+        let hits = h2.clone();
+        async move {
+            let path = req.uri().path().to_string();
+            let req_body = axum::body::to_bytes(req.into_body(), 1024 * 1024)
+                .await
+                .map(|b| String::from_utf8_lossy(&b).to_string())
+                .unwrap_or_default();
+            let model = serde_json::from_str::<Value>(&req_body)
+                .ok()
+                .and_then(|v| v.get("model").and_then(Value::as_str).map(str::to_string))
+                .unwrap_or_default();
+            hits.lock().unwrap().push((path, req_body, String::new()));
+            if model == blocked {
+                (
+                    axum::http::StatusCode::BAD_REQUEST,
+                    [("content-type", "application/json")],
+                    error_body.to_string(),
+                )
+            } else {
+                (
+                    axum::http::StatusCode::OK,
+                    [("content-type", "application/json")],
+                    ok_body.to_string(),
+                )
+            }
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    (format!("http://{addr}"), hits)
+}
+
+/// 官方 Images 审核拒绝形态（guides/image-generation "Handling blocked requests"：
+/// HTTP 400 + error.type=image_generation_user_error + error.code=moderation_blocked）。
+const IMAGE_MODERATION_ERROR: &str = r#"{"error":{"type":"image_generation_user_error","code":"moderation_blocked","message":"Your request was rejected as a result of our safety system."}}"#;
+/// 通用审核拒绝标记形态（error.type=censorship_blocked，is_censorship_blocked 同款）。
+const IMAGE_CENSORSHIP_ERROR: &str = r#"{"error":{"type":"censorship_blocked","message":"blocked"}}"#;
+
+/// 票 03 拍板：生图审核拒绝按**模型类**裁决（异于聊天 censorship_blocked 服务类 +
+/// 自动禁用口径）——官方 moderation_blocked 码也归模型类，换同平台下一模型重试。
+#[tokio::test]
+async fn image_moderation_blocked_switches_model_same_platform() {
+    let (up, hits) =
+        spawn_model_aware_upstream("img-a", IMAGE_MODERATION_ERROR, IMG_RESPONSE).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![
+            image_entry_named("img-a", "openai", r#"{"input":2e-8,"output":1e-8}"#),
+            image_entry_named("img-b", "openai", r#"{"input":2e-8,"output":1e-8}"#),
+        ],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(&state, "gkmod", &[(&up, image_chain(&["img-a", "img-b"]), Protocol::OpenAI, "a")]).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkmod", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK, "审核拒绝后换同平台下一模型成功");
+    {
+        let h = hits.lock().unwrap();
+        assert_eq!(h.len(), 2, "恰好两次上游调用");
+        let sent0: Value = serde_json::from_str(&h[0].1).unwrap();
+        let sent1: Value = serde_json::from_str(&h[1].1).unwrap();
+        assert_eq!(sent0["model"], "img-a");
+        assert_eq!(sent1["model"], "img-b", "第二次同平台换 img-b");
+    }
+
+    let log = last_log_for(&state, "gkmod").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(log.attempts.len(), 2);
+    let a0 = &log.attempts[0];
+    assert_eq!(
+        a0.error_class.as_deref(),
+        Some("model"),
+        "审核拒绝按模型类裁决（非 unknown / service）"
+    );
+    assert!(
+        !matches!(a0.exclusion, Some(ExcludeScope::Platform)),
+        "只排除该（平台，模型）组合"
+    );
+    assert!(
+        a0.effects.iter().all(|e| e != "disabled_censorship"),
+        "生图审核拒绝不自动禁用平台（聊天口径特例）"
+    );
+}
+
+/// 票 03 拍板（行为反例面）：error.type=censorship_blocked（聊天走服务类 + 自动禁用 1h 的
+/// 形状）在生图链路必须按模型类换同平台下一模型，不触发平台自动禁用。
+#[tokio::test]
+async fn image_censorship_blocked_shape_is_model_class_not_platform_disable() {
+    let (up, hits) =
+        spawn_model_aware_upstream("img-a", IMAGE_CENSORSHIP_ERROR, IMG_RESPONSE).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![
+            image_entry_named("img-a", "openai", r#"{"input":2e-8,"output":1e-8}"#),
+            image_entry_named("img-b", "openai", r#"{"input":2e-8,"output":1e-8}"#),
+        ],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(&state, "gkcen", &[(&up, image_chain(&["img-a", "img-b"]), Protocol::OpenAI, "a")]).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkcen", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK, "换同平台下一模型成功");
+    assert_eq!(hits.lock().unwrap().len(), 2);
+
+    let log = last_log_for(&state, "gkcen").await;
+    assert_eq!(log.status_code, 200);
+    let a0 = &log.attempts[0];
+    assert_eq!(a0.error_class.as_deref(), Some("model"));
+    assert!(
+        a0.effects.iter().all(|e| e != "disabled_censorship"),
+        "不自动禁用平台"
+    );
+    // 平台未被 disable_platform_for_censorship 打成 auto_disabled
+    let plat = aidog_db::list_platforms(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|p| p.name == "gkcen-a")
+        .expect("platform");
+    assert_ne!(plat.status, aidog_db::PlatformStatus::AutoDisabled, "平台保持启用");
+}
+
+/// 官方流式附加费（guides/image-generation "Partial images cost"：每张 partial 额外
+/// 100 图像输出 token）：IMAGE_SSE 带 1 张 partial → output = 50 + 100 = 150。
+#[tokio::test]
+async fn image_stream_partial_surcharge_billed() {
+    let (up, _h) = spawn_typed_upstream(200, "text/event-stream", IMAGE_SSE).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkpartial",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+    let req = embedding_request(
+        "gkpartial",
+        r#"{"model":"client-img","prompt":"a cat","stream":true,"partial_images":1}"#,
+        "/v1/images/generations",
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    // 消费响应体（guard 随 stream Drop 触发终态落库）。
+    let body = axum::body::to_bytes(resp.into_body(), 4 * 1024 * 1024).await.unwrap();
+    assert!(String::from_utf8_lossy(&body).contains("image_generation.completed"));
+    // 流式终态由 guard Drop 异步入队：轮询等终态行落库（≤2s）。
+    let mut log = last_log_for(&state, "gkpartial").await;
+    for _ in 0..40 {
+        if log.done && log.output_tokens != 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        log = last_log_for(&state, "gkpartial").await;
+    }
+    assert_eq!(
+        (log.input_tokens, log.output_tokens),
+        (10, 150),
+        "completed usage + partial 附加费 100"
+    );
+    assert!(
+        (log.est_cost - (10.0 * 2e-8 + 150.0 * 1e-8)).abs() < 1e-15,
+        "got {}",
+        log.est_cost
+    );
+}
+
+/// 额度窗口按次数生效（回归护栏，机制在票 04/05 已并入 aux 骨架）：budget_count=1 →
+/// 第一次 200，第二次整组耗尽 429 + quota_window_exhausted。
+#[tokio::test]
+async fn image_quota_window_count_blocks_second_request() {
+    let (up, _h) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"unit":"image","unit_price":0.05}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkqimg",
+        &[(
+            &up,
+            image_slot("img-slot"),
+            Protocol::OpenAI,
+            "q",
+            r#"{"quota_windows":[{"window":3600,"budget_count":1}]}"#,
+        )],
+    )
+    .await;
+    let send = |state: &Arc<ProxyState>| {
+        let state = state.clone();
+        async move {
+            handle_proxy(
+                AxumState(state),
+                embedding_request("gkqimg", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+            )
+            .await
+        }
+    };
+    let r1 = send(&state).await;
+    assert_eq!(r1.status(), StatusCode::OK, "第一次在窗口内");
+    let r2 = send(&state).await;
+    assert_eq!(r2.status(), StatusCode::TOO_MANY_REQUESTS, "次数窗口耗尽");
+    let log = last_log_for(&state, "gkqimg").await;
+    assert_eq!(log.status_code, 429);
+    assert_eq!(log.blocked_reason, "quota_window_exhausted");
+    assert!(
+        log.attempts.is_empty() || log.attempts.iter().all(|a| a.status_code == 0),
+        "超限不发上游请求"
+    );
+}
+
+/// 额度窗口按金额生效：budget_usd=0.01，预置用量 $1 → 首个请求即被候选筛选排除。
+#[tokio::test]
+async fn image_quota_window_usd_blocks_when_exhausted() {
+    let (up, _h) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"unit":"image","unit_price":0.05}"#)],
+    )
+    .await
+    .unwrap();
+    let extra = r#"{"quota_windows":[{"window":3600,"budget_usd":0.01}]}"#;
+    setup_aux_group_extra(
+        &state,
+        "gkqusd",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "q", extra)],
+    )
+    .await;
+    let pid = platform_id_of(&state, "gkqusd-q").await;
+    crate::gateway::quota_window::record_usage(&state.db, pid, extra, 0.0, 1.0, aidog_db::now())
+        .await
+        .unwrap();
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gkqusd", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS, "金额窗口耗尽");
+    let log = last_log_for(&state, "gkqusd").await;
+    assert_eq!(log.blocked_reason, "quota_window_exhausted");
+    assert_eq!(log.est_cost, 0.0);
+}
+
+/// 限频占位对生图生效（回归护栏，机制在 aux 骨架）：rpm=1 → 第一次 200，第二次 429 rate_limit。
+#[tokio::test]
+async fn image_rate_limit_rpm_blocks_second_request() {
+    let (up, _h) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"unit":"image","unit_price":0.05}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkrlimg",
+        &[(
+            &up,
+            image_slot("img-slot"),
+            Protocol::OpenAI,
+            "r",
+            r#"{"rate_limits":{"rpm":1}}"#,
+        )],
+    )
+    .await;
+    let send = |state: &Arc<ProxyState>| {
+        let state = state.clone();
+        async move {
+            handle_proxy(
+                AxumState(state),
+                embedding_request("gkrlimg", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+            )
+            .await
+        }
+    };
+    let r1 = send(&state).await;
+    assert_eq!(r1.status(), StatusCode::OK);
+    let r2 = send(&state).await;
+    assert_eq!(r2.status(), StatusCode::TOO_MANY_REQUESTS, "rpm 占位超限");
+    let log = last_log_for(&state, "gkrlimg").await;
+    assert_eq!(log.blocked_reason, "rate_limit");
+}

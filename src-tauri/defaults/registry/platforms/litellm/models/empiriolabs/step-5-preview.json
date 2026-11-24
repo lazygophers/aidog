@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/step-5-preview",
+  "canonical_model": "step-5-preview",
+  "family": "stepfun",
+  "version": "5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1024000,
+  "context_window": 1024000,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001,
+    "output": 0.0000027,
+    "cache_read": 1e-7
+  }
+}

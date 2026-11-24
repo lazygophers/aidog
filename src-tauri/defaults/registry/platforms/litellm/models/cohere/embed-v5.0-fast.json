@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "cohere/embed-v5.0-fast",
+  "canonical_model": "embed-v5.0-fast",
+  "family": "embed",
+  "version": "5.0",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8e-8,
+    "output": 0
+  }
+}

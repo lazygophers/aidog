@@ -12,9 +12,9 @@
   "price": {
     "currency": "USD",
     "input": 2.5e-06,
-    "output": 5e-06
-  },
-  "last_updated": 1794592077,
+    "output": 5e-06,
+    "cache_read": 0.0000025},
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"

@@ -68,6 +68,11 @@ pub struct ProxyLog {
     /// `PROXY_LOG_COLUMNS` / 不落列，落库列集零变化）。
     #[serde(default)]
     pub tool_call_counts: Vec<(String, i64)>,
+    /// 费用状态（票 07 生图）：`known` / `estimated` / `unknown` / `incomplete`。
+    /// 内存透传（同 [`Self::tool_call_counts`] 不落列，落库列集零变化）；
+    /// `process_upsert` 对非 known 状态打一条可见费用标记日志（`+unestimable` 先例）。
+    #[serde(default)]
+    pub fee_state: Option<String>,
     /// 是否为流式（SSE）请求；流式日志的 body 为聚合的真实 SSE 内容（非 "[stream]" 哨兵）
     #[serde(default)]
     pub is_stream: bool,

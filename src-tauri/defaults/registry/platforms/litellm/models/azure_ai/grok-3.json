@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure_ai/grok-3",
+  "canonical_model": "grok-3",
+  "family": "grok",
+  "version": "3",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000003,
+    "output": 0.000015
+  },
+  "context_window": 131072
+}

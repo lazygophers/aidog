@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nscale/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+  "canonical_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+  "family": "deepseek",
+  "version": "32B",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-7,
+    "output": 1.5e-7
+  }
+}

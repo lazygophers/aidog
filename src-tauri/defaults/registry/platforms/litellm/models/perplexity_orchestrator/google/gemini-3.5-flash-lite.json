@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity_orchestrator/google/gemini-3.5-flash-lite",
+  "canonical_model": "gemini-3.5-flash-lite",
+  "family": "gemini",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 65536,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 0.0000025,
+    "cache_read": 3e-8
+  }
+}

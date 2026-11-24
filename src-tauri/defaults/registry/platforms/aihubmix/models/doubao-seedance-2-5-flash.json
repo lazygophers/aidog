@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "doubao-seedance-2-5-flash",
+  "canonical_model": "doubao-seedance-2-5-flash",
+  "display_name": "Seedance 2.5 Flash",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001,
+    "output": 0.000001
+  }
+}

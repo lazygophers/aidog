@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/moonshotai/Kimi-K2-Instruct-0905",
+  "canonical_model": "moonshotai/Kimi-K2-Instruct-0905",
+  "family": "moonshotai",
+  "version": "0905",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5.7e-7,
+    "output": 0.00000229,
+    "cache_read": 1.4e-7
+  }
+}

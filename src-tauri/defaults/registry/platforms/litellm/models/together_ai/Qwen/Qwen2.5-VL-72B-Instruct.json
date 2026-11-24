@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "together_ai/Qwen/Qwen2.5-VL-72B-Instruct",
+  "canonical_model": "Qwen/Qwen2.5-VL-72B-Instruct",
+  "family": "Qwen",
+  "version": "2.5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000195,
+    "output": 0.000008
+  }
+}

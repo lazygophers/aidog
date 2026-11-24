@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "together_ai/reflection/Beam-1.0-501B-A23B",
+  "canonical_model": "reflection/Beam-1.0-501B-A23B",
+  "family": "reflection",
+  "version": "1.0",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4e-7,
+    "output": 0.0000012,
+    "cache_read": 4e-8
+  }
+}

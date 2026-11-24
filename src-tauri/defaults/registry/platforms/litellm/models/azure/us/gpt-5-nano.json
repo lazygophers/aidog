@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/us/gpt-5-nano",
+  "context_window": 400000,
+  "canonical_model": "gpt-5-nano",
+  "family": "gpt",
+  "version": "5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5.5e-8,
+    "output": 4.4e-7,
+    "cache_read": 5.5e-9
+  }
+}

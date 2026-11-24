@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/us-gov/gpt-4.1-mini",
+  "canonical_model": "us-gov/gpt-4.1-mini",
+  "family": "us",
+  "version": "4.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5.5e-7,
+    "output": 0.0000022,
+    "cache_read": 1.38e-7
+  }
+}

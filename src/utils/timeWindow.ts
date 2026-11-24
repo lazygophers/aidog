@@ -34,7 +34,7 @@ export type TzMode = "local" | "utc";
  *  覆盖主流市场 + 用户所在地（瑞士）；完整 IANA 列表过长，收窄为常用集。
  *  formSections.tsx（peak）与 WindowsEditModal.tsx（time_windows）两编辑器共用。 */
 export const WINDOW_TIMEZONES = [
-  "__utc__", "Asia/Shanghai", "Asia/Tokyo", "Asia/Singapore", "Asia/Kolkata",
+  "__utc__", "UTC", "Asia/Shanghai", "Asia/Tokyo", "Asia/Singapore", "Asia/Kolkata",
   "America/New_York", "America/Chicago", "America/Los_Angeles",
   "Europe/London", "Europe/Berlin", "Europe/Zurich", "Europe/Moscow",
 ] as const;

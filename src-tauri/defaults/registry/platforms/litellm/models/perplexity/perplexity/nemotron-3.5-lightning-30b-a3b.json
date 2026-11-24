@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/perplexity/nemotron-3.5-lightning-30b-a3b",
+  "context_window": 1048576,
+  "canonical_model": "nemotron-3.5-lightning-30b-a3b",
+  "family": "nemotron",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.15e-8,
+    "output": 1.7e-7,
+    "cache_read": 1.15e-9
+  }
+}

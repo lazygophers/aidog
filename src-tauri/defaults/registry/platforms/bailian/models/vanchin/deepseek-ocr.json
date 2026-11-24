@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "vanchin/deepseek-ocr",
+  "context_window": 1000000,
+  "context_window": 1000000,
+  "display_name": "vanchin/deepseek-ocr",
+  "canonical_model": "vanchin/deepseek-ocr",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 2.16e-7,
+    "output": 2.16e-7
+  }
+}

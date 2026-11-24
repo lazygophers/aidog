@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nebius/nvidia/Nemotron-3.5-Super-VL",
+  "canonical_model": "nemotron-3.5-super-vl",
+  "family": "nvidia",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 9e-7,
+    "cache_read": 6e-8
+  }
+}

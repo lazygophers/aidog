@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -26,15 +26,15 @@
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 1.268e-07,
-        "output": 7.608e-07,
-        "cache_read": 2.536e-08
+        "input": 1.35616e-7,
+        "output": 8.136959999999999e-7,
+        "cache_read": 2.7123e-8
       },
       {
         "min_tokens": 128001,
-        "input": 2.536e-07,
-        "output": 1.5216e-06,
-        "cache_read": 5.072e-08
+        "input": 2.71232e-7,
+        "output": 0.0000016273919999999999,
+        "cache_read": 5.4246e-8
       }
     ]
   }

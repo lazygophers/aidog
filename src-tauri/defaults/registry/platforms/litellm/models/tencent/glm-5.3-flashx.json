@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "tencent/glm-5.3-flashx",
+  "canonical_model": "glm-5.3-flashx",
+  "family": "glm",
+  "version": "5.3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.7e-7,
+    "output": 0.00000125,
+    "cache_read": 7.5e-8,
+    "cache_write": 0
+  }
+}

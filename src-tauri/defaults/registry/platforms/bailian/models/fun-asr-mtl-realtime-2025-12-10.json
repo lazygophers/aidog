@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "fun-asr-mtl-realtime-2025-12-10",
+  "display_name": "fun-asr-mtl-realtime-2025-12-10",
+  "canonical_model": "fun-asr-mtl-realtime-2025-12-10",
+  "family": "fun-asr",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "unit": "second",
+    "unit_price": 0.00033
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/cloudflare/clef-flash",
+  "canonical_model": "clef-flash",
+  "family": "clef",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 24576,
+  "context_window": 24576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.9e-8,
+    "output": 0
+  }
+}

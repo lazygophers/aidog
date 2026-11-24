@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/google/gemini-3.1-pro-preview",
+  "context_window": 1048576,
+  "canonical_model": "google/gemini-3.1-pro-preview",
+  "family": "google",
+  "version": "3.1",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.000012,
+    "cache_read": 2e-7
+  }
+}

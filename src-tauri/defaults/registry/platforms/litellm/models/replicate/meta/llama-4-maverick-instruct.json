@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/meta/llama-4-maverick-instruct",
+  "canonical_model": "meta/llama-4-maverick-instruct",
+  "family": "meta",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.5e-7,
+    "output": 9.5e-7
+  }
+}

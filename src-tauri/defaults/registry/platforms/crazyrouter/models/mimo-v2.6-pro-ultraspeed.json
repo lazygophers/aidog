@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "mimo-v2.6-pro-ultraspeed",
+  "canonical_model": "mimo-v2.6-pro-ultraspeed",
+  "family": "mimo",
+  "version": "2.6",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000435,
+    "output": 0.0000087
+  },
+  "context_window": 1048576
+}

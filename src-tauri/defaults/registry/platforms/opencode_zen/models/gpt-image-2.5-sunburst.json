@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-image-2.5-sunburst",
+  "display_name": "GPT Image 2.5 Sunburst",
+  "canonical_model": "gpt-image-2.5-sunburst",
+  "family": "gpt",
+  "version": "2.5",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "unit": "image",
+    "unit_price": 1
+  }
+}

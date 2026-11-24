@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "claude-sonnet-5-5",
+  "canonical_model": "claude-sonnet-5-5",
+  "display_name": "Claude Sonnet 5.5",
+  "max_output_tokens": 128000,
+  "context_window": 1000000,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 1e-7,
+    "cache_write": 0.0000025
+  }
+}

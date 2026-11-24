@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/anthropic/claude-haiku-4-5",
+  "context_window": 200000,
+  "canonical_model": "claude-haiku-4-5",
+  "family": "claude",
+  "version": "4.5",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001,
+    "output": 0.000005,
+    "cache_read": 1e-7
+  }
+}

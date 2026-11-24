@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/eu/o3-deep-research",
+  "context_window": 200000,
+  "canonical_model": "o3-deep-research",
+  "family": "o",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000011,
+    "output": 0.000044,
+    "cache_read": 0.00000275
+  }
+}

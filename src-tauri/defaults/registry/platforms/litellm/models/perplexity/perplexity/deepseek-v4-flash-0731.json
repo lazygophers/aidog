@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/perplexity/deepseek-v4-flash-0731",
+  "context_window": 1000000,
+  "canonical_model": "perplexity/deepseek-v4-flash-0731",
+  "family": "perplexity",
+  "version": "0731",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.3e-7,
+    "output": 2.6e-7,
+    "cache_read": 2.8e-8
+  }
+}

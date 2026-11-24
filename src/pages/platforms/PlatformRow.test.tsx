@@ -94,6 +94,24 @@ describe("PlatformRow", () => {
     expect(screen.queryByTestId("row-detail-button")).toBeNull();
   });
 
+  it("⋯ 菜单含「Custom Test」项并回调 onCustomTest（生图测试入口）", () => {
+    const onCustomTest = vi.fn();
+    render(<PlatformRow {...base} onCustomTest={onCustomTest} />);
+    const menu = screen.getByTestId("row-menu");
+    fireEvent.pointerDown(menu, { button: 0, ctrlKey: false });
+    fireEvent.click(menu);
+    fireEvent.click(screen.getByTestId("row-custom-test"));
+    expect(onCustomTest).toHaveBeenCalledWith(platform);
+  });
+
+  it("未传 onCustomTest：⋯ 菜单无 Custom Test 项", () => {
+    render(<PlatformRow {...base} />);
+    const menu = screen.getByTestId("row-menu");
+    fireEvent.pointerDown(menu, { button: 0, ctrlKey: false });
+    fireEvent.click(menu);
+    expect(screen.queryByTestId("row-custom-test")).toBeNull();
+  });
+
   it("expanded=true 渲染明细区（模型 + 配置模型计数）", () => {
     render(<PlatformRow {...base} expanded models={undefined} />);
     expect(screen.getByTestId("row-detail")).toBeTruthy();

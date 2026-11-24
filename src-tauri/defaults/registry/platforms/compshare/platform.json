@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795488925,
   "holiday_calendar": "CN",  "endpoints": {
     "default": [
       {
@@ -145,7 +145,25 @@
       "wan2.7-t2v",
       "wan2.7-videoedit",
       "wan3.0-video",
-      "wan3.0-video-prime"
+      "wan3.0-video-prime",
+      "IndexTTS-2.5",
+      "LingDT-3.0-flash",
+      "auto",
+      "glm-5.3-flashx",
+      "hy4-flash",
+      "hy4",
+      "kimi-k3.1-pro-highspeed",
+      "kimi-k3.1-pro",
+      "mimo-v2.6-pro-ultraspeed",
+      "minimax-h3-context-ir",
+      "minimax-m3.1-flash",
+      "moss-tts-1.5-flash",
+      "qwen-audio-3.1-tts-flash",
+      "qwen-audio-3.1-tts-plus",
+      "qwen3.8-flash",
+      "qwen3.8-omni-flash",
+      "qwen4-max",
+      "seed-audio-1.0"
     ]
   },
   "peak": [

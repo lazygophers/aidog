@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "tencent/hy4",
+  "canonical_model": "hy4",
+  "family": "hunyuan",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 960000,
+  "context_window": 960000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.17e-7,
+    "output": 0.0000012505,
+    "cache_read": 2.1e-8
+  }
+}

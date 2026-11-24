@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "google/gemini-nano-banana-2.1",
+  "canonical_model": "gemini-nano-banana-2.1",
+  "family": "gemini",
+  "version": "2.1",
+  "display_name": "Google: Nano Banana 2.1",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 65536,
+  "context_window": 65536,
+  "max_output_tokens": 58982,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.0000075
+  }
+}

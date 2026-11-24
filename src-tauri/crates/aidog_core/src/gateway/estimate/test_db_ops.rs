@@ -112,7 +112,7 @@ async fn coding_plan_delta_persists() {
         .await
         .unwrap();
 
-    apply_coding_plan_delta(&db, id, 0, 1000.0).await.unwrap(); // +10%
+    apply_coding_plan_delta(&db, id, "kimi", 0, 1000.0).await.unwrap(); // +10%
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     let stored = EstCodingPlan::from_json(&p.est_coding_plan);
     assert!(
@@ -121,6 +121,53 @@ async fn coding_plan_delta_persists() {
         stored.tiers[0].est_utilization
     );
     assert_eq!(p.estimate_count, 1);
+}
+
+#[tokio::test]
+async fn glm_coding_delta_uses_official_point_limit_on_existing_prompt_count_state() {
+    let db = mem_db().await;
+    let p = db::create_platform(
+        &db,
+        CreatePlatform {
+            name: "glm".into(),
+            platform_type: Protocol::GlmCoding,
+            base_url: "https://example.com".into(),
+            api_key: "sk".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let plan = EstCodingPlan {
+        tiers: vec![EstTier {
+            name: "five_hour".into(),
+            est_utilization: 98.0,
+            unit: "prompt_count".into(),
+            ..Default::default()
+        }],
+        level: Some("pro".into()),
+    };
+    write_real_quota(&db, p.id, 0.0, &plan.to_json(), now())
+        .await
+        .unwrap();
+
+    apply_coding_plan_delta(&db, p.id, "glm_coding", 1, 12.7)
+        .await
+        .unwrap();
+    let stored = EstCodingPlan::from_json(&db::get_platform(&db, p.id).await.unwrap().unwrap().est_coding_plan);
+    let tier = &stored.tiers[0];
+    assert_eq!(tier.unit, "glm_points");
+    assert_eq!(tier.limit, 12_000.0);
+    assert!(tier.has_base);
+    assert!((tier.est_utilization - (98.0 + 12.7 * 100.0 / 12_000.0)).abs() < 1e-9);
 }
 
 // ── 校准覆盖重置 count/time + Kimi 基数写入（端到端经 build_calibrated_coding_plan）──
@@ -154,7 +201,7 @@ async fn calibration_overwrite_resets() {
         newapi_user_id: None,
     };
     let prev = EstCodingPlan::from_json(&before.est_coding_plan);
-    let calibrated = build_calibrated_coding_plan(&prev, &quota);
+    let calibrated = build_calibrated_coding_plan(&prev, &quota, "kimi");
     write_real_quota(&db, id, 0.0, &calibrated.to_json(), now())
         .await
         .unwrap();
@@ -166,6 +213,44 @@ async fn calibration_overwrite_resets() {
     assert!(stored.tiers[0].has_base);
     assert!((stored.tiers[0].limit - 10_000.0).abs() < 1e-9);
     assert!((stored.tiers[0].est_utilization - 30.0).abs() < 1e-9);
+}
+
+#[test]
+fn glm_calibration_uses_published_level_quotas() {
+    let quota = PlatformQuota {
+        success: true,
+        error: None,
+        queried_at: now(),
+        balance: None,
+        coding_plan: Some(CodingPlanInfo {
+            tiers: vec![
+                QuotaTier {
+                    name: "five_hour".into(),
+                    utilization: 98.0,
+                    resets_at: None,
+                    limit: None,
+                    remaining: None,
+                    unit: Some("prompt_count".into()),
+                },
+                QuotaTier {
+                    name: "weekly_limit".into(),
+                    utilization: 41.0,
+                    resets_at: None,
+                    limit: None,
+                    remaining: None,
+                    unit: Some("prompt_count".into()),
+                },
+            ],
+            level: Some("pro".into()),
+        }),
+        newapi_user_id: None,
+    };
+
+    let calibrated = build_calibrated_coding_plan(&EstCodingPlan::default(), &quota, "glm_coding");
+    assert_eq!(calibrated.tiers[0].unit, "glm_points");
+    assert_eq!(calibrated.tiers[0].limit, 12_000.0);
+    assert_eq!(calibrated.tiers[1].unit, "glm_points");
+    assert_eq!(calibrated.tiers[1].limit, 60_000.0);
 }
 
 // ── 真查校准入口 calibrate_from_quota：est 严格对齐真实 + 重置基线/计数（coding plan）──
@@ -411,7 +496,7 @@ fn build_calibrated_coding_plan_none_returns_default() {
         coding_plan: None,
         newapi_user_id: None,
     };
-    let r = build_calibrated_coding_plan(&prev, &quota);
+    let r = build_calibrated_coding_plan(&prev, &quota, "kimi");
     assert!(r.tiers.is_empty());
 }
 

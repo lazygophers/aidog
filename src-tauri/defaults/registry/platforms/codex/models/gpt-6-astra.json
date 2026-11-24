@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai_responses"
+  ],
+  "model_id": "gpt-6-astra",
+  "display_name": "GPT-6 Astra",
+  "canonical_model": "gpt-6-astra",
+  "family": "gpt",
+  "version": "6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 922000,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": false,
+  "thinking_supported": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.00001,
+    "output": 0.00005,
+    "cache_read": 0.000001,
+    "cache_write": 0.0000125
+  }
+}

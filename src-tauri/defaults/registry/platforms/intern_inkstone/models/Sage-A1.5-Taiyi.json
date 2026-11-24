@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "openai_responses"
+  ],
+  "model_id": "Sage-A1.5-Taiyi",
+  "display_name": "Sage-A1.5-Taiyi",
+  "canonical_model": "sage-a1.5-taiyi",
+  "family": "sage",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 524288,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0,
+    "output": 0
+  }
+}

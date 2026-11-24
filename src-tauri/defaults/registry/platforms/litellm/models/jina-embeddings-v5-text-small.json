@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "jina-embeddings-v5-text-small",
+  "canonical_model": "jina-embeddings-v5-text-small",
+  "family": "jina",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-8,
+    "output": 0
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/us-west-2/amazon.nova-micro-v1:0",
+  "canonical_model": "amazon-nova-micro-v1",
+  "family": "bedrock",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 10000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.5e-8,
+    "output": 1.4e-7,
+    "cache_read": 8.75e-9,
+    "cache_write": 0
+  }
+}

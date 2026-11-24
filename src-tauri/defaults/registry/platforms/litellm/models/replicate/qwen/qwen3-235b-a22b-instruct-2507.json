@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/qwen/qwen3-235b-a22b-instruct-2507",
+  "context_window": 262144,
+  "canonical_model": "qwen3-235b-a22b-instruct-2507",
+  "family": "qwen",
+  "version": "3",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.64e-7,
+    "output": 0.00000106
+  }
+}

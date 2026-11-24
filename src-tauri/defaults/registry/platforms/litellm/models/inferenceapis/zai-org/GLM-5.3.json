@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "inferenceapis/zai-org/GLM-5.3",
+  "canonical_model": "glm-5.3",
+  "family": "glm",
+  "version": "5.3",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048575,
+  "context_window": 1048575,
+  "max_output_tokens": 1048575,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000182,
+    "output": 0.00000572,
+    "cache_read": 3.4e-7
+  }
+}

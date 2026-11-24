@@ -1,12 +1,12 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "aihubmix/step-3.7-flash",
   "display_name": "Step 3.7 Flash",
   "canonical_model": "step-3.7-flash",
-  "family": "stepfun",
+  "family": "step",
   "version": "3.7",
   "capabilities": [
     "text",
@@ -19,6 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "cache_read": 4.4e-8,
     "currency": "USD",
     "input": 2.2e-07,
     "output": 1.32e-06

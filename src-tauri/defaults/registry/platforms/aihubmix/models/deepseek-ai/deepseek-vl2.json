@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,13 +7,14 @@
   ],
   "model_id": "deepseek-ai/deepseek-vl2",
   "canonical_model": "deepseek-vl2",
+  "version": "2",
   "family": "deepseek",
   "display_name": "DeepSeek Vl2",
   "capabilities": [],
   "official": false,
   "price": {
     "currency": "USD",
-    "input": 1.6e-07,
-    "output": 1.6e-07
+    "input": 1.6e-7,
+    "output": 1.6e-7
   }
 }

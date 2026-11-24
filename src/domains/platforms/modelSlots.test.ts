@@ -11,8 +11,13 @@ describe("embedding / rerank model slots", () => {
     expect(m.rerank).toBe("platform.modelRerank");
   });
 
-  it("DEDICATED_MODEL_SLOTS = embedding + rerank only", () => {
-    expect([...DEDICATED_MODEL_SLOTS]).toEqual(["embedding", "rerank"]);
+  it("image slot in MODEL_SLOTS with locale key", () => {
+    const m = Object.fromEntries(MODEL_SLOTS.map(s => [s.key, s.labelKey]));
+    expect(m.image).toBe("platform.modelImage");
+  });
+
+  it("DEDICATED_MODEL_SLOTS = embedding + rerank + image only", () => {
+    expect([...DEDICATED_MODEL_SLOTS]).toEqual(["embedding", "rerank", "image"]);
   });
 
   it("allModelValues includes both slots, deduped", () => {
@@ -20,9 +25,10 @@ describe("embedding / rerank model slots", () => {
   });
 
   it("autoCategorize never assigns the dedicated slots", () => {
-    const r = autoCategorize(["text-embedding-3", "bge-reranker"]);
+    const r = autoCategorize(["text-embedding-3", "bge-reranker", "gpt-image-2"]);
     expect(r.embedding).toBe("");
     expect(r.rerank).toBe("");
+    expect(r.image).toBe("");
   });
 });
 

@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/qwen3-5-122b-a10b",
+  "canonical_model": "qwen3.5-122b-a10b",
+  "family": "qwen",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 258048,
+  "context_window": 258048,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.15e-7,
+    "output": 9.17e-7
+  }
+}

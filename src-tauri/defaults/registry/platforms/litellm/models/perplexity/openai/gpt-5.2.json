@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/openai/gpt-5.2",
+  "context_window": 400000,
+  "canonical_model": "gpt-5.2",
+  "family": "gpt",
+  "version": "5.2",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000175,
+    "output": 0.000014,
+    "cache_read": 1.75e-7
+  }
+}

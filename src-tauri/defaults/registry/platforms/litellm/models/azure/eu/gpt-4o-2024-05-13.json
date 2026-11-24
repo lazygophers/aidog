@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/eu/gpt-4o-2024-05-13",
+  "canonical_model": "eu/gpt-4o-2024-05-13",
+  "family": "eu",
+  "version": "4o",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000055,
+    "output": 0.0000165
+  }
+}

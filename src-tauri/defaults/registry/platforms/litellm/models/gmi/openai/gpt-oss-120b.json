@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/openai/gpt-oss-120b",
+  "canonical_model": "openai/gpt-oss-120b",
+  "family": "openai",
+  "version": "120b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-8,
+    "output": 2.5e-7
+  }
+}

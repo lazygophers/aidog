@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/gpt-5.6-terra-pro",
+  "canonical_model": "gpt-5.6-terra-pro",
+  "family": "gpt",
+  "version": "5.6",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1050000,
+  "context_window": 1050000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000027,
+    "output": 0.0000162,
+    "cache_read": 2.7e-7
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openai/gpt-6-luna-developer-az",
+  "canonical_model": "gpt-6-luna-developer-az",
+  "display_name": "GPT 6 Luna Developer AZ",
+  "family": "gpt",
+  "version": "6",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 5e-7
+  },
+  "context_window": 1050000,
+  "max_output_tokens": 131072
+}

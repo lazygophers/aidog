@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/muse-wonder",
+  "canonical_model": "muse-wonder",
+  "family": "muse",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 943718,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000054,
+    "output": 0.000027
+  }
+}

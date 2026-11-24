@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "gemini-4-argon",
+  "display_name": "Gemini 4 Argon",
+  "canonical_model": "gemini-4-argon",
+  "context_window": 100000,
+  "max_output_tokens": 100000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 1.0000000000000001e-7
+  },
+  "capabilities": [
+    "text",
+    "vision",
+    "audio",
+    "tool_use",
+    "reasoning"
+  ]
+}

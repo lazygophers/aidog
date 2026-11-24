@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "qwen-plus-character-ja",
+  "display_name": "qwen-plus-character-ja",
+  "canonical_model": "qwen-plus-character-ja",
+  "family": "qwen",
+  "capabilities": [
+    "decision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 5e-7,
+    "output": 0.0000014
+  }
+}

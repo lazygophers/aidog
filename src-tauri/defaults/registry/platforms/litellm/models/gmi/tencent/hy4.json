@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/tencent/hy4",
+  "canonical_model": "tencent/hy4",
+  "family": "tencent",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.17e-7,
+    "output": 0.0000012505,
+    "cache_read": 2.1e-8
+  }
+}

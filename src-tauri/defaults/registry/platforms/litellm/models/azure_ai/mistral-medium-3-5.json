@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure_ai/mistral-medium-3-5",
+  "canonical_model": "mistral-medium-3-5",
+  "family": "mistral",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.0000075
+  }
+}

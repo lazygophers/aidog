@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/liquid/d1",
+  "canonical_model": "liquid/d1",
+  "family": "liquid",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 65536,
+  "context_window": 65536,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-8,
+    "output": 0
+  }
+}

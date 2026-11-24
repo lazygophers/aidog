@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/eu-central-1/google.gemma-4-26b-a4b",
+  "canonical_model": "eu-central-1/google.gemma-4-26b-a4b",
+  "family": "eu",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 256000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.56e-7,
+    "output": 4.8e-7
+  }
+}

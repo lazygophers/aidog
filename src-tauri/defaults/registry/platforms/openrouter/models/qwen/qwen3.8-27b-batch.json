@@ -1,0 +1,31 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "qwen/qwen3.8-27b:batch",
+  "canonical_model": "qwen3.8-27b",
+  "family": "qwen",
+  "version": "3.8",
+  "display_name": "Qwen: Qwen3.8 27B (batch)",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning",
+    "video"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 235929,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 1.6e-7,
+    "output": 0.000002,
+    "cache_read": 4e-8
+  }
+}

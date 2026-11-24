@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-6-cyber",
+  "canonical_model": "gpt-6-cyber",
+  "display_name": "GPT-6 Cyber",
+  "family": "gpt",
+  "version": "6",
+  "predecessor": "gpt-5.5-cyber",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "max_input_tokens": 922000,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.00002,
+    "output": 0.0001,
+    "cache_read": 0.000002,
+    "cache_write": 0.000025
+  }
+}

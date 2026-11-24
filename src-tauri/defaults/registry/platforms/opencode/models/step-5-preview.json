@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "step-5-preview",
+  "display_name": "Step 5 Preview",
+  "canonical_model": "step-5-preview",
+  "family": "stepfun",
+  "version": "5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 65536,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001,
+    "output": 0.0000027,
+    "cache_read": 1e-7
+  },
+  "context_window": 1000000
+}

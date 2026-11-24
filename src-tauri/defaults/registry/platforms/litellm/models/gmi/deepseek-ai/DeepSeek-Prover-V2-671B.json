@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/deepseek-ai/DeepSeek-Prover-V2-671B",
+  "canonical_model": "deepseek-ai/DeepSeek-Prover-V2-671B",
+  "family": "deepseek",
+  "version": "671B",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-7,
+    "output": 0.00000218
+  }
+}

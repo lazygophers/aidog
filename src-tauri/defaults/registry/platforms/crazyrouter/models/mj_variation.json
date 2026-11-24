@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "mj_variation",
+  "canonical_model": "mj_variation",
+  "capabilities": [
+    "image_edit"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "unit": "request",
+    "unit_price": 0.1
+  }
+}

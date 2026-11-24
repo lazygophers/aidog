@@ -2,7 +2,7 @@
   "model_id": "stepfun/step-3.7-flash",
   "display_name": "StepFun: Step 3.7 Flash",
   "canonical_model": "step-3.7-flash",
-  "family": "stepfun",
+  "family": "step",
   "version": "3.7",
   "max_input_tokens": 256000,
   "context_window": 262144,
@@ -16,7 +16,7 @@
     "output": 1.15e-06,
     "cache_read": 4e-08
   },
-  "last_updated": 1793244705,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "anthropic",
     "openai"

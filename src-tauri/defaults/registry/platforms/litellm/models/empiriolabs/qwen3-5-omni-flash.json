@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/qwen3-5-omni-flash",
+  "canonical_model": "qwen3.5-omni-flash",
+  "family": "qwen",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 196608,
+  "context_window": 196608,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8e-7,
+    "output": 0.0000044
+  }
+}

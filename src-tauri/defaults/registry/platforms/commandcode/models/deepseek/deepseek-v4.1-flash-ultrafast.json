@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "deepseek/deepseek-v4.1-flash-ultrafast",
+  "display_name": "DeepSeek V4.1 Flash Ultrafast",
+  "canonical_model": "deepseek-v4.1-flash-ultrafast",
+  "family": "deepseek",
+  "version": "4.1",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1048576,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.0000024,
+    "output": 0.0000096,
+    "cache_read": 4.8e-8
+  }
+}

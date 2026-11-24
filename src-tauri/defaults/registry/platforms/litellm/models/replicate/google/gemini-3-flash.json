@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/google/gemini-3-flash",
+  "context_window": 1048576,
+  "canonical_model": "google/gemini-3-flash",
+  "family": "google",
+  "version": "3",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-7,
+    "output": 0.000003
+  }
+}

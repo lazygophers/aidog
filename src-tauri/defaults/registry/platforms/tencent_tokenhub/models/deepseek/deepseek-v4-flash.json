@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai",
+    "openai_responses",
+    "anthropic"
+  ],
+  "model_id": "deepseek/deepseek-v4-flash",
+  "display_name": "DeepSeek-V4-Flash 0731 正式版 原厂直供",
+  "canonical_model": "deepseek/deepseek-v4-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 1048576,
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 393216,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000001,
+    "output": 0.000004,
+    "cache_read": 2e-8
+  }
+}

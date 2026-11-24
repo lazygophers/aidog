@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/us/computer-use-preview",
+  "context_window": 8192,
+  "canonical_model": "us/computer-use-preview",
+  "family": "us",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000033,
+    "output": 0.0000132
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,13 +7,14 @@
   ],
   "model_id": "THUDM/GLM-Z1-32B-0414",
   "canonical_model": "glm-z1-32b-0414",
+  "version": "0414",
   "family": "glm",
   "display_name": "GLM Z1 32B 0414",
   "capabilities": [],
   "official": false,
   "price": {
     "currency": "USD",
-    "input": 8e-08,
-    "output": 8e-08
+    "input": 8e-8,
+    "output": 8e-8
   }
 }

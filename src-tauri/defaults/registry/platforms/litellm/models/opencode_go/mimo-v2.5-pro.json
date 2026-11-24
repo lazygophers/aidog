@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "opencode_go/mimo-v2.5-pro",
+  "canonical_model": "mimo-v2.5-pro",
+  "family": "mimo",
+  "version": "2.5",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.35e-7,
+    "output": 8.7e-7,
+    "cache_read": 3.625e-9
+  }
+}

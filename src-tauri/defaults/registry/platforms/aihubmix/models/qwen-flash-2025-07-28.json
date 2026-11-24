@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795233205,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "qwen-flash-2025-07-28",
   "canonical_model": "qwen-flash-2025-07-28",
+  "version": "28",
   "capabilities": [
     "text"
   ],
@@ -18,8 +19,20 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "context_tiers": [
+      {
+        "min_tokens": 128001,
+        "input": 8.219e-8,
+        "output": 8.218999999999999e-7
+      },
+      {
+        "min_tokens": 256001,
+        "input": 1.64382e-7,
+        "output": 0.00000164382
+      }
+    ],
     "currency": "USD",
-    "input": 2.0546e-8,
-    "output": 2.0546e-7
+    "input": 2.0545999999999997e-8,
+    "output": 2.0546000000000001e-7
   }
 }

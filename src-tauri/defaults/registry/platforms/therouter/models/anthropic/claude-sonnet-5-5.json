@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "anthropic/claude-sonnet-5-5",
+  "canonical_model": "claude-sonnet-5-5",
+  "family": "claude",
+  "version": "5.5",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.00000216,
+    "output": 0.0000108
+  }
+}

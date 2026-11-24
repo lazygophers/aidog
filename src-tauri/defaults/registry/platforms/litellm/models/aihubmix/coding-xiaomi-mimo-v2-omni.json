@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "aihubmix/coding-xiaomi-mimo-v2-omni",
+  "canonical_model": "coding-xiaomi-mimo-v2-omni",
+  "family": "coding",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8e-8,
+    "output": 4e-7,
+    "cache_read": 1.6e-8
+  }
+}

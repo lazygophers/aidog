@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/glm-5.3",
+  "canonical_model": "glm-5.3",
+  "family": "glm",
+  "version": "5.3",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1310720,
+  "context_window": 1310720,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001178,
+    "output": 0.000003702
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "stepfun/step-5-preview",
+  "canonical_model": "step-5-preview",
+  "display_name": "Step 5 Preview",
+  "family": "stepfun",
+  "version": "5",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 9.722222222222222e-7,
+    "output": 0.0000027777777777777775
+  },
+  "context_window": 256000,
+  "max_output_tokens": 256000
+}

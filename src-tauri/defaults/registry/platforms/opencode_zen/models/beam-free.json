@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "beam-free",
+  "display_name": "Beam Free",
+  "canonical_model": "beam-free",
+  "family": "beam",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0,
+    "cache_read": 0,
+    "free": true
+  },
+  "context_window": 1048576
+}

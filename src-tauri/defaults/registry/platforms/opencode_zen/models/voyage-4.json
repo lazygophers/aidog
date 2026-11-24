@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "voyage-4",
+  "display_name": "voyage-4",
+  "canonical_model": "voyage-4",
+  "family": "voyage",
+  "version": "4",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-8,
+    "output": 0
+  },
+  "context_window": 32000
+}

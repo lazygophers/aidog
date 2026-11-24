@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "opencode_go/longcat-2.5-preview-free",
+  "canonical_model": "longcat-2.5-preview-free",
+  "family": "longcat",
+  "version": "2.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0,
+    "cache_read": 0
+  }
+}

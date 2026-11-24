@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "ideogram-vector-1",
+  "canonical_model": "ideogram-vector-1",
+  "display_name": "Ideogram Vector 1",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0
+  }
+}

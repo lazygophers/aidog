@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/openai/o1",
+  "context_window": 200000,
+  "canonical_model": "o1",
+  "family": "o",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000015,
+    "output": 0.00006
+  }
+}

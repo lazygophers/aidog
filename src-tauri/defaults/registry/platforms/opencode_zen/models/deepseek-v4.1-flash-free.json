@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "deepseek-v4.1-flash-free",
+  "display_name": "DeepSeek V4.1 Flash Free",
+  "canonical_model": "deepseek-v4.1-flash-free",
+  "family": "deepseek",
+  "version": "4.1",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 32000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0,
+    "cache_read": 0,
+    "free": true
+  },
+  "context_window": 200000
+}

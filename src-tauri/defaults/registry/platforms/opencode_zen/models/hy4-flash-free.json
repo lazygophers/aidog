@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "hy4-flash-free",
+  "display_name": "Hy4 flash Free",
+  "canonical_model": "hy4-flash-free",
+  "family": "hy4",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 983040,
+  "max_output_tokens": 65536,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0,
+    "cache_read": 0
+  },
+  "context_window": 1048576
+}

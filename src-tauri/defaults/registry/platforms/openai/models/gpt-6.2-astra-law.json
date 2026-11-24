@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-6.2-astra-law",
+  "canonical_model": "gpt-6.2-astra-law",
+  "display_name": "GPT-6.2 Astra Law",
+  "family": "gpt",
+  "version": "6.2",
+  "predecessor": "gpt-6-astra-law",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.000008,
+    "output": 0.00004,
+    "cache_read": 4e-7,
+    "cache_write": 0.00001
+  }
+}

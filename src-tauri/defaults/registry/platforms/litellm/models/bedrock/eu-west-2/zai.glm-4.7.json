@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/eu-west-2/zai.glm-4.7",
+  "canonical_model": "zai.glm-4.7",
+  "family": "glm",
+  "version": "4.7",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 203000,
+  "context_window": 203000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 9.3e-7,
+    "output": 0.00000341
+  }
+}

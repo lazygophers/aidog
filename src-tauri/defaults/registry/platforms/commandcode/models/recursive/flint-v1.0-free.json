@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "recursive/flint-v1.0:free",
+  "display_name": "Flint",
+  "canonical_model": "flint-v1.0",
+  "family": "flint",
+  "version": "1.0",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 262144,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0,
+    "free": true
+  }
+}

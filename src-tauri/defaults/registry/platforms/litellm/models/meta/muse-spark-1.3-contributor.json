@@ -1,12 +1,14 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1795488926,
+  "family": "muse",
+  "family": "muse",
   "supported_protocols": [
     "openai"
   ],
   "model_id": "meta/muse-spark-1.3-contributor",
   "display_name": "Meta: Muse Spark 1.3 Contributor",
   "canonical_model": "muse-spark-1.3-contributor",
-  "family": "muse-spark",
+  "family": "muse",
   "version": "1.3",
   "capabilities": [
     "text",
@@ -21,6 +23,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "cache_read": 2e-9,
     "currency": "USD",
     "input": 1e-07,
     "output": 2e-07

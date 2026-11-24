@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "streamlake/deepseek-v3.1",
+  "canonical_model": "deepseek-v3.1",
+  "family": "deepseek",
+  "version": "3.1",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 98304,
+  "context_window": 98304,
+  "max_output_tokens": 32000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5.71e-7,
+    "output": 0.000001714,
+    "cache_read": 2.29e-7
+  }
+}

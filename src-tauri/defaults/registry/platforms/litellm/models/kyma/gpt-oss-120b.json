@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/gpt-oss-120b",
+  "canonical_model": "gpt-oss-120b",
+  "family": "gpt",
+  "version": "120b",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.73e-8,
+    "output": 2.303e-7
+  }
+}

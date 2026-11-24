@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "meta/muse-spark-open",
+  "display_name": "Muse Spark Open",
+  "canonical_model": "muse-spark-open",
+  "family": "muse",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1048576,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.00000125,
+    "output": 0.00000425,
+    "cache_read": 1.5e-7
+  }
+}

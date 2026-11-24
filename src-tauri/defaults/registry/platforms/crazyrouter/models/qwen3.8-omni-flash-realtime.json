@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "qwen3.8-omni-flash-realtime",
+  "context_window": 1000000,
+  "canonical_model": "qwen3.8-omni-flash-realtime",
+  "family": "qwen",
+  "version": "3.8",
+  "capabilities": [
+    "text",
+    "vision",
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 2.24215e-7,
+    "output": 6.72646e-7
+  }
+}

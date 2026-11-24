@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "hostinger_router/text-embedding-3-large",
+  "canonical_model": "text-embedding-3-large",
+  "family": "text-embedding",
+  "version": "3",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 8191,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.716e-7,
+    "output": 0
+  }
+}

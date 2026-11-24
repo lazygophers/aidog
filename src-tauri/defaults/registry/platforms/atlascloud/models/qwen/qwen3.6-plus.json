@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -19,8 +19,17 @@
     "currency": "USD",
     "input": 3.25e-07,
     "output": 1.95e-06,
-    "cache_read": 3.2e-08,
+    "cache_read": 3.25e-8,
     "cache_write": 4.06e-07
+  ,
+    "context_tiers": [
+      {
+        "min_tokens": 256000,
+        "input": 0.0000013,
+        "output": 0.0000039,
+        "cache_read": 1.3e-7
+      }
+    ]
   },
   "max_input_tokens": 1000000,
   "context_window": 1000000,

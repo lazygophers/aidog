@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "google/gemini-4-neon-developer",
+  "canonical_model": "gemini-4-neon-developer",
+  "display_name": "Gemini 4 Neon Developer",
+  "family": "gemini",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.000003,
+    "output": 0.000015
+  },
+  "context_window": 1048576,
+  "max_output_tokens": 65536
+}

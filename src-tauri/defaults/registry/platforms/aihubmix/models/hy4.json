@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "hy4",
+  "canonical_model": "hy4",
+  "display_name": "Hy4",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8.823e-7,
+    "output": 0.000002647,
+    "cache_read": 4.412e-7
+  },
+  "context_window": 1048576
+}

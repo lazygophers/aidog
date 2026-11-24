@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/us/gpt-4.1",
+  "context_window": 1047576,
+  "canonical_model": "us/gpt-4.1",
+  "family": "us",
+  "version": "4.1",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000022,
+    "output": 0.0000088,
+    "cache_read": 5.5e-7
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/deepseek-ai/deepseek-v4-flash-vision-exp",
+  "canonical_model": "deepseek-ai/deepseek-v4-flash-vision-exp",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048575,
+  "context_window": 1048575,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.4e-7,
+    "output": 0.00000132,
+    "cache_read": 1.4e-8
+  }
+}

@@ -28,7 +28,7 @@ function useForm() {
   return usePlatformForm(deps as any);
 }
 
-const BLANK = { default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] };
+const BLANK = { default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] };
 
 describe("fetch models guard", () => {
   afterEach(() => vi.restoreAllMocks());

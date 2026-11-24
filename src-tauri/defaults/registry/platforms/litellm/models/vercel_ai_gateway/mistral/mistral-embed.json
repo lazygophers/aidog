@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "vercel_ai_gateway/mistral/mistral-embed",
+  "canonical_model": "mistral-embed",
+  "family": "mistral",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 0
+  }
+}

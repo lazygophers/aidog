@@ -2,7 +2,10 @@
 
 use rusqlite::params;
 
-use super::algo::{apply_tier_delta, balance_cost, calibrate_tier, should_calibrate};
+use super::algo::{
+    apply_tier_delta, balance_cost, calibrate_tier, glm_coding_plan_limit, glm_coding_points,
+    should_calibrate,
+};
 use super::model::EstCodingPlan;
 use crate::gateway::quota::PlatformQuota;
 use aidog_db::{Db, now};
@@ -30,9 +33,11 @@ pub use aidog_db::apply_balance_delta;
 pub async fn apply_coding_plan_delta(
     db: &Db,
     platform_id: u64,
+    platform_type: &str,
     requests: i64,
-    tokens: f64,
+    usage_units: f64,
 ) -> Result<(), String> {
+    let platform_type = platform_type.to_string();
     db.platform_write_conn()
         .call(move |conn| -> rusqlite::Result<()> {
             let json: String = conn.query_row(
@@ -42,7 +47,18 @@ pub async fn apply_coding_plan_delta(
             )?;
             let mut plan = EstCodingPlan::from_json(&json);
             for tier in plan.tiers.iter_mut() {
-                apply_tier_delta(tier, requests, tokens);
+                if platform_type == "glm_coding" {
+                    if let Some(limit) = plan.level.as_deref().and_then(|level| {
+                        glm_coding_plan_limit(level, &tier.name)
+                    }) {
+                        tier.unit = "glm_points".to_string();
+                        tier.has_base = true;
+                        tier.limit = limit;
+                        apply_tier_delta(tier, requests, usage_units);
+                    }
+                } else {
+                    apply_tier_delta(tier, requests, usage_units);
+                }
             }
             conn.execute(
                 "UPDATE platform SET est_coding_plan = ?1, estimate_count = estimate_count + 1 WHERE id = ?2",
@@ -219,7 +235,11 @@ pub async fn write_real_quota(
 }
 
 /// 根据真查结果 + 上一窗口预估状态，构造校准后的 est_coding_plan JSON（纯计算 + 一次短读拿 prev）。
-pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota) -> EstCodingPlan {
+pub fn build_calibrated_coding_plan(
+    prev: &EstCodingPlan,
+    quota: &PlatformQuota,
+    platform_type: &str,
+) -> EstCodingPlan {
     let cp = match &quota.coding_plan {
         Some(c) => c,
         None => return EstCodingPlan::default(),
@@ -228,7 +248,17 @@ pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota)
         .tiers
         .iter()
         .map(|t| {
-            let has_base = t.limit.is_some();
+            let glm_limit = (platform_type == "glm_coding")
+                .then_some(cp.level.as_deref())
+                .flatten()
+                .and_then(|level| glm_coding_plan_limit(level, &t.name));
+            let has_base = glm_limit.is_some() || t.limit.is_some();
+            let limit = glm_limit.or(t.limit);
+            let unit = if glm_limit.is_some() {
+                "glm_points"
+            } else {
+                t.unit.as_deref().unwrap_or("tokens")
+            };
             let prev_tier = prev
                 .tiers
                 .iter()
@@ -240,12 +270,12 @@ pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota)
                 &t.name,
                 t.utilization,
                 has_base,
-                t.limit,
+                limit,
                 t.resets_at.as_deref(),
                 now(),
                 // unit 透传（spec B1）：脚本声明 prompt_count/mcp_time/tokens，
-                // 缺失 = tokens 兜底
-                t.unit.as_deref().unwrap_or("tokens"),
+                // 缺失 = tokens 兜底；GLM Coding Plan 使用官方积分基数。
+                unit,
             )
         })
         .collect();
@@ -301,14 +331,14 @@ pub async fn calibrate_from_quota_with(
             spawn_backoff_chain(db.clone(), platform_id);
         }
     }
-    let prev_json: String = db
+    let (prev_json, platform_type): (String, String) = db
         .platform_write_conn()
-        .call(move |conn| -> rusqlite::Result<String> {
+        .call(move |conn| -> rusqlite::Result<(String, String)> {
             Ok(conn
                 .query_row(
-                    "SELECT est_coding_plan FROM platform WHERE id = ?1",
+                    "SELECT est_coding_plan, platform_type FROM platform WHERE id = ?1",
                     params![platform_id as i64],
-                    |r| r.get(0),
+                    |r| Ok((r.get(0)?, r.get(1)?)),
                 )
                 .unwrap_or_default())
         })
@@ -327,7 +357,7 @@ pub async fn calibrate_from_quota_with(
         quota.balance.as_ref().map(|b| b.remaining).unwrap_or(0.0)
     };
     let coding_json = if is_coding_plan {
-        build_calibrated_coding_plan(&prev, quota).to_json()
+        build_calibrated_coding_plan(&prev, quota, &platform_type).to_json()
     } else {
         prev_json
     };
@@ -729,13 +759,23 @@ pub async fn estimate_after_request(
 
     // 1. 增量预估
     if is_coding_plan {
-        // cache_write（含 1h 桶，issue 60）计入 plan token 总量（coding 套餐 5h 窗口按总 token 计）
+        // GLM 套餐按官方模型系数、缓存命中量和时段折算积分；其它平台沿用原 token 总量。
         let total = (input_tokens
             + output_tokens
             + cache_tokens
             + cache_write_tokens
             + cache_write_1h_tokens) as f64;
-        let _ = apply_coding_plan_delta(db, platform_id, 1, total).await;
+        let usage_units = glm_coding_points(
+            platform_type,
+            model,
+            input_tokens,
+            output_tokens,
+            cache_tokens,
+            cache_write_tokens,
+            at_ms,
+        )
+        .unwrap_or(total);
+        let _ = apply_coding_plan_delta(db, platform_id, platform_type, 1, usage_units).await;
         // 通知体系票 01：配额预测（只在 coding plan 平台——按量平台无窗口耗尽语义）。
         maybe_emit_quota_forecast(db, platform_id, platform_type).await;
     } else if resolved_price.is_some() || tool_cost_usd > 0.0 {

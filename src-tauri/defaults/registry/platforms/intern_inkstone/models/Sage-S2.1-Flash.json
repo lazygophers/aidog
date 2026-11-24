@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "openai_responses"
+  ],
+  "model_id": "Sage-S2.1-Flash",
+  "display_name": "Sage-S2.1-Flash",
+  "canonical_model": "sage-s2.1-flash",
+  "family": "sage",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 524288,
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0,
+    "output": 0
+  }
+}

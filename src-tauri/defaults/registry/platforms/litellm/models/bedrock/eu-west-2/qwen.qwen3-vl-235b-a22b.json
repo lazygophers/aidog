@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795499858,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/eu-west-2/qwen.qwen3-vl-235b-a22b",
+  "canonical_model": "bedrock/eu-west-2/qwen.qwen3-vl-235b-a22b",
+  "family": "bedrock",
+  "version": "235b",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 8000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8.2e-7,
+    "output": 0.00000412
+  }
+}

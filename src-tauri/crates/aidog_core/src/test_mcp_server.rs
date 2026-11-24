@@ -161,13 +161,9 @@ fn tools_call_keyed_provider_without_key_is_explicit_error() {
 }
 
 #[test]
-fn tools_call_media_unconfigured_is_explicit_error_and_video_removed() {
-    // 票 12：未配置 → 明确「未配置」错误；generate_video 已移除 → 未知工具。
-    let result = call_tool("generate_image", json!({"prompt": "p"}), &McpToolsSettings::default());
-    assert_eq!(result["isError"], true, "未配置必须 isError=true");
-    let text = result["content"][0]["text"].as_str().unwrap();
-    assert!(text.contains("未配置"), "text={text}");
-
+fn tools_call_removed_tools_are_unknown_at_protocol_layer() {
+    // 票 08：generate_image 已在 mcp_http 拦截走分组生图链（不经本协议层 run_tool）；
+    // generate_video 更早已移除 → 本层按未知工具拒绝。
     let result = call_tool("generate_video", json!({"prompt": "p"}), &McpToolsSettings::default());
     assert_eq!(result["isError"], true);
     let text = result["content"][0]["text"].as_str().unwrap();

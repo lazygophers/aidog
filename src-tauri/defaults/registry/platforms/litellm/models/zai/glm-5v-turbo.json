@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "zai/glm-5v-turbo",
+  "canonical_model": "glm-5v-turbo",
+  "family": "glm",
+  "version": "5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000012,
+    "output": 0.000004,
+    "cache_read": 2.4e-7
+  }
+}

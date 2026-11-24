@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "moss-tts-1.5-flash",
+  "canonical_model": "moss-tts-1.5-flash",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 2e-10
+  }
+}

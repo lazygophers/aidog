@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/google/gemini-4-argon",
+  "context_window": 1048576,
+  "canonical_model": "gemini-4-argon",
+  "family": "gemini",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 1e-7
+  }
+}

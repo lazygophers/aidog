@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/glm-4.5-air",
+  "canonical_model": "glm-4.5-air",
+  "family": "glm",
+  "version": "4.5",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.797e-7,
+    "output": 0.000001175,
+    "cache_read": 3.375e-8
+  }
+}

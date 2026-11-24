@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "fireworks_ai/accounts/fireworks/routers/kimi-latest",
+  "canonical_model": "accounts/fireworks/routers/kimi-latest",
+  "family": "accounts",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 2e-7
+  }
+}

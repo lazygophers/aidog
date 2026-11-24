@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "eleven_v4_turbo",
+  "canonical_model": "eleven_v4_turbo",
+  "display_name": "Eleven v4 Turbo",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0
+  }
+}

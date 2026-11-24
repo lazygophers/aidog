@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "fireworks_ai/accounts/fireworks/routers/kimi-k3p1-pro-us",
+  "canonical_model": "accounts/fireworks/routers/kimi-k3p1-pro-us",
+  "family": "accounts",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000025,
+    "output": 0.0000125,
+    "cache_read": 2.5e-7
+  }
+}

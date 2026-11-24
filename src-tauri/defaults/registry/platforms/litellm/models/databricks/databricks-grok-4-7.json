@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "databricks/databricks-grok-4-7",
+  "canonical_model": "databricks-grok-4-7",
+  "family": "databricks",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 500000,
+  "context_window": 500000,
+  "max_output_tokens": 500000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000249998,
+    "output": 0.00000750001,
+    "cache_read": 6.2503e-7,
+    "cache_write": 0.00000249998
+  }
+}

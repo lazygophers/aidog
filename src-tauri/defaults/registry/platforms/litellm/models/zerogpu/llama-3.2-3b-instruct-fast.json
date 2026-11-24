@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "zerogpu/llama-3.2-3b-instruct-fast",
+  "canonical_model": "llama-3.2-3b-instruct-fast",
+  "family": "llama",
+  "version": "3.2",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-8,
+    "output": 3e-7,
+    "cache_read": 2.5e-8
+  }
+}

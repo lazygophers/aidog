@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/anthropic/claude-fable-5-1",
+  "context_window": 1000000,
+  "canonical_model": "claude-fable-5-1",
+  "family": "claude",
+  "version": "5.1",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00001,
+    "output": 0.00005,
+    "cache_read": 2.5e-7
+  }
+}

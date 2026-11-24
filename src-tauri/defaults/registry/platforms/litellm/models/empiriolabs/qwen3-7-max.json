@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/qwen3-7-max",
+  "canonical_model": "qwen3.7-max",
+  "family": "qwen",
+  "version": "3.7",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 983616,
+  "context_window": 983616,
+  "max_output_tokens": 65536,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000025,
+    "output": 0.0000075
+  }
+}

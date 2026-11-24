@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794028978,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "openai"
   ],
@@ -17,8 +17,9 @@
   "official": true,
   "price": {
     "currency": "CNY",
-    "input": 9.90371e-07,
-    "output": 1.980743e-06,
-    "cache_read": 1.9807000000000003e-08
-  }
+    "input": 0.000001,
+    "output": 0.000002,
+    "cache_read": 2e-8
+  },
+  "thinking_supported": true
 }

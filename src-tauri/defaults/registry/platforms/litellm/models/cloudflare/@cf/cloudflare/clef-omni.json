@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795499859,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "cloudflare/@cf/cloudflare/clef-omni",
+  "canonical_model": "clef-omni",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 64000,
+  "context_window": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-7,
+    "output": 0
+  }
+}

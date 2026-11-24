@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "image-background-remover",
+  "display_name": "Image Background Remover",
+  "canonical_model": "image-background-remover",
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  },
+  "capabilities": [
+    "image_to_image"
+  ]
+}

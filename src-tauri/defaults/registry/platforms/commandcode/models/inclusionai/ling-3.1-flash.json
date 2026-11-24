@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795499858,
+  "model_id": "inclusionai/ling-3.1-flash",
+  "display_name": "Ling 3.1 Flash",
+  "canonical_model": "ling-3.1-flash",
+  "family": "ling",
+  "version": "3.1",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 262144,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 9e-7,
+    "cache_read": 6e-8
+  }
+}

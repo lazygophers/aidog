@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "tencent/hunyuan-vision-t1.5",
+  "canonical_model": "hunyuan-vision-t1.5",
+  "display_name": "HY-Vision-1.5-Thinking",
+  "family": "hunyuan",
+  "version": "1.5",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 4.166666666666666e-7,
+    "output": 0.00000125,
+    "cache_read": 0
+  },
+  "context_window": 40000,
+  "max_output_tokens": 20000
+}

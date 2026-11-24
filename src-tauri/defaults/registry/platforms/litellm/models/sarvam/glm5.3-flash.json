@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "sarvam/glm5.3-flash",
+  "canonical_model": "glm5.3-flash",
+  "family": "glm",
+  "version": "5.3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.436170213e-7,
+    "output": 4.787234043e-7,
+    "cache_read": 2.659574468e-8
+  }
+}

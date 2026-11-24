@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "together_ai/meta-llama/Llama-4-Scout-17B-16E-Instruct",
+  "canonical_model": "llama-4-scout-17b-16e-instruct",
+  "family": "llama",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.8e-7,
+    "output": 5.9e-7
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/deepseek-v4-pro:variant2",
+  "canonical_model": "deepseek-v4-pro:variant2",
+  "family": "deepseek",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 393216,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000165,
+    "output": 0.000003301,
+    "cache_read": 1.38e-7
+  }
+}

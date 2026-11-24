@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/moonshotai/kimi-k2-thinking",
+  "context_window": 262144,
+  "canonical_model": "kimi-k2-thinking",
+  "family": "kimi",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6.6e-7,
+    "output": 0.0000027
+  }
+}

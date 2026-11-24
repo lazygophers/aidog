@@ -29,21 +29,27 @@ export function ModelPriceTag({ info, compact, style }: {
 }) {
   const { t } = useTranslation();
   if (!info) return null;
+  const source = info.sourcePlatform
+    ? ` · ${t("common.priceFromPlatform", {
+      platform: info.sourcePlatform,
+      defaultValue: `price from ${info.sourcePlatform}`,
+    })}`
+    : "";
   if (info.free) {
-    return <span style={{ ...BASE, ...style }}>{t("common.priceFree", "Free")}</span>;
+    return <span style={{ ...BASE, ...style }}>{t("common.priceFree", "Free")}{source}</span>;
   }
   if (info.unitLabel) {
-    return <span style={{ ...BASE, ...style }}>{info.unitLabel}</span>;
+    return <span style={{ ...BASE, ...style }}>{info.unitLabel}{source}</span>;
   }
   if (compact) {
     const s = compactPriceLabel(info);
-    return s ? <span style={{ ...BASE, ...style }}>{s}</span> : null;
+    return s ? <span style={{ ...BASE, ...style }}>{s}{source}</span> : null;
   }
   const lines = fullPriceLines(info, t("common.pricePeak", "Peak"));
   if (!lines.length) return null;
   return (
     <span style={{ ...BASE, ...style, display: "inline-flex", flexDirection: "column", alignItems: "flex-end" }}>
-      {lines.map((l, i) => <span key={i}>{l}</span>)}
+      {lines.map((l, i) => <span key={i}>{l}{i === lines.length - 1 && source}</span>)}
     </span>
   );
 }

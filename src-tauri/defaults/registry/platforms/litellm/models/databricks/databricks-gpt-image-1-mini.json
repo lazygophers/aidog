@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "databricks/databricks-gpt-image-1-mini",
+  "canonical_model": "databricks-gpt-image-1-mini",
+  "family": "databricks",
+  "version": "1",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000199997,
+    "cache_read": 1.9999e-7,
+    "cache_write": 0.00000199997
+  }
+}

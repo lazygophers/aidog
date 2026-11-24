@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "sora2pro-text-to-video",
+  "display_name": "Sora2Pro Text To Video",
+  "canonical_model": "sora2pro-text-to-video",
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  },
+  "capabilities": [
+    "text_to_video",
+    "video"
+  ]
+}
