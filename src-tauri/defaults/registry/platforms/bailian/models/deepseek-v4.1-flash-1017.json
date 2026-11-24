@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "deepseek-v4.1-flash-1017",
+  "display_name": "deepseek-v4.1-flash-1017",
+  "canonical_model": "deepseek-v4.1-flash-1017",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000001,
+    "output": 0.000004
+  },
+  "context_window": 1000000
+}

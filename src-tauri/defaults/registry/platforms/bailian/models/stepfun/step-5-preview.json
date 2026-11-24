@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "stepfun/step-5-preview",
+  "display_name": "stepfun/step-5-preview",
+  "canonical_model": "stepfun/step-5-preview",
+  "family": "stepfun",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000007,
+    "output": 0.00002
+  },
+  "context_window": 1000000
+}

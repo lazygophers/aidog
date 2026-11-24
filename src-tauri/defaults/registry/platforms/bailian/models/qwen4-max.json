@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "qwen4-max",
+  "display_name": "qwen4-max",
+  "canonical_model": "qwen4-max",
+  "family": "qwen",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.00001,
+    "output": 0.00003
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "context_window": 1000000
+}

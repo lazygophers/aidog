@@ -1,0 +1,34 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "vidu/viduq2-pro_reference2image",
+  "display_name": "vidu/viduq2-pro_reference2image",
+  "canonical_model": "vidu/viduq2-pro_reference2image",
+  "family": "vidu",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "unit": "image",
+    "unit_price": 1.71875,
+    "unit_tiers": [
+      {
+        "tier": "1K",
+        "unit_price": 0.9375
+      },
+      {
+        "tier": "2K",
+        "unit_price": 0.9375
+      },
+      {
+        "tier": "4K",
+        "unit_price": 1.71875
+      }
+    ]
+  }
+}

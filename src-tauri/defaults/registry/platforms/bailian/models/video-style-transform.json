@@ -1,0 +1,30 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "video-style-transform",
+  "display_name": "video-style-transform",
+  "canonical_model": "video-style-transform",
+  "family": "wan",
+  "capabilities": [
+    "video_edit"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "unit": "second",
+    "unit_price": 0.5,
+    "unit_tiers": [
+      {
+        "tier": "540P",
+        "unit_price": 0.2
+      },
+      {
+        "tier": "720P",
+        "unit_price": 0.5
+      }
+    ]
+  }
+}

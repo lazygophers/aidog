@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "xiaomi/mimo-v2.6-pro-ultraspeed",
+  "display_name": "xiaomi/mimo-v2.6-pro-ultraspeed",
+  "canonical_model": "xiaomi/mimo-v2.6-pro-ultraspeed",
+  "family": "mimo",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.00003,
+    "output": 0.00006
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "kimi/kimi-k3.1-pro-highspeed",
+  "display_name": "kimi/kimi-k3.1-pro-highspeed",
+  "canonical_model": "kimi/kimi-k3.1-pro-highspeed",
+  "family": "kimi",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000026,
+    "output": 0.000136
+  }
+}

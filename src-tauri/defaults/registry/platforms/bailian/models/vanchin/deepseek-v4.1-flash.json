@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "vanchin/deepseek-v4.1-flash",
+  "display_name": "vanchin/deepseek-v4.1-flash",
+  "canonical_model": "vanchin/deepseek-v4.1-flash",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000002,
+    "output": 0.000008
+  }
+}

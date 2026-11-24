@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "glm-5.3-prime",
+  "display_name": "glm-5.3-prime",
+  "canonical_model": "glm-5.3-prime",
+  "family": "glm",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000016,
+    "output": 0.000056
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "context_window": 1048576
+}
