@@ -19,6 +19,56 @@ struct GenericAdapter;
 
 impl PlatformAdapter for GenericAdapter {}
 
+/// AtlasCloud adapter. Verified against official docs on 2026-11-24:
+/// - Endpoints: Anthropic Messages `POST /v1/messages` and OpenAI Chat Completions
+///   `POST /v1/chat/completions`; runtime uses the user's configured protocol and base URL.
+///   https://www.atlascloud.ai/docs/llm-protocols
+/// - Request shape: Anthropic requires `model`, `messages`, `max_tokens`; `system`, tools,
+///   tool choice, thinking and stop sequences are documented. Only the first four stop
+///   sequences are used; `tool_choice: any` maps to `required`. OpenAI requires `model` and
+///   `messages`; `stream` defaults to false. The service maps `max_completion_tokens` to
+///   `max_tokens` and normalizes reasoning fields. No local default is added.
+/// - Request options: OpenAI documents `max_tokens`, `temperature`, `top_p`, `top_k`,
+///   `repetition_penalty`, `systemPrompt`, and `thinking`; only `stream=false` is a documented
+///   default. `max_completion_tokens` is mapped to `max_tokens` by the service. Anthropic
+///   `cache_control` has no effect when the service translates protocols. No max-token ceiling
+///   or thinking parameter values/defaults are documented.
+/// - Tools/media: client tools are supported. Anthropic hosted tools are unavailable; OpenAI
+///   Chat Completions does not expose server-side web search. Anthropic images/documents work,
+///   audio/video do not. OpenAI chat supports model-dependent image/video/audio inputs;
+///   `video_url` is an AtlasCloud extension. AtlasCloud supplies a default system prompt when absent.
+/// - Streaming: Anthropic uses Messages events through `message_stop` and no `[DONE]`; OpenAI
+///   chat returns SSE chunks. AtlasCloud forces final usage inclusion for streaming.
+///   OpenAI's exact event sequence and terminal marker were not documented.
+/// - Usage/errors: OpenAI examples expose prompt/completion/total tokens; cache fields are
+///   undocumented. Anthropic usage field names and cache accounting are undocumented. The errors
+///   page says LLM protocol endpoints use `{code,msg,request_id,data}`; protocol docs list HTTP
+///   401/422 errors. AtlasCloud documents requests over 50 MB as HTTP 413.
+/// - This platform is not a coding plan; `Protocol::AtlasCloud` keeps the existing no-op
+///   coding-plan injection behavior.
+/// - Unverified, keep framework defaults: thinking parameter values/defaults, max-token cap,
+///   cache-token fields and semantics, protocol-specific error-code meanings, OpenAI streaming
+///   event sequence/terminator, and audio/video limits. No other override is justified by the docs.
+///   https://www.atlascloud.ai/docs/llm-protocols
+///   https://www.atlascloud.ai/docs/createChatCompletion
+///   https://www.atlascloud.ai/docs/errors
+struct AtlasCloudAdapter;
+
+impl PlatformAdapter for AtlasCloudAdapter {
+    fn classify_error(&self, status: u16, body: &str) -> error::UpstreamErrorClass {
+        let Ok(value) = serde_json::from_str::<Value>(body) else {
+            return error::classify_upstream_error(status, body);
+        };
+        let Some(message) = value.get("msg").and_then(Value::as_str) else {
+            return error::classify_upstream_error(status, body);
+        };
+        let normalized = serde_json::json!({
+            "error": {"message": message, "code": value.get("code")}
+        });
+        error::classify_upstream_error(status, &normalized.to_string())
+    }
+}
+
 /// 月之暗面 Kimi 家族基座（issue 76；成员 kimi / kimi_en / kimi_coding 共用，
 /// 成员差异见各成员 issue 117 / 118 / 119）。
 ///
@@ -1816,10 +1866,12 @@ static TENCENT_CODING: TencentFamilyAdapter = TencentFamilyAdapter {
 
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
+static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
+
 static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("aihubmix", &AIHUBMIX),
     ("anthropic", &ANTHROPIC_FAMILY),
-    ("atlascloud", &GENERIC),
+    ("atlascloud", &ATLASCLOUD),
     ("bailian", &BAILIAN),
     ("bailian_coding", &BAILIAN),
     ("bailian_coding_en", &BAILIAN),
