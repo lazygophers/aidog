@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "perplexity/google/gemini-3.5-flash-lite",
+  "context_window": 1048576,
   "canonical_model": "gemini-3.5-flash-lite",
   "family": "gemini",
   "version": "3.5",

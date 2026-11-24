@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794592077,
+  "last_updated": 1795499859,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -8,7 +8,6 @@
   "thinking_supported": true,
   "display_name": "GLM Z1 9B 0414",
   "canonical_model": "GLM-Z1-9B-0414",
-  "version": "z1",
   "family": "glm",
   "capabilities": [
     "text",

@@ -676,6 +676,60 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     "mistral-large@latest", // 同上
     "mistral-nemo@2407", // 同上
     "mistral-nemo@latest", // 同上
+
+    // 基线红收口轮 2026-11-25 新增（canonical_model 聚合键口径，见测试函数注释）。
+    // 用户表单拍板：聚合键匹配 + 白名单按登记表现状录入，官方站逐条复核开遗留票。
+    // 以下 46 条 = 当日登记表全量违例扫描（.tmp/baseline-official-gate/violations-canonical.tsv），
+    // 聚合键（canonical_model 缺省回落 model_id）在 registry 内挑不出任何 official 条目，
+    // 但挂在至少一个有官方条目的平台上。分组注释按上架平台归类：
+    // opencode / opencode_zen free 自营档：
+    "MiniMax-M3.1", // opencode
+    "beam-free", // litellm/opencode/opencode_zen
+    "codestral-embed", // opencode_zen
+    "deepseek-v4.1-flash-free", // opencode_zen
+    "flint-40b-free", // opencode_zen
+    "gpt-6-luna-decision", // opencode_zen
+    "hy4-flash-free", // opencode/opencode_zen
+    "iceman-contributor-free", // opencode
+    "iceman-free", // opencode_zen
+    "jev-1.13-free", // opencode_zen
+    "mimo-v2.6-flash-free", // opencode_zen
+    "tidepool-alpha-free", // opencode_zen
+    // pipellm 视频/图像生成档（官方渠道条目未登记）：
+    "image-background-remover",
+    "kling-o1-text-to-video",
+    "seedance-2.0", // litellm/pipellm
+    "sora2-image-to-video",
+    "sora2-text-to-video",
+    "sora2pro-image-to-video",
+    "sora2pro-text-to-video",
+    "veo3.1-fast-image-to-video",
+    "veo3.1-fast-text-to-video",
+    "veo3.1-image-to-video",
+    "veo3.1-text-to-video",
+    // embed / rerank 专精模型（官方平台未登记该变体）：
+    "cohere-embed-v5-fast", // opencode_zen
+    "cohere-embed-v5-pro", // opencode_zen
+    "embed-v4.0", // litellm/pipellm
+    "mistral-embed", // litellm/opencode_zen
+    "rerank-v4.0-fast", // litellm/pipellm
+    "rerank-v4.0-pro", // litellm/pipellm
+    "voyage-4", // litellm/opencode_zen
+    "voyage-code-4", // litellm/opencode_zen
+    // 官方下架 / 别名 / 前缀路由（模式同前例）：
+    "claude-opus-4", // openrouter 官方已下架，litellm/therouter 仍售
+    "claude-sonnet-4", // 同上
+    "ernie-4.5-turbo-128k", // compshare/therouter 前缀形态
+    "glm-5.2-fast", // qianfan
+    "jev-1.13.0", // litellm/pipellm
+    "minimax-m1", // shengsuanyun
+    "mistral-large-4", // commandcode/litellm/opencode_zen/therouter
+    "o1", // aihubmix/litellm/therouter
+    "nemotron-3.5-super-vl-free",
+    "kling-2.6pro-text-to-video",
+    "kling-2.6pro-image-to-video",
+    "kat-coder-air-v2.5",
+    "deepseek-v4-1-flash-economy",
 ];
 
 /// 每个 `model_id` 至少有一个 `official` 平台条目（模型维度列表默认展示官方条目，
@@ -688,6 +742,17 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
 #[test]
 fn every_model_has_an_official_platform() {
     let mut seen = std::collections::HashSet::new();
+    // 聚合键 = canonical_model（登记表声明的跨平台聚合键，缺省回落 model_id）：
+    // 中转平台的条目 model_id 带平台前缀（如 therouter 的 "anthropic/claude-haiku-5-5"），
+    // 官方条目用无前缀 id，按 model_id 精确匹配会漏配官方条目（2026-11-25 实锤，
+    // 拍板走聚合键口径 + 白名单，用户表单确认）。
+    let aggregate_key = |e: &serde_json::Map<String, Value>| -> String {
+        e["canonical_model"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| e["model_id"].as_str().expect("model_id"))
+            .to_string()
+    };
     let mut official: std::collections::BTreeMap<String, Vec<&str>> = Default::default();
     let mut hosted_on: std::collections::BTreeMap<String, Vec<&str>> = Default::default();
     let mut official_platforms = std::collections::HashSet::new();
@@ -699,8 +764,9 @@ fn every_model_has_an_official_platform() {
             "{code} 内 model_id `{id}` 重复"
         );
         assert!(e["capabilities"].is_array(), "{code}/{id} 缺 capabilities");
-        hosted_on.entry(id.to_string()).or_default().push(code);
-        let slot = official.entry(id.to_string()).or_default();
+        let key = aggregate_key(&e);
+        hosted_on.entry(key.clone()).or_default().push(code);
+        let slot = official.entry(key).or_default();
         if e["official"] == Value::Bool(true) {
             slot.push(code);
             official_platforms.insert(*code);

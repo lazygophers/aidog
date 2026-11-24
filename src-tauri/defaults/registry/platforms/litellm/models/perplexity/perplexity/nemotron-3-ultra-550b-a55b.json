@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "perplexity/perplexity/nemotron-3-ultra-550b-a55b",
+  "context_window": 1048576,
   "canonical_model": "nemotron-3-ultra-550b-a55b",
   "family": "nemotron",
   "version": "3",

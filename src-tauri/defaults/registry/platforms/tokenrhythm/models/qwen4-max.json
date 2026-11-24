@@ -1,11 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499859,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "qwen4-max",
   "display_name": "Qwen4 Max",
   "canonical_model": "qwen4-max",
+  "family": "qwen",
   "capabilities": [
     "text"
   ],

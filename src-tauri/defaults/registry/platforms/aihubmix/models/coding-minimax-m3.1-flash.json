@@ -1,11 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499858,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "coding-minimax-m3.1-flash",
+  "context_window": 1000000,
   "canonical_model": "coding-minimax-m3.1-flash",
   "display_name": "Coding MiniMax M3.1 Flash",
   "capabilities": [

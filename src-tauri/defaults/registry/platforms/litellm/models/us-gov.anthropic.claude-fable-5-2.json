@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499859,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "us-gov.anthropic.claude-fable-5-2",
   "canonical_model": "claude-fable-5-2",
   "family": "claude",
-  "version": "5",
+  "version": "5.2",
   "capabilities": [
     "text",
     "vision",

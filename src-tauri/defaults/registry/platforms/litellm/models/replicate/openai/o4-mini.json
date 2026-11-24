@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "replicate/openai/o4-mini",
+  "context_window": 200000,
   "canonical_model": "o4-mini",
   "family": "o",
   "capabilities": [

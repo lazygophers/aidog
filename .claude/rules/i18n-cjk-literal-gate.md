@@ -1,7 +1,6 @@
 # 前端中文字面量门禁：翻译范围、默认值不落盘、白名单与脚本坑
 
-2026-11-22 ~ 11-23 门禁上线轮沉淀（eb212248f 等 8 提交，账本 `.scratch/memory/2026-11-23.md`「前端中文字面量门禁上线并清完存量」）。
-门禁 = `yarn check:no-cjk-literal`（`scripts/check-no-cjk-literal.mjs`，已进 `make lint`）：扫 `src/` 下 ts/tsx 字面量里的汉字、假名、韩文与全角标点（U+3000–U+303F、U+FF01–U+FF5E），`t()` 第二参的兜底值同样拦。
+2026-11-22 ~ 11-23 门禁上线轮沉淀（eb212248f 等 8 提交，账本 `.scratch/memory/2026-11-23.md`「前端中文字面量门禁上线并清完存量」）。门禁 = `yarn check:no-cjk-literal`（`scripts/check-no-cjk-literal.mjs`，已进 `make lint`）：扫 `src/` 下 ts/tsx 字面量里的汉字、假名、韩文与全角标点（U+3000–U+303F、U+FF01–U+FF5E），`t()` 第二参的兜底值同样拦。
 
 ## 翻译范围（用户拍板）
 
@@ -11,7 +10,7 @@
 
 ## 默认值不落盘，存量不迁移
 
-可随语言变化的默认值（状态行段前缀、通知类型模板）不写进设置或 DB：未改过时存空，显示时按当前语言取（2cbb83f63 改 `src/components/settings/editors/StatusLineSection/` 的 `useStatusLinePanel.ts` 与 `SegmentEditModal.tsx`；bfd773fb8 删掉 `aidog_core/src/hooks.rs` 启动时写入中文模板的 `seed_default_templates`）。已存的旧中文值不迁移、不清空：存量分不清是用户自写还是旧默认。新增此类默认值照此写，review 时查「默认值有没有被抄进存储」。
+可随语言变化的默认值（状态行段前缀、通知类型模板）不写进设置或 DB：未改过时存空，显示时按当前语言取（2cbb83f63 改 `src/components/settings/editors/StatusLineSection/` 的 `useStatusLinePanel.ts` 与 `SegmentEditModal.tsx`；bfd773fb8 删掉 `aidog_core/src/hooks.rs` 启动写入中文模板的 `seed_default_templates`）。已存的旧中文值不迁移、不清空：存量分不清是用户自写还是旧默认。新增此类默认值照此写，review 时查「默认值有没有被抄进存储」。
 
 ## 白名单（ALLOWLIST）
 
@@ -25,4 +24,4 @@
 
 ## 扩大门禁字符集：先盘点命中数，超阈值停手问
 
-给门禁加新字符类（本轮全角标点）前，先跑一次扫描数出存量命中，派发 prompt 预设阈值（本轮 40）：超出即停手回报清单，由用户拍板一起改还是另开票。本轮 53 处超阈值，表单拍板后再改，零返工。处置时半角替换会改变中文界面的标点；要保留全角就改成带插值的整句 key，回报里写明这项可见变化。
+给门禁加新字符类（本轮全角标点）前，先跑一次扫描数出存量命中，派发 prompt 预设阈值（本轮 40）：超出即停手回报清单，由用户拍板一起改还是另开票。本轮 53 处超阈值，表单拍板后再改，零返工。半角替换会改变中文界面的标点；要保留全角就改成带插值的整句 key，回报里写明这项可见变化。

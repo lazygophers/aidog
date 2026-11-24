@@ -1,9 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499858,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/us/gpt-4.1",
+  "context_window": 1047576,
   "canonical_model": "us/gpt-4.1",
   "family": "us",
   "version": "4.1",

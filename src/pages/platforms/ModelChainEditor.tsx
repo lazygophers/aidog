@@ -6,6 +6,8 @@ import type { TFunction } from "i18next";
 import type { Protocol } from "../../services/api";
 import { SortableList } from "../../components/SortableList";
 import { slotList } from "../../domains/platforms/slotValue";
+import { useModelPrices } from "../../domains/platforms/modelPrices";
+import { ModelPriceTag } from "../../components/shared";
 import { ModelCombobox } from "./ModelCombobox";
 
 export function ModelChainEditor({
@@ -22,6 +24,7 @@ export function ModelChainEditor({
   t: TFunction;
 }) {
   const [draft, setDraft] = useState("");
+  const priceMap = useModelPrices(protocol);
   const add = (v: string) => {
     setDraft("");
     const next = slotList([...value, v]);
@@ -42,7 +45,8 @@ export function ModelChainEditor({
             data-state={id === value[0] ? "primary" : "backup"}
             className="model-chip"
             style={{
-              display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px", fontSize: 14,
+              display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 6, maxWidth: "100%",
+              padding: "3px 9px", fontSize: 14,
               borderRadius: "var(--radius-sm)", border: "1px solid var(--border)",
               background: id === value[0] ? "var(--accent-subtle)" : "transparent",
             }}
@@ -69,6 +73,7 @@ export function ModelChainEditor({
               ⠿
             </span>
             <span style={{ minWidth: 0, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{id}</span>
+            <ModelPriceTag info={priceMap.get(id)} compact />
             <button
               type="button"
               data-testid={`chip-remove-${id}`}
