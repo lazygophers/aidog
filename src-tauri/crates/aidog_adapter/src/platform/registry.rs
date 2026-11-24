@@ -1694,12 +1694,61 @@ pub struct AnthropicFamilyAdapter;
 
 impl PlatformAdapter for AnthropicFamilyAdapter {}
 
+/// AiHubMix 聚合平台专属适配器（issue 91；单成员，非编码套餐）。
+///
+/// 逐项核对官方文档（核对日期 2026-11-24）：
+/// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
+///   anthropic `https://aihubmix.com`、openai `https://aihubmix.com/v1`、
+///   gemini `https://aihubmix.com/gemini`（registry `platforms/aihubmix/platform.json`，
+///   与 docs.aihubmix.com 一致）。
+/// - 请求字段与默认值：三协议均镜像官方 schema——anthropic 兼容接口 OpenAPI 标
+///   `x-source: avs://anthropic/official`（https://docs.aihubmix.com/cn/api-reference/anthropic-compatible/create-a-message.md）；
+///   openai 镜像 Chat Completions（https://docs.aihubmix.com/cn/api-reference/openai-compatible/create-a-chat-completion.md）；
+///   gemini「Mirrors the request and response shapes of generativelanguage.googleapis.com」
+///   （https://docs.aihubmix.com/cn/api-reference/google-vertex-ai-compatible/generate-content.md）。
+///   官方形状即协议构件默认形状，无需覆写。
+/// - 思考参数：anthropic wire = 官方 `thinking`（enabled+budget_tokens / disabled；
+///   另有 `display: summarized|omitted` 控制思考内容呈现，缺省 summarized）。
+///   openai wire（Claude 深度适配博客 https://docs.aihubmix.com/cn/blogs/aihubmix-openai-upgrade-claude.md，
+///   更新 2026-06-01）= `reasoning_effort` / `reasoning.effort` / `reasoning.max_tokens`
+///   （优先级 reasoning_effort > reasoning.max_tokens > reasoning.effort）；思考内容响应侧
+///   走 `reasoning_content` + `reasoning_details`（多轮需原样回传；流式 `delta.reasoning_content`）
+///   ——基座 converter 已覆盖（thinking↔reasoning_effort 映射与 reasoning_content 解析）。
+///   openai wire 的思考**禁用**写法官方未给值（档位只见 low/max/xhigh），未证实，
+///   保持基座第三方端点默认（chat_template_kwargs.enable_thinking=false）。
+/// - 工具调用与服务端工具：镜像官方 schema，无平台专有服务端工具文档 → 基座默认。
+/// - 图片与音视频：anthropic base64/url image source 镜像官方；其余未证实 → 基座默认。
+/// - system：镜像官方（anthropic 字符串/块数组；openai wire 亦支持消息内 `cache_control`
+///   断点，≤4 断点，5m 缺省 / `ttl:"1h"`）。
+/// - max_tokens 上限：per-model，官方未给全局上限 → 基座 cap_max_tokens 按 registry 条目裁剪。
+/// - usage：anthropic 镜像官方（input/output/cache_read_input_tokens/cache_creation_input_tokens）；
+///   openai prompt/completion_tokens + prompt_tokens_details.cached_tokens → 基座
+///   usage_cache_arms 两 arm 已覆盖（anthropic 不扣 input、openai 扣）。
+/// - 错误体：OpenAI 形 `{"error":{...}}`；官方把 response ID 改为 `tid`（traceId）用于追踪，
+///   400 多为上游透传（https://docs.aihubmix.com/cn/FAQs/HTTP-Codes.md）。分类读
+///   error.message/code/type，tid 不参与 → 基座 classify_upstream_error 原样适用。
+/// - 流式事件：anthropic 官方事件集（message_start / content_block_start / content_block_delta /
+///   content_block_stop / message_delta / message_stop，OpenAPI discriminator 实锤）；openai
+///   chat.completion.chunk + [DONE]；gemini usageMetadata SSE → 基座 parse_sse 已覆盖。
+/// - 鉴权头：网关自签 key——openai 形端点 `Authorization: Bearer`，anthropic 形 `x-api-key`
+///   （OpenAPI securitySchemes gatewayBearer / gatewayAnthropicKey）；客户端可带 `anthropic-beta`
+///   头开启 Claude beta（博客 §3，平台透传）→ 基座 additional_request_headers 默认空即可。
+/// - 转发层现状（grep 2026-11-24）：gateway 对 aihubmix 零特判，无 coding_plan 注入 /
+///   特殊 UA / 模型链等既有差异可迁；行为不变由网关回归测试锁定。
+///
+/// 结论：三协议均镜像官方形状，无可证实的平台级覆写；专属适配器只承担显式注册语义
+/// （与 AnthropicFamilyAdapter / OpenCodeFamilyAdapter 同形）。
+pub struct AiHubMixAdapter;
+
+impl PlatformAdapter for AiHubMixAdapter {}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 static OPENAI: OpenAIFamilyAdapter = OpenAIFamilyAdapter;
 static ANTHROPIC_FAMILY: AnthropicFamilyAdapter = AnthropicFamilyAdapter;
 static COMPSHARE: CompshareFamilyAdapter = CompshareFamilyAdapter;
 static OPENCODE: OpenCodeFamilyAdapter = OpenCodeFamilyAdapter;
 static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
+static AIHUBMIX: AiHubMixAdapter = AiHubMixAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
     carry_history_reasoning_openai: true,
@@ -1740,7 +1789,7 @@ static TENCENT_CODING: TencentFamilyAdapter = TencentFamilyAdapter {
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
-    ("aihubmix", &GENERIC),
+    ("aihubmix", &AIHUBMIX),
     ("anthropic", &ANTHROPIC_FAMILY),
     ("atlascloud", &GENERIC),
     ("bailian", &BAILIAN),
@@ -2024,5 +2073,50 @@ mod cline_family_tests {
             assert!(adapter.additional_request_headers(&Protocol::OpenAI, true).is_empty());
             assert!(adapter.additional_request_headers(&Protocol::Anthropic, false).is_empty());
         }
+    }
+}
+
+#[cfg(test)]
+mod aihubmix_tests {
+    use super::*;
+
+    /// issue 91：aihubmix 必须走专属适配器（显式注册），不再回落通用适配。
+    #[test]
+    fn aihubmix_uses_registered_adapter() {
+        let a = adapter_for("aihubmix");
+        assert!(!std::ptr::eq(a, adapter_for("deepseek")));
+    }
+
+    /// 官方把错误体 response ID 改为 tid（traceId）；分类仍读 error.message/type，
+    /// tid 字段不得影响分类（与基座函数逐字节等价）。
+    #[test]
+    fn aihubmix_error_classification_ignores_tid_field() {
+        let body = r#"{"error":{"type":"invalid_request_error","message":"model not found: gpt-x","tid":"trace-91"}}"#;
+        assert_eq!(
+            adapter_for("aihubmix").classify_error(400, body),
+            error::classify_upstream_error(400, body)
+        );
+    }
+
+    /// usage 抽取三 arm：anthropic（缓存读/写不扣 input）、openai（cached_tokens 在
+    /// input 内须扣）、gemini（usageMetadata）。
+    #[test]
+    fn aihubmix_usage_extraction_matches_wire_shapes() {
+        let a = adapter_for("aihubmix");
+        let anthropic = r#"{"usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":4}}"#;
+        assert_eq!(
+            a.extract_usage(anthropic),
+            (7, 3, 2, 4, 0, Vec::<(String, i64)>::new())
+        );
+        let openai = r#"{"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+        assert_eq!(
+            a.extract_usage(openai),
+            (6, 2, 4, 0, 0, Vec::<(String, i64)>::new())
+        );
+        let gemini = r#"{"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":2}}"#;
+        assert_eq!(
+            a.extract_usage(gemini),
+            (5, 2, 0, 0, 0, Vec::<(String, i64)>::new())
+        );
     }
 }
