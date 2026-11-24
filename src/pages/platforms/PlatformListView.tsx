@@ -203,6 +203,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
                         onDuplicate={(pp) => cardService.onDuplicate(pp)}
                         onViewLogs={(pp) => cardService.onViewLogs(pp)}
                         onQuickTest={(pp) => cardService.onQuickTest(pp)}
+                        onCustomTest={(pp) => cardService.onCustomTest(pp)}
                         onDelete={(id) => setDeleteId(id)}
                         lead={
                           <span className="drag-handle drag-handle-inline aidog-dragfade" style={{ cursor: "grab", display: "inline-flex", alignItems: "center", touchAction: "none" }}

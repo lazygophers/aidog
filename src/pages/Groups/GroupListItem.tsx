@@ -441,6 +441,7 @@ export const GroupListItem = memo(function GroupListItem({
                 onDuplicate={(pp) => cardService.onDuplicate(pp)}
                 onViewLogs={(pp) => cardService.onViewLogs(pp)}
                 onQuickTest={(pp) => cardService.onQuickTest(pp)}
+                onCustomTest={(pp) => cardService.onCustomTest(pp)}
                 onDelete={(id) => actions.onDelete(id)}
                 onLevelPriorityChange={(v) => onSetLevelPriority(group.id, p.id, v)}
                 onRefreshQuota={(pp) => actions.onRefreshQuota(pp)}
