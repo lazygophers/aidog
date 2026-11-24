@@ -195,7 +195,7 @@ PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-1
 1. 分支从 `origin/master` 开，命名 `issue-<编号>-<短slug>`；worktree 路径 `<仓库根>/.worktrees/issue-<编号>-<短slug>`。建/删/查走 `/usr/bin/git` 直跑（见「rtk 包装」节），建完 `rev-parse --show-toplevel` 验一次。
 2. push 该分支到 origin + 创建 PR 永久授权（CLAUDE.md git 授权条）；push 前核 `git rev-list --count origin/master..<分支>` 只含本 issue 提交（「推送只走 origin」节的快进检查照跑）。master 与非 issue 分支不在授权内。
 3. PR 仅在该 issue 验收标准全部满足后创建；PR 合并（验收满足后）无需逐次确认，合并回 master 在主仓做，照「共享 checkout 合回 master」节只挪指针、不动工作区脏文件。
-4. 多 issue 并行 = 多 worktree，共用 `<项目根>/.worktrees/.target` 独立 target；同刻只允许一个 cargo（见「构建目录」节）。
+4. 多 issue 并行时，每个 worktree 使用自己的 `<worktree>/target`，无需等待其他 worktree 的 cargo；构建前检查磁盘余量（见「构建目录」节）。
 5. PR 合入或废弃后清理 worktree 与分支（全局 `~/.claude/rules/worktree/git-worktree.md`「分支合入或废弃后清理」）。
 6. 清理 worktree 前把评审与门禁证据日志移出存档到主仓 `.tmp/pr-<PR号>/`，再删 worktree（2026-11-15~16 epic #67 轮 #171/#177/#179 三轮照此跑通；gate 日志留在 worktree 内，删 worktree 即丢证据）。
 
