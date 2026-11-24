@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "qwen-audio-3.1-realtime-flash",
+  "display_name": "qwen-audio-3.1-realtime-flash",
+  "canonical_model": "qwen-audio-3.1-realtime-flash",
+  "family": "qwen",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 2.3000000000000002e-7,
+    "output": 9.300000000000001e-7
+  }
+}

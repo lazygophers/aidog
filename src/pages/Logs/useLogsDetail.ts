@@ -32,6 +32,7 @@ export function buildLogMarkdown(d: ProxyLogDetail, t: TFunction): string {
       `- Input Tokens: ${d.input_tokens}`,
       `- Output Tokens: ${d.output_tokens}`,
       `- Cache Tokens: ${d.cache_tokens}`,
+      ...(d.fee_state ? [`- Fee Status: ${t(`logs.feeState.${d.fee_state}`, { defaultValue: d.fee_state })}`] : []),
       `- Time: ${d.created_at}`,
       ``,
     ];

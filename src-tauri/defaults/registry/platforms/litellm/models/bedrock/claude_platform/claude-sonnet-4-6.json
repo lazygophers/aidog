@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/claude_platform/claude-sonnet-4-6",
+  "canonical_model": "claude-sonnet-4-6",
+  "family": "claude",
+  "version": "4.6",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000003,
+    "output": 0.000015,
+    "cache_read": 3e-7,
+    "cache_write": 0.00000375
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "x-ai/grok-4.7:batch",
+  "canonical_model": "grok-4.7",
+  "family": "grok",
+  "version": "4.7",
+  "display_name": "SpaceXSI: Grok 4.7 (batch)",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 500000,
+  "context_window": 500000,
+  "max_output_tokens": 450000,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.0000016,
+    "output": 0.0000048,
+    "cache_read": 4e-7
+  }
+}

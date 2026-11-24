@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "github_copilot/claude-fable-5.1",
+  "canonical_model": "claude-fable-5-1",
+  "family": "claude",
+  "version": "5.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00001,
+    "output": 0.00005,
+    "cache_read": 2.5e-7,
+    "cache_write": 0.0000125
+  }
+}

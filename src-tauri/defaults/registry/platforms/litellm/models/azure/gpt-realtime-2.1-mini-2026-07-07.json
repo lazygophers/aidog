@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/gpt-realtime-2.1-mini-2026-07-07",
+  "canonical_model": "gpt-realtime-2.1-mini-2026-07-07",
+  "family": "gpt",
+  "version": "2.1",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-7,
+    "output": 0.0000024,
+    "cache_read": 6e-8
+  }
+}

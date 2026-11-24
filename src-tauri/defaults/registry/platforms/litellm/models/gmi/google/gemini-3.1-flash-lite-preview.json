@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/google/gemini-3.1-flash-lite-preview",
+  "canonical_model": "google/gemini-3.1-flash-lite-preview",
+  "family": "google",
+  "version": "3.1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.5e-7,
+    "output": 0.0000015,
+    "cache_read": 2.5e-8
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "voyage/rerank-lite-1",
+  "canonical_model": "rerank-lite-1",
+  "family": "rerank",
+  "version": "1",
+  "capabilities": [
+    "rerank"
+  ],
+  "max_input_tokens": 4000,
+  "max_output_tokens": 4000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-8,
+    "output": 0
+  }
+}

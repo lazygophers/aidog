@@ -1394,6 +1394,20 @@
       "returns": "Vec<aidog_db::registry::HolidayCalendarSummary>"
     },
     {
+      "name": "image_test",
+      "category": "ai_tools",
+      "kind": "mutating",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "req",
+          "type": "ModelTestRequest"
+        }
+      ],
+      "returns": "ModelTestResult"
+    },
+    {
       "name": "import_apply",
       "category": "backup",
       "kind": "mutating",

@@ -71,6 +71,7 @@ impl CallScope<'_> {
                 is_last_candidate: self.is_last_candidate,
                 rule_non_retryable: false,
                 now_ms: aidog_db::now(),
+                image: false,
             },
         );
         let detail = err_chain(e);

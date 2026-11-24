@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "gemini-embedding-001",
   "canonical_model": "gemini-embedding-001",
+  "version": "001",
   "display_name": "Gemini Embedding 001",
   "family": "gemini",
   "capabilities": [
@@ -20,7 +21,7 @@
   "thinking_toggleable": false,
   "price": {
     "currency": "USD",
-    "input": 1.5e-07,
-    "output": 1.5e-07
+    "input": 1.5e-7,
+    "output": 1.5e-7
   }
 }

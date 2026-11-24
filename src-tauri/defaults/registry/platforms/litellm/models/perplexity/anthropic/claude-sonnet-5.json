@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/anthropic/claude-sonnet-5",
+  "canonical_model": "claude-sonnet-5",
+  "family": "claude",
+  "version": "5",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 2e-7
+  }
+}

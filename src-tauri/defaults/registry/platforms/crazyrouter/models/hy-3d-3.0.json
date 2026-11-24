@@ -1,0 +1,17 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "hy-3d-3.0",
+  "canonical_model": "hy-3d-3.0",
+  "family": "hunyuan",
+  "version": "3",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "unit": "request",
+    "unit_price": 10
+  }
+}

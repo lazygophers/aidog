@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "fireworks_ai/accounts/fireworks/models/rune",
+  "canonical_model": "rune",
+  "family": "accounts",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.2e-8,
+    "output": 0,
+    "cache_read": 8.4e-9
+  }
+}

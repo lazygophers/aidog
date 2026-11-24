@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795488926,
   "holiday_calendar": "US-CA",  "endpoints": {
     "default": [
       {
@@ -10,33 +10,40 @@
   },
   "models": {
     "default": {
-      "default": ["glm-5.2"],
+      "default": ["glm-5.3"],
       "opus": ["kimi-k2.7-code"],
       "sonnet": ["minimax-m3"],
-      "gpt": ["glm-5.2"]
+      "gpt": ["glm-5.3"]
     }
   },
   "model_list": {
     "default": [
       "deepseek-v4-pro",
-      "glm-5.2",
+      "deepseek-v4.1-flash",
+      "grok-4.7",
+      "claude-haiku-5-5",
+      "mimo-v2.6-pro",
+      "minimax-m3.1-flash",
+      "step-5-preview",
+      "beam-free",
+      "iceman-contributor-free",
+      "gemini-4-argon",
+      "hy4",
+      "hy4-flash-free",
+      "qwen4-max",
+      "longcat-2.5",
       "glm-5.3",
       "glm-5.3-flash",
       "gpt-5.6-luna",
       "hy3",
       "kimi-k2.7-code",
       "kimi-k3",
-      "longcat-2.0",
-      "mimo-v2.5",
-      "mimo-v2.5-pro",
-      "minimax-m2.7",
       "minimax-m3",
       "muse-spark-1.2-contributor",
       "qwen3.7-plus",
       "qwen3.8-max",
       "hy4-preview",
       "qwen3.8-flash",
-      "crouton-alpha-free",
       "gpt-6-luna",
       "kimi-k3.1-pro",
       "mimo-v2.6-flash",

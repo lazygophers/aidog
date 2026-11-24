@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/gemini-3.6-flash",
+  "canonical_model": "gemini-3.6-flash",
+  "family": "gemini",
+  "version": "3.6",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001013,
+    "output": 0.000005063,
+    "cache_read": 1.0125e-7
+  }
+}

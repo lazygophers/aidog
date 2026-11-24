@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/google/gemini-3.1-flash-tts",
+  "canonical_model": "google/gemini-3.1-flash-tts",
+  "family": "google",
+  "version": "3.1",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00004
+  }
+}

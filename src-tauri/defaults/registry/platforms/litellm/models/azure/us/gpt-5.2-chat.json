@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/us/gpt-5.2-chat",
+  "canonical_model": "us/gpt-5.2-chat",
+  "family": "us",
+  "version": "5.2",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 111616,
+  "context_window": 111616,
+  "max_output_tokens": 16384,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001925,
+    "output": 0.0000154,
+    "cache_read": 1.925e-7
+  }
+}

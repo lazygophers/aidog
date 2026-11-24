@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "gpt-image-2.6-sunburst",
+  "canonical_model": "gpt-image-2.6-sunburst",
+  "display_name": "GPT Image 2.6 Sunburst",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000005,
+    "output": 0.00001,
+    "cache_read": 0.00000125
+  }
+}

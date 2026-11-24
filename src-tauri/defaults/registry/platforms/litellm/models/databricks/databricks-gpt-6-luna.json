@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "databricks/databricks-gpt-6-luna",
+  "canonical_model": "databricks-gpt-6-luna",
+  "family": "databricks",
+  "version": "6",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 922000,
+  "context_window": 922000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.0003e-7,
+    "output": 5.0001e-7,
+    "cache_read": 1.001e-8,
+    "cache_write": 1.2502e-7
+  }
+}

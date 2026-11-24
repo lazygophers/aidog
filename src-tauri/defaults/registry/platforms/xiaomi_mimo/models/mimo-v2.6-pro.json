@@ -2,7 +2,10 @@
   "family": "mimo",
   "version": "2.6",
   "capabilities": [
-    "audio"
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
   ],
   "supported_protocols": [
     "anthropic",
@@ -13,9 +16,10 @@
   "canonical_model": "mimo-v2.6-pro",
   "price": {
     "currency": "CNY",
-    "input": 2.16e-05,
-    "output": 4.32e-05,
-    "cache_read": 1.8e-07
+    "input": 0.000003,
+    "output": 0.000006,
+    "cache_read": 2.5e-8
   },
-  "last_updated": 1794028978
+  "last_updated": 1795488926,
+  "context_window": 1000000
 }

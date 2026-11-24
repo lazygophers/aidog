@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "kimi-k2.5",
+  "display_name": "kimi-k2.5",
+  "canonical_model": "kimi-k2.5",
+  "family": "kimi",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000004,
+    "output": 0.000021
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "context_window": 262144
+}

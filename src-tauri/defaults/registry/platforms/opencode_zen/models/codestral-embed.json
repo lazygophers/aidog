@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "codestral-embed",
+  "display_name": "Codestral Embed",
+  "canonical_model": "codestral-embed",
+  "family": "codestral",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_output_tokens": 3072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-7,
+    "output": 0
+  },
+  "context_window": 8192
+}

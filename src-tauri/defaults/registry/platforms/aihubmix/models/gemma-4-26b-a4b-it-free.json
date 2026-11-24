@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "gemma-4-26b-a4b-it-free",
+  "canonical_model": "gemma-4-26b-a4b-it-free",
+  "display_name": "Gemma 4 26B A4B It (free)",
+  "context_window": 262144,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0
+  }
+}

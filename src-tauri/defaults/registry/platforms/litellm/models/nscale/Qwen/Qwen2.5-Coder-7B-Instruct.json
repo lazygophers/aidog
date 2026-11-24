@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nscale/Qwen/Qwen2.5-Coder-7B-Instruct",
+  "canonical_model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "family": "Qwen",
+  "version": "2.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-8,
+    "output": 3e-8
+  }
+}

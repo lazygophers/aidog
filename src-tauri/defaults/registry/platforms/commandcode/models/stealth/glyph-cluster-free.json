@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "stealth/glyph-cluster:free",
+  "display_name": "Glyph Cluster",
+  "canonical_model": "glyph-cluster",
+  "family": "glyph",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 256000,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0,
+    "free": true
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "qwen3-embedding-8b",
+  "display_name": "Qwen3 Embedding 8B",
+  "canonical_model": "Qwen3-Embedding-8B",
+  "family": "qwen",
+  "version": "3",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-8,
+    "output": 0
+  },
+  "context_window": 32768
+}

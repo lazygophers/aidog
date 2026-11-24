@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "mistral-embed",
+  "display_name": "Mistral Embed",
+  "canonical_model": "mistral-embed",
+  "family": "mistral",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_output_tokens": 3072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 0
+  },
+  "context_window": 8000
+}

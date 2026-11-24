@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "eu_jev/eu-jeff-1.0.0",
+  "canonical_model": "eu-jeff-1.0.0",
+  "family": "eu",
+  "version": "1.0",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.15e-8,
+    "output": 0
+  }
+}

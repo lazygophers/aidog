@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "vertex_ai/gemini-3.5-live-translate-preview",
+  "canonical_model": "gemini-3.5-live-translate-preview",
+  "family": "gemini",
+  "version": "3.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "unit": "second",
+    "unit_price": 0.0000875
+  },
+  "context_window": 131072
+}

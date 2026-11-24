@@ -104,6 +104,8 @@ lint-run:
 	@printf "$(CYAN)▶ No CJK literal check...$(RESET)\n"
 	yarn check:no-cjk-literal
 	yarn test:no-cjk-literal
+	@printf "$(CYAN)▶ Orphan test wiring check...$(RESET)\n"
+	node scripts/check-orphan-tests.mjs
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
 	cd $(TAURI_DIR) && cargo clippy --workspace --all-targets -- -D warnings
 

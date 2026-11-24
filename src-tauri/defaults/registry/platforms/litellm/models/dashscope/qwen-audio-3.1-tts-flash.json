@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "dashscope/qwen-audio-3.1-tts-flash",
+  "canonical_model": "qwen-audio-3.1-tts-flash",
+  "family": "qwen",
+  "version": "3.1",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.3e-7,
+    "output": 0.00000187
+  }
+}

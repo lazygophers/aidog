@@ -1,0 +1,33 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "google/gemini-4-carbon:batch",
+  "canonical_model": "gemini-4-carbon",
+  "family": "gemini",
+  "version": "4",
+  "display_name": "Google: Gemini 4 Carbon (batch)",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning",
+    "audio",
+    "video"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 943718,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.000001,
+    "output": 0.000005,
+    "cache_read": 5e-8,
+    "cache_write": 1.875e-7
+  }
+}

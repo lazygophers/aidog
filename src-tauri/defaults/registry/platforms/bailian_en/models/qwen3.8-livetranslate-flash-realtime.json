@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "qwen3.8-livetranslate-flash-realtime",
+  "display_name": "qwen3.8-livetranslate-flash-realtime",
+  "canonical_model": "qwen3.8-livetranslate-flash-realtime",
+  "family": "qwen",
+  "capabilities": [
+    "audio",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000075,
+    "output": 5.5e-7
+  }
+}

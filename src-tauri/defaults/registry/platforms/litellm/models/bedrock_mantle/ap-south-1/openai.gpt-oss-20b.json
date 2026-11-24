@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/ap-south-1/openai.gpt-oss-20b",
+  "canonical_model": "openai.gpt-oss-20b",
+  "family": "gpt",
+  "version": "20b",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 16384,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8e-8,
+    "output": 3.5e-7
+  }
+}

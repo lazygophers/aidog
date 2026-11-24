@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-4o-search-preview-2025-03-11",
+  "canonical_model": "gpt-4o-search-preview-2025-03-11",
+  "family": "gpt",
+  "version": "4o",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 16384,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000025,
+    "output": 0.00001,
+    "cache_read": 0.00000125
+  }
+}

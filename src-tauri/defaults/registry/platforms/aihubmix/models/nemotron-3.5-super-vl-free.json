@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "nemotron-3.5-super-vl-free",
+  "canonical_model": "nemotron-3.5-super-vl-free",
+  "display_name": "Nemotron 3.5 Super VL (free)",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0
+  }
+}

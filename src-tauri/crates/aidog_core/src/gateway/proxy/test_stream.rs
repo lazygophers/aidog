@@ -303,6 +303,7 @@ fn placeholder_stream_log(id: &str) -> ProxyLog {
         cache_write_1h_tokens: 0,
         est_cost: 0.0,
         tool_call_counts: Vec::new(),
+        fee_state: None,
         is_stream: true,
         attempts: Vec::new(),
         retry_count: 0,

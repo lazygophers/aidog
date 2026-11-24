@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "ZHIPU/GLM-5.3",
+  "display_name": "ZHIPU/GLM-5.3",
+  "canonical_model": "glm-5.3",
+  "family": "glm",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000014,
+    "output": 0.0000044
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": true
+}

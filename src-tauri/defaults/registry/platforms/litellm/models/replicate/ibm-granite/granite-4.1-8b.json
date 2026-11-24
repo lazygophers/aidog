@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/ibm-granite/granite-4.1-8b",
+  "canonical_model": "ibm-granite/granite-4.1-8b",
+  "family": "ibm",
+  "version": "4.1",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-8,
+    "output": 2.5e-7
+  }
+}

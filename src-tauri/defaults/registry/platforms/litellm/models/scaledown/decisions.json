@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "scaledown/decisions",
+  "canonical_model": "decisions",
+  "family": "decisions",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-8,
+    "output": 0
+  }
+}

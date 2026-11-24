@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "qwen3.7-text-embedding",
+  "display_name": "qwen3.7-text-embedding",
+  "canonical_model": "qwen3.7-text-embedding",
+  "family": "qwen",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 7e-8
+  }
+}

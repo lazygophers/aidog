@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795524334,
+  "model_id": "Qwen/Qwen4-Max",
+  "display_name": "Qwen 4 Max",
+  "canonical_model": "qwen4-max",
+  "family": "qwen",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1000000,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.0000045,
+    "cache_read": 7.5e-8,
+    "cache_write": 0.000001875
+  }
+}

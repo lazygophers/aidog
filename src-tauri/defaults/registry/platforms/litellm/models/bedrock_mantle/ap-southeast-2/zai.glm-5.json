@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/ap-southeast-2/zai.glm-5",
+  "canonical_model": "zai.glm-5",
+  "family": "glm",
+  "version": "5",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000103,
+    "output": 0.0000033
+  }
+}

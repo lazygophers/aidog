@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "dashscope/qwen4-max",
+  "canonical_model": "qwen4-max",
+  "family": "qwen",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 991808,
+  "context_window": 991808,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.0000045,
+    "cache_read": 7.5e-8,
+    "cache_write": 0.000001875
+  }
+}

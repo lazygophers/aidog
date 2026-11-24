@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "novita/sao10k/l3-70b-euryale-v2.1",
+  "canonical_model": "sao10k/l3-70b-euryale-v2.1",
+  "family": "sao10k",
+  "version": "2.1",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000148,
+    "output": 0.00000148
+  }
+}

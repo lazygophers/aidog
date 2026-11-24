@@ -1,0 +1,31 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "z-ai/glm-5.3-flashx-legal",
+  "canonical_model": "glm-5.3-flashx-legal",
+  "family": "glm",
+  "version": "5.3",
+  "display_name": "Z.ai: GLM 5.3 FlashX Legal",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning",
+    "video"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 131072,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 3.7e-7,
+    "output": 0.00000125,
+    "cache_read": 7.5e-8
+  }
+}

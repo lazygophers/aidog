@@ -1,12 +1,12 @@
 {
-  "last_updated": 1794191265,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "doubao-seedream-5.0-pro",
-  "canonical_model": "doubao-seedream-5.0-pro",
+  "canonical_model": "doubao-seedream-5-0-pro",
   "version": "5.0",
   "family": "doubao-seedream",
   "display_name": "Doubao Seedream 5.0 Pro",

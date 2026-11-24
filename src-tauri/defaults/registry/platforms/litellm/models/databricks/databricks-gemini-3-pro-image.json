@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "databricks/databricks-gemini-3-pro-image",
+  "canonical_model": "databricks-gemini-3-pro-image",
+  "family": "databricks",
+  "version": "3",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 65536,
+  "context_window": 65536,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000249998,
+    "output": 0.00001500002,
+    "cache_read": 0.00000249998,
+    "cache_write": 0.00000249998
+  }
+}

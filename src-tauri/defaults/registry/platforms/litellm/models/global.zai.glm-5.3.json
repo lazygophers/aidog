@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "global.zai.glm-5.3",
+  "canonical_model": "global.zai.glm-5.3",
+  "family": "global",
+  "version": "5.3",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000168,
+    "output": 0.00000528,
+    "cache_read": 3.12e-7,
+    "cache_write": 0.0000021
+  }
+}

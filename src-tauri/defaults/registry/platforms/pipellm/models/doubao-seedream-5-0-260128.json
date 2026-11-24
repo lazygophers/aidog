@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "doubao-seedream-5-0-260128",
+  "display_name": "Seedream 5.0 Lite",
+  "canonical_model": "doubao-seedream-5-0-260128",
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  },
+  "capabilities": [
+    "text_to_image"
+  ]
+}

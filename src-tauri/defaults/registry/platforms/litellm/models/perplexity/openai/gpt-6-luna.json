@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/openai/gpt-6-luna",
+  "canonical_model": "gpt-6-luna",
+  "family": "gpt",
+  "version": "6",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 5e-7,
+    "cache_read": 1e-8
+  }
+}

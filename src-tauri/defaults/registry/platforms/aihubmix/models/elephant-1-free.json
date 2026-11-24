@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "elephant-1-free",
+  "canonical_model": "elephant-1-free",
+  "display_name": "Elephant 1 (free)",
+  "capabilities": [
+    "decision"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0
+  }
+}

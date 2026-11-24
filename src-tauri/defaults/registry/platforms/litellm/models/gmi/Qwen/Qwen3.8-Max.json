@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/Qwen/Qwen3.8-Max",
+  "canonical_model": "qwen3.8-max",
+  "family": "qwen",
+  "version": "3.8",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 2.5e-7
+  }
+}

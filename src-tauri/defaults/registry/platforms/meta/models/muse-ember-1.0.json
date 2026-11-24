@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "muse-ember-1.0",
+  "canonical_model": "muse-ember-1.0",
+  "family": "muse",
+  "version": "1.0",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 5e-7,
+    "cache_read": 4e-9,
+    "context_tiers": [
+      {
+        "min_tokens": 200001,
+        "input": 3e-7,
+        "output": 0.0000015,
+        "cache_read": 1.2e-8
+      }
+    ]
+  }
+}

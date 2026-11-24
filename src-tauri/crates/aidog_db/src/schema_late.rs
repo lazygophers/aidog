@@ -943,6 +943,14 @@ pub fn run_migrations_proxy_log_late(
     for col in ["prompt_id", "session_id", "agent_id", "parent_agent_id", "compaction", "context_compacted", "prev_tool_durations"] {
         ensure(col, &format!("ALTER TABLE proxy_log ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"));
     }
+    // Migration 20261124-01 (生图 fee_state 展示): proxy_log 加 fee_state 列——生图请求终态
+    // 费用状态（known / estimated / unknown / incomplete，票 03 口径），元数据恒落库，不受
+    // log_user_request / log_upstream_request 开关控制。存量行 '' = 生图功能前的历史行，
+    // 不回填不臆造（展示层空值不显示该条目）。
+    ensure(
+        "fee_state",
+        "ALTER TABLE proxy_log ADD COLUMN fee_state TEXT NOT NULL DEFAULT ''",
+    );
     for col in ["prompt_id", "session_id"] {
         let _ = conn.execute(
             &format!("CREATE INDEX IF NOT EXISTS idx_proxy_log_{col} ON proxy_log({col}) WHERE deleted_at = 0"),
@@ -4244,6 +4252,7 @@ mod tests {
             "down_bytes",
             "duration_ms",
             "est_cost",
+            "fee_state",
             "field_trace",
             "group_key",
             "id",

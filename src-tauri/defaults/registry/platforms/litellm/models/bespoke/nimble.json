@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bespoke/nimble",
+  "canonical_model": "nimble",
+  "family": "nimble",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  }
+}

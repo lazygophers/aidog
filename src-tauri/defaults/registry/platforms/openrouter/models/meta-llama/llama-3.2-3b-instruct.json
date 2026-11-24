@@ -1,21 +1,21 @@
 {
   "model_id": "meta-llama/llama-3.2-3b-instruct",
   "display_name": "Meta: Llama 3.2 3B Instruct",
-  "canonical_model": "llama-3.2-3b-instruct",
+  "canonical_model": "meta-llama/llama-3.2-3b-instruct",
   "family": "llama",
   "version": "3.2",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
-  "max_output_tokens": 72000,
+  "max_output_tokens": 117964,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
     "currency": "USD",
-    "input": 5.09e-8,
-    "output": 3.35e-7
+    "input": 5e-8,
+    "output": 3.3e-7
   },
-  "last_updated": 1794017726,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "anthropic",
     "openai"

@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "streamlake/qwen3.5-397b-a17b",
+  "canonical_model": "qwen3.5-397b-a17b",
+  "family": "qwen",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 258048,
+  "context_window": 258048,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-7,
+    "output": 0.0000036,
+    "cache_read": 1.2e-7
+  }
+}

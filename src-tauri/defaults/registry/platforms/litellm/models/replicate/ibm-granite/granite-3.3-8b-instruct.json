@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/ibm-granite/granite-3.3-8b-instruct",
+  "canonical_model": "ibm-granite/granite-3.3-8b-instruct",
+  "family": "ibm",
+  "version": "3.3",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-8,
+    "output": 2.5e-7
+  }
+}

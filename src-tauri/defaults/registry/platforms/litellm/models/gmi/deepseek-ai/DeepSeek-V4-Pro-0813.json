@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/deepseek-ai/DeepSeek-V4-Pro-0813",
+  "canonical_model": "deepseek-v4-pro-0813",
+  "family": "deepseek",
+  "version": "0813",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048575,
+  "context_window": 1048575,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001056,
+    "output": 0.000003168,
+    "cache_read": 3.52e-8
+  }
+}

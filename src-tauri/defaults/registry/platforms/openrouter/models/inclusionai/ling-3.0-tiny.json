@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "inclusionai/ling-3.0-tiny",
+  "canonical_model": "ling-3.0-tiny",
+  "family": "ling",
+  "version": "3.0",
+  "display_name": "inclusionAI: Ling 3.0 Tiny",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 250000,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-8,
+    "output": 4.5e-8,
+    "cache_read": 3e-9
+  }
+}

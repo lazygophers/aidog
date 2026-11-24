@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "typesafe"
+  ],
+  "model_id": "jev-preview",
+  "canonical_model": "jev-preview",
+  "display_name": "Jev Preview",
+  "family": "jev",
+  "capabilities": [
+    "decision"
+  ],
+  "official": true,
+  "context_window": 64000,
+  "max_input_tokens": 64000,
+  "price": {
+    "currency": "USD",
+    "input": 4.2e-8,
+    "output": 0
+  }
+}

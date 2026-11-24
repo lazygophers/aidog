@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure_ai/deepseek-r1",
+  "canonical_model": "deepseek-r1",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000135,
+    "output": 0.0000054
+  }
+}

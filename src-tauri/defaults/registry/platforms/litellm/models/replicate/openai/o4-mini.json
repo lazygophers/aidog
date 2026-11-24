@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/openai/o4-mini",
+  "canonical_model": "o4-mini",
+  "family": "o",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001,
+    "output": 0.000004
+  }
+}

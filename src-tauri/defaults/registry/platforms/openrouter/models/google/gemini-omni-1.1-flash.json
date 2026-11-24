@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "google/gemini-omni-1.1-flash",
+  "canonical_model": "gemini-omni-1.1-flash",
+  "family": "gemini",
+  "version": "1.1",
+  "display_name": "Google: Gemini Omni 1.1 Flash",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning",
+    "video"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 65536,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.000009
+  }
+}

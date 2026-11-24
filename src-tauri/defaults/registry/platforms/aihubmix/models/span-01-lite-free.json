@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "span-01-lite-free",
+  "canonical_model": "span-01-lite-free",
+  "display_name": "Span 01 Lite (free)",
+  "capabilities": [
+    "decision"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -21,21 +21,21 @@
   "thinking_toggleable": true,
   "price": {
     "currency": "USD",
-    "input": 4.822e-07,
-    "output": 2.411e-06,
-    "cache_read": 9.644e-08,
+    "input": 4.958e-7,
+    "output": 0.000002479,
+    "cache_read": 9.916e-8,
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 7.2328e-07,
-        "output": 3.6164e-06,
-        "cache_read": 1.44656e-07
+        "input": 7.436000000000001e-7,
+        "output": 0.000003718,
+        "cache_read": 1.4872e-7
       },
       {
         "min_tokens": 128001,
-        "input": 1.4466e-06,
-        "output": 7.233e-06,
-        "cache_read": 2.8932e-07
+        "input": 0.0000014872000000000001,
+        "output": 0.000007436,
+        "cache_read": 2.9744e-7
       }
     ]
   }

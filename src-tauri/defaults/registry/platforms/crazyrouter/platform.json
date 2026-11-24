@@ -60,14 +60,14 @@
       "deepseek-v4-flash",
       "deepseek-v4-pro",
       "qwen-max",
-      "qwen-max-longcontext",
+      
       "qwen-plus",
-      "qwen-turbo",
-      "qwen-vl-max-latest",
-      "qwen3-235b-a22b",
-      "qwen3-coder-plus",
-      "qwen3-max",
-      "qwen3-vl-flash",
+      
+      
+      
+      
+      
+      
       "qwen3-vl-plus",
       "qwen3.5-flash",
       "qwen3.5-plus",
@@ -78,16 +78,16 @@
       "glm-5.1",
       "glm-5.2",
       "glm-5v-turbo",
-      "glm-ocr",
+      
       "MiniMax-M2.5",
       "MiniMax-M2.7",
       "MiniMax-M3",
       "kimi-k2.6",
       "grok-4-1-fast-reasoning",
       "o3",
-      "doubao-seed-1-6-flash-250615",
-      "doubao-seed-1-6-vision-250815",
-      "doubao-seed-code-preview-251028",
+      
+      
+      
       "youtu-vita",
       "whisper-1",
       "gte-rerank-v2",
@@ -110,7 +110,7 @@
       "grok-4.6",
       "kimi-k3",
       "qwen3.8-max",
-      "qwq-32b",
+      
       "aigc-image-kling-3.0",
       "aigc-video-gv-3.1",
       "aigc-video-gv-3.1-fast",
@@ -128,18 +128,18 @@
       "aigc-video-kling-avatar",
       "aigc-video-kling-identifyface",
       "aigc-video-kling-o1",
-      "cogview-3-flash",
-      "cogview-4",
-      "doubao-seedance-1-0-lite-i2v",
-      "doubao-seedance-1-0-lite-t2v",
+      
+      
+      
+      
       "doubao-seedance-1-0-pro",
       "doubao-seedance-1-0-pro-fast",
-      "doubao-seedance-1-5-pro",
+      
       "doubao-seedance-2-0",
       "doubao-seedance-2-0-fast",
       "doubao-seedream-4-0",
       "doubao-seedream-4-5",
-      "doubao-seedream-5-0",
+      
       "gpt-image-1.5",
       "gpt-image-2",
       "hailuo-h3",
@@ -147,9 +147,9 @@
       "nano-banana-2",
       "nano-banana-pro",
       "qwen-image-2.0",
-      "qwen-image-max",
-      "qwen-image-plus",
-      "suno_music",
+      
+      
+      
       "wan2.2-i2v-flash",
       "wan2.2-i2v-plus",
       "wan2.2-kf2v-flash",
@@ -168,7 +168,50 @@
       "mimo-v2.5-pro",
       "mimo-v2.6-flash",
       "mimo-v2.6-pro",
-      "qwen3.8-flash"
+      "qwen3.8-flash",
+      "qwen3.7-plus",
+      "mj_imagine",
+      "doubao-seedream-5-0-lite",
+      "qwen3.8-omni-flash-realtime",
+      "jev-1.14",
+      "pixverse-video-v6.0",
+      "nano-banana-2.1",
+      "hy-3d-component",
+      "deepseek-v4-flash-vision-exp",
+      "kimi-k2.5",
+      "o3-pro",
+      "claude-fable-5-2",
+      "text-embedding-ada-002",
+      "mimo-v2.6-pro-ultraspeed",
+      "gpt-5-pro",
+      "qwen-audio-3.1-realtime-plus",
+      "tts-1-hd-1106",
+      "qwen-image-2.1-turbo",
+      "aigc-video-vega-1.5-pro",
+      "kimi-k2.8-preview",
+      "hy4",
+      "doubao-seedream-5-0-flash",
+      "tts-1-1106",
+      "wan3.0-video-prime",
+      "grok-4.7",
+      "minimax-speech-2.8-hd",
+      "pixverse-video-c1",
+      "doubao-seedream-5-0-pro",
+      "mj_upscale",
+      "aigc-video-vega-1.0-pro",
+      "qwen-image-2.1-pro",
+      "gpt-5.4-nano",
+      "glm-5.3-prime",
+      "wan3.0-video",
+      "mj_variation",
+      "hy-3d-3.0",
+      "gpt-5.2",
+      "pixverse-video-v5.6",
+      "minimax-speech-2.8-turbo",
+      "deepseek-v4.1-flash",
+      "doubao-seedance-2-5",
+      "tts-1",
+      "hy-3d-3.1"
     ]
   },
   "name": {
@@ -213,4 +256,4 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1794657886}
+  "last_updated": 1795488925}

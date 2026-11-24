@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/gemini-3.5-flash-lite",
+  "canonical_model": "gemini-3.5-flash-lite",
+  "family": "gemini",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.05e-7,
+    "output": 0.000003375,
+    "cache_read": 4.05e-8
+  }
+}

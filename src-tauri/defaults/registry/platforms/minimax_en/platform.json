@@ -22,7 +22,7 @@
       "source_url": "https://platform.minimax.io/docs/guides/rate-limits"
     }
   ],
-  "last_updated": 1794657886,
+  "last_updated": 1795488926,
   "holiday_calendar": "SG",
   "endpoints": {
     "default": [
@@ -44,6 +44,7 @@
   },
   "model_list": {
     "default": [
+      "MiniMax-M3.1-Flash",
       "MiniMax-M3",
       "MiniMax-M2.7",
       "MiniMax-M2.7-highspeed",
@@ -53,6 +54,8 @@
       "MiniMax-M2.1-highspeed",
       "MiniMax-M2",
       "image-01",
+      "MiniMax-H3-Image",
+      "MiniMax-H3-Image-Highspeed",
       "MiniMax-H3",
       "MiniMax-H3-Context-IR",
       "MiniMax-H3-Max",

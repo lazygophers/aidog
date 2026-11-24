@@ -71,7 +71,14 @@
       "qwen3.8-27b",
       "qwen3.8-flash",
       "seed-2.1-turbo",
-      "seed-2.1-pro"
+      "seed-2.1-pro",
+      "deepseek-v4.1-flash-1017",
+      "egg-alpha-003",
+      "egg-alpha-004",
+      "hy4",
+      "minimax-m3.1-flash",
+      "neohorse-1.5-flash-preview",
+      "qwen4-max"
     ]
   },
   "name": {
@@ -99,5 +106,5 @@
   ],
   "color": "#4958E8",
   "key_prefixes": ["sk_"],
-  "last_updated": 1795204786
+  "last_updated": 1795488926
 }

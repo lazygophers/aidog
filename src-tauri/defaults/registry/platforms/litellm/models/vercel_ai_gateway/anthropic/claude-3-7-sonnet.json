@@ -1,11 +1,11 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "vercel_ai_gateway/anthropic/claude-3-7-sonnet",
   "display_name": "Claude 3.7 Sonnet",
-  "canonical_model": "claude-3.7-sonnet",
+  "canonical_model": "claude-3-7-sonnet",
   "family": "claude",
   "version": "3.7",
   "capabilities": [
@@ -21,6 +21,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "cache_write": 0.00000375,
+    "cache_read": 3e-7,
     "currency": "USD",
     "input": 3e-06,
     "output": 1.5e-05

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kimi-k2.8-preview",
+  "canonical_model": "kimi-k2.8-preview",
+  "family": "kimi",
+  "version": "2.8",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 9.42029e-7,
+    "output": 0.00000391304
+  }
+}

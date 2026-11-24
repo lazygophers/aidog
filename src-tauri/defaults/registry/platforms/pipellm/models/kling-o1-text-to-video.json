@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "kling-o1-text-to-video",
+  "display_name": "Kling O1 Text To Video",
+  "canonical_model": "kling-o1-text-to-video",
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  },
+  "capabilities": [
+    "text_to_video",
+    "video"
+  ]
+}

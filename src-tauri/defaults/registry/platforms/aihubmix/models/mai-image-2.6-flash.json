@@ -1,14 +1,14 @@
 {
-  "last_updated": 1794585772,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "mai-image-2.6-flash",
-  "canonical_model": "mai-image-2.6-flash",
+  "canonical_model": "MAI-Image-2.6-Flash",
   "version": "2.6",
-  "family": "mai-image",
+  "family": "mai",
   "display_name": "Mai Image 2.6 Flash",
   "max_output_tokens": 4096,
   "context_window": 32000,
@@ -23,7 +23,7 @@
   "thinking_toggleable": false,
   "price": {
     "currency": "USD",
-    "input": 1.75e-6,
-    "output": 1.9e-5
+    "input": 0.00000175,
+    "output": 0.00000175
   }
 }

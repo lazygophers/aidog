@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -28,7 +28,7 @@
       {
         "min_tokens": 32001,
         "input": 8.45e-07,
-        "output": 3.09836e-06
+        "output": 0.0000030983610000000003
       }
     ]
   }

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "vercel_ai_gateway/typesafe-ai/jev-1.14.0",
+  "canonical_model": "typesafe-ai/jev-1.14.0",
+  "family": "typesafe",
+  "version": "1.14",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.2e-8,
+    "output": 0
+  }
+}

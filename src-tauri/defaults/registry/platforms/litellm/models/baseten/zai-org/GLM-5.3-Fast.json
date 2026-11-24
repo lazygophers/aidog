@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "baseten/zai-org/GLM-5.3-Fast",
+  "canonical_model": "zai-org/GLM-5.3-Fast",
+  "family": "zai",
+  "version": "5.3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000021,
+    "output": 0.0000066,
+    "cache_read": 2.1e-7
+  }
+}

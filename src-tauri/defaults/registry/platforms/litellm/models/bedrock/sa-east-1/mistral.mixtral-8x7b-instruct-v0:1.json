@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/sa-east-1/mistral.mixtral-8x7b-instruct-v0:1",
+  "canonical_model": "sa-east-1/mistral.mixtral-8x7b-instruct-v0",
+  "family": "sa",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 7.6e-7,
+    "output": 0.00000118
+  }
+}

@@ -5,6 +5,9 @@ import { fireEvent } from "@testing-library/react";
 import { render, screen, waitFor } from "../../test/render";
 import type { GroupDailyBreakdown } from "../../services/api";
 
+vi.mock("../ModelTestPanel", () => ({
+  ModelTestPanel: (props: { platform: { id: number } }) => <div data-testid="model-test-panel">mtp-{props.platform.id}</div>,
+}));
 vi.mock("../../services/api", async () => {
   const actual = await vi.importActual<typeof import("../../services/api")>("../../services/api");
   return {
@@ -182,6 +185,23 @@ describe("GroupDetailPage — 成员多选与批量操作（对齐列表页）",
     const item = screen.getByText("platform.deletePlatformMenu");
     fireEvent.click(item);
     expect(baseProps.onDeletePlatform).toHaveBeenCalledWith(1);
+  });
+
+  it("成员行 ⋯ 菜单「自定义测试」→ cardService.onCustomTest(p)", () => {
+    vi.mocked(groupFlowApi.daily!).mockResolvedValue([]);
+    render(<GroupDetailPage {...baseProps} />);
+    const menu = document.querySelector('[data-plat-id="1"] [data-testid="row-menu"]')!;
+    fireEvent.pointerDown(menu, { button: 0, ctrlKey: false });
+    fireEvent.click(menu);
+    fireEvent.click(screen.getByText("platform.customTest"));
+    expect(baseProps.cardService.onCustomTest).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+  });
+
+  it("cards.testingPlatform 非空 → 挂 ModelTestPanel", () => {
+    vi.mocked(groupFlowApi.daily!).mockResolvedValue([]);
+    const setTestingPlatform = vi.fn();
+    render(<GroupDetailPage {...baseProps} cards={{ ...cards, testingPlatform: { id: 1 } as never, setTestingPlatform }} />);
+    expect(document.querySelector('[data-testid="model-test-panel"]')).toBeTruthy();
   });
 });
 

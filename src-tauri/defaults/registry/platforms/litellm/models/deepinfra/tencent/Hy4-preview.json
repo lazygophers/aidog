@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "deepinfra/tencent/Hy4-preview",
+  "canonical_model": "tencent/Hy4-preview",
+  "family": "tencent",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8.34e-7,
+    "output": 0.000002501,
+    "cache_read": 4.2e-8
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-v4p1-flash-1017-us",
+  "canonical_model": "accounts/fireworks/models/deepseek-v4p1-flash-1017-us",
+  "family": "accounts",
+  "version": "1017",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 393216,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.5e-7,
+    "output": 0.0000018,
+    "cache_read": 9e-9
+  }
+}

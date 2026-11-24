@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/x-ai/grok-4.5",
+  "canonical_model": "x-ai/grok-4.5",
+  "family": "x",
+  "version": "4.5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 2000000,
+  "context_window": 2000000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 5e-7
+  }
+}

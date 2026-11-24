@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/step-5-preview",
+  "canonical_model": "step-5-preview",
+  "family": "stepfun",
+  "version": "5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000135,
+    "output": 0.000003645,
+    "cache_read": 1.35e-7
+  }
+}

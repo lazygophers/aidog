@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "doubao-seedream-5-0-pro",
+  "canonical_model": "doubao-seedream-5-0-pro",
+  "family": "doubao-seedream",
+  "version": "5.0",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "unit": "request",
+    "unit_price": 0
+  }
+}

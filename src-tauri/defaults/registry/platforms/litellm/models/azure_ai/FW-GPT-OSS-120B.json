@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure_ai/FW-GPT-OSS-120B",
+  "canonical_model": "FW-GPT-OSS-120B",
+  "family": "FW",
+  "version": "120B",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.65e-7,
+    "output": 6.6e-7,
+    "cache_read": 8.2e-8
+  }
+}

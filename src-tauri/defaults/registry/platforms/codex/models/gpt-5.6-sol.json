@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "openai_responses"
   ],
@@ -22,6 +22,7 @@
     "input": 4e-06,
     "output": 2e-05,
     "cache_read": 4e-07,
+    "cache_write": 0.000005,
     "context_tiers": [
       {
         "min_tokens": 272000,

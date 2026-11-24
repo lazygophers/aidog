@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nscale/Qwen/QwQ-32B",
+  "canonical_model": "qwq-32b",
+  "family": "qwen",
+  "version": "32B",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.8e-7,
+    "output": 2e-7
+  }
+}

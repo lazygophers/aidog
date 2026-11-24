@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-5.4-nano",
+  "canonical_model": "gpt-5.4-nano",
+  "family": "gpt",
+  "version": "5.4",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1.6e-7,
+    "output": 0.00000128
+  },
+  "context_window": 400000
+}

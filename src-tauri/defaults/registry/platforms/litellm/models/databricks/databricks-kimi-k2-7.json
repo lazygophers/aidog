@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "databricks/databricks-kimi-k2-7",
+  "canonical_model": "databricks-kimi-k2-7",
+  "family": "databricks",
+  "version": "7",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 9.4997e-7,
+    "output": 0.00000400001,
+    "cache_read": 1.8998e-7,
+    "cache_write": 9.4997e-7
+  }
+}

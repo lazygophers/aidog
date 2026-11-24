@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "github_copilot/grok-4.6",
+  "canonical_model": "grok-4.6",
+  "family": "grok",
+  "version": "4.6",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 500000,
+  "context_window": 500000,
+  "max_output_tokens": 500000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 5e-7
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/us-west-1/us.amazon.nova-pro-v1:0",
+  "canonical_model": "bedrock/us-west-1/us.amazon.nova-pro-v1",
+  "family": "bedrock",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 300000,
+  "context_window": 300000,
+  "max_output_tokens": 10000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000103,
+    "output": 0.00000412
+  }
+}

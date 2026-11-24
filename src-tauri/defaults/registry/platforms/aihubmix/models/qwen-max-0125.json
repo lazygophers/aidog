@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "qwen-max-0125",
   "canonical_model": "qwen-max-0125",
+  "version": "0125",
   "family": "qwen",
   "display_name": "Qwen Max 0125",
   "capabilities": [],
@@ -15,7 +16,7 @@
   "thinking_toggleable": false,
   "price": {
     "currency": "USD",
-    "input": 3.8e-07,
-    "output": 1.52e-06
+    "input": 3.8e-7,
+    "output": 0.00000152
   }
 }

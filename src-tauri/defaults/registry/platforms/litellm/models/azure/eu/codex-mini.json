@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/eu/codex-mini",
+  "canonical_model": "eu/codex-mini",
+  "family": "eu",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000165,
+    "output": 0.0000066,
+    "cache_read": 4.13e-7
+  }
+}

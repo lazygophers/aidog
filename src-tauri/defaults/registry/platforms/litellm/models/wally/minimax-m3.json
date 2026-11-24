@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "wally/minimax-m3",
+  "canonical_model": "MiniMax-M3",
+  "family": "minimax",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 524287,
+  "context_window": 524287,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.3e-7,
+    "output": 0.00000132,
+    "cache_read": 6.6e-8
+  }
+}

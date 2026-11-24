@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "github_copilot/gpt-5.3-codex",
+  "canonical_model": "gpt-5.3-codex",
+  "family": "gpt",
+  "version": "5.3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000175,
+    "output": 0.000014,
+    "cache_read": 1.75e-7
+  }
+}

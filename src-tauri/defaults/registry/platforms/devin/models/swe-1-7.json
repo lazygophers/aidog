@@ -1,11 +1,11 @@
 {
-  "last_updated": 1794030037,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "devin"
   ],
   "model_id": "swe-1-7",
   "canonical_model": "swe-1-7",
-  "family": "devin",
+  "family": "swe",
   "display_name": "SWE-1.7 Max",
   "capabilities": [
     "tool_use"

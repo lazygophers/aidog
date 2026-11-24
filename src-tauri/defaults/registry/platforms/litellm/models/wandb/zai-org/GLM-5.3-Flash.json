@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "openai"
   ],
@@ -17,9 +17,10 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "cache_read": 2e-8,
     "currency": "USD",
-    "input": 1.5e-07,
-    "output": 5e-07
+    "input": 1.2e-7,
+    "output": 3.8e-7
   },
   "family": "glm",
   "version": "5.3"

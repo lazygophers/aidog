@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "gpt-4-turbo",
+  "canonical_model": "gpt-4-turbo",
+  "display_name": "GPT 4 Turbo",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00001,
+    "output": 0.00003
+  },
+  "context_window": 128000
+}

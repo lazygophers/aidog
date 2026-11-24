@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/ap-southeast-2/deepseek.v3.2",
+  "canonical_model": "ap-southeast-2/deepseek.v3.2",
+  "family": "ap",
+  "version": "3.2",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 156000,
+  "context_window": 156000,
+  "max_output_tokens": 8000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6.4e-7,
+    "output": 0.00000191
+  }
+}

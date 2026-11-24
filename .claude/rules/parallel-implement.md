@@ -146,6 +146,11 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
 （e75cd454e 修）。**「agent 报绿」和「门禁真绿」之间隔着命令面和 crate 面两个
 盲区，口头回报不构成证据。**
 
+- **新增 `test_*.rs` 文件必须接线 `mod` 声明**（2026-11-24 生图票 11 实锤：
+  `test_mcp_http.rs` 自票 08 起缺 `mod test_mcp_http;`，从未编译执行，验收接线后
+  8 测试才第一次跑）。新增测试文件的回报加一条证据：`grep -rn 'mod <文件名去.rs>'
+  <crate>/src/` 命中挂载处；机械门禁已落地：`scripts/check-orphan-tests.mjs`（walk 全部
+  test_*.rs 对照 mod 声明，已进 `make lint`）。
 - 派发 prompt 的门禁命令写全文不写缩写：clippy 一律 `cargo clippy --all-targets
   -- -D warnings`，要求 agent 回报贴命令行原文 + warning/failed 计数；修完必须
   重跑同一条命令再报。

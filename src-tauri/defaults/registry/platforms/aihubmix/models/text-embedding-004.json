@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "text-embedding-004",
   "canonical_model": "text-embedding-004",
+  "version": "004",
   "display_name": "Text Embedding 004",
   "capabilities": [
     "embedding"
@@ -17,8 +18,8 @@
   "thinking_toggleable": false,
   "price": {
     "currency": "USD",
-    "input": 2e-08,
-    "output": 2e-08
+    "input": 2e-8,
+    "output": 2e-8
   },
   "family": "gemini"
 }

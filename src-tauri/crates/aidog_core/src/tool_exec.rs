@@ -56,9 +56,7 @@ pub async fn run_tool(
         }
         "web_fetch" if !settings.fetch.enabled => Err("web_fetch 已停用（「启用抓网页」已关闭）".into()),
         "web_fetch" => search::fetch_url_text(&subject, settings.fetch.format).await,
-        "generate_image" => {
-            crate::media::generate_image(settings.image.as_ref(), &subject, args["size"].as_str()).await
-        }
+        // generate_image（票 08）不在此分发：走调用方分组生图链（aux_model::mcp_generate_image）。
         _ => Err(format!("未知工具：`{name}`")),
     };
     if name != "web_search" && outcome.is_ok() {
@@ -89,7 +87,7 @@ pub async fn run_web_search_hits(
     outcome
 }
 
-async fn write_log(
+pub(crate) async fn write_log(
     ctx: &ToolCtx<'_>,
     name: &str,
     subject: String,

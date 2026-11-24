@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "qwen3.7-plus",
+  "display_name": "Qwen3.7 Plus",
+  "canonical_model": "qwen3.7-plus",
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.7600000000000004e-7,
+    "output": 0.000001101,
+    "cache_read": 5.6e-8
+  },
+  "capabilities": [
+    "text"
+  ]
+}

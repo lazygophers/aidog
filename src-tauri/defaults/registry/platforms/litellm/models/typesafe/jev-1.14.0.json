@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "typesafe/jev-1.14.0",
+  "canonical_model": "jev-1.14.0",
+  "family": "jev",
+  "version": "1.14",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 65536,
+  "context_window": 65536,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.2e-8,
+    "output": 0
+  }
+}

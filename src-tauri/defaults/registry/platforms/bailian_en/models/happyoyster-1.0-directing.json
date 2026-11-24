@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "happyoyster-1.0-directing",
+  "display_name": "happyoyster-1.0-directing",
+  "canonical_model": "happyoyster-1.0-directing",
+  "family": "happyoyster",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "unit": "second",
+    "unit_price": 0.0858
+  }
+}

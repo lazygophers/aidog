@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/us-gov-east-1/anthropic.claude-3-7-sonnet-20250219-v1:0",
+  "canonical_model": "us-gov-east-1/anthropic.claude-3-7-sonnet-20250219-v1",
+  "family": "us",
+  "version": "3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000036,
+    "output": 0.000018,
+    "cache_read": 3.6e-7,
+    "cache_write": 0.0000045
+  }
+}

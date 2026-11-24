@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "deepseek/deepseek-v4.1-flash-1017",
+  "canonical_model": "deepseek-v4.1-flash-1017",
+  "display_name": "DeepSeek V4.1 Flash 1017",
+  "family": "deepseek",
+  "version": "4.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 0.0000012
+  },
+  "context_window": 1048576,
+  "max_output_tokens": 393216
+}

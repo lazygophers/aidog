@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/pplx-embed-v2-context-9b",
+  "canonical_model": "pplx-embed-v2-context-9b",
+  "family": "pplx",
+  "version": "9b",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.2e-7
+  }
+}

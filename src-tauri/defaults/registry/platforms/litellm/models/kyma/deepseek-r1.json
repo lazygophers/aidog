@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/deepseek-r1",
+  "canonical_model": "deepseek-r1",
+  "family": "deepseek",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 64000,
+  "context_window": 64000,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 7.425e-7,
+    "output": 0.000002957
+  }
+}

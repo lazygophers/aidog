@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "abliteration/abliterated-model-large",
+  "canonical_model": "abliterated-model-large",
+  "family": "abliterated",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 999990,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000003,
+    "output": 0.000005,
+    "cache_read": 3e-7
+  }
+}

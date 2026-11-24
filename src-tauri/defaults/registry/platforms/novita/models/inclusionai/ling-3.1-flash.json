@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "inclusionai/ling-3.1-flash",
+  "canonical_model": "ling-3.1-flash",
+  "display_name": "Ling 3.1 Flash 1019",
+  "family": "ling",
+  "version": "3.1",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 9.000000000000001e-7
+  },
+  "context_window": 1000000,
+  "max_output_tokens": 262144
+}

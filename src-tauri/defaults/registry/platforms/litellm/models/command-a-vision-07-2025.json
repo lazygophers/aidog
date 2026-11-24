@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "command-a-vision-07-2025",
+  "canonical_model": "command-a-vision-07-2025",
+  "family": "command",
+  "version": "07",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  }
+}

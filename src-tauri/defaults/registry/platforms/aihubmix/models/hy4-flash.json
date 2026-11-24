@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "hy4-flash",
+  "canonical_model": "hy4-flash",
+  "display_name": "Hy4 Flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8.1e-8,
+    "output": 3.24e-7,
+    "cache_read": 3.24e-9
+  },
+  "context_window": 1048576
+}

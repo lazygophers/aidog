@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "hy3",
+  "display_name": "Hy3",
+  "canonical_model": "hy3",
+  "context_window": 256000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-7,
+    "output": 5.9e-7,
+    "cache_read": 4e-8
+  },
+  "capabilities": [
+    "text"
+  ]
+}

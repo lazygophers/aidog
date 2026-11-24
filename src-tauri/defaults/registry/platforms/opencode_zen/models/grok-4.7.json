@@ -1,0 +1,31 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "grok-4.7",
+  "display_name": "Grok 4.7",
+  "canonical_model": "grok-4.7",
+  "family": "grok",
+  "version": "4.7",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 500000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 5e-7,
+    "context_tiers": [
+      {
+        "min_tokens": 200001,
+        "input": 0.000004,
+        "output": 0.000012,
+        "cache_read": 0.000001
+      }
+    ]
+  },
+  "context_window": 500000
+}

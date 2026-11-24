@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "oci/openai.gpt-oss-20b",
+  "canonical_model": "openai.gpt-oss-20b",
+  "family": "gpt",
+  "version": "20b",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 7e-8,
+    "output": 3e-7
+  }
+}

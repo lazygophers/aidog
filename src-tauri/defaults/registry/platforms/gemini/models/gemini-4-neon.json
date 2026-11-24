@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "gemini"
+  ],
+  "model_id": "gemini-4-neon",
+  "display_name": "Gemini 4 Neon",
+  "canonical_model": "gemini-4-neon",
+  "version": "4",
+  "family": "gemini",
+  "thinking_supported": true,
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.000003,
+    "output": 0.000015,
+    "cache_read": 1.5e-7
+  },
+  "context_window": 1048576
+}

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795488926,
   "holiday_calendar": "US-DE",  "endpoints": {
     "default": [
       {
@@ -38,7 +38,6 @@
       "anthropic/claude-opus-4.5",
       "anthropic/claude-opus-4.5-20251101",
       "anthropic/claude-opus-4.6",
-      "anthropic/claude-opus-4.6-thinking",
       "anthropic/claude-opus-4.7",
       "anthropic/claude-opus-4.8",
       "anthropic/claude-opus-5",
@@ -50,8 +49,6 @@
       "baidu/ernie-4.5-turbo-vl-32k",
       "black-forest-labs/flux-kontext-max",
       "black-forest-labs/flux-kontext-pro",
-      "bytedance/doubao-1.5-pro-32k-250115",
-      "bytedance/doubao-seed-1.6",
       "bytedance/doubao-seed-2.0-code-preview-260215",
       "bytedance/doubao-seed-2.0-lite-260215",
       "bytedance/doubao-seed-2.0-mini-260215",
@@ -68,12 +65,6 @@
       "deepseek/deepseek-v3.2-exp",
       "deepseek/deepseek-v4-flash",
       "deepseek/deepseek-v4-pro",
-      "doubao/doubao-1-5-lite-32k",
-      "doubao/doubao-1-5-pro-32k",
-      "doubao/doubao-1-5-vision-pro-32k",
-      "doubao/doubao-seed-1-6",
-      "doubao/doubao-seed-1-6-flash",
-      "doubao/doubao-seed-1-8",
       "doubao/doubao-seed-2-0-code",
       "doubao/doubao-seed-2-0-lite",
       "doubao/doubao-seed-2-0-mini",
@@ -120,8 +111,6 @@
       "minimax/minimax-m2.7-highspeed",
       "minimax/minimax-m3",
       "mistral/codestral",
-      
-      
       "mistral/ministral-14b",
       "mistral/ministral-3b",
       "mistral/ministral-8b",
@@ -129,7 +118,6 @@
       "mistral/mistral-medium-3.5",
       "mistral/mistral-small-4",
       "moonshot/kimi-k2-thinking",
-      
       "moonshot/kimi-k2.6",
       "moonshot/kimi-k2.7-code",
       "moonshot/kimi-k2.7-code-highspeed",
@@ -206,14 +194,11 @@
       "qwen/qwen3-coder-480b",
       "qwen/qwen3-coder-flash",
       "qwen/qwen3-coder-next",
-      "qwen/qwen3-coder-plus",
-      "qwen/qwen3-max",
       "qwen/qwen3-next-80b",
       "qwen/qwen3-vl-235b",
       "qwen/qwen3-vl-235b-a22b-thinking",
       "qwen/qwen3-vl-32b",
       "qwen/qwen3-vl-8b",
-      "qwen/qwen3-vl-flash",
       "qwen/qwen3-vl-plus",
       "qwen/qwen3.5-397b-a17b",
       "qwen/qwen3.5-flash",
@@ -270,11 +255,8 @@
       "doubao/doubao-seedance-2-0",
       "doubao/doubao-seedance-2-0-fast",
       "doubao/doubao-seedream-4-5",
-      
       "indexteam/indextts-2",
       "openai/gpt-realtime-whisper",
-      
-      
       "openai/tts-1",
       "openai/tts-1-hd",
       "openai/whisper-1",
@@ -293,8 +275,24 @@
       "zhipu/vidu2-start-end",
       "zhipu/viduq1-image",
       "zhipu/viduq1-start-end",
-      "zhipu/viduq1-text"
-    ]
+      "zhipu/viduq1-text",
+      "anthropic/claude-haiku-5-5",
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-sonnet-5-5",
+      "google/gemini-4-argon",
+      "zai/glm-5.3-flashx",
+      "openai/gpt-image-2.5-flare",
+      "openai/gpt-image-2.5-sunburst",
+      "openai/gpt-6-luna",
+      "openai/gpt-6-sol",
+      "openai/gpt-6.1-sol",
+      "xai/grok-4.7",
+      "xiaomi/mimo-v2.6-flash",
+      "xiaomi/mimo-v2.6-pro",
+      "mistral/mistral-large-4",
+      "openai/o1",
+      "openai/o4-mini",
+      "qwen/qwen3.8-omni-flash"]
   },
   "name": {
     "en-US": "TheRouter",

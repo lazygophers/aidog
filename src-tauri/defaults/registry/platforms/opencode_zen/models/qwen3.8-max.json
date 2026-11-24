@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "qwen3.8-max",
+  "display_name": "Qwen3.8 Max",
+  "canonical_model": "qwen3.8-max",
+  "family": "qwen",
+  "version": "3.8",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 2.5e-7,
+    "cache_write": 0.0000025
+  },
+  "context_window": 262144
+}

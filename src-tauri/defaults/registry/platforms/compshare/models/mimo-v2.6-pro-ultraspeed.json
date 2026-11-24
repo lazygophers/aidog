@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "mimo-v2.6-pro-ultraspeed",
+  "canonical_model": "mimo-v2.6-pro-ultraspeed",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.00003,
+    "output": 0.00006
+  },
+  "context_window": 1048576
+}

@@ -14,9 +14,9 @@
     "currency": "USD",
     "input": 1.475e-06,
     "output": 4.425e-06,
-    "cache_read": 2.95e-07
-  },
-  "last_updated": 1793244705,
+    "cache_read": 2.95e-07,
+    "cache_write": 0.00000184375},
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"

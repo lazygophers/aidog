@@ -291,6 +291,7 @@ export function blockedReasonLabel(reason: string, t: (k: string, d: string) => 
     case "client_not_allowed": return t("logs.blockedClientNotAllowed", "Client not allowed");
     case "client_not_allowed_mixed": return t("logs.blockedClientNotAllowedMixed", "Client not allowed (mixed)");
     case "observe": return t("logs.blockedObserve", "Observed");
+    case "image_variations_unsupported": return t("logs.blockedImageVariations", "Image variations not supported");
     default: return reason;
   }
 }

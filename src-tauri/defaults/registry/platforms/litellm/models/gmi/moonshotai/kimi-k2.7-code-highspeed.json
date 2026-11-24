@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/moonshotai/kimi-k2.7-code-highspeed",
+  "canonical_model": "kimi-k2.7-code-highspeed",
+  "family": "kimi",
+  "version": "2.7",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000019,
+    "output": 0.000008,
+    "cache_read": 3.8e-7
+  }
+}

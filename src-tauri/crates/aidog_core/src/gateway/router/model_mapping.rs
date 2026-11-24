@@ -27,8 +27,8 @@ pub(crate) struct CustomSlotEntry {
 }
 
 /// 内置槽名（与前端 `BUILTIN_SLOT_NAMES` / `ModelSlot` 一致），自定义槽不得重名。
-const BUILTIN_SLOT_NAMES: [&str; 8] =
-    ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank"];
+const BUILTIN_SLOT_NAMES: [&str; 9] =
+    ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank", "image"];
 
 fn valid_slot_name(n: &str) -> bool {
     (1..=24).contains(&n.len()) && n.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')

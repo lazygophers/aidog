@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gemini-nano-banana-2.1",
+  "display_name": "Nano Banana 2.1",
+  "canonical_model": "gemini-nano-banana-2.1",
+  "family": "gemini",
+  "version": "2.1",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.0000075
+  },
+  "context_window": 131072
+}

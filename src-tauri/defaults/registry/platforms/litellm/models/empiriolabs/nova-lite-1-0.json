@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/nova-lite-1-0",
+  "canonical_model": "nova-lite-1-0",
+  "family": "nova",
+  "version": "1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 317379,
+  "context_window": 317379,
+  "max_output_tokens": 10000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6.9e-8,
+    "output": 2.8e-7,
+    "cache_read": 3.86e-8
+  }
+}

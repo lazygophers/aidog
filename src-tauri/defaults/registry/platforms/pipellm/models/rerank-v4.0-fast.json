@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "rerank-v4.0-fast",
+  "display_name": "Rerank v4.0 Fast",
+  "canonical_model": "rerank-v4.0-fast",
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  },
+  "capabilities": [
+    "rerank"
+  ]
+}

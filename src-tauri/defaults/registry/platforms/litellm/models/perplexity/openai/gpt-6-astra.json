@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/openai/gpt-6-astra",
+  "canonical_model": "gpt-6-astra",
+  "family": "gpt",
+  "version": "6",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00001,
+    "output": 0.00005,
+    "cache_read": 0.000001,
+    "cache_write": 0.0000125
+  }
+}

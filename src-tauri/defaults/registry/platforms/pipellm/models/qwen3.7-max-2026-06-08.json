@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "qwen3.7-max-2026-06-08",
+  "display_name": "Qwen3.7 Max 2026 06 08",
+  "canonical_model": "qwen3.7-max-2026-06-08",
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000016499999999999999,
+    "output": 0.000004951,
+    "cache_read": 3.3e-7
+  },
+  "capabilities": [
+    "text"
+  ]
+}

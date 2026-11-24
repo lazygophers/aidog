@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/Qwen/Qwen3-30B-A3B",
+  "canonical_model": "qwen3-30b-a3b",
+  "family": "qwen",
+  "version": "3",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 40946,
+  "context_window": 40946,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8e-8,
+    "output": 2.5e-7
+  }
+}

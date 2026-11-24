@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nscale/meta-llama/Llama-3.1-8B-Instruct",
+  "canonical_model": "meta-llama/llama-3.1-8b-instruct",
+  "family": "llama",
+  "version": "3.1",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-8,
+    "output": 3e-8
+  }
+}

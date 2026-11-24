@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity_orchestrator/anthropic/claude-opus-4-5",
+  "canonical_model": "claude-opus-4-5",
+  "family": "claude",
+  "version": "4.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000005,
+    "output": 0.000025,
+    "cache_read": 5e-7,
+    "cache_write": 0.00000625
+  }
+}

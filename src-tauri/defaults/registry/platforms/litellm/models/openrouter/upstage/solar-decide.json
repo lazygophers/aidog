@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/upstage/solar-decide",
+  "canonical_model": "upstage/solar-decide",
+  "family": "upstage",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 524288,
+  "context_window": 524288,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-8,
+    "output": 0
+  }
+}

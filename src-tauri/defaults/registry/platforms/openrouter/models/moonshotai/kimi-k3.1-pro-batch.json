@@ -1,0 +1,31 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "moonshotai/kimi-k3.1-pro:batch",
+  "canonical_model": "kimi-k3.1-pro",
+  "family": "kimi",
+  "version": "3.1",
+  "display_name": "MoonshotAI: Kimi K3.1 Pro (batch)",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning",
+    "video"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 943718,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 3.72e-7,
+    "output": 0.000005583,
+    "cache_read": 1e-7
+  }
+}

@@ -1,10 +1,11 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "baichuan/baichuan-m2-32b",
+  "display_name": "Baichuan M2 32B",
   "canonical_model": "baichuan-m2-32b",
   "family": "baichuan",
   "version": "2",

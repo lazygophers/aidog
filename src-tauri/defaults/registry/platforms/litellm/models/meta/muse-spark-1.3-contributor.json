@@ -1,5 +1,7 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1795488926,
+  "family": "muse-spark",
+  "family": "muse-spark",
   "supported_protocols": [
     "openai"
   ],
@@ -21,6 +23,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "cache_read": 2e-9,
     "currency": "USD",
     "input": 1e-07,
     "output": 2e-07

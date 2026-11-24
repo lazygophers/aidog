@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("../../domains/platforms/modelPrices", () => ({ useModelPrices: () => new Map() }));
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 
-const empty = { embedding: [], rerank: [], default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [] };
+const empty = { embedding: [], rerank: [], image: [], default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [] };
 function mount(over: Record<string, unknown>) {
   const onSlotEnabledChange = vi.fn();
   const r = render(
@@ -24,9 +24,9 @@ function mount(over: Record<string, unknown>) {
 const toggle = (c: HTMLElement, slot: string) => c.querySelector(`[data-testid="slot-enabled-${slot}"]`) as HTMLElement;
 
 describe("ModelsMatrixSection 槽位启用开关", () => {
-  it("8 个内置槽位各有开关，data-state 反映是否启用（关闭的槽 unchecked）", () => {
+  it("9 个内置槽位各有开关，data-state 反映是否启用（关闭的槽 unchecked）", () => {
     const { container } = mount({ disabledSlots: ["opus"] });
-    for (const s of ["default", "sonnet", "opus", "haiku", "gpt", "jev", "embedding", "rerank"]) {
+    for (const s of ["default", "sonnet", "opus", "haiku", "gpt", "jev", "embedding", "rerank", "image"]) {
       expect(toggle(container, s)).not.toBeNull();
     }
     expect(toggle(container, "opus").getAttribute("data-state")).toBe("unchecked");

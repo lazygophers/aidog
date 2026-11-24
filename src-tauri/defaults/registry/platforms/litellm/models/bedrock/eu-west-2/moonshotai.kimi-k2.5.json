@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/eu-west-2/moonshotai.kimi-k2.5",
+  "canonical_model": "moonshotai.kimi-k2.5",
+  "family": "kimi",
+  "version": "2.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 16000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 9.3e-7,
+    "output": 0.00000465
+  }
+}

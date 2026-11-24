@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "databricks/databricks-openjev-qwen35-4b",
+  "canonical_model": "databricks-openjev-qwen35-4b",
+  "family": "databricks",
+  "version": "4b",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.2e-8,
+    "output": 0,
+    "cache_read": 4.2e-8,
+    "cache_write": 4.2e-8
+  }
+}

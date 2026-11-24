@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/anthropic/claude-opus-4.7",
+  "canonical_model": "claude-opus-4-7",
+  "family": "claude",
+  "version": "4.7",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000005,
+    "output": 0.000025
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "vertex_ai/gemini-2.5-flash-native-audio",
+  "canonical_model": "gemini-2.5-flash-native-audio",
+  "family": "gemini",
+  "version": "2.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-7,
+    "output": 0.000002
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "ZHIPU/GLM-5.3-FlashX",
+  "display_name": "ZHIPU/GLM-5.3-FlashX",
+  "canonical_model": "ZHIPU/GLM-5.3-FlashX",
+  "family": "glm",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000002,
+    "output": 0.000007
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": false
+}

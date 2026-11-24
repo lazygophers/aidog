@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "amazon.nova-2-sonic-v1:0",
+  "canonical_model": "amazon.nova-2-sonic-v1",
+  "family": "amazon",
+  "version": "2",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.3e-7,
+    "output": 0.00000275
+  }
+}
