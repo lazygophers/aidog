@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795454307,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "wandb/google/gemma-4-26B-A4B-it",
+  "canonical_model": "google/gemma-4-26B-A4B-it",
+  "family": "google",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262000,
+  "context_window": 262000,
+  "max_output_tokens": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 3e-7,
+    "cache_read": 5e-8
+  }
+}

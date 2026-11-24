@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795454307,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "wandb/zai-org/GLM-5.3",
+  "canonical_model": "zai-org/GLM-5.3",
+  "family": "zai",
+  "version": "5.3",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1049000,
+  "context_window": 1049000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 7.5e-7,
+    "output": 0.000003,
+    "cache_read": 1.9e-7
+  }
+}
