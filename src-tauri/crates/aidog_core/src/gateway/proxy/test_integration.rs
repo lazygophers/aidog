@@ -12245,6 +12245,15 @@ async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
     const ANTHROPIC_OK: &str = r#"{"id":"msg-aihubmix","type":"message","role":"assistant","model":"claude-sonnet","content":[{"type":"text","text":"aihubmix-ok"}],"stop_reason":"end_turn","usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":4}}"#;
     const OPENAI_OK: &str = r#"{"id":"chatcmpl-aihubmix","object":"chat.completion","created":0,"model":"gpt-x","choices":[{"index":0,"message":{"role":"assistant","content":"aihubmix-openai"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"prompt_tokens_details":{"cached_tokens":4}}}"#;
     const GEMINI_OK: &str = r#"{"candidates":[{"content":{"parts":[{"text":"aihubmix-gemini"}],"role":"model"}}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":2}}"#;
+    const OPENAI_SSE: &str = concat!(
+        "data: {\"id\":\"chatcmpl-aihubmix\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"gpt-x\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"aihubmix-openai-stream\"},\"finish_reason\":null}]}\n\n",
+        "data: {\"id\":\"chatcmpl-aihubmix\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"gpt-x\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":2,\"total_tokens\":8}}\n\n",
+        "data: [DONE]\n\n",
+    );
+    const GEMINI_SSE: &str = concat!(
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"aihubmix-gemini-stream\"}]}}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":2}}\n\n",
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"!\"}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":3}}\n\n",
+    );
     const ANTHROPIC_SSE: &str = concat!(
         "data: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet\",\"usage\":{\"input_tokens\":7,\"output_tokens\":1}}}\n\n",
         "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"aihubmix-stream\"}}\n\n",
@@ -12373,21 +12382,50 @@ async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
         assert!(log.done);
     }
 
-    // 错误透传（anthropic wire，错误体带官方 tid 字段）：状态码、错误体、终态。
-    {
-        let (error_upstream, error_requests) =
-            spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+    // 另外两个 wire 的流式响应使用 Anthropic 入站，覆盖跨协议请求及事件转换。
+    for (label, wire, sse, text, expected_input, expected_output) in [
+        ("openai", Protocol::OpenAI, OPENAI_SSE, "aihubmix-openai-stream", 6, 2),
+        ("gemini", Protocol::Gemini, GEMINI_SSE, "aihubmix-gemini-stream", 5, 3),
+    ] {
+        let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
         let state = make_state(test_db().await).await;
-        let gk = "gkaihubmixerror";
-        setup_aihubmix_wire_group(&state, gk, Protocol::Anthropic, &error_upstream).await;
+        let gk = format!("gkaihubmix{label}stream");
+        setup_aihubmix_wire_group(&state, &gk, wire, &upstream).await;
         let request = HttpRequest::builder()
             .method("POST")
             .uri("/v1/messages")
             .header("content-type", "application/json")
             .header("authorization", format!("Bearer {gk}"))
             .body(Body::from(
-                r#"{"model":"claude-sonnet","max_tokens":16,"messages":[{"role":"user","content":"family error"}]}"#,
+                r#"{"model":"test-model","max_tokens":64,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
             ))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        assert_eq!(response.status(), StatusCode::OK, "{label}");
+        let bytes = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        assert!(String::from_utf8_lossy(&bytes).contains(text), "{label}");
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        let log = only_log_of(&state, &gk).await;
+        assert_eq!((log.input_tokens, log.output_tokens), (expected_input, expected_output), "{label}");
+    }
+
+    // 三个 wire 的错误透传：使用相同协议入站，避免跨协议错误转换影响断言。
+    for (label, wire, uri, request_body) in [
+        ("anthropic", Protocol::Anthropic, "/v1/messages", r#"{"model":"test-model","max_tokens":16,"messages":[{"role":"user","content":"family error"}]}"#),
+        ("openai", Protocol::OpenAI, "/v1/chat/completions", r#"{"model":"test-model","messages":[{"role":"user","content":"family error"}]}"#),
+        ("gemini", Protocol::Gemini, "/v1beta/models/test-model:generateContent", r#"{"contents":[{"role":"user","parts":[{"text":"family error"}]}]}"#),
+    ] {
+        let (error_upstream, error_requests) =
+            spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkaihubmixerror{label}");
+        setup_aihubmix_wire_group(&state, &gk, wire, &error_upstream).await;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri(uri)
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(request_body))
             .unwrap();
         let response = handle_proxy(AxumState(state.clone()), request).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "error passthrough");
@@ -12397,13 +12435,14 @@ async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
             "error body passthrough"
         );
         let captured = error_requests.lock().unwrap().clone();
-        assert_eq!(captured.len(), 1, "error request must reach fake upstream");
-        let error_log = only_log_of(&state, gk).await;
+        assert_eq!(captured.len(), 1, "{label}: error request must reach fake upstream");
+        let error_log = only_log_of(&state, &gk).await;
         assert_eq!(
             error_log.status_code,
-            StatusCode::BAD_REQUEST.as_u16() as i32
+            StatusCode::BAD_REQUEST.as_u16() as i32,
+            "{label}"
         );
-        assert!(error_log.done, "upstream error must be terminal");
+        assert!(error_log.done, "{label}: upstream error must be terminal");
     }
 }
 
