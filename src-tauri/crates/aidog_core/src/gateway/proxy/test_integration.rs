@@ -12225,6 +12225,324 @@ async fn opencode_family_members_reach_upstream_record_usage_and_forward_errors(
 /// issue 88：Compshare（优云）家族基座。成员 `compshare` / `compshare_coding` 共用
 /// `CompshareFamilyAdapter`；两成员 × 三 wire 协议（openai / anthropic / gemini，与 registry
 /// 内置默认端点对应）走真实代理与本地假上游，禁真实外呼。
+/// issue 91：AiHubMix（aihubmix）专属适配器。三协议（anthropic / openai / gemini，
+/// 与 registry 内置默认端点对应）走真实代理与本地假上游，禁真实外呼。端点组 setup
+/// 复用家族通用的 `setup_compshare_wire_group`（按 platform_type + wire 建平台与分组）。
+async fn setup_aihubmix_wire_group(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    wire: Protocol,
+    base_url: &str,
+) {
+    setup_compshare_wire_group(state, gk, Protocol::AiHubMix, wire, base_url).await;
+}
+
+/// 三 wire：流式 / 非流式转发、usage 落库（anthropic 缓存读/写、openai cached_tokens、
+/// gemini usageMetadata）、上游 400 错误透传 + proxy_log 终态。转发层对 aihubmix 零
+/// 特判（issue 91 现状 grep），本组测试同时锁定行为不变。
+#[tokio::test]
+async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
+    const ANTHROPIC_OK: &str = r#"{"id":"msg-aihubmix","type":"message","role":"assistant","model":"claude-sonnet","content":[{"type":"text","text":"aihubmix-ok"}],"stop_reason":"end_turn","usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":4}}"#;
+    const OPENAI_OK: &str = r#"{"id":"chatcmpl-aihubmix","object":"chat.completion","created":0,"model":"gpt-x","choices":[{"index":0,"message":{"role":"assistant","content":"aihubmix-openai"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+    const GEMINI_OK: &str = r#"{"candidates":[{"content":{"parts":[{"text":"aihubmix-gemini"}],"role":"model"}}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":2}}"#;
+    const OPENAI_SSE: &str = concat!(
+        "data: {\"id\":\"chatcmpl-aihubmix\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"gpt-x\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"aihubmix-openai-stream\"},\"finish_reason\":null}]}\n\n",
+        "data: {\"id\":\"chatcmpl-aihubmix\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"gpt-x\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":2,\"total_tokens\":8}}\n\n",
+        "data: [DONE]\n\n",
+    );
+    const GEMINI_SSE: &str = concat!(
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"aihubmix-gemini-stream\"}]}}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":2}}\n\n",
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"!\"}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":3}}\n\n",
+    );
+    const ANTHROPIC_SSE: &str = concat!(
+        "data: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet\",\"usage\":{\"input_tokens\":7,\"output_tokens\":1}}}\n\n",
+        "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"aihubmix-stream\"}}\n\n",
+        "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":3}}\n\n",
+        "data: {\"type\":\"message_stop\"}\n\n",
+    );
+    const UPSTREAM_ERROR: &str =
+        r#"{"error":{"type":"invalid_request_error","message":"aihubmix-error","tid":"trace-91"}}"#;
+
+    // anthropic wire：非流式（缓存 usage 落库）+ 流式（SSE 事件到客户端 + usage 记账）。
+    {
+        let (upstream, requests) = spawn_recording_response_upstream(200, ANTHROPIC_OK).await;
+        let state = make_state(test_db().await).await;
+        let gk = "gkaihubmixanthropic";
+        setup_aihubmix_wire_group(&state, gk, Protocol::Anthropic, &upstream).await;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(
+                r#"{"model":"claude-sonnet","max_tokens":64,"system":"system prompt","messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"tools":[{"name":"lookup","input_schema":{"type":"object"}}]}"#,
+            ))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        assert_eq!(response.status(), StatusCode::OK, "anthropic non-stream");
+        let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["content"][0]["text"], "aihubmix-ok");
+        let captured = requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1, "request must reach fake upstream");
+        assert!(
+            captured[0].0.ends_with("/v1/messages"),
+            "anthropic uri: {}",
+            captured[0].0
+        );
+        assert_eq!(captured[0].2.get("x-api-key").unwrap(), "sk-up");
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["model"], "claude-sonnet");
+        assert_eq!(sent["system"], "system prompt");
+        assert_eq!(sent["tools"][0]["name"], "lookup");
+        let log = only_log_of(&state, gk).await;
+        assert_eq!((log.input_tokens, log.output_tokens), (7, 3));
+        assert_eq!((log.cache_tokens, log.cache_write_tokens), (2, 4));
+        assert!(log.done, "successful response must be terminal");
+
+        let sse_upstream = spawn_unified_upstream(200, "text/event-stream", ANTHROPIC_SSE).await;
+        let state = make_state(test_db().await).await;
+        let gk = "gkaihubmixanthropicstream";
+        setup_aihubmix_wire_group(&state, gk, Protocol::Anthropic, &sse_upstream).await;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(
+                r#"{"model":"claude-sonnet","max_tokens":64,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            ))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        assert_eq!(response.status(), StatusCode::OK, "anthropic stream");
+        let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("message_start"), "anthropic message starts");
+        assert!(
+            text.contains("content_block_delta"),
+            "anthropic text event is converted"
+        );
+        assert!(
+            text.contains("aihubmix-stream"),
+            "stream deltas reach client"
+        );
+        assert!(
+            text.contains("message_stop"),
+            "anthropic end marker preserved"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        let log = only_log_of(&state, gk).await;
+        assert_eq!(
+            (log.input_tokens, log.output_tokens),
+            (7, 3),
+            "stream usage"
+        );
+    }
+
+    // openai wire：非流式 + usage（cached_tokens 扣 input）。
+    {
+        let (upstream, requests) = spawn_recording_response_upstream(200, OPENAI_OK).await;
+        let state = make_state(test_db().await).await;
+        let gk = "gkaihubmixopenai";
+        setup_aihubmix_wire_group(&state, gk, Protocol::OpenAI, &upstream).await;
+        let request_body = r#"{"model":"gpt-x","messages":[{"role":"user","content":"hello"}],"stream_options":{"include_usage":true}}"#;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/chat/completions")
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(request_body))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        assert_eq!(response.status(), StatusCode::OK, "openai");
+        let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["choices"][0]["message"]["content"], "aihubmix-openai");
+        let captured = requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1);
+        assert!(
+            captured[0].0.ends_with("/chat/completions"),
+            "openai uri: {}",
+            captured[0].0
+        );
+        assert_eq!(captured[0].2.get("authorization").unwrap(), "Bearer sk-up");
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["model"], "gpt-x");
+        assert_eq!(sent["messages"][0]["content"], "hello");
+        let log = only_log_of(&state, gk).await;
+        assert_eq!(
+            (log.input_tokens, log.output_tokens),
+            (6, 2),
+            "cached deducted"
+        );
+        assert!(log.done);
+    }
+
+    // gemini wire：非流式 + usageMetadata。
+    {
+        let (upstream, requests) = spawn_recording_response_upstream(200, GEMINI_OK).await;
+        let state = make_state(test_db().await).await;
+        let gk = "gkaihubmixgemini";
+        setup_aihubmix_wire_group(&state, gk, Protocol::Gemini, &upstream).await;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1beta/models/gemini-2.5:generateContent")
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(
+                r#"{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}"#,
+            ))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        assert_eq!(response.status(), StatusCode::OK, "gemini");
+        let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            body["candidates"][0]["content"]["parts"][0]["text"],
+            "aihubmix-gemini"
+        );
+        let captured = requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1);
+        assert!(
+            captured[0].0.contains(":generateContent"),
+            "gemini uri: {}",
+            captured[0].0
+        );
+        assert_eq!(captured[0].2.get("x-goog-api-key").unwrap(), "sk-up");
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["contents"][0]["parts"][0]["text"], "hi");
+        let log = only_log_of(&state, gk).await;
+        assert_eq!(
+            (log.input_tokens, log.output_tokens),
+            (5, 2),
+            "gemini usage"
+        );
+        assert!(log.done);
+    }
+
+    // 另外两个 wire 的流式响应使用 Anthropic 入站，覆盖跨协议请求及事件转换。
+    for (label, wire, sse, text, expected_input, expected_output) in [
+        (
+            "openai",
+            Protocol::OpenAI,
+            OPENAI_SSE,
+            "aihubmix-openai-stream",
+            6,
+            2,
+        ),
+        (
+            "gemini",
+            Protocol::Gemini,
+            GEMINI_SSE,
+            "aihubmix-gemini-stream",
+            5,
+            3,
+        ),
+    ] {
+        let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkaihubmix{label}stream");
+        setup_aihubmix_wire_group(&state, &gk, wire, &upstream).await;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(
+                r#"{"model":"test-model","max_tokens":64,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            ))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        assert_eq!(response.status(), StatusCode::OK, "{label}");
+        let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let stream = String::from_utf8_lossy(&bytes);
+        assert!(stream.contains(text), "{label}: stream text reaches client");
+        assert!(
+            stream.contains("content_block_delta"),
+            "{label}: converted text event"
+        );
+        assert!(stream.contains("message_stop"), "{label}: terminal event");
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        let log = only_log_of(&state, &gk).await;
+        assert_eq!(
+            (log.input_tokens, log.output_tokens),
+            (expected_input, expected_output),
+            "{label}"
+        );
+    }
+
+    // 三个 wire 的错误透传：使用相同协议入站，避免跨协议错误转换影响断言。
+    for (label, wire, uri, request_body) in [
+        (
+            "anthropic",
+            Protocol::Anthropic,
+            "/v1/messages",
+            r#"{"model":"test-model","max_tokens":16,"messages":[{"role":"user","content":"family error"}]}"#,
+        ),
+        (
+            "openai",
+            Protocol::OpenAI,
+            "/v1/chat/completions",
+            r#"{"model":"test-model","messages":[{"role":"user","content":"family error"}]}"#,
+        ),
+        (
+            "gemini",
+            Protocol::Gemini,
+            "/v1beta/models/test-model:generateContent",
+            r#"{"contents":[{"role":"user","parts":[{"text":"family error"}]}]}"#,
+        ),
+    ] {
+        let (error_upstream, error_requests) =
+            spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkaihubmixerror{label}");
+        setup_aihubmix_wire_group(&state, &gk, wire, &error_upstream).await;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri(uri)
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(request_body))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        assert_eq!(
+            response.status(),
+            StatusCode::BAD_REQUEST,
+            "error passthrough"
+        );
+        let body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&body).contains("aihubmix-error"),
+            "error body passthrough"
+        );
+        let captured = error_requests.lock().unwrap().clone();
+        assert_eq!(
+            captured.len(),
+            1,
+            "{label}: error request must reach fake upstream"
+        );
+        let error_log = only_log_of(&state, &gk).await;
+        assert_eq!(
+            error_log.status_code,
+            StatusCode::BAD_REQUEST.as_u16() as i32,
+            "{label}"
+        );
+        assert!(error_log.done, "{label}: upstream error must be terminal");
+    }
+}
+
 async fn setup_compshare_wire_group(
     state: &Arc<ProxyState>,
     gk: &str,
@@ -12294,6 +12612,222 @@ async fn anthropic_family_forwards_messages_and_records_cache_usage() {
     assert_eq!((log.input_tokens, log.output_tokens), (7, 3));
     assert_eq!((log.cache_tokens, log.cache_write_tokens), (2, 4));
     assert!(log.done, "successful Anthropic response must be terminal");
+}
+
+/// issue 81：SenseNova（商汤日日新）家族基座。成员 `sensenova` / `sensenova_en` 共用
+/// `SenseNovaFamilyAdapter`；两成员 × openai / anthropic 两 wire（与 registry 内置默认端点对应）
+/// 走真实代理与本地假上游，禁真实外呼。端点组 setup 复用家族通用的
+/// `setup_compshare_wire_group`（按 platform_type + wire 建平台与分组，与成员无关）。
+async fn setup_sensenova_wire_group(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    platform_type: Protocol,
+    wire: Protocol,
+    base_url: &str,
+) {
+    setup_compshare_wire_group(state, gk, platform_type, wire, base_url).await;
+}
+
+/// 两成员 × openai wire：流式 / 非流式转发、usage 落库、上游 400 错误透传 + proxy_log 终态；
+/// 非流式成功路径用记录型假上游断言 model / messages 到达上游（对齐 OpenCode 先例；
+/// 流式记录型 helper 只回 JSON content-type，喂不了 SSE，仍用 unified）。
+#[tokio::test]
+async fn sensenova_family_members_forward_openai_wire_with_usage_and_errors() {
+    const CHAT_OK: &str = r#"{"id":"chatcmpl-sensenova","object":"chat.completion","created":0,"model":"nova-2","choices":[{"index":0,"message":{"role":"assistant","content":"sensenova-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}"#;
+    const CHAT_SSE: &str = "data: {\"id\":\"chatcmpl-sensenova\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"nova-2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"sensenova-family-stream\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-sensenova\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"nova-2\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2,\"total_tokens\":5}}\n\ndata: [DONE]\n\n";
+    const UPSTREAM_ERROR: &str =
+        r#"{"error":{"code":1,"message":"sensenova-family-error"}}"#;
+
+    for (member, platform) in [("cn", Protocol::SenseNova), ("en", Protocol::SenseNovaEn)] {
+        for streaming in [false, true] {
+            let content_type = if streaming {
+                "text/event-stream"
+            } else {
+                "application/json"
+            };
+            let body = if streaming { CHAT_SSE } else { CHAT_OK };
+            let (upstream_url, success_requests) = if streaming {
+                (spawn_unified_upstream(200, content_type, body).await, None)
+            } else {
+                let (u, r) = spawn_recording_response_upstream(200, CHAT_OK).await;
+                (u, Some(r))
+            };
+            let state = make_state(test_db().await).await;
+            let gk = format!("gksensenova{member}{streaming}");
+            setup_sensenova_wire_group(
+                &state,
+                &gk,
+                platform.clone(),
+                Protocol::OpenAI,
+                &upstream_url,
+            )
+            .await;
+            let request_body = serde_json::json!({
+                "model": "nova-2",
+                "messages": [{"role": "user", "content": "family request"}],
+                "stream": streaming,
+                "stream_options": {"include_usage": true}
+            });
+            let request = HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap();
+            let response = handle_proxy(AxumState(state.clone()), request).await;
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "{member}, streaming={streaming}"
+            );
+            let response = axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            let response = String::from_utf8(response.to_vec()).unwrap();
+            assert!(response.contains(if streaming {
+                "sensenova-family-stream"
+            } else {
+                "sensenova-family-ok"
+            }));
+            if streaming {
+                assert!(response.contains("[DONE]"));
+            }
+            let log = only_log_of(&state, &gk).await;
+            assert_eq!(
+                (log.input_tokens, log.output_tokens),
+                (3, 2),
+                "{member}, streaming={streaming}"
+            );
+            assert!(log.done, "{member}, streaming={streaming}");
+            if let Some(requests) = &success_requests {
+                let captured = requests.lock().unwrap().clone();
+                assert_eq!(
+                    captured.len(),
+                    1,
+                    "{member}: request must reach fake upstream"
+                );
+                assert!(
+                    captured[0].0.ends_with("/chat/completions"),
+                    "{member}: {}",
+                    captured[0].0
+                );
+                let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+                assert_eq!(sent["model"], "nova-2", "{member}");
+                assert_eq!(sent["messages"][0]["content"], "family request", "{member}");
+            }
+        }
+
+        let (error_upstream, error_requests) =
+            spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gksensenova{member}error");
+        setup_sensenova_wire_group(
+            &state,
+            &gk,
+            platform.clone(),
+            Protocol::OpenAI,
+            &error_upstream,
+        )
+        .await;
+        let request_body =
+            r#"{"model":"nova-2","messages":[{"role":"user","content":"family error"}]}"#;
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{member}");
+        let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&response_body).contains("sensenova-family-error"),
+            "{member}"
+        );
+        let captured = error_requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1, "{member}");
+        assert!(
+            captured[0].0.ends_with("/chat/completions"),
+            "{member}: {}",
+            captured[0].0
+        );
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["model"], "nova-2");
+        assert_eq!(sent["messages"][0]["content"], "family error");
+        let error_log = only_log_of(&state, &gk).await;
+        assert_eq!(
+            error_log.status_code,
+            StatusCode::BAD_REQUEST.as_u16() as i32,
+            "{member}"
+        );
+        assert!(error_log.done, "{member}: upstream error must be terminal");
+    }
+}
+
+/// 两成员 × anthropic wire：Messages 转发、缓存 usage（cache_read / cache_write）落库、
+/// 请求头（x-api-key / anthropic-version）与 body 到达上游。
+#[tokio::test]
+async fn sensenova_family_anthropic_wire_forwards_messages_and_cache_usage() {
+    const RESPONSE: &str = r#"{"id":"msg-sensenova","type":"message","role":"assistant","model":"nova-2","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":4}}"#;
+
+    for (member, platform) in [("cn", Protocol::SenseNova), ("en", Protocol::SenseNovaEn)] {
+        let (upstream, requests) = spawn_recording_response_upstream(200, RESPONSE).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gksensenovaanthropic{member}");
+        setup_sensenova_wire_group(
+            &state,
+            &gk,
+            platform.clone(),
+            Protocol::Anthropic,
+            &upstream,
+        )
+        .await;
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/messages")
+                .header("content-type", "application/json")
+                .header("anthropic-version", "2023-06-01")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(
+                    r#"{"model":"nova-2","max_tokens":64,"system":"system prompt","messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"tools":[{"name":"lookup","input_schema":{"type":"object"}}]}"#,
+                ))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK, "{member}");
+
+        let captured = requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1, "{member}: request must reach fake upstream");
+        assert!(
+            captured[0].0.ends_with("/v1/messages"),
+            "{member}: {}",
+            captured[0].0
+        );
+        assert_eq!(captured[0].2.get("x-api-key").unwrap(), "sk-up", "{member}");
+        assert_eq!(
+            captured[0].2.get("anthropic-version").unwrap(),
+            "2023-06-01",
+            "{member}"
+        );
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["model"], "nova-2", "{member}");
+        assert_eq!(sent["system"], "system prompt", "{member}");
+        assert_eq!(sent["tools"][0]["name"], "lookup", "{member}");
+
+        let log = only_log_of(&state, &gk).await;
+        assert_eq!((log.input_tokens, log.output_tokens), (7, 3), "{member}");
+        assert_eq!((log.cache_tokens, log.cache_write_tokens), (2, 4), "{member}");
+        assert!(log.done, "{member}: successful response must be terminal");
+    }
 }
 
 #[tokio::test]
