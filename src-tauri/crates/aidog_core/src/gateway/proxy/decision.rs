@@ -60,6 +60,7 @@ pub(crate) fn route_fallback_status(err: &str) -> StatusCode {
     } else if matches!(
         err,
         "no_tools_platform" | "no_chat_platform" | "no_decision_platform" | "no_audio_platform"
+            | "no_embedding_platform" | "no_rerank_platform" | "no_image_platform"
     ) {
         StatusCode::NOT_FOUND
     } else {
@@ -167,13 +168,22 @@ pub(crate) async fn route_fail_response(
         };
         log.response_body = format!("route error: {msg}");
         (status, format!("{}: {msg}", i18n::t(lang, ErrorKey::Route)))
-    } else if err == "no_embedding_platform" || err == "no_rerank_platform" || err == "no_audio_platform" {
-        // 分组无可用向量化/重排序/音频平台（槽位全空 / 无 OpenAI 系 endpoint）：该端点对此分组不存在 → 404（用户裁决 2026-11-14，原 503）。
+    } else if err == "no_embedding_platform"
+        || err == "no_rerank_platform"
+        || err == "no_audio_platform"
+        || err == "no_image_platform"
+    {
+        // 分组无可用向量化/重排序/音频/生图平台（槽位全空 / 无 OpenAI 系 endpoint）：该端点对此分组不存在 → 404（用户裁决 2026-11-14，原 503）。
         log.blocked_reason = err.to_string();
         log.response_body = format!("route error: {err}");
+        let msg = if err == "no_image_platform" {
+            i18n::t(lang, ErrorKey::NoImagePlatform).to_string()
+        } else {
+            err.to_string()
+        };
         (
             StatusCode::NOT_FOUND,
-            format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
+            format!("{}: {msg}", i18n::t(lang, ErrorKey::Route)),
         )
     } else if err == "direct_model_unavailable" {
         // 声明直通模型的平台全不可用（直接模型转发）：DB 数据条件而非客户端错误 → 503。
@@ -433,6 +443,7 @@ async fn decision_attempt(
                 switched,
                 ttfb_ms: None,
                 candidate_total: scope.candidate_total,
+                image: false,
             },
         )
         .await

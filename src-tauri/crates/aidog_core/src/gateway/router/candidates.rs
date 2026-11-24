@@ -165,6 +165,9 @@ pub enum RequestKind<'a> {
     /// `/v1/audio/*` 音频请求（issue #167）：模型名随请求直转（无专用槽），
     /// 候选 = 有 OpenAI 系 endpoint 且非纯专用槽的平台。
     Audio,
+    /// `/v1/images/generations` 生图请求（生图-模型类型 票 04）：候选 = image 槽位非空
+    /// 且 有 OpenAI 系 endpoint 的平台。
+    Image,
     Tools(&'a str),
 }
 
@@ -177,6 +180,7 @@ impl RequestKind<'_> {
             RequestKind::Embedding => "no_embedding_platform",
             RequestKind::Rerank => "no_rerank_platform",
             RequestKind::Audio => "no_audio_platform",
+            RequestKind::Image => "no_image_platform",
             RequestKind::Tools(_) => "no_tools_platform",
         }
     }
@@ -243,6 +247,15 @@ pub(crate) fn platform_supports_kind(
             has_openai_family_endpoint(platform)
                 && !time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
                     .is_dedicated_only()
+        }
+        // Image（生图-模型类型 票 04/06）：生图槽位非空 且（OpenAI 系 endpoint 或
+        // extra.image_dialect=gemini 方言平台——方言独立配置，不从聊天协议推断）。
+        RequestKind::Image => {
+            time_windows::resolve_time_windows(time_rules, &platform.models, now_ms)
+                .image_slot()
+                .is_some()
+                && (has_openai_family_endpoint(platform)
+                    || db::image_dialect_is_gemini(&platform.extra))
         }
         RequestKind::Tools(path) => {
             crate::gateway::billing::default_tools_endpoints(&platform.platform_type.wire_str())
@@ -477,7 +490,10 @@ impl RouteInputs {
             None
         };
         // 额度窗口用量：只为配置了 enabled 窗口的平台读（零配置请求零读库）。
-        let quota_usage = if matches!(kind, RequestKind::Chat | RequestKind::Embedding | RequestKind::Rerank) {
+        let quota_usage = if matches!(
+            kind,
+            RequestKind::Chat | RequestKind::Embedding | RequestKind::Rerank | RequestKind::Image
+        ) {
             let ids: Vec<u64> = group_platforms
                 .iter()
                 .filter(|gp| crate::gateway::quota_window::has_enabled_windows(&gp.platform.extra))
@@ -672,10 +688,10 @@ async fn select_candidates_inner(
         })
         .map(|gp| gp.platform.id)
         .collect();
-    // Embedding / Rerank 不进直通链：客户端模型名与 direct_models 同名也不得改变槽位路由。
+    // Embedding / Rerank / Image 不进直通链：客户端模型名与 direct_models 同名也不得改变槽位路由。
     if !direct_ids.is_empty()
         && group_platforms.len() > 1
-        && !matches!(kind, RequestKind::Embedding | RequestKind::Rerank)
+        && !matches!(kind, RequestKind::Embedding | RequestKind::Rerank | RequestKind::Image)
     {
         return select_direct_candidates(
             group,
@@ -2106,7 +2122,7 @@ fn build_route_results(
 }
 
 /// 内置模型槽位名（时段档开关集合只收这些；自定义槽开关始终只存平台级）。
-const BUILTIN_SLOTS: [&str; 8] = ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank"];
+const BUILTIN_SLOTS: [&str; 9] = ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank", "image"];
 
 /// 本次请求在该平台命中的槽位是否被关闭，是则返回排除原因；请求名所属档位族
 /// （opus/sonnet/haiku/gpt）的槽位被关闭同样算——后者与该槽是否留空、实际落到哪个槽 / 透传无关。
@@ -2160,6 +2176,10 @@ fn disabled_slot_reason(
         RequestKind::Rerank => {
             let eff = effective_models_for(kind, platform, &cache.time_windows, now_ms, source_model);
             slot_filled(&eff.rerank).map(|_| "rerank".into())
+        }
+        RequestKind::Image => {
+            let eff = effective_models_for(kind, platform, &cache.time_windows, now_ms, source_model);
+            slot_filled(&eff.image).map(|_| "image".into())
         }
         RequestKind::Audio => None,
         RequestKind::Tools(_) => None,
@@ -2235,6 +2255,8 @@ fn resolve_target_chain(
         // `effective_models_for` 给出：时段档命中读档，否则默认（不含 preset peak 分支）。
         RequestKind::Embedding => slot_or(&effective_models.embedding, model_name.to_string()),
         RequestKind::Rerank => slot_or(&effective_models.rerank, model_name.to_string()),
+        // Image：专用路径一律用槽位模型，忽略客户端模型名（同 Embedding spec Q4 口径）。
+        RequestKind::Image => slot_or(&effective_models.image, model_name.to_string()),
         // Audio 不做模型改写（issue #167）：客户端音频模型名直转（同 Tools 语义）。
         RequestKind::Audio => vec![model_name.to_string()],
         // Tools 不做任何模型改写（语义 3）：映射命中取映射目标名（仅日志元数据），否则原样。

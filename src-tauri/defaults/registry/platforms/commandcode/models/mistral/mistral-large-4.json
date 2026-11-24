@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "mistral/mistral-large-4",
+  "display_name": "Mistral Large 4",
+  "canonical_model": "mistral-large-4",
+  "family": "mistral",
+  "version": "4",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 524288,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.00000136,
+    "output": 0.00000418,
+    "cache_read": 1.4e-7
+  }
+}

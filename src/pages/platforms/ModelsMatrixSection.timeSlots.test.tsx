@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("../../domains/platforms/modelPrices", () => ({ useModelPrices: () => new Map() }));
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 
-const base = { embedding: [], rerank: [], default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [] };
+const base = { embedding: [], rerank: [], image: [], default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [] };
 
 function mountTime(ruleModels: Record<string, string[]>, endpoints: { protocol: string }[], protocol = "anthropic") {
   return render(
@@ -27,7 +27,7 @@ describe("时段档 embedding / rerank 行", () => {
     expect(container.querySelector('[data-testid="time-slot-embedding"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="time-slot-rerank"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="time-slot-badge-embedding"]')).not.toBeNull();
-    expect(container.querySelectorAll(".model-matrix-row").length).toBe(8);
+    expect(container.querySelectorAll(".model-matrix-row").length).toBe(9);
   });
   it("档内 embedding / rerank 为空 → 显示「时段内不接」提示（data-state=empty）", () => {
     const { container } = mountTime({}, [{ protocol: "openai" }]);

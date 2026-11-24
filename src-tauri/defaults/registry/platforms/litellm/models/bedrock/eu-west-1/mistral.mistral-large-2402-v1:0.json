@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/eu-west-1/mistral.mistral-large-2402-v1:0",
+  "canonical_model": "eu-west-1/mistral.mistral-large-2402-v1",
+  "family": "eu",
+  "version": "2402",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000043,
+    "output": 0.000013
+  }
+}

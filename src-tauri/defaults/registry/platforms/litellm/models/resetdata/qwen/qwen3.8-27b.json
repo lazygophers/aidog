@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "resetdata/qwen/qwen3.8-27b",
+  "canonical_model": "qwen3.8-27b",
+  "family": "qwen",
+  "version": "3.8",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.905e-7,
+    "output": 0.000002453
+  }
+}

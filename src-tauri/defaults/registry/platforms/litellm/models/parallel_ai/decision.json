@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "parallel_ai/decision",
+  "canonical_model": "decision",
+  "family": "decision",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  }
+}

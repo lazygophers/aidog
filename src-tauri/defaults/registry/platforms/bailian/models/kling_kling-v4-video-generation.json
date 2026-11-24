@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "kling/kling-v4-video-generation",
+  "display_name": "kling/kling-v4-video-generation",
+  "canonical_model": "kling/kling-v4-video-generation",
+  "family": "kling",
+  "capabilities": [
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "unit": "second",
+    "unit_price": 1,
+    "unit_tiers": [
+      {
+        "tier": "720P",
+        "unit_price": 1
+      }
+    ]
+  }
+}

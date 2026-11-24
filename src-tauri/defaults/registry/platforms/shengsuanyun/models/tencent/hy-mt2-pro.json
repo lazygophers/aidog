@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "tencent/hy-mt2-pro",
+  "canonical_model": "hy-mt2-pro",
+  "display_name": "Hy-MT2-Pro",
+  "family": "hunyuan",
+  "version": "2",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 6.944444444444445e-8,
+    "output": 2.777777777777778e-7,
+    "cache_read": 0
+  },
+  "context_window": 8000,
+  "max_output_tokens": 4000
+}

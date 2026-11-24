@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "gpt-5.4-nano",
+  "display_name": "GPT-5.4 Nano",
+  "canonical_model": "gpt-5.4-nano",
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.0000000000000002e-7,
+    "output": 0.00000125,
+    "cache_read": 2e-8
+  },
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 400000
+}

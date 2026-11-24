@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nemotron-3.5-super-vl-free",
+  "display_name": "Nemotron 3.5 Super VL Free",
+  "canonical_model": "nemotron-3.5-super-vl-free",
+  "family": "nemotron",
+  "version": "3.5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0,
+    "cache_read": 0,
+    "free": true
+  },
+  "context_window": 1048576
+}

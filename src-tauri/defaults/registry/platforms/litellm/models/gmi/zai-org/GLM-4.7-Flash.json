@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/zai-org/GLM-4.7-Flash",
+  "canonical_model": "glm-4.7-flash",
+  "family": "glm",
+  "version": "4.7",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 202752,
+  "context_window": 202752,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 7e-8,
+    "output": 4e-7
+  }
+}

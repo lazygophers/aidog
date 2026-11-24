@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "o3-pro",
+  "canonical_model": "o3-pro",
+  "family": "o",
+  "version": "3",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.000013,
+    "output": 0.000052
+  },
+  "context_window": 200000
+}

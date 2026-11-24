@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nace/drex-v2.0",
+  "canonical_model": "drex-v2.0",
+  "family": "drex",
+  "version": "2.0",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-8,
+    "output": 0
+  }
+}

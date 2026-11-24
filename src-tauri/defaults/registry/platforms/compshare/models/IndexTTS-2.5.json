@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "IndexTTS-2.5",
+  "canonical_model": "IndexTTS-2.5",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 1.5e-10
+  }
+}

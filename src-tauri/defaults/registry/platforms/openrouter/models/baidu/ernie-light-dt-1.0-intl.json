@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "baidu/ernie-light-dt-1.0-intl",
+  "canonical_model": "ernie-light-dt-1.0-intl",
+  "family": "ernie",
+  "version": "1.0",
+  "display_name": "Baidu: ERNIE-Light-DT-1.0",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1024000,
+  "context_window": 1024000,
+  "max_output_tokens": 131072,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.00000113,
+    "output": 0.00000394,
+    "cache_read": 1.13e-7
+  }
+}

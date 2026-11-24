@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "coding-minimax-m3.1-flash",
+  "canonical_model": "coding-minimax-m3.1-flash",
+  "display_name": "Coding MiniMax M3.1 Flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.3000000000000004e-8,
+    "output": 1.3200000000000002e-7,
+    "cache_read": 3.3e-9
+  }
+}

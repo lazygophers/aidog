@@ -992,6 +992,9 @@ export interface PurgeCandidate {
 export const modelTestApi = {
   test: (req: ModelTestRequest) =>
     invoke<ModelTestResult>("model_test", { req }),
+  /** 生图连通性测试（生图-模型类型 票 10）：OpenAI Images 生成一例，写 request_log kind='test'。 */
+  imageTest: (req: ModelTestRequest) =>
+    invoke<ModelTestResult>("image_test", { req }),
 };
 
 // ─── Platform Quota Types & API ────────────────────────────

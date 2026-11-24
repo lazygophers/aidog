@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "baidu/ernie-5.5-flash-preview:free",
+  "canonical_model": "ernie-5.5-flash-preview",
+  "family": "baidu",
+  "display_name": "Baidu: ERNIE-5.5-Flash-Preview (free)",
+  "max_input_tokens": 1024000,
+  "context_window": 1024000,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "free": true,
+    "input": 0,
+    "output": 0
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "together_ai/meta-llama/Meta-Llama-3.1-8B",
+  "canonical_model": "meta-llama/Meta-Llama-3.1-8B",
+  "family": "meta",
+  "version": "3.1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 16384,
+  "context_window": 16384,
+  "max_output_tokens": 16384,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-7,
+    "output": 2e-7
+  }
+}

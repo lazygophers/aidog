@@ -42,6 +42,7 @@ mod decision;
 mod devin;
 mod endpoint;
 mod failure_verdict;
+pub(crate) mod image_dialect;
 mod finish;
 pub(crate) mod attempt_plan;
 mod forward;
@@ -93,6 +94,8 @@ mod test_outbound_shape;
 #[cfg(test)]
 mod test_integration;
 #[cfg(test)]
+mod test_mcp_http;
+#[cfg(test)]
 mod test_mitm_bypass;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
@@ -117,13 +120,15 @@ pub use passthrough::build_models_url;
 
 // 子模块内部互用项（crate 内可见，便于 handler/各模块交叉调用）。
 pub(crate) use count_tokens::{estimate_input_tokens, handle_count_tokens, is_count_tokens_endpoint};
+pub(crate) use aux_model::image_usage;
 pub(crate) use endpoint::{
     detect_source_protocol, infer_passthrough_protocol_from_ua, is_api_endpoint,
     match_platform_by_host, model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
     select_endpoint_for_model, select_endpoint_for_decision_model,
-    select_endpoint_for_openai_family_model,
+    select_endpoint_for_openai_family, select_endpoint_for_openai_family_model,
     should_fallback_passthrough, is_decision_endpoint, is_tools_endpoint,
-    is_embedding_endpoint, is_rerank_endpoint,
+    is_embedding_endpoint, is_rerank_endpoint, is_image_endpoint, is_image_edit_endpoint,
+    is_image_variation_endpoint,
     KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
 pub(crate) use forward::{AttemptOutcome, add_retry_after, note_retry_at, CallBudget, exhausted_status, finalize_proxy_502, forward_attempt};

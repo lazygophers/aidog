@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -23,5 +23,6 @@
     "input": 1.5e-07,
     "output": 6e-07,
     "cache_read": 3e-09
-  }
+  },
+  "predecessor": "deepseek-flash"
 }

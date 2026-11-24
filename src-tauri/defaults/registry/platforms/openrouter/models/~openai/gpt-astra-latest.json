@@ -11,19 +11,19 @@
   "thinking_toggleable": true,
   "price": {
     "currency": "USD",
-    "input": 1e-05,
-    "output": 5e-05,
-    "cache_read": 1e-06,
+    "input": 0.000008,
+    "output": 0.00004,
+    "cache_read": 4e-7,
     "context_tiers": [
       {
         "min_tokens": 272001,
-        "input": 2e-05,
-        "output": 7.5e-05,
-        "cache_read": 2e-06
+        "input": 0.000016,
+        "output": 0.00006,
+        "cache_read": 8e-7
       }
-    ]
-  },
-  "last_updated": 1793244705,
+    ],
+    "cache_write": 0.00001},
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/ca-central-1/mistral.mistral-7b-instruct-v0:2",
+  "canonical_model": "ca-central-1/mistral.mistral-7b-instruct-v0",
+  "family": "ca",
+  "version": "7b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.7e-7,
+    "output": 2.3e-7
+  }
+}

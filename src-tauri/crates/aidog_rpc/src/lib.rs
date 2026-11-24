@@ -338,6 +338,7 @@ rpc_routes! {
     readonly aidog_core::platform_cmd::stats::scatter_histogram,
     readonly aidog_core::platform_cmd::stats::quota_snapshots,
     mutating aidog_core::ai_tools_cmd::model_test::model_test,
+    mutating aidog_core::ai_tools_cmd::model_test::image_test,
     readonly aidog_core::proxy_cmd::proxy_log::platform_usage_stats,
     readonly aidog_core::proxy_cmd::proxy_log::group_usage_stats,
     readonly aidog_core::proxy_cmd::proxy_log::all_group_usage_stats,

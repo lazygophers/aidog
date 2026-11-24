@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure_ai/MAI-Code-1.1-Flash",
+  "canonical_model": "MAI-Code-1.1-Flash",
+  "family": "mai",
+  "version": "1.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-7,
+    "output": 0.0000012,
+    "cache_read": 2e-8
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "gemini"
+  ],
+  "model_id": "gemini-2.5-flash-image",
+  "display_name": "Gemini 2.5 Flash Image",
+  "canonical_model": "gemini-2.5-flash-image",
+  "version": "2.5",
+  "family": "gemini",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image",
+    "image_edit"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 3e-05
+  }
+}

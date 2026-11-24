@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "LingDT-3.0-flash",
+  "canonical_model": "LingDT-3.0-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 1.4e-7,
+    "output": 4.2e-7
+  }
+}

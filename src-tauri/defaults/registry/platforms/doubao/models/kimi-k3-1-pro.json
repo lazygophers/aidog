@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
+  "model_id": "kimi-k3-1-pro",
+  "display_name": "Kimi K3.1 Pro",
+  "canonical_model": "kimi-k3.1-pro",
+  "version": "3.1",
+  "family": "kimi",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000013,
+    "output": 0.000068,
+    "cache_read": 1.3e-06
+  }
+}

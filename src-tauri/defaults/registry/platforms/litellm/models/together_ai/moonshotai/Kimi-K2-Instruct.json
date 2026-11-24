@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "together_ai/moonshotai/Kimi-K2-Instruct",
+  "canonical_model": "kimi-k2-instruct",
+  "family": "kimi",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001,
+    "output": 0.000003
+  }
+}

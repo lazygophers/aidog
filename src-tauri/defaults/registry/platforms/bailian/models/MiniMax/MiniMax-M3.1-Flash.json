@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "MiniMax/MiniMax-M3.1-Flash",
+  "display_name": "MiniMax/MiniMax-M3.1-Flash",
+  "canonical_model": "MiniMax-M3.1-Flash",
+  "family": "minimax",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000001,
+    "output": 0.000004
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": false
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "baseten/zai-org/GLM-4.6",
+  "canonical_model": "glm-4.6",
+  "family": "glm",
+  "version": "4.6",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-7,
+    "output": 0.0000022
+  }
+}

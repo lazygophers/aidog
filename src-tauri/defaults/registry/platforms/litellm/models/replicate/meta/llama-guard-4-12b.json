@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/meta/llama-guard-4-12b",
+  "canonical_model": "llama-guard-4-12b",
+  "family": "llama",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-7,
+    "output": 2e-7
+  }
+}

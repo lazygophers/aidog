@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "vertex_ai/meta/muse-wonder-1.0",
+  "canonical_model": "muse-wonder-1.0",
+  "family": "muse",
+  "version": "1.0",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000004,
+    "output": 0.00002,
+    "cache_read": 2e-7
+  }
+}

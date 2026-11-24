@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "fireworks-ai-up-to-4b",
+  "canonical_model": "fireworks-ai-up-to-4b",
+  "family": "fireworks",
+  "version": "4b",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 1e-7
+  }
+}

@@ -396,6 +396,40 @@ fn prompt_count_has_base_increments_per_request() {
     assert!((tier.est_utilization - 100.0).abs() < 1e-9);
 }
 
+#[test]
+fn glm_coding_points_use_official_model_cache_and_time_weights() {
+    let at_peak = chrono::DateTime::parse_from_rfc3339("2026-11-23T14:00:00+08:00")
+        .unwrap()
+        .timestamp_millis();
+    let off_peak = chrono::DateTime::parse_from_rfc3339("2026-11-23T13:59:00+08:00")
+        .unwrap()
+        .timestamp_millis();
+    let weekend_peak_hour = chrono::DateTime::parse_from_rfc3339("2026-11-28T15:00:00+08:00")
+        .unwrap()
+        .timestamp_millis();
+
+    assert_eq!(glm_coding_points("glm_coding", "glm-5.3", 10_000, 1_000, 20_000, 0, at_peak), Some(12.7));
+    assert_eq!(glm_coding_points("glm_coding", "glm-5.3", 10_000, 1_000, 20_000, 0, off_peak), Some(6.35));
+    assert_eq!(glm_coding_points("glm_coding", "glm-5.3", 10_000, 1_000, 20_000, 0, weekend_peak_hour), Some(6.35));
+    assert_eq!(glm_coding_points("glm_coding", "glm-5.3-flash", 10_000, 1_000, 20_000, 0, at_peak), Some(4.22));
+    assert_eq!(glm_coding_points("glm_coding", "glm-5.4", 10_000, 1_000, 20_000, 0, at_peak), Some(8.4));
+    assert_eq!(glm_coding_points("glm_coding", "glm-4.7", 10_000, 1_000, 20_000, 0, at_peak), Some(0.0));
+    assert_eq!(glm_coding_points("deepseek", "glm-5.3", 10_000, 1_000, 20_000, 0, at_peak), None);
+    // 缓存写入不是缓存命中：与输入同按 Input 系数计（10k input + 10k write = 20k × 6.9 / 10_000 = 13.8）
+    assert_eq!(glm_coding_points("glm_coding", "glm-5.3", 10_000, 0, 0, 10_000, at_peak), Some(13.8));
+}
+
+#[test]
+fn glm_coding_limits_match_published_plan_quotas() {
+    assert_eq!(glm_coding_plan_limit("lite", "five_hour"), Some(2_000.0));
+    assert_eq!(glm_coding_plan_limit("lite", "weekly_limit"), Some(10_000.0));
+    assert_eq!(glm_coding_plan_limit("pro", "five_hour"), Some(12_000.0));
+    assert_eq!(glm_coding_plan_limit("pro", "weekly_limit"), Some(60_000.0));
+    assert_eq!(glm_coding_plan_limit("max", "five_hour"), Some(28_000.0));
+    assert_eq!(glm_coding_plan_limit("max", "weekly_limit"), Some(140_000.0));
+    assert_eq!(glm_coding_plan_limit("enterprise", "five_hour"), None);
+}
+
 // prompt_count 无基数：拟合 coef_per_request，est = util_at_last_real + requests × coef
 #[test]
 fn prompt_count_fits_coef_per_request() {

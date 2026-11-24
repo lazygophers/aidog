@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/MiniMaxAI/MiniMax-M2.7",
+  "canonical_model": "MiniMax-M2.7",
+  "family": "minimax",
+  "version": "2.7",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 196608,
+  "context_window": 196608,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.1e-7,
+    "output": 8.4e-7,
+    "cache_read": 4.2e-8
+  }
+}

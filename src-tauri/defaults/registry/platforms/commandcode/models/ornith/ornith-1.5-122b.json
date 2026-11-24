@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "ornith/ornith-1.5-122b",
+  "display_name": "Ornith 1.5 122B",
+  "canonical_model": "ornith-1.5-122b",
+  "family": "ornith",
+  "version": "1.5",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 262144,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 1.6e-7,
+    "output": 6.4e-7,
+    "cache_read": 2e-8
+  }
+}

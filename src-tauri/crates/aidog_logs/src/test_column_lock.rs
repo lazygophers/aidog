@@ -96,6 +96,7 @@ const META: &[&str] = &[
     "compaction",
     "context_compacted",
     "prev_tool_durations",
+    "fee_state",
 ];
 
 /// 穷尽分类（验收 3，issue #56 票 02 改为直接比对目录）：`PRAGMA table_info(proxy_log)`
@@ -224,6 +225,7 @@ async fn roundtrip_preserves_every_column() {
     log.compaction = "rt-compaction".into();
     log.context_compacted = "rt-context-compacted".into();
     log.prev_tool_durations = "rt-prev-tool-durations".into();
+    log.fee_state = Some("estimated".into());
     log.updated_at = now_ms + 5;
     // deleted_at 恒 0（get_proxy_log 过滤 deleted_at=0）；routing 留 None（空串→None
     // 往返即其锁定路径）；tool_call_counts 不落列（票 16 B1），读回恒空，两侧均保持空。
@@ -290,6 +292,7 @@ async fn roundtrip_preserves_every_column() {
     assert_eq!(row.compaction, "rt-compaction");
     assert_eq!(row.context_compacted, "rt-context-compacted");
     assert_eq!(row.prev_tool_durations, "rt-prev-tool-durations");
+    assert_eq!(row.fee_state.as_deref(), Some("estimated"));
     assert_eq!(row.created_at, now_ms);
     assert_eq!(row.updated_at, now_ms + 5);
     assert_eq!(row.deleted_at, 0);

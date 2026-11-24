@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/google/gemini-4-hydrogen",
+  "canonical_model": "gemini-4-hydrogen",
+  "family": "gemini",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.0000075,
+    "cache_read": 7.5e-8
+  }
+}

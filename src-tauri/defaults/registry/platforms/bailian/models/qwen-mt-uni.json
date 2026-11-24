@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "qwen-mt-uni",
+  "display_name": "qwen-mt-uni",
+  "canonical_model": "qwen-mt-uni",
+  "family": "qwen",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000065,
+    "output": 0.00002
+  }
+}

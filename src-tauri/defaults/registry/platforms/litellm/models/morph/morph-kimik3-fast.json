@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "morph/morph-kimik3-fast",
+  "canonical_model": "morph-kimik3-fast",
+  "family": "morph",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000006,
+    "output": 0.0000225,
+    "cache_read": 6e-7
+  }
+}

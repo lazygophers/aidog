@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/xai/grok-4.20-reasoning",
+  "canonical_model": "xai/grok-4.20-reasoning",
+  "family": "xai",
+  "version": "4.20",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000125,
+    "output": 0.0000025,
+    "cache_read": 2e-7
+  }
+}

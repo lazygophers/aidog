@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "databricks/databricks-gpt-6-1-terra",
+  "canonical_model": "databricks-gpt-6-1-terra",
+  "family": "databricks",
+  "version": "6",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 922000,
+  "context_window": 922000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000100002,
+    "output": 0.00000500003,
+    "cache_read": 4.998e-8,
+    "cache_write": 0.00000124999
+  }
+}

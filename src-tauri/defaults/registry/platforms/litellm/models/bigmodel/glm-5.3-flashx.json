@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bigmodel/glm-5.3-flashx",
+  "canonical_model": "glm-5.3-flashx",
+  "family": "glm",
+  "version": "5.3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.857142857142857e-7,
+    "output": 0.000001,
+    "cache_read": 8.142857142857142e-8
+  }
+}

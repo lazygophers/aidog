@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795488926,
   "holiday_calendar": "US-CA",
   "endpoints": {
     "default": [
@@ -18,7 +18,7 @@
     "default": [
       "jev-latest",
       "jev-1.13.0",
-      "jev-1.14.0"
+      "jev-1.14.0","jev-preview"
     ]
   },
   "name": {

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/ap-south-1/mistral.voxtral-small-24b-2507",
+  "canonical_model": "mistral.voxtral-small-24b-2507",
+  "family": "voxtral",
+  "version": "24b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.2e-7,
+    "output": 3.5e-7
+  }
+}

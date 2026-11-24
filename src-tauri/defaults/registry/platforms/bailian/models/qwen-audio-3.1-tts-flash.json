@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "qwen-audio-3.1-tts-flash",
+  "display_name": "qwen-audio-3.1-tts-flash",
+  "canonical_model": "qwen-audio-3.1-tts-flash",
+  "family": "qwen",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.0000015,
+    "output": 0.000012
+  }
+}

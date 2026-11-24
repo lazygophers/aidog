@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "mistralai/pixtral-large-2502",
+  "canonical_model": "pixtral-large-2502",
+  "family": "pixtral",
+  "version": "2502",
+  "display_name": "Mistral: Pixtral Large 2502",
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 102400,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.000006
+  }
+}

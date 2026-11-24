@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-5.2",
+  "canonical_model": "gpt-5.2",
+  "family": "gpt",
+  "version": "5.2",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000175,
+    "output": 0.000014
+  },
+  "context_window": 409600
+}

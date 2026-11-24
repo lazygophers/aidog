@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "fireworks_ai/accounts/fireworks/routers/glm-fast-latest",
+  "canonical_model": "accounts/fireworks/routers/glm-fast-latest",
+  "family": "accounts",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000021,
+    "output": 0.0000066,
+    "cache_read": 3.9e-7
+  }
+}

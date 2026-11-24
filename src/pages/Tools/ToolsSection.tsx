@@ -25,12 +25,10 @@ import {
 import { cn } from "../../lib/utils";
 import { isImeComposing } from "../../utils/ime";
 
-export type ToolId = "web_search" | "web_fetch" | "generate_image";
+export type ToolId = "web_search" | "web_fetch";
 export type ToolState = "configured" | "unconfigured" | "disabled";
 type CardId = ToolId | "install";
 
-/** 生图 provider 配置（MediaProviderConfig，snake_case 与后端对齐）。 */
-type MediaCfg = { base_url: string; api_key: string; model: string };
 /** 搜索草稿（searxRaw = SearXNG 实例 URL 原文，保存时按行解析）。 */
 type SearchDraft = {
   enabled: boolean;
@@ -40,7 +38,6 @@ type SearchDraft = {
   searxRaw: string;
 };
 
-const EMPTY_MEDIA: MediaCfg = { base_url: "", api_key: "", model: "" };
 const DEFAULT_SEARCH: SearchDraft = {
   enabled: true,
   sources: [],
@@ -49,20 +46,9 @@ const DEFAULT_SEARCH: SearchDraft = {
   searxRaw: "",
 };
 
-const hasMedia = (c: MediaCfg): boolean =>
-  c.base_url !== "" || c.api_key !== "" || c.model !== "";
 const linesOf = (s: string): string[] =>
   s.split("\n").map((l) => l.trim()).filter((l) => l !== "");
 const nonEmptyKey = (k: unknown): k is string => typeof k === "string" && k.trim() !== "";
-
-const readMedia = (v: unknown): MediaCfg => {
-  const m = (v ?? {}) as Record<string, unknown>;
-  return {
-    base_url: typeof m.base_url === "string" ? m.base_url : "",
-    api_key: typeof m.api_key === "string" ? m.api_key : "",
-    model: typeof m.model === "string" ? m.model : "",
-  };
-};
 
 const readSearch = (v: unknown): SearchDraft => {
   const s = (v ?? {}) as Record<string, unknown>;
@@ -121,9 +107,7 @@ export function toolStatus(
   if (tool === "web_fetch") {
     return s.fetch?.enabled === false ? "disabled" : "configured";
   }
-  const img = s.image as Partial<MediaCfg> | null | undefined;
-  if (!img) return "unconfigured";
-  return img.base_url?.trim() && img.api_key?.trim() && img.model?.trim() ? "configured" : "unconfigured";
+  return "unconfigured";
 }
 
 // ─── 小图标（内联 SVG，与 demo P.grip / P.eye 同形）───
@@ -242,18 +226,16 @@ export function ToolsSection() {
   const [search, setSearch] = useState<SearchDraft>(DEFAULT_SEARCH);
   const [fetchOn, setFetchOn] = useState(true);
   const [fetchFormat, setFetchFormat] = useState("markdown");
-  const [image, setImage] = useState<MediaCfg>(EMPTY_MEDIA);
   const [snap, setSnap] = useState(() => ({
     search: JSON.stringify(DEFAULT_SEARCH),
     fetch: JSON.stringify({ enabled: true, format: "markdown" }),
-    image: JSON.stringify(EMPTY_MEDIA),
   }));
   const [sourceList, setSourceList] = useState<SearchSource[]>([]);
   const [selected, setSelected] = useState<CardId>("web_search");
   const [pendingNav, setPendingNav] = useState<{ proceed: () => void } | null>(null);
-  const [savedCard, setSavedCard] = useState<"search" | "fetch" | "image" | "">("");
-  // 最近一次持久化的三卡值：rail 状态按已存配置算，草稿改动不影响状态显示
-  const [saved, setSaved] = useState(() => ({ search: DEFAULT_SEARCH, fetch: { enabled: true, format: "markdown" }, image: EMPTY_MEDIA }));
+  const [savedCard, setSavedCard] = useState<"search" | "fetch" | "">("");
+  // 最近一次持久化的卡值：rail 状态按已存配置算，草稿改动不影响状态显示
+  const [saved, setSaved] = useState(() => ({ search: DEFAULT_SEARCH, fetch: { enabled: true, format: "markdown" } }));
   const [saveError, setSaveError] = useState("");
   const [revealed, setRevealed] = useState<ReadonlySet<string>>(new Set());
   // SearXNG 公共实例（只在点按钮时拉一次）
@@ -289,16 +271,13 @@ export function ToolsSection() {
       const f = (v.fetch ?? {}) as { enabled?: unknown; format?: unknown };
       const fOn = typeof f.enabled === "boolean" ? f.enabled : true;
       const fFmt = f.format === "html" || f.format === "text" ? f.format : "markdown";
-      const img = readMedia(v.image);
       setSearch(s);
       setFetchOn(fOn);
       setFetchFormat(fFmt);
-      setImage(img);
-      setSaved({ search: s, fetch: { enabled: fOn, format: fFmt }, image: img });
+      setSaved({ search: s, fetch: { enabled: fOn, format: fFmt } });
       setSnap({
         search: JSON.stringify(s),
         fetch: JSON.stringify({ enabled: fOn, format: fFmt }),
-        image: JSON.stringify(img),
       });
       setSavedCard("");
       setSaveError("");
@@ -328,9 +307,8 @@ export function ToolsSection() {
   const dirty = {
     search: JSON.stringify(search) !== snap.search,
     fetch: JSON.stringify({ enabled: fetchOn, format: fetchFormat }) !== snap.fetch,
-    image: JSON.stringify(image) !== snap.image,
   };
-  const unsavedCount = Number(dirty.search) + Number(dirty.fetch) + Number(dirty.image);
+  const unsavedCount = Number(dirty.search) + Number(dirty.fetch);
 
   // 未保存离开拦截：页面级一个 dirty 汇总，挂载期间只此一个 guard（last wins）
   useEffect(() => {
@@ -345,8 +323,10 @@ export function ToolsSection() {
     proceed?.(); // 先放行导航（同步），草稿还原由 load 异步完成
   };
 
-  // 每卡保存：保存前重新 get，只覆盖本卡字段（读-改-写）
-  const saveCard = async (card: "search" | "fetch" | "image") => {
+  // 每卡保存：保存前重新 get，只覆盖本卡字段（读-改-写）。
+  // 生图卡已移除（票 08）：generate_image 走平台分组的生图模型链；存量 `image` 键
+  // 不在此清理（后端 serde 忽略未知字段，polish 归票 11）。
+  const saveCard = async (card: "search" | "fetch") => {
     setSavedCard("");
     setSaveError("");
     try {
@@ -356,13 +336,9 @@ export function ToolsSection() {
       if (card === "search") {
         next.search = cleanSearch(search);
         savedValue = search;
-      } else if (card === "fetch") {
+      } else {
         next.fetch = { enabled: fetchOn, format: fetchFormat };
         savedValue = { enabled: fetchOn, format: fetchFormat };
-      } else {
-        if (hasMedia(image)) next.image = image;
-        else delete next.image;
-        savedValue = image;
       }
       await settingsApi.set("mcp_tools", "settings", next);
       setSnap((prev) => ({ ...prev, [card]: JSON.stringify(savedValue) }));
@@ -493,7 +469,7 @@ export function ToolsSection() {
 
   // ── 执行路径图（随模式 / 停用切换）与 rail 状态（按已存值）──
   const liveSettings = useMemo(
-    () => ({ search: saved.search, fetch: saved.fetch, image: saved.image }),
+    () => ({ search: saved.search, fetch: saved.fetch }),
     [saved],
   );
   const statusOf = (tool: ToolId) => toolStatus(tool, liveSettings, keyedIds);
@@ -558,11 +534,10 @@ export function ToolsSection() {
       tool: "web_fetch",
       summary: statusOf("web_fetch") === "disabled" ? t("tools.disabled.fetch") : "",
     },
-    { id: "generate_image", title: t("tools.card.image"), tool: "generate_image", summary: "" },
     { id: "install", title: t("tools.card.install"), summary: t("tools.installHint").slice(0, 24) + "…" },
   ];
 
-  const cardFooter = (card: "search" | "fetch" | "image", saveTestId: string) => (
+  const cardFooter = (card: "search" | "fetch", saveTestId: string) => (
     <div className="mt-4 flex items-center gap-3 rounded-b-xl border-t border-border bg-secondary px-4 py-2.5">
       {dirty[card] && (
         <span
@@ -894,47 +869,6 @@ export function ToolsSection() {
     </section>
   );
 
-  const imageCard = (
-    <section data-testid="mcp-tools-card-image" className="rounded-xl border border-border bg-card shadow-sm">
-      {cardHeader(t("tools.card.image"))}
-      <div className="flex flex-col gap-3 px-4 pb-4 pt-4">
-        <label className="flex items-center gap-2.5 text-sm">
-          base_url
-          <input
-            data-testid="mcp-tools-image-base-url"
-            value={image.base_url}
-            placeholder="https://api.openai.com/v1"
-            onChange={(e) => setImage((c) => ({ ...c, base_url: e.target.value }))}
-            className="h-8 flex-1 rounded-md border border-input bg-card px-2.5 font-mono text-sm outline-none transition-colors focus:border-primary"
-          />
-        </label>
-        <label className="flex items-center gap-2.5 text-sm">
-          {t("tools.apiKey")}
-          <div className="flex-1">
-            <SecretInput
-              inputTestId="mcp-tools-image-api-key"
-              value={image.api_key}
-              onChange={(v) => setImage((c) => ({ ...c, api_key: v }))}
-              revealed={revealed.has("mcp-tools-image-api-key")}
-              onToggle={() => toggleReveal("mcp-tools-image-api-key")}
-              placeholder="sk-…"
-            />
-          </div>
-        </label>
-        <label className="flex items-center gap-2.5 text-sm">
-          {t("tools.model")}
-          <input
-            data-testid="mcp-tools-image-model"
-            value={image.model}
-            onChange={(e) => setImage((c) => ({ ...c, model: e.target.value }))}
-            className="h-8 flex-1 rounded-md border border-input bg-card px-2.5 font-mono text-sm outline-none transition-colors focus:border-primary"
-          />
-        </label>
-      </div>
-      {cardFooter("image", "tools-image-save")}
-    </section>
-  );
-
   const installCard = (
     <section data-testid="mcp-tools-card-install" className="rounded-xl border border-border bg-card shadow-sm">
       {cardHeader(t("tools.card.install"))}
@@ -964,7 +898,6 @@ export function ToolsSection() {
   const detailCard =
     selected === "web_search" ? searchCard
     : selected === "web_fetch" ? fetchCard
-    : selected === "generate_image" ? imageCard
     : installCard;
 
   return (

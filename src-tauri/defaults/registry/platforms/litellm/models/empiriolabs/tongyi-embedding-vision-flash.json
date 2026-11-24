@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/tongyi-embedding-vision-flash",
+  "canonical_model": "tongyi-embedding-vision-flash",
+  "family": "tongyi-embedding",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 1024,
+  "context_window": 1024,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 9e-8
+  }
+}

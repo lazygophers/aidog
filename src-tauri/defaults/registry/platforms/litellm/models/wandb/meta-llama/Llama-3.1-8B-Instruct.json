@@ -1,11 +1,11 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "wandb/meta-llama/Llama-3.1-8B-Instruct",
   "display_name": "Llama 3.1 8B Instruct",
-  "canonical_model": "llama-3.1-8b-instruct",
+  "canonical_model": "meta-llama/llama-3.1-8b-instruct",
   "family": "llama",
   "version": "3.1",
   "capabilities": [

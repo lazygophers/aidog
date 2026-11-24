@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/zai-org/GLM-5.2-FP8",
+  "canonical_model": "zai-org/GLM-5.2-FP8",
+  "family": "zai",
+  "version": "5.2",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000014,
+    "output": 0.0000044,
+    "cache_read": 2.6e-7
+  }
+}

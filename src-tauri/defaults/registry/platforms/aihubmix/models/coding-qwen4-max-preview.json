@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "coding-qwen4-max-preview",
+  "canonical_model": "coding-qwen4-max-preview",
+  "display_name": "Coding Qwen4 Max Preview",
+  "max_output_tokens": 393216,
+  "context_window": 1000000,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.53e-7,
+    "output": 0.000001059,
+    "cache_read": 4.4125e-8,
+    "cache_write": 4.4124999999999996e-7
+  }
+}

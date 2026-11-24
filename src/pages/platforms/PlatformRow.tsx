@@ -109,6 +109,8 @@ export interface PlatformRowProps {
   onDuplicate?: (p: Platform) => void;
   onViewLogs?: (p: Platform) => void;
   onQuickTest?: (p: Platform) => void;
+  /** 自定义测试（ModelTestPanel，含生图测试模式）：⋯ 菜单项；不传不渲染。 */
+  onCustomTest?: (p: Platform) => void;
   onDelete?: (id: number) => void;
   onLevelPriorityChange?: (v: number) => void;
   /** 余额手动刷新（放余额条右侧；不传不渲染） */
@@ -134,7 +136,7 @@ export function PlatformRow({
   platform: p, usage: u, quotaRaw, quotaPreferReal, lastTest, manualResult, testing, onRefreshQuota, refreshing,
   riseDelay, expanded, selecting, selected, levelPriority, showLastOutcome,
   t, lang, lead, onSelect, onToggleExpanded, onToggle,
-  onEdit, onDetail, onShare, onDuplicate, onViewLogs, onQuickTest, onDelete, onLevelPriorityChange,
+  onEdit, onDetail, onShare, onDuplicate, onViewLogs, onQuickTest, onCustomTest, onDelete, onLevelPriorityChange,
 }: PlatformRowProps) {
   const dispCur = useDisplayCurrency();
   const { isCpProtocol, defaultModels, peakWindows, holidayCalendar } = useProtocolMeta(p.platform_type, p.extra ?? "", lang);
@@ -445,6 +447,7 @@ export function PlatformRow({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" style={{ minWidth: 142 }}>
               {onViewLogs && <DropdownMenuItem onSelect={() => onViewLogs(p)}>{t("platform.viewLogs", "View Logs")}</DropdownMenuItem>}
+              {onCustomTest && <DropdownMenuItem data-testid="row-custom-test" onSelect={() => onCustomTest(p)}>{t("platform.customTest", "Custom Test")}</DropdownMenuItem>}
               {onShare && <DropdownMenuItem onSelect={() => onShare(p)}>{t("platform.share.button", "Share")}</DropdownMenuItem>}
               {onDuplicate && <DropdownMenuItem onSelect={() => onDuplicate(p)}>{t("platform.duplicate", "Duplicate")}</DropdownMenuItem>}
               {onDelete && <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(p.id)}>{t("platform.deletePlatformMenu", "Delete platform…")}</DropdownMenuItem>}

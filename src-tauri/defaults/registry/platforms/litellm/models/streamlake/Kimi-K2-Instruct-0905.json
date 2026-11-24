@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "streamlake/Kimi-K2-Instruct-0905",
+  "canonical_model": "Kimi-K2-Instruct-0905",
+  "family": "kimi",
+  "version": "2",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 224000,
+  "context_window": 224000,
+  "max_output_tokens": 32000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5.71e-7,
+    "output": 0.000002286,
+    "cache_read": 1.43e-7
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/us/o1-mini",
+  "canonical_model": "o1-mini",
+  "family": "o",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000121,
+    "output": 0.00000484,
+    "cache_read": 6.05e-7
+  }
+}

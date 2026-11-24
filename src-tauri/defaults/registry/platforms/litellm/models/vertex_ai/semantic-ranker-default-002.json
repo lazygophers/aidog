@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "vertex_ai/semantic-ranker-default-002",
+  "canonical_model": "semantic-ranker-default-002",
+  "family": "semantic",
+  "version": "002",
+  "capabilities": [
+    "rerank"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  }
+}

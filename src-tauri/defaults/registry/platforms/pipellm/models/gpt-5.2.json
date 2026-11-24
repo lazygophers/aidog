@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "gpt-5.2",
+  "display_name": "GPT-5.2",
+  "canonical_model": "gpt-5.2",
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000175,
+    "output": 0.000014,
+    "cache_read": 1.7499600000000001e-7
+  },
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 409600
+}

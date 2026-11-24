@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "text-embedding-3-small",
+  "display_name": "text-embedding-3-small",
+  "canonical_model": "text-embedding-3-small",
+  "family": "text-embedding",
+  "version": "3",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-8,
+    "output": 0
+  },
+  "context_window": 8192
+}

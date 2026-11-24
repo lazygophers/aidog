@@ -50,12 +50,12 @@ function detailFixture(attempts: unknown[]) {
   } as unknown as ProxyLogDetail;
 }
 
-function renderPanel(detail: ProxyLogDetail | null, setDetail: (d: null) => void = () => {}, onNavigate?: (id: string) => void) {
+function renderPanel(detail: ProxyLogDetail | null, setDetail: (d: null) => void = () => {}, onNavigate?: (id: string) => void, tOverride?: (key: string, fallback?: string) => string) {
   return render(
     <DetailPanel
       d={{
         detail,
-        t: ((key: string, fallback?: string) => fallback ?? key) as never,
+        t: (tOverride ?? ((key: string, fallback?: string) => fallback ?? key)) as never,
         copied: false,
         copiedId: false,
         setCopiedId: () => {},
@@ -115,6 +115,31 @@ describe("DetailPanel UA", () => {
   it("旧日志无 UA：占位 -", () => {
     renderPanel(detailFixture([attempt(1, 200)]));
     expect(screen.getByTestId("detail-user-agent").textContent).toBe("-");
+  });
+});
+
+describe("DetailPanel fee state", () => {
+  // 断言 locale 键的实际文案（对齐 zh-Hans），locale 键丢失时 t 回落裸 key，断言即红。
+  const feeStateLabels: Record<string, string> = {
+    "logs.feeState": "费用状态",
+    "logs.feeState.known": "已知",
+    "logs.feeState.estimated": "估算",
+    "logs.feeState.unknown": "未知",
+    "logs.feeState.incomplete": "不完整",
+  };
+  const t = (key: string, fallback?: string) => feeStateLabels[key] ?? fallback ?? key;
+
+  it("生图费用状态四态展示", () => {
+    for (const state of ["known", "estimated", "unknown", "incomplete"]) {
+      const { unmount } = renderPanel({ ...detailFixture([attempt(1, 200)]), fee_state: state } as unknown as ProxyLogDetail, undefined, undefined, t);
+      expect(screen.getByTestId("detail-fee-state").textContent).toBe(feeStateLabels[`logs.feeState.${state}`]);
+      unmount();
+    }
+  });
+
+  it("历史行无 fee_state：不渲染该条目，不臆造", () => {
+    renderPanel(detailFixture([attempt(1, 200)]));
+    expect(screen.queryByTestId("detail-fee-state")).toBeNull();
   });
 });
 

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/sa-east-1/qwen.qwen3-coder-30b-a3b-instruct",
+  "canonical_model": "sa-east-1/qwen.qwen3-coder-30b-a3b-instruct",
+  "family": "sa",
+  "version": "30b",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 16000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.8e-7,
+    "output": 7.3e-7
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/XiaomiMiMo/MiMo-V2.6-Pro",
+  "canonical_model": "mimo-v2.6-pro",
+  "family": "mimo",
+  "version": "2.6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1050000,
+  "context_window": 1050000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.48e-7,
+    "output": 6.96e-7,
+    "cache_read": 2.88e-9
+  }
+}

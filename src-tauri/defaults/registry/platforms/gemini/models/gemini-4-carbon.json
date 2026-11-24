@@ -1,0 +1,31 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "gemini"
+  ],
+  "model_id": "gemini-4-carbon",
+  "display_name": "Gemini 4 Carbon",
+  "canonical_model": "gemini-4-carbon",
+  "version": "4",
+  "family": "gemini",
+  "thinking_supported": true,
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 1.0000000000000001e-7,
+    "time_tiers": [
+      {
+        "start_at": 1796083200,
+        "input": 0.000004,
+        "output": 0.00002,
+        "cache_read": 2e-7
+      }
+    ]
+  },
+  "context_window": 1048576
+}

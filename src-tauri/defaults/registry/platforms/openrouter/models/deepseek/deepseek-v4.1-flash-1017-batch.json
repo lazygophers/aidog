@@ -1,0 +1,30 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "deepseek/deepseek-v4.1-flash-1017:batch",
+  "canonical_model": "deepseek-v4.1-flash-1017",
+  "family": "deepseek",
+  "version": "4.1",
+  "display_name": "DeepSeek: DeepSeek V4.1 Flash 1017 (batch)",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 943718,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 3.5e-8,
+    "output": 1.49e-7,
+    "cache_read": 2.9e-9
+  }
+}

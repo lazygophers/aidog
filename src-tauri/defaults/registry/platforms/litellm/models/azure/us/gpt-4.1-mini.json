@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/us/gpt-4.1-mini",
+  "canonical_model": "us/gpt-4.1-mini",
+  "family": "us",
+  "version": "4.1",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.4e-7,
+    "output": 0.00000176,
+    "cache_read": 1.1e-7
+  }
+}

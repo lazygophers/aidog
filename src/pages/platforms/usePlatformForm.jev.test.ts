@@ -37,7 +37,7 @@ describe("protocol changes", () => {
       protocols: { gemini: { endpoints: { default: [] }, models: { default: { default: ["preset"], sonnet: ["preset-sonnet"] } }, model_list: { default: [] } } },
     }) : null);
     const { result } = renderHook(() => useForm());
-    act(() => result.current.setModels({ default: ["custom", "fallback"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] }));
+    act(() => result.current.setModels({ default: ["custom", "fallback"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] }));
     await act(() => result.current.handleProtocolChange("gemini"));
     expect(result.current.models.default).toEqual(["custom", "fallback"]);
     expect(result.current.models.sonnet).toEqual(["preset-sonnet"]);
@@ -81,7 +81,7 @@ describe("unknown protocol repair", () => {
       result.current.setProtocol("unknown");
       result.current.setName("My platform");
       result.current.setEndpoints([{ protocol: "openai", base_url: "https://example.test/v1" }] as any);
-      result.current.setModels({ default: ["custom-model"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] });
+      result.current.setModels({ default: ["custom-model"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
       result.current.setQuotaCustomScript("custom script");
     });
     await act(() => result.current.handleProtocolChange("openai"));
@@ -142,11 +142,11 @@ describe("usePlatformForm jev slot", () => {
   it("buildModelsPayload keeps jev, drops blank slots", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: ["jev-latest"], embedding: [], rerank: [] });
+      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: ["jev-latest"], embedding: [], rerank: [], image: [] });
     });
     expect(result.current.buildModelsPayload()).toEqual({
       default: undefined, sonnet: undefined, opus: undefined, haiku: undefined, gpt: undefined,
-      jev: ["jev-latest"], embedding: undefined, rerank: undefined,
+      jev: ["jev-latest"], embedding: undefined, rerank: undefined, image: undefined,
     });
   });
 
@@ -154,7 +154,7 @@ describe("usePlatformForm jev slot", () => {
   it("buildModelsPayload is an object with no filled slot when every slot (incl. jev) is blank", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] });
+      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
     });
     const payload = result.current.buildModelsPayload();
     expect(payload).toBeDefined();
@@ -164,12 +164,12 @@ describe("usePlatformForm jev slot", () => {
   it("handleFillAll fills chat slots but not jev", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: ["glm-5"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] });
+      result.current.setModels({ default: ["glm-5"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
     });
     act(() => { result.current.handleFillAll(); });
     expect(result.current.models).toEqual({
       default: ["glm-5"], sonnet: ["glm-5"], opus: ["glm-5"], haiku: ["glm-5"], gpt: ["glm-5"], jev: [],
-      embedding: [], rerank: [],
+      embedding: [], rerank: [], image: [],
     });
   });
 });
@@ -186,11 +186,11 @@ describe("usePlatformForm embedding / rerank slots", () => {
   it("only embedding filled → embedding kept; all blank → still defined, no filled slot", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: ["e"], rerank: [] });
+      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: ["e"], rerank: [], image: [] });
     });
     expect(result.current.buildModelsPayload()?.embedding).toEqual(["e"]);
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] });
+      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
     });
     const blank = result.current.buildModelsPayload();
     expect(blank).toBeDefined();
@@ -200,7 +200,7 @@ describe("usePlatformForm embedding / rerank slots", () => {
   it("handleFillAll does not fill embedding / rerank", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: ["glm-5"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] });
+      result.current.setModels({ default: ["glm-5"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
     });
     act(() => { result.current.handleFillAll(); });
     expect(result.current.models.embedding).toEqual([]);

@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "mindlab/macaron-v1.1-venti-pro",
+  "display_name": "mindlab/macaron-v1.1-venti-pro",
+  "canonical_model": "mindlab/macaron-v1.1-venti-pro",
+  "family": "mindlab",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00001
+  }
+}

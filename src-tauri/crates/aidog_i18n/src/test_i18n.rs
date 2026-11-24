@@ -1,6 +1,6 @@
 use super::*;
 
-const ALL_KEYS: [ErrorKey; 19] = [
+const ALL_KEYS: [ErrorKey; 21] = [
     ErrorKey::ReadBody,
     ErrorKey::NoMatchingGroup,
     ErrorKey::ParseJson,
@@ -20,6 +20,8 @@ const ALL_KEYS: [ErrorKey; 19] = [
     ErrorKey::QuotaExhaustedCodingPlan,
     ErrorKey::QuotaExhaustedCodingPlanResume,
     ErrorKey::BalanceInsufficient,
+    ErrorKey::NoImagePlatform,
+    ErrorKey::ImageVariationsUnsupported,
 ];
 
 const ALL_LANGS: [Lang; 8] = [

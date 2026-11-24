@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793289610,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
@@ -7,7 +7,7 @@
   "display_name": "Step 3.7 Flash",
   "canonical_model": "step-3.7-flash",
   "version": "3.7",
-  "family": "stepfun",
+  "family": "step",
   "thinking_supported": true,
   "capabilities": [
     "text",

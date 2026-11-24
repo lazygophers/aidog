@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/anthropic/claude-4.5-haiku",
+  "canonical_model": "anthropic/claude-4.5-haiku",
+  "family": "anthropic",
+  "version": "4.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001,
+    "output": 0.000005
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/anthropic/claude-3.5-sonnet",
+  "canonical_model": "claude-3-5-sonnet",
+  "family": "claude",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000375,
+    "output": 0.00001875
+  }
+}

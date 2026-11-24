@@ -1,6 +1,5 @@
 {
-  "max_input_tokens": 1047576,
-  "last_updated": 1793244703,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "openai"
   ],
@@ -17,8 +16,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
+    "cache_read": 0.00000125,
     "currency": "USD",
-    "input": 5e-06,
-    "output": 3e-05
+    "input": 5e-06
   }
 }

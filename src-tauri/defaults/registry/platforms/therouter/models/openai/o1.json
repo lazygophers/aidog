@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "openai/o1",
+  "canonical_model": "o1",
+  "family": "o",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 100000,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.0000162,
+    "output": 0.0000648
+  }
+}

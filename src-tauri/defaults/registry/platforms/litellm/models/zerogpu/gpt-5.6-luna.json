@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "zerogpu/gpt-5.6-luna",
+  "canonical_model": "gpt-5.6-luna",
+  "family": "gpt",
+  "version": "5.6",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 272000,
+  "context_window": 272000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-7,
+    "output": 0.0000012,
+    "cache_read": 2e-7
+  }
+}

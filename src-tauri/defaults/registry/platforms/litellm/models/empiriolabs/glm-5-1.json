@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/glm-5-1",
+  "canonical_model": "glm-5.1",
+  "family": "glm",
+  "version": "5.1",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 202745,
+  "context_window": 202745,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8.25e-7,
+    "output": 0.000003301,
+    "cache_read": 1.65e-7
+  }
+}

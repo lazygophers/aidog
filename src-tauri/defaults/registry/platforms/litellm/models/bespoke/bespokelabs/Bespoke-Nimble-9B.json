@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bespoke/bespokelabs/Bespoke-Nimble-9B",
+  "canonical_model": "bespokelabs/Bespoke-Nimble-9B",
+  "family": "bespokelabs",
+  "version": "9B",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  }
+}

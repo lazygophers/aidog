@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "aigc-video-vega-1.0-pro",
+  "canonical_model": "aigc-video-vega-1.0-pro",
+  "family": "aigc-video",
+  "version": "1.0",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "unit": "request",
+    "unit_price": 0
+  }
+}

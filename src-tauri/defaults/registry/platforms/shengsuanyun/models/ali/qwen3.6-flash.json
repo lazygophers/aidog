@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "ali/qwen3.6-flash",
+  "canonical_model": "qwen3.6-flash",
+  "display_name": "Qwen3.6-Flash",
+  "family": "qwen",
+  "version": "3.6",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1.6666666666666665e-7,
+    "output": 0.000001
+  },
+  "context_window": 1000000,
+  "max_output_tokens": 64000
+}

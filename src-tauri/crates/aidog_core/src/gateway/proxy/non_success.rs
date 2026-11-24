@@ -19,6 +19,8 @@ pub(crate) struct NonSuccessCtx<'a> {
     pub ttfb_ms: Option<i64>,
     /// 当前排序里的候选数（connect 失败熔断的本地网络保护分母，apply 用）。
     pub candidate_total: usize,
+    /// 生图链路（票 07）：审核拒绝按模型类裁决（judge 特例分岔）+ 终态费用状态标记。
+    pub image: bool,
 }
 
 /// 失败后继续（换组合）时给最后一条尝试记录打排除范围：服务类 → 整个平台，其余（模型类 / 未知类）→ 只该组合。
@@ -44,7 +46,7 @@ pub(crate) async fn handle_non_success(
     breaker_th: &super::scheduling::BreakerThresholds,
     ctx: NonSuccessCtx<'_>,
 ) -> AttemptOutcome {
-    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model, has_next_model, switched, ttfb_ms, candidate_total } = ctx;
+    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model, has_next_model, switched, ttfb_ms, candidate_total, image } = ctx;
     // Retry-After 须在 resp 被 text() 消费前取（429 配额冷却用，见 judge）
     let retry_after = resp
         .headers()
@@ -102,6 +104,7 @@ pub(crate) async fn handle_non_success(
             is_last_candidate,
             rule_non_retryable: err_class.as_ref().is_some_and(|c| !c.retryable),
             now_ms: aidog_db::now(),
+            image,
         },
     );
     // 留痕：链上有下一个模型但没换 → 服务类（chain_stop=service）/ 规则拦截（chain_stop=rule），
@@ -202,6 +205,12 @@ pub(crate) async fn handle_non_success(
     // 日志字段 = 实际发回客户端的头集合（与 finish.rs 的 2xx 路径同语义）
     log.user_response_headers = resp_headers_to_log_json(&filtered);
     log.duration_ms = duration_ms as i32;
+    // 票 07（票 03 口径）：生图失败终态——有已收用量 → 不完整（est 按已收 token 计），
+    // 无用量 → 未知（est 0）。仅 image 链路设标记，其余种类零回归。
+    if image {
+        log.fee_state =
+            Some(super::aux_model::failure_fee_state(log.input_tokens, log.output_tokens).to_string());
+    }
     log.retry_count = aidog_db::models::retry_count_of(attempts);
     log.attempts = std::mem::take(attempts);
     upsert_log(state, log, log_settings).await;

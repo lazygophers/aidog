@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -9,7 +9,7 @@
   "display_name": "Step 3.5 Flash",
   "canonical_model": "step-3.5-flash",
   "version": "3.5",
-  "family": "stepfun",
+  "family": "step",
   "capabilities": [
     "text"
   ],

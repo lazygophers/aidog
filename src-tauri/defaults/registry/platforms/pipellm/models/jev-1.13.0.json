@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "jev-1.13.0",
+  "display_name": "Jev 1.13.0",
+  "canonical_model": "jev-1.13.0",
+  "context_window": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.2000000000000006e-8,
+    "output": 0
+  },
+  "capabilities": [
+    "decision"
+  ]
+}

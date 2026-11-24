@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/skylark-embedding-vision",
+  "canonical_model": "skylark-embedding-vision",
+  "family": "skylark",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 8000,
+  "context_window": 8000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.5e-7
+  }
+}

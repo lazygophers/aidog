@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "tencent/hy-vision-2.0-instruct",
+  "canonical_model": "hy-vision-2.0-instruct",
+  "display_name": "HY-Vision-2.0-Instruct",
+  "family": "hunyuan",
+  "version": "2.0",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000010416666666666667,
+    "output": 0.0000024305555555555552,
+    "cache_read": 0
+  },
+  "context_window": 44000,
+  "max_output_tokens": 16000
+}

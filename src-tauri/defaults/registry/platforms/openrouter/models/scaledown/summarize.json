@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "scaledown/summarize",
+  "canonical_model": "summarize",
+  "family": "summarize",
+  "display_name": "ScaleDown: Summarize",
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 4000,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 4e-8
+  }
+}

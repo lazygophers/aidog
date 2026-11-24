@@ -78,7 +78,7 @@ describe("custom slots in save payload", () => {
     });
     await waitFor(() => expect(result.current.customSlotDefs).not.toBeNull());
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [] });
+      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
       result.current.setCustomSlotValues({ fast: ["f1"] });
     });
     await act(() => result.current.handleSave());

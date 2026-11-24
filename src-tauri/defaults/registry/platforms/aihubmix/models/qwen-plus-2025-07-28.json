@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "qwen-plus-2025-07-28",
   "canonical_model": "qwen-plus-2025-07-28",
+  "version": "28",
   "capabilities": [
     "text"
   ],
@@ -19,10 +20,26 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "context_tiers": [
+      {
+        "min_tokens": 128001,
+        "input": 3.3800000000000004e-7,
+        "output": 0.00000338,
+        "cache_read": 6.76e-8,
+        "cache_write": 4.225e-7
+      },
+      {
+        "min_tokens": 256001,
+        "input": 6.760000000000001e-7,
+        "output": 0.000009013311,
+        "cache_read": 1.352e-7,
+        "cache_write": 8.45e-7
+      }
+    ],
     "currency": "USD",
-    "input": 1.126e-07,
-    "output": 1.126e-06,
-    "cache_read": 2.252e-08,
-    "cache_write": 1.4075e-07
+    "input": 1.126e-7,
+    "output": 0.0000011259999999999999,
+    "cache_read": 2.252e-8,
+    "cache_write": 1.4074999999999999e-7
   }
 }

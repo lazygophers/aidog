@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/eu-north-1/minimax.minimax-m2.5",
+  "canonical_model": "minimax.minimax-m2.5",
+  "family": "minimax",
+  "version": "2.5",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 196000,
+  "context_window": 196000,
+  "max_output_tokens": 8000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.6e-7,
+    "output": 0.00000144
+  }
+}

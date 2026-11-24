@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "wan3.0-video-prime",
+  "canonical_model": "wan3.0-video-prime",
+  "family": "wan",
+  "version": "3.0",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "unit": "request",
+    "unit_price": 0
+  }
+}

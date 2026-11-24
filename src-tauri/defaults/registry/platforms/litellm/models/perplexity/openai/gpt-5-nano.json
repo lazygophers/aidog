@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/openai/gpt-5-nano",
+  "canonical_model": "gpt-5-nano",
+  "family": "gpt",
+  "version": "5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-8,
+    "output": 4e-7,
+    "cache_read": 5e-9
+  }
+}

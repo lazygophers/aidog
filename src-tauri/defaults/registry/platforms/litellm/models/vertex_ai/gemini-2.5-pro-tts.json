@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "vertex_ai/gemini-2.5-pro-tts",
+  "canonical_model": "gemini-2.5-pro-tts",
+  "family": "gemini",
+  "version": "2.5",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001,
+    "output": 0.00002
+  }
+}

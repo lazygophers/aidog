@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/xai/grok-4",
+  "canonical_model": "xai/grok-4",
+  "family": "xai",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000072,
+    "output": 0.000036
+  }
+}

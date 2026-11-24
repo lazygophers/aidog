@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "qwen-audio-3.1-realtime-plus",
+  "display_name": "qwen-audio-3.1-realtime-plus",
+  "canonical_model": "qwen-audio-3.1-realtime-plus",
+  "family": "qwen",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000005,
+    "output": 0.00004
+  }
+}

@@ -81,6 +81,49 @@ pub fn balance_cost(
         + cache_write_1h_tokens as f64 * cache_write_1h_input_token_cost
 }
 
+pub(super) fn glm_coding_points(
+    platform_type: &str,
+    model: &str,
+    input_tokens: i64,
+    output_tokens: i64,
+    cache_tokens: i64,
+    cache_write_tokens: i64,
+    at_ms: i64,
+) -> Option<f64> {
+    if platform_type != "glm_coding" {
+        return None;
+    }
+    let (input_weight, cache_weight, output_weight) = match model {
+        "glm-5.4" => (4.6, 1.1, 16.0),
+        "glm-5.3" => (6.9, 1.7, 24.0),
+        "glm-5.3-flash" => (2.3, 0.56, 8.0),
+        _ => return Some(0.0),
+    };
+    let (hour, minute, weekday, _) = crate::gateway::peak::wall_time(at_ms, Some("Asia/Shanghai"));
+    let peak = (1..=5).contains(&weekday) && (14 * 60..18 * 60).contains(&(hour * 60 + minute));
+    // 官方公式只分「输入 / 缓存命中 / 输出」；缓存写入（cache_creation）不是命中，按输入计。
+    let input = input_tokens.max(0) + cache_write_tokens.max(0);
+    let points = (input as f64 * input_weight
+        + cache_tokens.max(0) as f64 * cache_weight
+        + output_tokens.max(0) as f64 * output_weight)
+        / 10_000.0;
+    Some(if peak { points } else { points * 0.5 })
+}
+
+pub(super) fn glm_coding_plan_limit(level: &str, tier: &str) -> Option<f64> {
+    let (five_hour, weekly) = match level.to_ascii_lowercase().as_str() {
+        "lite" => (2_000.0, 10_000.0),
+        "pro" => (12_000.0, 60_000.0),
+        "max" => (28_000.0, 140_000.0),
+        _ => return None,
+    };
+    match tier {
+        "five_hour" => Some(five_hour),
+        "weekly_limit" => Some(weekly),
+        _ => None,
+    }
+}
+
 /// 对单个 tier 应用一次请求的增量（read-modify-write 的纯函数部分）。
 ///   - `prompt_count`（GLM/Kimi/MiniMax/百炼）：按次扣。has_base → 每请求 +`100/limit`
 ///     （Kimi 精确）；无 → 拟合 `coef_per_request`（`est = util_at_last_real + requests_since_real × coef`，

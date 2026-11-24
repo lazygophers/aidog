@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795488925,
   "holiday_calendar": "CN",
   "endpoints": {
     "default": [
@@ -33,7 +33,13 @@
       "glm-5.3",
       "kimi-k2.6",
       "MiniMax-M3",
-      "qwen3.8-27b"
+      "qwen3.8-27b",
+      "Atria-Dawn",
+      "Sage-A1.5",
+      "Sage-A1.5-Taiyi",
+      "Sage-S2.1-Flash",
+      "deepseek-v4.1-flash-1017",
+      "kimi-k3.1-pro"
     ]
   },
   "name": {

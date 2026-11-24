@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "vertex_ai/meta/llama-3.3-70b-instruct-maas",
+  "canonical_model": "vertex_ai/meta/llama-3.3-70b-instruct-maas",
+  "family": "vertex",
+  "version": "3.3",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 7.2e-7,
+    "output": 7.2e-7
+  }
+}

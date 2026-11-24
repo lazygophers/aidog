@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/ap-south-1/google.gemma-3-12b-it",
+  "canonical_model": "bedrock/ap-south-1/google.gemma-3-12b-it",
+  "family": "bedrock",
+  "version": "3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.1e-7,
+    "output": 3.4e-7
+  }
+}

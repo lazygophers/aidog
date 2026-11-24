@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "tencent/hy-mt2-lite",
+  "canonical_model": "hy-mt2-lite",
+  "display_name": "Hy-MT2-Lite",
+  "family": "hunyuan",
+  "version": "2",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 4.166666666666666e-8,
+    "output": 1.6666666666666665e-7,
+    "cache_read": 0
+  },
+  "context_window": 8000,
+  "max_output_tokens": 4000
+}

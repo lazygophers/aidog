@@ -1,0 +1,33 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "gpt-6.2-astra",
+  "canonical_model": "gpt-6.2-astra",
+  "display_name": "GPT 6.2 Astra",
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000008,
+    "output": 0.00004,
+    "cache_read": 4.0000000000000003e-7,
+    "cache_write": 0.00001,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 0.000016,
+        "output": 0.00006,
+        "cache_read": 8.000000000000001e-7,
+        "cache_write": 0.00002
+      }
+    ]
+  }
+}

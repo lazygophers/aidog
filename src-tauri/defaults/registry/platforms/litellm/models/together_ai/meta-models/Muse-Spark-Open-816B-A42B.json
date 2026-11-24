@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "together_ai/meta-models/Muse-Spark-Open-816B-A42B",
+  "canonical_model": "meta-models/Muse-Spark-Open-816B-A42B",
+  "family": "meta",
+  "version": "816B",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000125,
+    "output": 0.00000425,
+    "cache_read": 1.5e-7
+  }
+}

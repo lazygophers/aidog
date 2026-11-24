@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "qwen4-max",
+  "canonical_model": "qwen4-max",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.00001,
+    "output": 0.00003,
+    "cache_read": 5e-7
+  },
+  "context_window": 1000000
+}

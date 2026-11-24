@@ -287,6 +287,7 @@ async fn tools_attempt(
                 switched: &mut false,
                 ttfb_ms: None,
                 candidate_total: scope.candidate_total,
+                image: false,
             },
         )
         .await

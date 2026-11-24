@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "cognition/swe-1.7",
+  "canonical_model": "swe-1-7",
+  "family": "swe",
+  "version": "1.7",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-7,
+    "output": 0.0000025,
+    "cache_read": 2e-7
+  }
+}

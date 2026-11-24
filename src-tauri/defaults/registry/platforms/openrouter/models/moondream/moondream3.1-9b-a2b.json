@@ -1,0 +1,28 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "moondream/moondream3.1-9b-a2b",
+  "canonical_model": "moondream3.1-9b-a2b",
+  "family": "moondream3.1",
+  "version": "3.1",
+  "display_name": "Moondream: Moondream 3.1",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 4096,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 0.0000025
+  }
+}

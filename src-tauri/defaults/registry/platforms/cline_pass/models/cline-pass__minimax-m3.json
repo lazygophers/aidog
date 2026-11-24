@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "cline-pass/minimax-m3",
+  "canonical_model": "MiniMax-M3",
+  "family": "minimax",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 0.0000012,
+    "cache_read": 6e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 512001,
+        "input": 6e-7,
+        "output": 0.0000024,
+        "cache_read": 1.2e-7
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/minimax-m3:priority",
+  "canonical_model": "minimax-m3:priority",
+  "family": "minimax",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048458,
+  "context_window": 1048458,
+  "max_output_tokens": 524288,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.375e-7,
+    "output": 0.00000135,
+    "cache_read": 6.75e-8
+  }
+}

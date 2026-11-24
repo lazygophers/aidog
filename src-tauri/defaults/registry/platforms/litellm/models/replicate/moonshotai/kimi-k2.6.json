@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/moonshotai/kimi-k2.6",
+  "canonical_model": "kimi-k2.6",
+  "family": "kimi",
+  "version": "2.6",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 9.5e-7,
+    "output": 0.000004
+  }
+}

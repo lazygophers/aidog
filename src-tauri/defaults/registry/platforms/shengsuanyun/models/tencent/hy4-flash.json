@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "tencent/hy4-flash",
+  "canonical_model": "hy4-flash",
+  "display_name": "Hy4 flash",
+  "family": "hunyuan",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 3.4722222222222227e-8,
+    "output": 1.388888888888889e-7,
+    "cache_read": 1.388888888888889e-9
+  },
+  "context_window": 1000000,
+  "max_output_tokens": 64000
+}

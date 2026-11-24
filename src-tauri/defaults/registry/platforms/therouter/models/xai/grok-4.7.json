@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "xai/grok-4.7",
+  "canonical_model": "grok-4.7",
+  "family": "grok",
+  "version": "4.7",
+  "official": false,
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 500000,
+  "context_window": 500000,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.00000216,
+    "output": 0.00000648
+  }
+}

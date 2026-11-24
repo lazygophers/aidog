@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "muse-wonder-1.0",
+  "display_name": "Muse Wonder",
+  "canonical_model": "muse-wonder-1.0",
+  "family": "muse",
+  "version": "1.0",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000004,
+    "output": 0.00002,
+    "cache_read": 2e-7
+  },
+  "context_window": 1048576
+}

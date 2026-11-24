@@ -5,7 +5,7 @@
   "tools_pricing": {
     "ai_search_chat": {"per_1000": 36.0, "currency": "CNY"}
   },
-  "last_updated": 1794657886,
+  "last_updated": 1795488926,
   "holiday_calendar": "CN",  "endpoints": {
     "default": [
       {
@@ -21,6 +21,7 @@
   "model_list": {
     "default": [
       "ernie-5.1",
+      "ernie-light-dt",
       "ernie-5.0-thinking-latest",
       "ernie-5.0",
       "ernie-x1.1-preview",
@@ -31,6 +32,7 @@
       "deepseek-ocr",
       "deepseek-v3.2",
       "deepseek-v4-flash",
+      "deepseek-v4.1-flash",
       "deepseek-v4-pro",
       "embedding-v1",
       "ernie-4.5-turbo-vl-32k",
@@ -39,6 +41,7 @@
       "glm-5",
       "glm-5.1",
       "glm-5.2",
+      "glm-5.2-fast",
       "glm-5.3",
       "glm-5.3-flash",
       "kimi-k2.6",

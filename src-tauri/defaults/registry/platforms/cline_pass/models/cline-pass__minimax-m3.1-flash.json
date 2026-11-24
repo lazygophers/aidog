@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795524334,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "cline-pass/minimax-m3.1-flash",
+  "canonical_model": "MiniMax-M3.1-Flash",
+  "family": "minimax",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-7,
+    "output": 6e-7,
+    "cache_read": 1.5e-8
+  }
+}

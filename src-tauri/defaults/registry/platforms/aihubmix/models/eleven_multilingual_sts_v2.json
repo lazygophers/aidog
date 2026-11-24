@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "eleven_multilingual_sts_v2",
+  "canonical_model": "eleven_multilingual_sts_v2",
+  "display_name": "Eleven Multilingual v2 (Speech to Speech)",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0
+  }
+}

@@ -36,6 +36,9 @@ pub(crate) struct JudgeCtx {
     /// 中间件 error_rule 把本错误标成 non-retryable（用户显式意图：不换模型也不换平台）。
     pub rule_non_retryable: bool,
     pub now_ms: i64,
+    /// 生图链路（票 07）：内容审核拒绝按模型类裁决（票 03 拍板，生图显式特例，
+    /// 异于聊天 censorship_blocked 的服务类 + 自动禁用口径）。
+    pub image: bool,
 }
 
 /// 记账效果：枚举替换旧 `effects: Vec<String>`；`as_str()` 保持旧字符串，
@@ -153,6 +156,26 @@ pub(crate) fn judge(f: &Failure, c: &JudgeCtx) -> Verdict {
         _ => aidog_adapter::platform::adapter_for(wire).classify_error(*code, body),
     };
     let rule_blocks = c.rule_non_retryable;
+    // ── 票 07 生图特例（票 03 拍板）：内容审核拒绝按**模型类**裁决——只排除该
+    //    （平台，模型）组合，换同平台下一模型重试；链尽非末位换平台、末位直返，
+    //    全程零记账（模型类不背锅）。异于聊天 censorship_blocked 的服务类 + 自动禁用 1h。
+    //    error_rule 标 non-retryable（用户显式意图）仍拦截，与既有换模型早退同序。──
+    if c.image && !rule_blocks && is_moderation_rejected(body) {
+        return Verdict {
+            class: UpstreamErrorClass::Model,
+            scope: ExcludeScope::Pair,
+            blame: false,
+            effects: Vec::new(),
+            next: if c.has_next_model {
+                Next::SwitchModel
+            } else if !c.is_last_candidate {
+                Next::SwitchPlatform
+            } else {
+                Next::Return
+            },
+            connect_failed: false,
+        };
+    }
     // ── 同平台换模型（票 06，spec D5）：先于 is_status_retryable（400/422 不换平台）与全部记账。
     //   Service 类（含 censorship_blocked）→ 不换模型；error_rule 标 non-retryable → 用户显式意图，
     //   不换模型也不换平台；其余（Model / Unknown）且链上还有下一个模型 → 只留痕不记账，换模型重发。
@@ -286,6 +309,28 @@ pub(crate) fn judge(f: &Failure, c: &JudgeCtx) -> Verdict {
         next,
         connect_failed: false,
     }
+}
+
+/// 生图上游内容审核拒绝（票 07）：官方 Images 形态 `error.code = moderation_blocked`
+///（`error.type = image_generation_user_error`，guides/image-generation "Handling blocked
+/// requests and other errors"，2026-11-24 取证；`code` 为官方推荐的稳定判别字段）；
+/// 兼识 legacy `content_policy_violation` 与通用 `error.type = censorship_blocked` 标记。
+fn is_moderation_rejected(body: &str) -> bool {
+    let Ok(v) = serde_json::from_str::<Value>(body) else {
+        return false;
+    };
+    let Some(e) = v.get("error") else {
+        return false;
+    };
+    let code = e.get("code").and_then(Value::as_str);
+    let typ = e.get("type").and_then(Value::as_str);
+    matches!(code, Some("moderation_blocked") | Some("content_policy_violation"))
+        || matches!(
+            typ,
+            Some("moderation_blocked")
+                | Some("content_policy_violation")
+                | Some("censorship_blocked")
+        )
 }
 
 /// 唯一记账落地点：把 [`Verdict`] 落到 scheduler / DB。DB 写失败沿用现状
@@ -440,6 +485,7 @@ mod tests {
             is_last_candidate: last,
             rule_non_retryable: rule,
             now_ms: 1_000_000,
+            image: false,
         }
     }
 
@@ -588,6 +634,42 @@ mod tests {
         uniq.sort_unstable();
         uniq.dedup();
         assert_eq!(uniq.len(), all.len(), "as_str 两两不同");
+    }
+
+    // 票 07 生图特例（票 03 拍板）：审核拒绝按模型类——有下一模型换模型（零记账），
+    // 链尽非末位换平台（零记账），末位直返（零记账）；不触发 DisableCensorship。
+    #[test]
+    fn judge_image_moderation_rejected_is_model_class() {
+        const BODIES: [&str; 3] = [
+            r#"{"error":{"type":"image_generation_user_error","code":"moderation_blocked","message":"safety"}}"#,
+            r#"{"error":{"code":"content_policy_violation","message":"policy"}}"#,
+            r#"{"error":{"type":"censorship_blocked","message":"blocked"}}"#,
+        ];
+        for body in BODIES {
+            // 有下一模型 → 换模型，零效果零背锅
+            let v = judge(&http(400, body), &JudgeCtx { image: true, ..ctx(true, true, false, false) });
+            assert!(matches!(v.next, Next::SwitchModel), "{body}");
+            assert_eq!(v.class, UpstreamErrorClass::Model);
+            assert_eq!(v.scope, ExcludeScope::Pair);
+            assert!(!v.blame);
+            assert!(v.effects.is_empty(), "{body}: {:?}", v.effects.iter().map(|e| e.as_str()).collect::<Vec<_>>());
+            // 链尽非末位 → 换平台
+            let v = judge(&http(400, body), &JudgeCtx { image: true, ..ctx(true, false, false, false) });
+            assert!(matches!(v.next, Next::SwitchPlatform), "{body}");
+            assert!(v.effects.is_empty());
+            // 末位 → 直返，仍不背锅、不自动禁用
+            let v = judge(&http(400, body), &JudgeCtx { image: true, ..ctx(true, false, true, false) });
+            assert!(matches!(v.next, Next::Return), "{body}");
+            assert_eq!(v.scope, ExcludeScope::Pair);
+            assert!(v.effects.is_empty());
+        }
+        // 非 image 链路（聊天）：censorship_blocked 形状维持服务类 + DisableCensorship 既有口径
+        let v = judge(&http(400, BODIES[2]), &ctx(true, true, false, false));
+        assert_eq!(v.class, UpstreamErrorClass::Service);
+        assert!(v.effects.iter().any(|e| matches!(e, HealthEffect::DisableCensorship)));
+        // error_rule 标 non-retryable → 用户显式意图拦截，不进特例早退
+        let v = judge(&http(400, BODIES[0]), &JudgeCtx { image: true, ..ctx(true, true, false, true) });
+        assert!(!matches!(v.next, Next::SwitchModel), "规则拦截优先");
     }
 
     // 票 04：Transport 形态判定——connect → 熔断计数 + 服务档降权 + connect_failed 回报；

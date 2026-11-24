@@ -1,0 +1,54 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "pixverse/pixverse-v6-t2v",
+  "display_name": "pixverse/pixverse-v6-t2v",
+  "canonical_model": "pixverse/pixverse-v6-t2v",
+  "family": "pixverse",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "unit": "second",
+    "unit_price": 0.08,
+    "unit_tiers": [
+      {
+        "tier": "360P",
+        "unit_price": 0.032
+      },
+      {
+        "tier": "540P",
+        "unit_price": 0.04
+      },
+      {
+        "tier": "720P",
+        "unit_price": 0.054
+      },
+      {
+        "tier": "1080P",
+        "unit_price": 0.103
+      },
+      {
+        "tier": "360P",
+        "unit_price": 0.023
+      },
+      {
+        "tier": "540P",
+        "unit_price": 0.032
+      },
+      {
+        "tier": "720P",
+        "unit_price": 0.04
+      },
+      {
+        "tier": "1080P",
+        "unit_price": 0.08
+      }
+    ]
+  }
+}

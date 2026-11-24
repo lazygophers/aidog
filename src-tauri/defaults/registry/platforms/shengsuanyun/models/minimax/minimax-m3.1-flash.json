@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795524336,
+  "supported_protocols": [
+    "openai",
+    "anthropic",
+    "gemini"
+  ],
+  "model_id": "minimax/minimax-m3.1-flash",
+  "canonical_model": "MiniMax-M3.1-Flash",
+  "display_name": "MiniMax-M3.1-Flash",
+  "family": "minimax",
+  "version": "3.1",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1.388888888888889e-7,
+    "output": 5.555555555555556e-7
+  },
+  "context_window": 1000000,
+  "max_output_tokens": 81920
+}

@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795524335,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/minimax-m3",
+  "canonical_model": "MiniMax-M3",
+  "family": "minimax",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.956e-7,
+    "output": 0.000001582,
+    "cache_read": 7.56e-8
+  }
+}

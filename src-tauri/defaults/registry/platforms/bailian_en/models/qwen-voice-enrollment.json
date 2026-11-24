@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "qwen-voice-enrollment",
+  "display_name": "qwen-voice-enrollment",
+  "canonical_model": "qwen-voice-enrollment",
+  "family": "qwen",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1e-8
+  }
+}

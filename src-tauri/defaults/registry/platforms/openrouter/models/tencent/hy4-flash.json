@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "tencent/hy4-flash",
+  "canonical_model": "hy4-flash",
+  "family": "hy4",
+  "display_name": "Tencent: Hy4 flash",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 65536,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 3.5e-8,
+    "output": 1.405e-7,
+    "cache_read": 1.5e-9
+  }
+}

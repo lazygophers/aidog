@@ -73,6 +73,16 @@
           "type": "number",
           "minimum": 0,
           "description": "【可选】本档缓存读单价（$/token）。"
+        },
+        "cache_write": {
+          "type": "number",
+          "minimum": 0,
+          "description": "【可选】本档缓存写单价（$/token）。缺省继承 base 的 cache_write（price_resolve.rs overlay_prices 非 null 才覆盖）。"
+        },
+        "cache_write_1h": {
+          "type": "number",
+          "minimum": 0,
+          "description": "【可选】本档缓存写 1h TTL 单价（$/token，Anthropic 官方 2× input 价）。缺省继承 base 的 cache_write_1h。"
         }
       }
     },

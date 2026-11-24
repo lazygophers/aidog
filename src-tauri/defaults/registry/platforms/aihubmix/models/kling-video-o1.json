@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794191265,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "kling-video-o1",
   "canonical_model": "kling-video-o1",
+  "version": "1",
   "family": "kling",
   "display_name": "Kling Video O1",
   "capabilities": [

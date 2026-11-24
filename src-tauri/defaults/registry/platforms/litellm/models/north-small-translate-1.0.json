@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "north-small-translate-1.0",
+  "canonical_model": "north-small-translate-1.0",
+  "family": "north",
+  "version": "1.0",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 16000,
+  "context_window": 16000,
+  "max_output_tokens": 16000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  }
+}

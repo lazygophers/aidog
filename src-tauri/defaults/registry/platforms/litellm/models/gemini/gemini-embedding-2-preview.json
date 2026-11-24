@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gemini/gemini-embedding-2-preview",
+  "canonical_model": "gemini-embedding-2-preview",
+  "family": "gemini",
+  "version": "2",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-7,
+    "output": 0
+  }
+}

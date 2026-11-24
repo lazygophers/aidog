@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "doubao-seed-2-0-mini-260428",
+  "display_name": "Doubao Seed 2.0 Mini",
+  "canonical_model": "doubao-seed-2-0-mini-260428",
+  "context_window": 25600,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8.000000000000001e-7,
+    "output": 0.000008,
+    "cache_read": 1.6e-7
+  },
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
+}

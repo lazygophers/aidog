@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-rosalind-discovery",
+  "canonical_model": "gpt-rosalind-discovery",
+  "family": "gpt",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000005,
+    "output": 0.000025,
+    "cache_read": 5e-7
+  }
+}

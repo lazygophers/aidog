@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/text-embedding-v4",
+  "canonical_model": "text-embedding-v4",
+  "family": "text",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 7e-8
+  }
+}

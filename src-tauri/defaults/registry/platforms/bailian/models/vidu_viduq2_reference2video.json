@@ -1,0 +1,35 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai",
+    "anthropic"
+  ],
+  "model_id": "vidu/viduq2_reference2video",
+  "display_name": "vidu/viduq2_reference2video",
+  "canonical_model": "vidu/viduq2_reference2video",
+  "family": "vidu",
+  "capabilities": [
+    "image_to_video",
+    "video_to_video"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "unit": "second",
+    "unit_price": 0.71875,
+    "unit_tiers": [
+      {
+        "tier": "540P",
+        "unit_price": 0.21875
+      },
+      {
+        "tier": "720P",
+        "unit_price": 0.28125
+      },
+      {
+        "tier": "1080P",
+        "unit_price": 0.71875
+      }
+    ]
+  }
+}
