@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "gemini-exp-1206",
   "canonical_model": "gemini-exp-1206",
+  "version": "1206",
   "family": "gemini",
   "display_name": "Gemini",
   "capabilities": [],
@@ -16,7 +17,7 @@
   "thinking_toggleable": true,
   "price": {
     "currency": "USD",
-    "input": 1.25e-06,
-    "output": 5e-06
+    "input": 0.00000125,
+    "output": 0.000005
   }
 }

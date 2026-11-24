@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "qwen-turbo-2025-04-28",
   "canonical_model": "qwen-turbo",
+  "version": "28",
   "display_name": "Qwen Turbo 2025 04-28",
   "family": "qwen",
   "capabilities": [
@@ -20,7 +21,7 @@
   "thinking_toggleable": true,
   "price": {
     "currency": "USD",
-    "input": 4.6e-08,
-    "output": 9.2e-08
+    "input": 4.6e-8,
+    "output": 9.2e-8
   }
 }

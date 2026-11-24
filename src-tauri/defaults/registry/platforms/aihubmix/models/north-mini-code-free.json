@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -9,6 +9,7 @@
   "canonical_model": "north-mini-code-free",
   "family": "north",
   "display_name": "North Mini Code (free)",
+  "thinking_supported": true,
   "max_output_tokens": 64000,
   "context_window": 256000,
   "capabilities": [

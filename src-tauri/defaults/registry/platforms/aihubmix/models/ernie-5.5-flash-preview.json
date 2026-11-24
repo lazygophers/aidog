@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "ernie-5.5-flash-preview",
+  "canonical_model": "ernie-5.5-flash-preview",
+  "display_name": "ERNIE 5.5 Flash Preview",
+  "max_output_tokens": 1000000,
+  "context_window": 1000000,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.4699999999999998e-7,
+    "output": 5.879999999999999e-7,
+    "cache_read": 1.47e-8
+  }
+}

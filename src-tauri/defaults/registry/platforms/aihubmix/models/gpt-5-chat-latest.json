@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795233205,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -20,6 +20,14 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 0.00001,
+        "output": 0.000045,
+        "cache_read": 0.000001
+      }
+    ],
     "currency": "USD",
     "input": 0.000005,
     "output": 0.00003,

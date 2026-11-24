@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "grok-code-fast-1",
   "canonical_model": "grok-code-fast-1",
+  "version": "1",
   "family": "grok",
   "display_name": "Grok Code Fast 1",
   "thinking_supported": true,
@@ -19,9 +20,17 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
+    "context_tiers": [
+      {
+        "min_tokens": 200001,
+        "input": 0.000002,
+        "output": 0.000002,
+        "cache_read": 4.0000000000000003e-7
+      }
+    ],
     "currency": "USD",
-    "input": 1e-06,
-    "output": 2e-06,
-    "cache_read": 2.0000000000000002e-07
+    "input": 0.000001,
+    "output": 0.000002,
+    "cache_read": 2.0000000000000002e-7
   }
 }

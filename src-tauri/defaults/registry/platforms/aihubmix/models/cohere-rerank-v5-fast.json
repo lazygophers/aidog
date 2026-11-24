@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "cohere-rerank-v5-fast",
+  "canonical_model": "cohere-rerank-v5-fast",
+  "display_name": "Cohere Rerank V5 Fast",
+  "capabilities": [
+    "rerank"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-8,
+    "output": 2e-8
+  }
+}

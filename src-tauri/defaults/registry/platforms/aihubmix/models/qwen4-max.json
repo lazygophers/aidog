@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "qwen4-max",
+  "canonical_model": "qwen4-max",
+  "display_name": "Qwen4 Max",
+  "max_output_tokens": 262144,
+  "context_window": 1000000,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000147,
+    "output": 0.00000441,
+    "cache_read": 7.349999999999999e-8,
+    "cache_write": 0.0000018375
+  }
+}

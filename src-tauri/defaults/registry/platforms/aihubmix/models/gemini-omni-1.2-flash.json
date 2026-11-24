@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "gemini-omni-1.2-flash",
+  "canonical_model": "gemini-omni-1.2-flash",
+  "display_name": "Gemini Omni 1.2 Flash",
+  "max_output_tokens": 65536,
+  "context_window": 131072,
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000015,
+    "output": 0.000009,
+    "cache_read": 1.5e-7
+  }
+}

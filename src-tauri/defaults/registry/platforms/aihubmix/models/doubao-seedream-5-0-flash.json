@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "doubao-seedream-5-0-flash",
+  "canonical_model": "doubao-seedream-5-0-flash",
+  "display_name": "Doubao Seedream 5.0 Flash",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,6 +7,7 @@
   ],
   "model_id": "doubao-embedding-large-text-240915",
   "canonical_model": "doubao-embedding-large-text-240915",
+  "version": "240915",
   "family": "doubao-embedding",
   "display_name": "Doubao Embedding Large Text 240915",
   "capabilities": [
@@ -18,7 +19,7 @@
   "thinking_toggleable": false,
   "price": {
     "currency": "USD",
-    "input": 1e-07,
-    "output": 1e-07
+    "input": 1.0000000000000001e-7,
+    "output": 1.0000000000000001e-7
   }
 }

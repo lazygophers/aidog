@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -10,6 +10,7 @@
   "version": "3.5",
   "family": "nemotron",
   "display_name": "Nemotron 3.5 Lightning (free)",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
