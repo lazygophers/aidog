@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "empiriolabs/kimi-k2-6",
-  "canonical_model": "kimi-k2-6",
+  "canonical_model": "kimi-k2.6",
   "family": "kimi",
-  "version": "6",
+  "version": "2.6",
   "capabilities": [
     "text",
     "vision",

@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nebius/meta-models/muse-spark-open",
-  "canonical_model": "meta-models/muse-spark-open",
-  "family": "meta",
+  "canonical_model": "muse-spark-open",
+  "family": "muse",
   "capabilities": [
     "text",
     "vision",

@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "replicate/openai/gpt-4o-mini",
-  "canonical_model": "openai/gpt-4o-mini",
-  "family": "openai",
+  "canonical_model": "gpt-4o-mini",
+  "family": "gpt",
   "version": "4o",
   "capabilities": [
     "text",

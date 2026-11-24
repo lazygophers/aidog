@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "aiand/moonshotai/kimi-k2.7-code",
-  "canonical_model": "moonshotai/kimi-k2.7-code",
-  "family": "moonshotai",
+  "canonical_model": "kimi-k2.7-code",
+  "family": "kimi",
   "version": "2.7",
   "capabilities": [
     "text",

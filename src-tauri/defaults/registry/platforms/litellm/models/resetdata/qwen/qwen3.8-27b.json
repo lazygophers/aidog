@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "resetdata/qwen/qwen3.8-27b",
-  "canonical_model": "qwen/qwen3.8-27b",
+  "canonical_model": "qwen3.8-27b",
   "family": "qwen",
   "version": "3.8",
   "capabilities": [

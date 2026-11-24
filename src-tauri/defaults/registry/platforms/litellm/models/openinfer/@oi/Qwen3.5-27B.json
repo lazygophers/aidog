@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "openinfer/@oi/Qwen3.5-27B",
-  "canonical_model": "@oi/Qwen3.5-27B",
+  "canonical_model": "qwen3.5-27b",
   "version": "3.5",
   "capabilities": [
     "text",

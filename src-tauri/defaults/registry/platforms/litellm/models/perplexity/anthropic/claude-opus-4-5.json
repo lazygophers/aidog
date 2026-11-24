@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "perplexity/anthropic/claude-opus-4-5",
-  "canonical_model": "anthropic/claude-opus-4-5",
-  "family": "anthropic",
-  "version": "4",
+  "canonical_model": "claude-opus-4-5",
+  "family": "claude",
+  "version": "4.5",
   "capabilities": [
     "text",
     "tool_use"

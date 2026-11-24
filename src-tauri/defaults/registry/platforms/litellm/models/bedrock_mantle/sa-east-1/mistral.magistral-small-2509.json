@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock_mantle/sa-east-1/mistral.magistral-small-2509",
-  "canonical_model": "sa-east-1/mistral.magistral-small-2509",
+  "canonical_model": "mistral.magistral-small-2509",
   "family": "sa",
   "version": "2509",
   "capabilities": [

@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "kyma/minimax-m2.7",
-  "canonical_model": "minimax-m2.7",
+  "canonical_model": "MiniMax-M2.7",
   "family": "minimax",
   "version": "2.7",
   "capabilities": [

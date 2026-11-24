@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "empiriolabs/kimi-k2-7-code-highspeed",
-  "canonical_model": "kimi-k2-7-code-highspeed",
+  "canonical_model": "kimi-k2.7-code-highspeed",
   "family": "kimi",
-  "version": "7",
+  "version": "2.7",
   "capabilities": [
     "text",
     "vision",

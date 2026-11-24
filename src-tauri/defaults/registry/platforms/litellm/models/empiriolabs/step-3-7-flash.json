@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "empiriolabs/step-3-7-flash",
-  "canonical_model": "step-3-7-flash",
+  "canonical_model": "step-3.7-flash",
   "family": "step",
-  "version": "3",
+  "version": "3.7",
   "capabilities": [
     "text",
     "vision",

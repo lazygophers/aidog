@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "streamlake/minimax-m3",
-  "canonical_model": "minimax-m3",
+  "canonical_model": "MiniMax-M3",
   "family": "minimax",
   "capabilities": [
     "text",

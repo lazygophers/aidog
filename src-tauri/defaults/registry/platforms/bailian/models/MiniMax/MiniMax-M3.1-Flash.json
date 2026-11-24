@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai",
     "anthropic"
   ],
   "model_id": "MiniMax/MiniMax-M3.1-Flash",
   "display_name": "MiniMax/MiniMax-M3.1-Flash",
-  "canonical_model": "MiniMax/MiniMax-M3.1-Flash",
+  "canonical_model": "MiniMax-M3.1-Flash",
   "family": "minimax",
   "capabilities": [
     "text"

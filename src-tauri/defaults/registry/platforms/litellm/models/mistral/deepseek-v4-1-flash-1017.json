@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "mistral/deepseek-v4-1-flash-1017",
-  "canonical_model": "deepseek-v4-1-flash-1017",
+  "canonical_model": "deepseek-v4.1-flash-1017",
   "family": "deepseek",
-  "version": "1",
+  "version": "4.1",
   "capabilities": [
     "text",
     "vision",

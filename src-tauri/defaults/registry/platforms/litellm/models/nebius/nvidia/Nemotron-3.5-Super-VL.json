@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nebius/nvidia/Nemotron-3.5-Super-VL",
-  "canonical_model": "nvidia/Nemotron-3.5-Super-VL",
+  "canonical_model": "nemotron-3.5-super-vl",
   "family": "nvidia",
   "version": "3.5",
   "capabilities": [

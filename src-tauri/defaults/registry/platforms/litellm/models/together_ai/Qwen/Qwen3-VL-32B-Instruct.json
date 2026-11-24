@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "together_ai/Qwen/Qwen3-VL-32B-Instruct",
-  "canonical_model": "Qwen/Qwen3-VL-32B-Instruct",
-  "family": "Qwen",
-  "version": "32B",
+  "canonical_model": "qwen3-vl-32b-instruct",
+  "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text"
   ],

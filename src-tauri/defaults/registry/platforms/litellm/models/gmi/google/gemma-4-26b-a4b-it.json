@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/google/gemma-4-26b-a4b-it",
-  "canonical_model": "google/gemma-4-26b-a4b-it",
-  "family": "google",
+  "canonical_model": "gemma-4-26b-a4b-it",
+  "family": "gemma",
   "version": "4",
   "capabilities": [
     "text"

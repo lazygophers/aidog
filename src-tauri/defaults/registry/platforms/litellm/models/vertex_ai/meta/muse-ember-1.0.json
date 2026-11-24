@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "vertex_ai/meta/muse-ember-1.0",
-  "canonical_model": "meta/muse-ember-1.0",
-  "family": "meta",
+  "canonical_model": "muse-ember-1.0",
+  "family": "muse",
   "version": "1.0",
   "capabilities": [
     "text",

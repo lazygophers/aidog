@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "vertex_ai/meta/muse-spark-1.3",
-  "canonical_model": "meta/muse-spark-1.3",
-  "family": "meta",
+  "canonical_model": "muse-spark-1.3",
+  "family": "muse",
   "version": "1.3",
   "capabilities": [
     "text",

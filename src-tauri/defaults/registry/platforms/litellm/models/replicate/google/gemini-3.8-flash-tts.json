@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "replicate/google/gemini-3.8-flash-tts",
-  "canonical_model": "google/gemini-3.8-flash-tts",
-  "family": "google",
+  "canonical_model": "gemini-3.8-flash-tts",
+  "family": "gemini",
   "version": "3.8",
   "capabilities": [
     "audio"

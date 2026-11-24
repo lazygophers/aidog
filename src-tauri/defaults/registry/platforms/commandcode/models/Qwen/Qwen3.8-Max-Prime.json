@@ -1,9 +1,9 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "model_id": "Qwen/Qwen3.8-Max-Prime",
   "display_name": "Qwen 3.8 Max Prime",
-  "canonical_model": "Qwen3.8-Max-Prime",
-  "family": "qwen3.8",
+  "canonical_model": "qwen3.8-max-prime",
+  "family": "qwen",
   "version": "3.8",
   "official": false,
   "capabilities": [

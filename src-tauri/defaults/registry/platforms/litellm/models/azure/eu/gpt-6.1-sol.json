@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/eu/gpt-6.1-sol",
-  "canonical_model": "eu/gpt-6.1-sol",
-  "family": "eu",
+  "canonical_model": "gpt-6.1-sol",
+  "family": "gpt",
   "version": "6.1",
   "capabilities": [
     "text",

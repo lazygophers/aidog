@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "fireworks_ai/accounts/fireworks/models/rune",
-  "canonical_model": "accounts/fireworks/models/rune",
+  "canonical_model": "rune",
   "family": "accounts",
   "capabilities": [
     "text"

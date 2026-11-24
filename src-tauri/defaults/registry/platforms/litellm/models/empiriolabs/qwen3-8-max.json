@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "empiriolabs/qwen3-8-max",
-  "canonical_model": "qwen3-8-max",
+  "canonical_model": "qwen3.8-max",
   "family": "qwen",
-  "version": "8",
+  "version": "3.8",
   "capabilities": [
     "text",
     "vision",

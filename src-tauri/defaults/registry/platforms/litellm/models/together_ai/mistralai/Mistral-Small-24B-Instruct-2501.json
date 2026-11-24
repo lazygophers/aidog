@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "together_ai/mistralai/Mistral-Small-24B-Instruct-2501",
-  "canonical_model": "mistralai/Mistral-Small-24B-Instruct-2501",
+  "canonical_model": "mistral-small-24b-instruct-2501",
   "family": "mistral",
-  "version": "24B",
+  "version": "3",
   "capabilities": [
     "text"
   ],

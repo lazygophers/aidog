@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "aiand/zai-org/glm-5.2",
-  "canonical_model": "zai-org/glm-5.2",
-  "family": "zai",
+  "canonical_model": "glm-5.2",
+  "family": "glm",
   "version": "5.2",
   "capabilities": [
     "text",

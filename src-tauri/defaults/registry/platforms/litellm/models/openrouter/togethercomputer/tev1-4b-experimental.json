@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "openrouter/togethercomputer/tev1-4b-experimental",
-  "canonical_model": "togethercomputer/tev1-4b-experimental",
-  "family": "togethercomputer",
+  "canonical_model": "tev1-4b-experimental",
+  "family": "together",
   "version": "4b",
   "capabilities": [
     "text"

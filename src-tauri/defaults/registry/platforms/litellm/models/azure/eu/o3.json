@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/eu/o3",
-  "canonical_model": "eu/o3",
-  "family": "eu",
+  "canonical_model": "o3",
+  "family": "o",
   "capabilities": [
     "text"
   ],

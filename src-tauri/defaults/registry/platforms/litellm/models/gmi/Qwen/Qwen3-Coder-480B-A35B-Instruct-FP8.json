@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
-  "canonical_model": "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
+  "canonical_model": "Qwen3-Coder-480B-A35B-Instruct-FP8",
   "family": "Qwen",
   "version": "480B",
   "capabilities": [

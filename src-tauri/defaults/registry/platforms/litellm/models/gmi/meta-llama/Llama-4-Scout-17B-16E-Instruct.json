@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/meta-llama/Llama-4-Scout-17B-16E-Instruct",
-  "canonical_model": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
-  "family": "meta",
+  "canonical_model": "llama-4-scout-17b-16e-instruct",
+  "family": "llama",
   "version": "4",
   "capabilities": [
     "text"

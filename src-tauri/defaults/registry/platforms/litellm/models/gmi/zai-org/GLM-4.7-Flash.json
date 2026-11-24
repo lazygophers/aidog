@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/zai-org/GLM-4.7-Flash",
-  "canonical_model": "zai-org/GLM-4.7-Flash",
-  "family": "zai",
+  "canonical_model": "glm-4.7-flash",
+  "family": "glm",
   "version": "4.7",
   "capabilities": [
     "text"

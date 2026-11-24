@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "empiriolabs/minimax-m2-7-highspeed",
-  "canonical_model": "minimax-m2-7-highspeed",
+  "canonical_model": "MiniMax-M2.7-highspeed",
   "family": "minimax",
-  "version": "7",
+  "version": "2.7",
   "capabilities": [
     "text",
     "tool_use",

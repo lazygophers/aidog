@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "together_ai/zai-org/GLM-5",
-  "canonical_model": "zai-org/GLM-5",
-  "family": "zai",
+  "canonical_model": "glm-5",
+  "family": "glm",
   "version": "5",
   "capabilities": [
     "text"

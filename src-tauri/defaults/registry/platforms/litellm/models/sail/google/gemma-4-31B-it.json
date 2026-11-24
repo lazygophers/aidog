@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "sail/google/gemma-4-31B-it",
-  "canonical_model": "google/gemma-4-31B-it",
-  "family": "google",
+  "canonical_model": "gemma-4-31b-it",
+  "family": "gemma",
   "version": "4",
   "capabilities": [
     "text",

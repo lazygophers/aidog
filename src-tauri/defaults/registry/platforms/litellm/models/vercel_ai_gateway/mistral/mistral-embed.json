@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "vercel_ai_gateway/mistral/mistral-embed",
-  "canonical_model": "mistral/mistral-embed",
+  "canonical_model": "mistral-embed",
   "family": "mistral",
   "capabilities": [
     "text"

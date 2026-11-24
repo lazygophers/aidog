@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock_mantle/eu-central-1/mistral.voxtral-mini-3b-2507",
-  "canonical_model": "eu-central-1/mistral.voxtral-mini-3b-2507",
-  "family": "eu",
-  "version": "3b",
+  "canonical_model": "mistral.voxtral-mini-3b-2507",
+  "family": "voxtral",
+  "version": "1.0",
   "capabilities": [
     "text"
   ],

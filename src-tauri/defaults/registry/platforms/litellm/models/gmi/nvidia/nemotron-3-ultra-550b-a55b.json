@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/nvidia/nemotron-3-ultra-550b-a55b",
-  "canonical_model": "nvidia/nemotron-3-ultra-550b-a55b",
-  "family": "nvidia",
+  "canonical_model": "nemotron-3-ultra-550b-a55b",
+  "family": "nemotron",
   "version": "3",
   "capabilities": [
     "text"

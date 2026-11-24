@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/eu-south-1/writer.palmyra-vision-7b",
-  "canonical_model": "bedrock/eu-south-1/writer.palmyra-vision-7b",
-  "family": "bedrock",
+  "canonical_model": "writer.palmyra-vision-7b",
+  "family": "palmyra",
   "version": "7b",
   "capabilities": [
     "text",

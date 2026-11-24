@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "replicate/meta/llama-guard-4-12b",
-  "canonical_model": "meta/llama-guard-4-12b",
-  "family": "meta",
+  "canonical_model": "llama-guard-4-12b",
+  "family": "llama",
   "version": "4",
   "capabilities": [
     "text",

@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai",
     "anthropic"
   ],
   "model_id": "mindlab/macaron-v1-tall",
   "display_name": "mindlab/macaron-v1-tall",
-  "canonical_model": "mindlab/macaron-v1-tall",
+  "canonical_model": "macaron-v1-tall",
   "family": "mindlab",
   "capabilities": [
     "text"

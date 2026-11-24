@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "together_ai/Qwen/Qwen3.5-397B-A17B",
-  "canonical_model": "Qwen/Qwen3.5-397B-A17B",
-  "family": "Qwen",
+  "canonical_model": "qwen3.5-397b-a17b",
+  "family": "qwen",
   "version": "3.5",
   "capabilities": [
     "text"

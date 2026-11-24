@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "perplexity/google/gemini-4-argon",
-  "canonical_model": "google/gemini-4-argon",
-  "family": "google",
+  "canonical_model": "gemini-4-argon",
+  "family": "gemini",
   "version": "4",
   "capabilities": [
     "text"

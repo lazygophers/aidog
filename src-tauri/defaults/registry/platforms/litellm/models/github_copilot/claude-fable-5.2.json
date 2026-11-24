@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "github_copilot/claude-fable-5.2",
-  "canonical_model": "claude-fable-5.2",
+  "canonical_model": "claude-fable-5-2",
   "family": "claude",
   "version": "5.2",
   "capabilities": [

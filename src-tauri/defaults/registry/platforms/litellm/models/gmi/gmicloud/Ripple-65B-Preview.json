@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/gmicloud/Ripple-65B-Preview",
-  "canonical_model": "gmicloud/Ripple-65B-Preview",
+  "canonical_model": "ripple-65b-preview",
   "family": "gmicloud",
   "version": "65B",
   "capabilities": [

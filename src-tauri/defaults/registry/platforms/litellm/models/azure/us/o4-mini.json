@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/us/o4-mini",
-  "canonical_model": "us/o4-mini",
-  "family": "us",
+  "canonical_model": "o4-mini",
+  "family": "o",
   "capabilities": [
     "text",
     "vision",

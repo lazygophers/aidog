@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock_mantle/ap-southeast-2/moonshotai.kimi-k2.5",
-  "canonical_model": "ap-southeast-2/moonshotai.kimi-k2.5",
-  "family": "ap",
+  "canonical_model": "moonshotai.kimi-k2.5",
+  "family": "kimi",
   "version": "2.5",
   "capabilities": [
     "text",

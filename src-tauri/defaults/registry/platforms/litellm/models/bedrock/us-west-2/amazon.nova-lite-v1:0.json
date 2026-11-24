@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/us-west-2/amazon.nova-lite-v1:0",
-  "canonical_model": "bedrock/us-west-2/amazon.nova-lite-v1",
+  "canonical_model": "amazon-nova-lite-v1",
   "family": "bedrock",
   "capabilities": [
     "text",

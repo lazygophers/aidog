@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "inferenceapis/MiniMaxAI/MiniMax-M3",
-  "canonical_model": "MiniMaxAI/MiniMax-M3",
-  "family": "MiniMaxAI",
+  "canonical_model": "MiniMax-M3",
+  "family": "minimax",
   "capabilities": [
     "text",
     "tool_use",

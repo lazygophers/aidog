@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "together_ai/Qwen/Qwen3-Next-80B-A3B-Thinking",
-  "canonical_model": "Qwen/Qwen3-Next-80B-A3B-Thinking",
-  "family": "Qwen",
-  "version": "80B",
+  "canonical_model": "qwen3-next-80b-a3b-thinking",
+  "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text"
   ],

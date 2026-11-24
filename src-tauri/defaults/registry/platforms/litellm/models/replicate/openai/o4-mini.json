@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "replicate/openai/o4-mini",
-  "canonical_model": "openai/o4-mini",
-  "family": "openai",
+  "canonical_model": "o4-mini",
+  "family": "o",
   "capabilities": [
     "text",
     "reasoning"

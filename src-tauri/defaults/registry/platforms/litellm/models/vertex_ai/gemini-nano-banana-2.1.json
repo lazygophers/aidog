@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "vertex_ai/gemini-nano-banana-2.1",
-  "canonical_model": "vertex_ai/gemini-nano-banana-2.1",
-  "family": "vertex",
+  "canonical_model": "gemini-nano-banana-2.1",
+  "family": "gemini",
   "version": "2.1",
   "capabilities": [
     "text_to_image"

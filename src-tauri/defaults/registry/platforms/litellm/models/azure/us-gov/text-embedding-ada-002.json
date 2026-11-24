@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/us-gov/text-embedding-ada-002",
-  "canonical_model": "us-gov/text-embedding-ada-002",
+  "canonical_model": "text-embedding-ada-002",
   "family": "us",
   "version": "002",
   "capabilities": [

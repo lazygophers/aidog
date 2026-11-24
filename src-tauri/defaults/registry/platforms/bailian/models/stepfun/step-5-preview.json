@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai",
     "anthropic"
   ],
   "model_id": "stepfun/step-5-preview",
   "display_name": "stepfun/step-5-preview",
-  "canonical_model": "stepfun/step-5-preview",
+  "canonical_model": "step-5-preview",
   "family": "stepfun",
   "capabilities": [
     "text"

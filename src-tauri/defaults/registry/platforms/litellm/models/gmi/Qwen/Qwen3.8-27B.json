@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/Qwen/Qwen3.8-27B",
-  "canonical_model": "Qwen/Qwen3.8-27B",
-  "family": "Qwen",
+  "canonical_model": "qwen3.8-27b",
+  "family": "qwen",
   "version": "3.8",
   "capabilities": [
     "text"

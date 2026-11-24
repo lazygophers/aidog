@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "replicate/anthropic/claude-4-sonnet",
-  "canonical_model": "anthropic/claude-4-sonnet",
-  "family": "anthropic",
+  "canonical_model": "claude-4-sonnet",
+  "family": "claude",
   "version": "4",
   "capabilities": [
     "text",

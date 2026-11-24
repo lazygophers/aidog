@@ -1,9 +1,9 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "model_id": "Qwen/Qwen4-Max",
   "display_name": "Qwen 4 Max",
-  "canonical_model": "Qwen4-Max",
-  "family": "qwen4",
+  "canonical_model": "qwen4-max",
+  "family": "qwen",
   "official": false,
   "capabilities": [
     "text"

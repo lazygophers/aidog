@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "empiriolabs/stepaudio-2-5-chat",
-  "canonical_model": "stepaudio-2-5-chat",
-  "family": "stepaudio",
-  "version": "2",
+  "canonical_model": "stepaudio-2.5-chat",
+  "family": "step",
+  "version": "2.5",
   "capabilities": [
     "text",
     "tool_use"

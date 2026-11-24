@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nscale/mistralai/mixtral-8x22b-instruct-v0.1",
-  "canonical_model": "mistralai/mixtral-8x22b-instruct-v0.1",
-  "family": "mistral",
+  "canonical_model": "Mixtral-8x22B-Instruct-v0.1",
+  "family": "mixtral",
   "version": "0.1",
   "capabilities": [
     "text"

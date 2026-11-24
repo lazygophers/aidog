@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "perplexity_orchestrator/openai/gpt-6.1-terra",
-  "canonical_model": "openai/gpt-6.1-terra",
-  "family": "openai",
+  "canonical_model": "gpt-6.1-terra",
+  "family": "gpt",
   "version": "6.1",
   "capabilities": [
     "text",

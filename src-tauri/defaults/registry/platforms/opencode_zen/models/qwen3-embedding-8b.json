@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "qwen3-embedding-8b",
   "display_name": "Qwen3 Embedding 8B",
-  "canonical_model": "qwen3-embedding-8b",
-  "family": "qwen3",
+  "canonical_model": "Qwen3-Embedding-8B",
+  "family": "qwen",
   "version": "3",
   "capabilities": [
     "embedding"

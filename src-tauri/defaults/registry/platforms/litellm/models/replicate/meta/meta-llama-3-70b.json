@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "replicate/meta/meta-llama-3-70b",
-  "canonical_model": "meta/meta-llama-3-70b",
-  "family": "meta",
+  "canonical_model": "meta-llama-3-70b",
+  "family": "llama",
   "version": "3",
   "capabilities": [
     "text"

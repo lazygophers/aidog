@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "inferenceapis/moonshotai/Kimi-K2.6",
-  "canonical_model": "moonshotai/Kimi-K2.6",
-  "family": "moonshotai",
+  "canonical_model": "kimi-k2.6",
+  "family": "kimi",
   "version": "2.6",
   "capabilities": [
     "text",

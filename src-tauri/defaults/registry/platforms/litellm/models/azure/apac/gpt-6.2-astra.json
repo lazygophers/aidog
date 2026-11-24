@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/apac/gpt-6.2-astra",
-  "canonical_model": "apac/gpt-6.2-astra",
-  "family": "apac",
+  "canonical_model": "gpt-6.2-astra",
+  "family": "gpt",
   "version": "6.2",
   "capabilities": [
     "text",

@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/eu/gpt-5.3-codex",
-  "canonical_model": "eu/gpt-5.3-codex",
-  "family": "eu",
+  "canonical_model": "gpt-5.3-codex",
+  "family": "gpt",
   "version": "5.3",
   "capabilities": [
     "text"

@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/eu-central-1/meta.llama3-2-1b-instruct-v1:0",
-  "canonical_model": "eu-central-1/meta.llama3-2-1b-instruct-v1",
+  "canonical_model": "meta.llama3-2-1b-instruct-v1",
   "family": "eu",
   "version": "2",
   "capabilities": [

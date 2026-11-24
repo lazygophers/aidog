@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "github_copilot/claude-opus-4.8",
-  "canonical_model": "claude-opus-4.8",
+  "canonical_model": "claude-opus-4-8",
   "family": "claude",
   "version": "4.8",
   "capabilities": [

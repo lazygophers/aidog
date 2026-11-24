@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "perplexity/perplexity/nemotron-3-ultra-550b-a55b",
-  "canonical_model": "perplexity/nemotron-3-ultra-550b-a55b",
-  "family": "perplexity",
+  "canonical_model": "nemotron-3-ultra-550b-a55b",
+  "family": "nemotron",
   "version": "3",
   "capabilities": [
     "text",

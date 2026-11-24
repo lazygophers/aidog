@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai",
     "anthropic",
     "gemini"
   ],
   "model_id": "longcat/longcat-2.5",
-  "canonical_model": "longcat-2.5",
+  "canonical_model": "LongCat-2.5",
   "display_name": "LongCat-2.5",
   "family": "longcat",
   "version": "2.5",

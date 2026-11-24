@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "cognition/swe-1.6",
-  "canonical_model": "swe-1.6",
+  "canonical_model": "swe-1-6",
   "family": "swe",
   "version": "1.6",
   "capabilities": [

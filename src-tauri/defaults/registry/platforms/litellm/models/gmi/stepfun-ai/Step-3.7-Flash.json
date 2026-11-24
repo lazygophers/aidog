@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/stepfun-ai/Step-3.7-Flash",
-  "canonical_model": "stepfun-ai/Step-3.7-Flash",
-  "family": "stepfun",
+  "canonical_model": "step-3.7-flash",
+  "family": "step",
   "version": "3.7",
   "capabilities": [
     "text"

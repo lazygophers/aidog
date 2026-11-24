@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "aiand/qwen/qwen3.6-27b",
-  "canonical_model": "qwen/qwen3.6-27b",
+  "canonical_model": "qwen3.6-27b",
   "family": "qwen",
   "version": "3.6",
   "capabilities": [

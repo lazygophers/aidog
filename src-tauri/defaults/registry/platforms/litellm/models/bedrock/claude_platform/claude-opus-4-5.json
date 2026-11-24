@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/claude_platform/claude-opus-4-5",
-  "canonical_model": "claude_platform/claude-opus-4-5",
+  "canonical_model": "claude-opus-4-5",
   "family": "claude",
-  "version": "4",
+  "version": "4.5",
   "capabilities": [
     "text",
     "vision",

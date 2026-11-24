@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "opencode_go/minimax-m3.1-flash",
-  "canonical_model": "minimax-m3.1-flash",
+  "canonical_model": "MiniMax-M3.1-Flash",
   "family": "minimax",
   "version": "3.1",
   "capabilities": [

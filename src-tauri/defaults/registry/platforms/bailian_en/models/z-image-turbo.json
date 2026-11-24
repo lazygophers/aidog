@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai",
     "anthropic"
   ],
   "model_id": "z-image-turbo",
   "display_name": "z-image-turbo",
-  "canonical_model": "z-image-turbo",
+  "canonical_model": "Z-Image-Turbo",
   "family": "z-image",
   "capabilities": [
     "text_to_image"

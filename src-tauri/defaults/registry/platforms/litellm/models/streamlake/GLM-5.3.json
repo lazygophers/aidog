@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "streamlake/GLM-5.3",
-  "canonical_model": "GLM-5.3",
-  "family": "GLM",
+  "canonical_model": "glm-5.3",
+  "family": "glm",
   "version": "5.3",
   "capabilities": [
     "text",

@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "empiriolabs/glm-4-6v-flashx",
-  "canonical_model": "glm-4-6v-flashx",
+  "canonical_model": "glm-4.6v-flashx",
   "family": "glm",
-  "version": "4",
+  "version": "4.6",
   "capabilities": [
     "text",
     "vision",

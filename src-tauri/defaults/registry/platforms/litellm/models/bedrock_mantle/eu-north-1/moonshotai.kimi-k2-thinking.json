@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock_mantle/eu-north-1/moonshotai.kimi-k2-thinking",
-  "canonical_model": "eu-north-1/moonshotai.kimi-k2-thinking",
-  "family": "eu",
+  "canonical_model": "moonshotai.kimi-k2-thinking",
+  "family": "kimi",
   "capabilities": [
     "text",
     "tool_use",

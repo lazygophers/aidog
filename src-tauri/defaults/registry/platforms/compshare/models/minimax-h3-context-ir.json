@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "minimax-h3-context-ir",
-  "canonical_model": "minimax-h3-context-ir",
+  "canonical_model": "MiniMax-H3-Context-IR",
   "capabilities": [
     "text"
   ],

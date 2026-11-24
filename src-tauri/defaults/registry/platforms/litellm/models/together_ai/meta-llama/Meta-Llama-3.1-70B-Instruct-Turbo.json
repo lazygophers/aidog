@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "together_ai/meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-  "canonical_model": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+  "canonical_model": "Meta-Llama-3.1-70B-Instruct-Turbo",
   "family": "meta",
   "version": "3.1",
   "capabilities": [

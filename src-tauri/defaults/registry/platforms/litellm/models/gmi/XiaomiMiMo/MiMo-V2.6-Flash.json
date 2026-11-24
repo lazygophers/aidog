@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/XiaomiMiMo/MiMo-V2.6-Flash",
-  "canonical_model": "XiaomiMiMo/MiMo-V2.6-Flash",
-  "family": "XiaomiMiMo",
+  "canonical_model": "mimo-v2.6-flash",
+  "family": "mimo",
   "version": "2.6",
   "capabilities": [
     "text"

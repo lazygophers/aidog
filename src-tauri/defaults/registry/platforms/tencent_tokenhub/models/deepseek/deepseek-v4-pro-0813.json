@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "openai",
     "openai_responses",
@@ -7,7 +7,7 @@
   ],
   "model_id": "deepseek/deepseek-v4-pro-0813",
   "display_name": "DeepSeek-V4-Pro 0813 正式版 原厂直供",
-  "canonical_model": "deepseek/deepseek-v4-pro-0813",
+  "canonical_model": "deepseek-v4-pro-0813",
   "capabilities": [
     "text"
   ],

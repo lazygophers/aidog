@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "anthropic",
     "openai"
   ],
   "model_id": "sao10k/l3-70b-euryale-v2.1",
   "display_name": "Llama 3 70B Euryale V2.1",
-  "canonical_model": "l3-70b-euryale-v2.1",
+  "canonical_model": "sao10k/l3-70b-euryale-v2.1",
   "capabilities": [
     "text",
     "tool_use"

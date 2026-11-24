@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "baseten/moonshotai/Kimi-K3.1-Pro",
-  "canonical_model": "moonshotai/Kimi-K3.1-Pro",
-  "family": "moonshotai",
+  "canonical_model": "kimi-k3.1-pro",
+  "family": "kimi",
   "version": "3.1",
   "capabilities": [
     "text",
