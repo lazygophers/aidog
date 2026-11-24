@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795488925,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,7 +7,7 @@
   ],
   "model_id": "command-r-08-2024",
   "canonical_model": "command-r-08-2024",
-  "version": "2024",
+  "version": "24.08",
   "family": "command",
   "display_name": "Command R 08 2024",
   "max_output_tokens": 4096,

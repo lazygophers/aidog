@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure_ai/MAI-Code-1.1-Flash",
   "canonical_model": "MAI-Code-1.1-Flash",
-  "family": "MAI",
+  "family": "mai",
   "version": "1.1",
   "capabilities": [
     "text",

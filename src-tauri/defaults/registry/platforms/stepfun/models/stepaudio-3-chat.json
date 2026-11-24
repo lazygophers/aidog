@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794627749,
+  "last_updated": 1795524336,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -8,7 +8,7 @@
   "display_name": "StepAudio-3-Chat",
   "version": "3",
   "canonical_model": "stepaudio-3-chat",
-  "family": "stepfun",
+  "family": "step",
   "capabilities": [
     "audio"
   ],

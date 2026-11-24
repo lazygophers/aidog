@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795524335,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "openrouter/cloudflare/clef-flash",
-  "canonical_model": "cloudflare/clef-flash",
-  "family": "cloudflare",
+  "canonical_model": "clef-flash",
+  "family": "clef",
   "capabilities": [
     "text"
   ],

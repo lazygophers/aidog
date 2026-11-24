@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795488925,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,7 +7,7 @@
   ],
   "model_id": "command-a-plus-05-2026",
   "canonical_model": "command-a-plus-05-2026",
-  "version": "2026",
+  "version": "26.05",
   "family": "command",
   "display_name": "Command A Plus 05 2026",
   "thinking_supported": true,

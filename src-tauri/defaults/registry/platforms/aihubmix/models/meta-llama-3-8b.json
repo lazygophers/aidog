@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795524334,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -7,7 +7,7 @@
   ],
   "model_id": "meta-llama-3-8b",
   "canonical_model": "meta-llama-3-8b",
-  "version": "3.8",
+  "version": "3",
   "family": "llama",
   "display_name": "Meta Llama 3 8B",
   "capabilities": [],
