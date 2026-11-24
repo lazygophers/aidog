@@ -583,6 +583,158 @@ async fn minimax_family_openai_endpoint_proxy_stream_and_synthetic_error() {
     }
 }
 
+// ══ issue 92：AtlasCloud Anthropic / OpenAI endpoints ══
+// Official docs checked 2026-11-24:
+// https://www.atlascloud.ai/docs/llm-protocols
+// https://www.atlascloud.ai/docs/createChatCompletion
+// https://www.atlascloud.ai/docs/errors
+const ATLASCLOUD_ANTHROPIC_RESP: &str = r#"{"id":"msg_atlas","type":"message","role":"assistant","model":"atlas-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+const ATLASCLOUD_ANTHROPIC_SSE: &str = r#"event: message_start
+data: {"type":"message_start","message":{"id":"msg_atlas","type":"message","role":"assistant","model":"atlas-test","content":[],"usage":{"input_tokens":6,"output_tokens":0,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}}
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":3}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+"#;
+const ATLASCLOUD_ANTHROPIC_ERROR: &str =
+    r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}"#;
+const ATLASCLOUD_OPENAI_RESP: &str = r#"{"id":"chatcmpl_atlas","object":"chat.completion","model":"atlas-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+const ATLASCLOUD_OPENAI_SSE: &str = r#"data: {"id":"chatcmpl_atlas","object":"chat.completion.chunk","model":"atlas-test","choices":[{"index":0,"delta":{"content":"hi"}}]}
+
+data: {"id":"chatcmpl_atlas","object":"chat.completion.chunk","model":"atlas-test","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}
+
+data: [DONE]
+
+"#;
+const ATLASCLOUD_OPENAI_ERROR: &str =
+    r#"{"error":{"type":"invalid_request_error","message":"bad request"}}"#;
+
+#[tokio::test]
+async fn atlascloud_anthropic_endpoint_proxy_conversion_response_stream_error_and_usage() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::AtlasCloud,
+        Protocol::Anthropic,
+        "gk92an",
+        "/chat/completions",
+        r#"{"model":"atlas-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", ATLASCLOUD_ANTHROPIC_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["max_tokens"], 32, "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(
+        response["choices"][0]["message"]["content"], "hi",
+        "{response}"
+    );
+    assert!(response.get("usage").is_some(), "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("atlascloud").extract_usage(ATLASCLOUD_ANTHROPIC_RESP);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (6, 3, 2, 1, 0)
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::AtlasCloud,
+        Protocol::Anthropic,
+        "gk92ans",
+        "/chat/completions",
+        r#"{"model":"atlas-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", ATLASCLOUD_ANTHROPIC_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert!(resp.contains("\"content\":\"hi\""), "{resp}");
+    assert!(resp.contains("[DONE]"), "{resp}");
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::AtlasCloud,
+        Protocol::Anthropic,
+        "gk92ane",
+        "/chat/completions",
+        r#"{"model":"atlas-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (422, "application/json", ATLASCLOUD_ANTHROPIC_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{resp}");
+    assert!(!hits.is_empty(), "fake upstream must receive request");
+    assert!(resp.contains("invalid_request_error"), "{resp}");
+}
+
+#[tokio::test]
+async fn atlascloud_openai_endpoint_proxy_conversion_response_stream_error_and_usage() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::AtlasCloud,
+        Protocol::OpenAI,
+        "gk92oa",
+        "/v1/messages",
+        r#"{"model":"atlas-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", ATLASCLOUD_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["model"], "atlas-test", "{request}");
+    assert_eq!(request["messages"][0]["content"], "hi", "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi", "{response}");
+    assert!(response.get("usage").is_some(), "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("atlascloud").extract_usage(ATLASCLOUD_OPENAI_RESP);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (6, 3, 4, 0, 0)
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::AtlasCloud,
+        Protocol::OpenAI,
+        "gk92oas",
+        "/v1/messages",
+        r#"{"model":"atlas-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", ATLASCLOUD_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    assert!(resp.contains("text_delta") && resp.contains("hi"), "{resp}");
+    assert!(resp.contains("message_stop"), "{resp}");
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::AtlasCloud,
+        Protocol::OpenAI,
+        "gk92oae",
+        "/v1/messages",
+        r#"{"model":"atlas-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (401, "application/json", ATLASCLOUD_OPENAI_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(!hits.is_empty(), "fake upstream must receive request");
+    assert!(resp.contains("invalid_request_error"), "{resp}");
+}
+
 // ══ issue 113：GLM（智谱）成员 `glm` 逐端点协议护栏（请求转换 / 非流式 / 流式 / 错误 / usage）══
 // 官方出处（核对日期 2026-11-16）：
 // - 对话补全 https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E5%AF%B9%E8%AF%9D%E8%A1%A5%E5%85%A8
