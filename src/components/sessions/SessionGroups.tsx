@@ -12,6 +12,7 @@ import { SessionDetail } from "./SessionDetail";
 import { SessionSparkline } from "./SessionSparkline";
 import { CarryMenu } from "./CarryMenu";
 import { Button } from "../ui/button";
+import { CopyButton } from "../shared/CopyButton";
 
 // 置顶区迷你走势图放在标题列内、token 列前的空白处（票 14），不占独立列：两区列模板相同，各列对齐。
 // 窄窗（票 20）：标题列至少 8rem 容纳走势图，token 列可收缩并截断；<xl 时项目信息列移到行上方，不与会话行抢宽。
@@ -200,6 +201,13 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
             {/* 每段 bdi 各自隔离方向：RTL 下数字与拉丁名不与相邻段混排（票 13） */}
             {inPinned && r.workdir && <><bdi dir="ltr" title={r.workdir}>{projectName(r.workdir)}</bdi>{" · "}</>}
             <bdi>{clientName(r.clientCode)}</bdi> · <bdi>{t("sessions.calls", "{{n}} calls", { n: r.calls })}</bdi> · <bdi>{t("sessions.duration", "lasted {{d}}", { d: duration })}</bdi>
+          </div>
+          <div className="mt-1" onKeyDown={(e) => e.stopPropagation()}>
+            <CopyButton
+              text={r.sessionId}
+              label={r.sessionId}
+              title={t("sessions.copySessionId", "Copy session ID")}
+            />
           </div>
         </div>
         {inPinned && <SessionSparkline clientCode={r.clientCode} sessionId={r.sessionId} lastCallMs={r.lastCallMs} />}
