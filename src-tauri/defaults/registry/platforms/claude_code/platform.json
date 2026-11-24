@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795488925,
   "holiday_calendar": "US-CA",
   "endpoints": {
     "default": [
@@ -20,6 +20,7 @@
   },
   "model_list": {
     "default": [
+      "claude-fable-5-2",
       "claude-fable-5-1",
       "claude-fable-5",
       "claude-opus-5",

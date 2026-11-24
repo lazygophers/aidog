@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
+  "model_id": "deepseek-v4-1-flash-economy-261017",
+  "canonical_model": "deepseek-v4-1-flash-economy-261017",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1.2e-7,
+    "output": 4.8e-7,
+    "cache_read": 2e-9
+  }
+}

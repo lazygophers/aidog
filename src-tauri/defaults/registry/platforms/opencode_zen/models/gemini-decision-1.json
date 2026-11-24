@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gemini-decision-1",
+  "display_name": "Gemini Decision 1",
+  "canonical_model": "gemini-decision-1",
+  "family": "gemini",
+  "version": "1",
+  "capabilities": [
+    "decision"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 0
+  },
+  "context_window": 262144
+}

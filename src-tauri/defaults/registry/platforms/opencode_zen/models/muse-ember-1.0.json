@@ -1,0 +1,33 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "muse-ember-1.0",
+  "display_name": "Muse Ember 1.0",
+  "canonical_model": "muse-ember-1.0",
+  "family": "muse",
+  "version": "1.0",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 270000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 5e-7,
+    "cache_read": 4e-9,
+    "cache_write": 0,
+    "context_tiers": [
+      {
+        "min_tokens": 200001,
+        "input": 3e-7,
+        "output": 0.0000015,
+        "cache_read": 1.2e-8,
+        "cache_write": 0
+      }
+    ]
+  },
+  "context_window": 1048576
+}

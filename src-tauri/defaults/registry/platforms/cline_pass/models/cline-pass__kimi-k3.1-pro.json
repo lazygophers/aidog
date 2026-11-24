@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "cline-pass/kimi-k3.1-pro",
+  "canonical_model": "kimi-k3.1-pro",
+  "family": "kimi",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 2e-7,
+    "cache_write": 0.000002,
+    "cache_write_1h": 0.000004
+  },
+  "context_window": 1048576
+}

@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic"
+  ],
+  "model_id": "ernie-light-dt",
+  "display_name": "ERNIE Light DT",
+  "canonical_model": "ernie-light-dt",
+  "family": "ernie",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000008,
+    "output": 0.000028,
+    "cache_read": 8e-7
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "cline-pass/mimo-v2.6-pro",
+  "canonical_model": "mimo-v2.6-pro",
+  "family": "mimo",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 4.35e-7,
+    "output": 8.7e-7,
+    "cache_read": 3.6e-9
+  },
+  "context_window": 1048576
+}

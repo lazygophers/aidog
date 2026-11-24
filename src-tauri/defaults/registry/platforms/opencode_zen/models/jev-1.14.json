@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "jev-1.14",
+  "display_name": "Jev 1.14",
+  "canonical_model": "jev-1.14",
+  "family": "jev",
+  "version": "1.14",
+  "capabilities": [
+    "decision"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.2e-8,
+    "output": 0
+  },
+  "context_window": 64000
+}

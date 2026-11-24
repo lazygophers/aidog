@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "veo3.1-fast-image-to-video",
+  "display_name": "Veo3.1 Fast Image To Video",
+  "canonical_model": "veo3.1-fast-image-to-video",
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  },
+  "capabilities": [
+    "image_to_video",
+    "video"
+  ]
+}

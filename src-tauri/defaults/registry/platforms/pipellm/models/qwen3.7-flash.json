@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "qwen3.7-flash",
+  "display_name": "Qwen3.7 Flash",
+  "canonical_model": "qwen3.7-flash",
+  "context_window": 100000,
+  "max_output_tokens": 32000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.8e-8,
+    "output": 1.1e-7,
+    "cache_read": 6e-9
+  },
+  "capabilities": [
+    "text"
+  ]
+}

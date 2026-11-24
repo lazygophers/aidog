@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "gemini"
+  ],
+  "model_id": "claude-haiku-5-5",
+  "display_name": "Claude Haiku 5 5",
+  "canonical_model": "claude-haiku-5-5",
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.0000000000000001e-7,
+    "output": 5e-7,
+    "cache_read": 1e-8,
+    "cache_write": 1.25e-7
+  },
+  "capabilities": [
+    "text"
+  ]
+}

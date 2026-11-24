@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "anthropic"
+  ],
+  "model_id": "deepseek-v4.1-flash",
+  "display_name": "DeepSeek V4.1 Flash",
+  "canonical_model": "deepseek-v4.1-flash",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000002,
+    "output": 0.000004,
+    "cache_read": 2e-8
+  },
+  "context_window": 1048576
+}

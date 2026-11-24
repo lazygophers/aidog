@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795488926,
   "holiday_calendar": "US-CA",  "endpoints": {
     "default": [
       {
@@ -10,12 +10,13 @@
   },
   "models": {
     "default": {
-      "gpt": ["gpt-6-astra"],
-      "default": ["gpt-6-astra"]
+      "gpt": ["gpt-6.2-astra"],
+      "default": ["gpt-6.2-astra"]
     }
   },
   "model_list": {
     "default": [
+
       "chat-latest",
       "chatgpt-image-latest",
       "gpt-4.1",
@@ -86,7 +87,15 @@
       "gpt-rosalind-research",
       "gpt-live-1",
       "omni-moderation-latest",
-      "gpt-6.1-terra"
+      "gpt-6.1-terra",
+      "gpt-6.2-astra",
+      "gpt-6.2-sol",
+      "gpt-6-cyber",
+      "gpt-6-rosalind",
+      "gpt-6.2-astra-law",
+      "gpt-6-astra-law",
+      "gpt-image-2.6-sunburst",
+      "gpt-image-2.6-flare"
     ]
   },
   "name": {

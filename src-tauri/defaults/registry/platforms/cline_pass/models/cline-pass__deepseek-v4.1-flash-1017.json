@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "cline-pass/deepseek-v4.1-flash-1017",
+  "canonical_model": "deepseek-v4.1-flash-1017",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-7,
+    "output": 6e-7,
+    "cache_read": 3e-9
+  }
+}
