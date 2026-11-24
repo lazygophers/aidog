@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "sarvam/deepseekv4.1-flash-1017",
+  "canonical_model": "deepseekv4.1-flash-1017",
+  "family": "deepseekv",
+  "version": "4.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.489361702e-7,
+    "output": 5.85106383e-7,
+    "cache_read": 2.659574468e-9
+  }
+}

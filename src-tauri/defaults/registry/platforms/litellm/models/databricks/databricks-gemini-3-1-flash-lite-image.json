@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "databricks/databricks-gemini-3-1-flash-lite-image",
+  "canonical_model": "databricks-gemini-3-1-flash-lite-image",
+  "family": "databricks",
+  "version": "3",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 65536,
+  "context_window": 65536,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.1248e-7,
+    "output": 0.00000187502,
+    "cache_read": 3.1248e-7,
+    "cache_write": 3.1248e-7
+  }
+}

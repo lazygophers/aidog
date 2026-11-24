@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/openai/gpt-4o-transcribe",
+  "canonical_model": "openai/gpt-4o-transcribe",
+  "family": "openai",
+  "version": "4o",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000006,
+    "output": 0.00001
+  }
+}

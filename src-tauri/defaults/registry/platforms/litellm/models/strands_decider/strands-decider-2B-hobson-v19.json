@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "strands_decider/strands-decider-2B-hobson-v19",
+  "canonical_model": "strands-decider-2B-hobson-v19",
+  "family": "strands",
+  "version": "2B",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  }
+}

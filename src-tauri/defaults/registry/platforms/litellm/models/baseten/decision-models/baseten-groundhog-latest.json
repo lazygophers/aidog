@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "baseten/decision-models/baseten-groundhog-latest",
+  "canonical_model": "decision-models/baseten-groundhog-latest",
+  "family": "decision",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 16384,
+  "context_window": 16384,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3.5e-8,
+    "output": 0
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "voyage/voyage-large-2-instruct",
+  "canonical_model": "voyage-large-2-instruct",
+  "family": "voyage-large",
+  "version": "2",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 16000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.2e-7,
+    "output": 0
+  }
+}

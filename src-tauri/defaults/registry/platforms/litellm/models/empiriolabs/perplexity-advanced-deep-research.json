@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/perplexity-advanced-deep-research",
+  "canonical_model": "perplexity-advanced-deep-research",
+  "family": "perplexity",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_output_tokens": 16000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000012,
+    "output": 0.00006
+  }
+}

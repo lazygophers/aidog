@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/Qwen/Qwen3-Next-80B-A3B-Thinking",
+  "canonical_model": "Qwen/Qwen3-Next-80B-A3B-Thinking",
+  "family": "Qwen",
+  "version": "80B",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.5e-7,
+    "output": 0.0000015
+  }
+}

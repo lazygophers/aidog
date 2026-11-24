@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/grok-4.20",
+  "canonical_model": "grok-4.20",
+  "family": "grok",
+  "version": "4.20",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 2000000,
+  "context_window": 2000000,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001763,
+    "output": 0.000003528
+  }
+}

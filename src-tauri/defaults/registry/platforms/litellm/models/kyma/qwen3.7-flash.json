@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/qwen3.7-flash",
+  "canonical_model": "qwen3.7-flash",
+  "family": "qwen",
+  "version": "3.7",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.35e-8,
+    "output": 1.886e-7,
+    "cache_read": 8.1e-9
+  }
+}

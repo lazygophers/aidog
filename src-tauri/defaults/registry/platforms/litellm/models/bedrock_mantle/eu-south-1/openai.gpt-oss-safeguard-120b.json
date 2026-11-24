@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/eu-south-1/openai.gpt-oss-safeguard-120b",
+  "canonical_model": "eu-south-1/openai.gpt-oss-safeguard-120b",
+  "family": "eu",
+  "version": "120b",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 16000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.8e-7,
+    "output": 7e-7
+  }
+}

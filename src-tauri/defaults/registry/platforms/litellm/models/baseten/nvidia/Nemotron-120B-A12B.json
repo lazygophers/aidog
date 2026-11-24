@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "baseten/nvidia/Nemotron-120B-A12B",
+  "canonical_model": "nvidia/Nemotron-120B-A12B",
+  "family": "nvidia",
+  "version": "120B",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 7.5e-7
+  }
+}

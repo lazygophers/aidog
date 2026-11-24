@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/openai/gpt-oss-20b",
+  "canonical_model": "openai/gpt-oss-20b",
+  "family": "openai",
+  "version": "20b",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 9e-8,
+    "output": 3.6e-7
+  }
+}

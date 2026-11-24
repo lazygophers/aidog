@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/qwen3-8-flash",
+  "canonical_model": "qwen3-8-flash",
+  "family": "qwen",
+  "version": "8",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 983616,
+  "context_window": 983616,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.6e-7,
+    "output": 4.7e-7
+  }
+}

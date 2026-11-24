@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/glm-4-7-flashx",
+  "canonical_model": "glm-4-7-flashx",
+  "family": "glm",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 202752,
+  "context_window": 202752,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 7e-8,
+    "output": 4e-7,
+    "cache_read": 6.3e-8
+  }
+}

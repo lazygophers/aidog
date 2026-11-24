@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/nemotron-3.5-super-vl",
+  "canonical_model": "nemotron-3.5-super-vl",
+  "family": "nemotron",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 235929,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8.1e-8,
+    "output": 4.725e-7,
+    "cache_read": 1.35e-8
+  }
+}

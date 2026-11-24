@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "github_copilot/kimi-k3",
+  "canonical_model": "kimi-k3",
+  "family": "kimi",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 917504,
+  "context_window": 917504,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000003,
+    "output": 0.000015,
+    "cache_read": 3e-7
+  }
+}

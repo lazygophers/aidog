@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/us/gpt-5",
+  "canonical_model": "us/gpt-5",
+  "family": "us",
+  "version": "5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000001375,
+    "output": 0.000011,
+    "cache_read": 1.375e-7
+  }
+}

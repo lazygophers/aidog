@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/minimax/speech-02-turbo",
+  "canonical_model": "minimax/speech-02-turbo",
+  "family": "minimax",
+  "version": "02",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00006
+  }
+}

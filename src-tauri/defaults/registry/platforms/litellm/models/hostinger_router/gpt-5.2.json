@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "hostinger_router/gpt-5.2",
+  "canonical_model": "gpt-5.2",
+  "family": "gpt",
+  "version": "5.2",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 272000,
+  "context_window": 272000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000021,
+    "output": 0.0000168,
+    "cache_read": 2.1e-7
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/google/gemma-4-26b-a4b-it",
+  "canonical_model": "google/gemma-4-26b-a4b-it",
+  "family": "google",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.3e-7,
+    "output": 4e-7
+  }
+}

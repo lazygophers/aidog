@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-4o-mini-tts-2025-03-20",
+  "canonical_model": "gpt-4o-mini-tts-2025-03-20",
+  "family": "gpt",
+  "version": "4o",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-7,
+    "output": 0.00001
+  }
+}

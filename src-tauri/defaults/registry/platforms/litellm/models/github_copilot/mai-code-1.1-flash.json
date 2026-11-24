@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "github_copilot/mai-code-1.1-flash",
+  "canonical_model": "mai-code-1.1-flash",
+  "family": "mai",
+  "version": "1.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2e-7,
+    "output": 0.0000012,
+    "cache_read": 2e-8
+  }
+}

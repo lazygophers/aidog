@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gmi/openai/gpt-6.1-sol",
+  "canonical_model": "openai/gpt-6.1-sol",
+  "family": "openai",
+  "version": "6.1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1050000,
+  "context_window": 1050000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 1e-7
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/eu-south-1/zai.glm-4.7-flash",
+  "canonical_model": "bedrock/eu-south-1/zai.glm-4.7-flash",
+  "family": "bedrock",
+  "version": "4.7",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 203000,
+  "context_window": 203000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8e-8,
+    "output": 4.8e-7
+  }
+}

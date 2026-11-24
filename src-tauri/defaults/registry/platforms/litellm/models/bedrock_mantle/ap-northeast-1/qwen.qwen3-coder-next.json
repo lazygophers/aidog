@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/ap-northeast-1/qwen.qwen3-coder-next",
+  "canonical_model": "ap-northeast-1/qwen.qwen3-coder-next",
+  "family": "ap",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 16000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-7,
+    "output": 0.00000144
+  }
+}

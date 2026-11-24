@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "openai"
   ],
@@ -19,9 +19,10 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "cache_read": 1.2e-7,
     "currency": "USD",
-    "input": 7.1e-07,
-    "output": 3.5e-06
+    "input": 6e-7,
+    "output": 0.000003
   },
   "family": "kimi"
 }

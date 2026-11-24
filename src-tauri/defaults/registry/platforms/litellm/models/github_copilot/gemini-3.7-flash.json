@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "github_copilot/gemini-3.7-flash",
+  "canonical_model": "gemini-3.7-flash",
+  "family": "gemini",
+  "version": "3.7",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 7.5e-7,
+    "output": 0.00000375,
+    "cache_read": 7.5e-8
+  }
+}

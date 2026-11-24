@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "databricks/databricks-typesafeai-jev-1-14-0",
+  "canonical_model": "databricks-typesafeai-jev-1-14-0",
+  "family": "databricks",
+  "version": "1",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.2e-8,
+    "output": 0,
+    "cache_read": 4.2e-8,
+    "cache_write": 4.2e-8
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity_orchestrator/openai/gpt-6.2-astra",
+  "canonical_model": "openai/gpt-6.2-astra",
+  "family": "openai",
+  "version": "6.2",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 872000,
+  "context_window": 872000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000008,
+    "output": 0.00004,
+    "cache_read": 4e-7,
+    "cache_write": 0.00001
+  }
+}

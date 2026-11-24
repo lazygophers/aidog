@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "together-ai-81.1b-110b",
+  "canonical_model": "together-ai-81.1b-110b",
+  "family": "together",
+  "version": "81.1",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000018,
+    "output": 0.0000018
+  }
+}

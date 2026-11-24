@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nebius/Qwen/Qwen3.8-27B",
+  "canonical_model": "Qwen/Qwen3.8-27B",
+  "family": "Qwen",
+  "version": "3.8",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.5e-7,
+    "output": 0.000003,
+    "cache_read": 1e-7
+  }
+}

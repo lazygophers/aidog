@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nscale/meta-llama/Llama-4-Scout-17B-16E-Instruct",
+  "canonical_model": "meta-llama/Llama-4-Scout-17B-16E-Instruct",
+  "family": "meta",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 9e-8,
+    "output": 2.9e-7
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/respan/span-01-lite:free",
+  "canonical_model": "respan/span-01-lite:free",
+  "family": "respan",
+  "version": "01",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0,
+    "free": true
+  }
+}

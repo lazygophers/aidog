@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "fireworks_ai/accounts/fireworks/routers/glm-5p3-spot",
+  "canonical_model": "accounts/fireworks/routers/glm-5p3-spot",
+  "family": "accounts",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 7e-7,
+    "output": 0.0000022,
+    "cache_read": 1.3e-7
+  }
+}

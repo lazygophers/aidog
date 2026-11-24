@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "baseten/decision-models/baseten-joey-2b-latest",
+  "canonical_model": "decision-models/baseten-joey-2b-latest",
+  "family": "decision",
+  "version": "2b",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 16384,
+  "context_window": 16384,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-8,
+    "output": 0
+  }
+}

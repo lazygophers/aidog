@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/perplexity/nemotron-3-ultra-550b-a55b",
+  "canonical_model": "perplexity/nemotron-3-ultra-550b-a55b",
+  "family": "perplexity",
+  "version": "3",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.5e-7,
+    "output": 0.0000025,
+    "cache_read": 2.5e-7
+  }
+}

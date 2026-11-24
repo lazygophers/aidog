@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perplexity/perplexity/glm-5.3",
+  "canonical_model": "perplexity/glm-5.3",
+  "family": "perplexity",
+  "version": "5.3",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000014,
+    "output": 0.0000044,
+    "cache_read": 2.6e-7
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/perplexity-sonar-reasoning-pro",
+  "canonical_model": "perplexity-sonar-reasoning-pro",
+  "family": "perplexity",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 919330,
+  "context_window": 919330,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000048,
+    "output": 0.000019
+  }
+}

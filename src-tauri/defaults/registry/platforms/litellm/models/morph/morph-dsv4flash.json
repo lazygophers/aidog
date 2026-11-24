@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "morph/morph-dsv4flash",
+  "canonical_model": "morph-dsv4flash",
+  "family": "morph",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.41953125e-7,
+    "output": 3.99625e-7,
+    "cache_read": 3.59375e-8
+  }
+}

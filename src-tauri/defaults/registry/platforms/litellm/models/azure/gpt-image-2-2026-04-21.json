@@ -1,12 +1,11 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1795488925,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/gpt-image-2-2026-04-21",
   "display_name": "GPT-Image-2",
   "canonical_model": "gpt-image-2",
-  "max_input_tokens": 1047576,
   "family": "gpt",
   "version": "2",
   "capabilities": [
@@ -17,8 +16,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
+    "cache_read": 0.00000125,
     "currency": "USD",
-    "input": 5e-06,
-    "output": 3e-05
+    "input": 5e-06
   }
 }

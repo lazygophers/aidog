@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "nscale/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+  "canonical_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+  "family": "deepseek",
+  "version": "1.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 9e-8,
+    "output": 9e-8
+  }
+}

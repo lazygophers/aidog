@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/gpt-5.6-luna-pro",
+  "canonical_model": "gpt-5.6-luna-pro",
+  "family": "gpt",
+  "version": "5.6",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1050000,
+  "context_window": 1050000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.703e-7,
+    "output": 0.000001621,
+    "cache_read": 2.7e-8
+  }
+}

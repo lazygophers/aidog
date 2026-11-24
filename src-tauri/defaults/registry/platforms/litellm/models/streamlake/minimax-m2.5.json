@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "streamlake/minimax-m2.5",
+  "canonical_model": "minimax-m2.5",
+  "family": "minimax",
+  "version": "2.5",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 196608,
+  "context_window": 196608,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 0.0000012,
+    "cache_read": 3e-8,
+    "cache_write": 3.75e-7
+  }
+}

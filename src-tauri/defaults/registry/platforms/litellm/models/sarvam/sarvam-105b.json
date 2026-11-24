@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "sarvam/sarvam-105b",
+  "canonical_model": "sarvam-105b",
+  "family": "sarvam",
+  "version": "105b",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1.063829787e-7,
+    "output": 2.659574468e-7,
+    "cache_read": 2.659574468e-9
+  }
+}

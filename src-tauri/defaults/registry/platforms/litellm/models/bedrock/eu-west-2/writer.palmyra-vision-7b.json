@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/eu-west-2/writer.palmyra-vision-7b",
+  "canonical_model": "bedrock/eu-west-2/writer.palmyra-vision-7b",
+  "family": "bedrock",
+  "version": "7b",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 4096,
+  "context_window": 4096,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.3e-7,
+    "output": 9.3e-7
+  }
+}

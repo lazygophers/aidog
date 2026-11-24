@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "refuseless/minimax-m3.1-flash",
+  "canonical_model": "minimax-m3.1-flash",
+  "family": "minimax",
+  "version": "3.1",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 512000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-8,
+    "output": 2.5e-7,
+    "cache_read": 2e-9
+  }
+}

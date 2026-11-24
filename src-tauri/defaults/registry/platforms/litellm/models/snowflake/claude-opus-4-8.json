@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "snowflake/claude-opus-4-8",
+  "canonical_model": "claude-opus-4-8",
+  "family": "claude",
+  "version": "4.8",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000005,
+    "output": 0.000025,
+    "cache_read": 5e-7,
+    "cache_write": 0.00000625
+  },
+  "context_window": 1000000
+}

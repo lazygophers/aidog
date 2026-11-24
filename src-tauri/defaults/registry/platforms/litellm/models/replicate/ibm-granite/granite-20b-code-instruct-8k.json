@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/ibm-granite/granite-20b-code-instruct-8k",
+  "canonical_model": "ibm-granite/granite-20b-code-instruct-8k",
+  "family": "ibm",
+  "version": "20b",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 1e-7,
+    "output": 5e-7
+  }
+}

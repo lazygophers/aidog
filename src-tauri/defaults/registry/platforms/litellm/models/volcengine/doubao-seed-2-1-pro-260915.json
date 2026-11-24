@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "volcengine/doubao-seed-2-1-pro-260915",
+  "canonical_model": "doubao-seed-2-1-pro-260915",
+  "family": "doubao-seed",
+  "version": "2.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1024000,
+  "context_window": 1024000,
+  "max_output_tokens": 256000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 8.625e-7,
+    "output": 0.0000043125,
+    "cache_read": 1.725e-7
+  }
+}

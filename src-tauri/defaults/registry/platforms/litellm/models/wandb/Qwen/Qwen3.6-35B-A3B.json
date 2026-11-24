@@ -1,5 +1,5 @@
 {
-  "last_updated": 1793244705,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "openai"
   ],
@@ -19,9 +19,10 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "cache_read": 3.5e-8,
     "currency": "USD",
-    "input": 2.5e-07,
-    "output": 1.25e-06
+    "input": 1e-7,
+    "output": 8.9e-7
   },
   "family": "qwen"
 }

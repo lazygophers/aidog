@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "jina-reranker-m0",
+  "canonical_model": "jina-reranker-m0",
+  "family": "jina",
+  "capabilities": [
+    "rerank"
+  ],
+  "max_input_tokens": 10240,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 5e-8,
+    "output": 0
+  }
+}

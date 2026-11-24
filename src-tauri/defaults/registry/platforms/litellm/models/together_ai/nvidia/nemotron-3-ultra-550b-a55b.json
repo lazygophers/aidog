@@ -1,0 +1,23 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "together_ai/nvidia/nemotron-3-ultra-550b-a55b",
+  "canonical_model": "nvidia/nemotron-3-ultra-550b-a55b",
+  "family": "nvidia",
+  "version": "3",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 512288,
+  "context_window": 512288,
+  "max_output_tokens": 512288,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-7,
+    "output": 0.0000036,
+    "cache_read": 2e-7
+  }
+}

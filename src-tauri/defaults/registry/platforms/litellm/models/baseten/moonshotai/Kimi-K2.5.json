@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "baseten/moonshotai/Kimi-K2.5",
+  "canonical_model": "moonshotai/Kimi-K2.5",
+  "family": "moonshotai",
+  "version": "2.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-7,
+    "output": 0.000003
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "baseten/moonshotai/Kimi-K2-Thinking",
+  "canonical_model": "moonshotai/Kimi-K2-Thinking",
+  "family": "moonshotai",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 6e-7,
+    "output": 0.0000025
+  }
+}

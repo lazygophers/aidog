@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "tencent/kimi-k2.7-code-highspeed",
+  "canonical_model": "kimi-k2.7-code-highspeed",
+  "family": "kimi",
+  "version": "2.7",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 256000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000019,
+    "output": 0.000008,
+    "cache_read": 3.8e-7,
+    "cache_write": 0
+  }
+}

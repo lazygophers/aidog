@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/eu-central-1/amazon.nova-2-lite-v1:0",
+  "canonical_model": "bedrock/eu-central-1/amazon.nova-2-lite-v1",
+  "family": "bedrock",
+  "version": "2",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 4.29e-7,
+    "output": 0.000003597,
+    "cache_read": 1.0725e-7,
+    "cache_write": 0
+  }
+}

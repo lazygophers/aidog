@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/eu-west-1/nvidia.nemotron-nano-12b-v2",
+  "canonical_model": "eu-west-1/nvidia.nemotron-nano-12b-v2",
+  "family": "eu",
+  "version": "12b",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.3e-7,
+    "output": 7e-7
+  }
+}

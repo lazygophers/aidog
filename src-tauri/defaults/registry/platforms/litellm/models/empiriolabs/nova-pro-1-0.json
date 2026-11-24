@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/nova-pro-1-0",
+  "canonical_model": "nova-pro-1-0",
+  "family": "nova",
+  "version": "1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 317319,
+  "context_window": 317319,
+  "max_output_tokens": 10000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000024,
+    "output": 0.0000096
+  }
+}

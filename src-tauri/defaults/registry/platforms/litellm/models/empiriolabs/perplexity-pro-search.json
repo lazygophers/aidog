@@ -1,0 +1,21 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "empiriolabs/perplexity-pro-search",
+  "canonical_model": "perplexity-pro-search",
+  "family": "perplexity",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000078,
+    "output": 0.000039
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "baseten/MiniMaxAI/MiniMax-M2.5",
+  "canonical_model": "MiniMaxAI/MiniMax-M2.5",
+  "family": "MiniMaxAI",
+  "version": "2.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 0.0000012
+  }
+}

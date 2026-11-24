@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "together_ai/thinkingmachines/Inkling-2-Small",
+  "canonical_model": "thinkingmachines/Inkling-2-Small",
+  "family": "thinkingmachines",
+  "version": "2",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 3e-7,
+    "output": 0.000001,
+    "cache_read": 3e-8
+  }
+}

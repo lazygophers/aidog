@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "oci/xai.grok-4.20-0309-non-reasoning",
+  "canonical_model": "xai.grok-4.20-0309-non-reasoning",
+  "family": "xai",
+  "version": "4.20",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 1000000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000125,
+    "output": 0.0000025,
+    "cache_read": 2e-7
+  }
+}

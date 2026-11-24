@@ -1,0 +1,22 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kyma/sonar-pro",
+  "canonical_model": "sonar-pro",
+  "family": "sonar",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 8000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000405,
+    "output": 0.00002025
+  }
+}

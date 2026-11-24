@@ -1,0 +1,19 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "replicate/openai/o1-mini",
+  "canonical_model": "openai/o1-mini",
+  "family": "openai",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000011,
+    "output": 0.0000044
+  }
+}

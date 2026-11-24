@@ -1,0 +1,18 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "vertex_ai/semantic-ranker-fast",
+  "canonical_model": "semantic-ranker-fast",
+  "family": "semantic",
+  "capabilities": [
+    "rerank"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0
+  }
+}

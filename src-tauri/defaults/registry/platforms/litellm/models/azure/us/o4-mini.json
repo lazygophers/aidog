@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "azure/us/o4-mini",
+  "canonical_model": "us/o4-mini",
+  "family": "us",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 100000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000121,
+    "output": 0.00000484,
+    "cache_read": 3.03e-7
+  }
+}

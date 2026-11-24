@@ -1,0 +1,27 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock_mantle/us-gov-east-1/openai.gpt-5.6-luna",
+  "canonical_model": "us-gov-east-1/openai.gpt-5.6-luna",
+  "family": "us",
+  "version": "5.6",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 922000,
+  "context_window": 922000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 2.64e-7,
+    "output": 0.000001584,
+    "cache_read": 2.64e-8,
+    "cache_write": 3.3e-7
+  }
+}

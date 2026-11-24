@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "inferenceapis/deepseek-ai/DeepSeek-V4-Pro-0813",
+  "canonical_model": "deepseek-ai/DeepSeek-V4-Pro-0813",
+  "family": "deepseek",
+  "version": "0813",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000172,
+    "output": 0.00000515,
+    "cache_read": 1.7e-7
+  }
+}

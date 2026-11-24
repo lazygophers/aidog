@@ -1,0 +1,24 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "fireworks_ai/accounts/fireworks/models/muse-spark-open",
+  "canonical_model": "accounts/fireworks/models/muse-spark-open",
+  "family": "accounts",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.00000125,
+    "output": 0.00000425,
+    "cache_read": 1.5e-7
+  }
+}

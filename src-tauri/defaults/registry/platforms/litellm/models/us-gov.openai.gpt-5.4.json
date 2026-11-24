@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "us-gov.openai.gpt-5.4",
+  "canonical_model": "gpt-5.4",
+  "family": "gpt",
+  "version": "5.4",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 922000,
+  "context_window": 922000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.0000033,
+    "output": 0.0000198,
+    "cache_read": 3.3e-7
+  }
+}

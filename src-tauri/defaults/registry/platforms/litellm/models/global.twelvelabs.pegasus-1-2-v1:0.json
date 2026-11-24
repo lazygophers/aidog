@@ -1,0 +1,20 @@
+{
+  "last_updated": 1795488926,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "global.twelvelabs.pegasus-1-2-v1:0",
+  "canonical_model": "global.twelvelabs.pegasus-1-2-v1",
+  "family": "global",
+  "version": "1",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "unit": "second",
+    "unit_price": 0.00049,
+    "output": 0.0000075
+  }
+}
