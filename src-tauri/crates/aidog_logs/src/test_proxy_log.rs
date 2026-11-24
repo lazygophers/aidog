@@ -1131,3 +1131,34 @@ async fn session_group_key_uses_session_id_index() {
         .unwrap();
     assert_eq!(n, 1, "迁移重跑幂等");
 }
+
+/// 生图费用状态持久化（20261124-01，拆库三文件库写读）：终态 fee_state 经
+/// `upsert_proxy_log` 落列、`get_proxy_log` 读回一致；历史行（INSERT 不带该列，
+/// 表 DEFAULT ''）读回 None 不臆造。
+#[tokio::test]
+async fn fee_state_persisted_and_historical_empty_reads_none() {
+    let (db, _dir) = three_file_db().await;
+    let now_ms = now();
+
+    let mut log = sample_log("fee-est", "grp", now_ms);
+    log.status_code = 200;
+    log.done = true;
+    log.fee_state = Some("estimated".into());
+    upsert_proxy_log(&db, log).await.unwrap();
+    let row = get_proxy_log(&db, "fee-est").await.unwrap().unwrap();
+    assert_eq!(row.fee_state.as_deref(), Some("estimated"));
+
+    // 历史行形态：INSERT 不带 fee_state（DEFAULT ''）→ 读回 None（空串不臆造状态）。
+    db.call_proxy_log_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute(
+            "INSERT INTO proxy_log (id, group_key, model, created_at, updated_at) \
+             VALUES ('fee-hist', 'grp', 'm', ?1, ?1)",
+            params![now_ms],
+        )?;
+        Ok(())
+    })
+    .await
+    .unwrap();
+    let hist = get_proxy_log(&db, "fee-hist").await.unwrap().unwrap();
+    assert_eq!(hist.fee_state, None);
+}

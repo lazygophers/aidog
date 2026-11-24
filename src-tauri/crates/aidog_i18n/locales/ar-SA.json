@@ -942,6 +942,11 @@
       "سجل"
     ]
   ],
+  "logs.feeState": "حالة الرسوم",
+  "logs.feeState.known": "معروفة",
+  "logs.feeState.estimated": "مُقدَّرة",
+  "logs.feeState.unknown": "غير معروفة",
+  "logs.feeState.incomplete": "غير مكتملة",
   "logs.actualModel": "النموذج الفعلي",
   "logs.targetModel": "النموذج المستهدف",
   "logs.attemptCount": "{{n}}",

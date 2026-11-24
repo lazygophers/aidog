@@ -61,7 +61,10 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         prev_tool_durations: row.get(51)?,
         // 票 16 B1：按次计数不落列（目录列集零变化），DB 读回恒空。
         tool_call_counts: Vec::new(),
-        fee_state: None,
+        // 生图费用状态（20261124-01）：空串 = 历史行 / 未标注 → None（不臆造）。
+        fee_state: row
+            .get::<_, Option<String>>(52)?
+            .filter(|s| !s.is_empty()),
     })
 }
 
@@ -129,7 +132,7 @@ pub fn upsert_proxy_log(
             // 固定 SQL（列目录派生）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
             let mut stmt = conn.prepare_cached(proxy_log_catalog::insert_sql(true))?;
             stmt.execute(
-                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.cache_write_1h_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str, log.client, log.user_agent, log.session_key, log.up_bytes, log.down_bytes, log.request_class, log.agent_type, log.prompt_id, log.session_id, log.agent_id, log.parent_agent_id, log.compaction, log.context_compacted, log.prev_tool_durations],
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.cache_write_1h_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str, log.client, log.user_agent, log.session_key, log.up_bytes, log.down_bytes, log.request_class, log.agent_type, log.prompt_id, log.session_id, log.agent_id, log.parent_agent_id, log.compaction, log.context_compacted, log.prev_tool_durations, log.fee_state.as_deref().unwrap_or("")],
             )?;
             Ok(())
         })
@@ -217,6 +220,9 @@ pub struct ProxyLogColumns {
     pub compaction: String,
     pub context_compacted: String,
     pub prev_tool_durations: String,
+    /// 生图费用状态（20261124-01）：known / estimated / unknown / incomplete；空串 = 无。
+    /// 元数据：不参与两侧 strip。
+    pub fee_state: String,
 }
 
 /// 渐进式 UPDATE 的列绑定（列名 + SQL 绑定值）。
@@ -342,6 +348,7 @@ impl ProxyLogColumns {
             compaction: log.compaction.clone(),
             context_compacted: log.context_compacted.clone(),
             prev_tool_durations: log.prev_tool_durations.clone(),
+            fee_state: log.fee_state.clone().unwrap_or_default(),
         }
     }
 
@@ -401,6 +408,7 @@ impl ProxyLogColumns {
         diff!("compaction", compaction);
         diff!("context_compacted", context_compacted);
         diff!("prev_tool_durations", prev_tool_durations);
+        diff!("fee_state", fee_state);
         out
     }
 
@@ -514,7 +522,7 @@ pub fn insert_proxy_log_columns(
             // 固定 SQL（列目录派生）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
             let mut stmt = conn.prepare_cached(proxy_log_catalog::insert_sql(false))?;
             stmt.execute(
-                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.cache_write_1h_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted, cols.routing, cols.client, cols.user_agent, cols.session_key, cols.up_bytes, cols.down_bytes, cols.request_class, cols.agent_type, cols.prompt_id, cols.session_id, cols.agent_id, cols.parent_agent_id, cols.compaction, cols.context_compacted, cols.prev_tool_durations],
+                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.cache_write_1h_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted, cols.routing, cols.client, cols.user_agent, cols.session_key, cols.up_bytes, cols.down_bytes, cols.request_class, cols.agent_type, cols.prompt_id, cols.session_id, cols.agent_id, cols.parent_agent_id, cols.compaction, cols.context_compacted, cols.prev_tool_durations, cols.fee_state],
             )?;
             Ok(())
         })

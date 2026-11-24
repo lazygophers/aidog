@@ -942,6 +942,11 @@
       "件"
     ]
   ],
+  "logs.feeState": "料金ステータス",
+  "logs.feeState.known": "既知",
+  "logs.feeState.estimated": "推定",
+  "logs.feeState.unknown": "不明",
+  "logs.feeState.incomplete": "不完全",
   "logs.actualModel": "実際のモデル",
   "logs.targetModel": "ターゲットモデル",
   "logs.attemptCount": "{{n}} 回",

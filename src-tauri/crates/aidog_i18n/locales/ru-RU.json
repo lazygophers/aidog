@@ -942,6 +942,11 @@
       "записей"
     ]
   ],
+  "logs.feeState": "Статус списания платы",
+  "logs.feeState.known": "Известно",
+  "logs.feeState.estimated": "Оценено",
+  "logs.feeState.unknown": "Неизвестно",
+  "logs.feeState.incomplete": "Неполно",
   "logs.actualModel": "Фактическая модель",
   "logs.targetModel": "Целевая модель",
   "logs.attemptCount": "{{n}}",

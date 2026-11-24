@@ -854,6 +854,11 @@
       "缓存 Token"
     ]
   ],
+  "logs.feeState": "费用状态",
+  "logs.feeState.known": "已知",
+  "logs.feeState.estimated": "估算",
+  "logs.feeState.unknown": "未知",
+  "logs.feeState.incomplete": "不完整",
   "logs.actualModel": "实际模型",
   "logs.targetModel": "目标模型",
   "logs.attemptCount": "{{n}} 次",

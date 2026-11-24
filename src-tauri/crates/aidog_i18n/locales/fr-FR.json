@@ -942,6 +942,11 @@
       "enregistrements"
     ]
   ],
+  "logs.feeState": "Statut des frais",
+  "logs.feeState.known": "Connu",
+  "logs.feeState.estimated": "Estimé",
+  "logs.feeState.unknown": "Inconnu",
+  "logs.feeState.incomplete": "Incomplet",
   "logs.actualModel": "Modèle réel",
   "logs.targetModel": "Modèle cible",
   "logs.attemptCount": "{{n}}",

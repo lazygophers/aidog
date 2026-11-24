@@ -942,6 +942,11 @@
       "Einträge"
     ]
   ],
+  "logs.feeState": "Gebührenstatus",
+  "logs.feeState.known": "Bekannt",
+  "logs.feeState.estimated": "Geschätzt",
+  "logs.feeState.unknown": "Unbekannt",
+  "logs.feeState.incomplete": "Unvollständig",
   "logs.actualModel": "Tatsächliches Modell",
   "logs.targetModel": "Zielmodell",
   "logs.attemptCount": "{{n}}",

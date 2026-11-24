@@ -985,6 +985,8 @@ async fn process_connect_log(
         compaction: String::new(),
         context_compacted: String::new(),
         prev_tool_durations: String::new(),
+        // CONNECT 隧道非生图路径，无费用状态。
+        fee_state: String::new(),
         up_bytes: req_bytes,
         down_bytes: resp_bytes,
     };

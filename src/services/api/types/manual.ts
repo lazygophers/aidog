@@ -745,6 +745,8 @@ export interface ProxyLogDetail {
   input_tokens: number;
   output_tokens: number;
   cache_tokens: number;
+  /** 生图费用状态（known / estimated / unknown / incomplete）；null/undefined = 历史行或非生图请求，不臆造。 */
+  fee_state: string | null;
   est_cost: number;
   is_stream: boolean;
   /** 每次平台尝试快照（时序列表）；单平台一次成功时长度 1 */

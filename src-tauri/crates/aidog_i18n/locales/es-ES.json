@@ -854,6 +854,11 @@
       "Cache Tokens"
     ]
   ],
+  "logs.feeState": "Estado de la tarifa",
+  "logs.feeState.known": "Conocido",
+  "logs.feeState.estimated": "Estimado",
+  "logs.feeState.unknown": "Desconocido",
+  "logs.feeState.incomplete": "Incompleto",
   "logs.actualModel": "Modelo real",
   "logs.targetModel": "Modelo objetivo",
   "logs.attemptCount": "{{n}}",

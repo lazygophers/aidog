@@ -212,6 +212,15 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         <MetaItem label={t("logs.inputTokens", "Input Tokens")} value={`${detail.input_tokens}`} copyText={`${detail.input_tokens}`} t={t} />
         <MetaItem label={t("logs.outputTokens", "Output Tokens")} value={`${detail.output_tokens}`} copyText={`${detail.output_tokens}`} t={t} />
         <MetaItem label={t("logs.cacheTokens", "Cache Tokens")} value={`${detail.cache_tokens}`} copyText={`${detail.cache_tokens}`} t={t} />
+        {detail.fee_state && (
+          <MetaItem
+            label={t("logs.feeState", "Fee status")}
+            value={t(`logs.feeState.${detail.fee_state}`, detail.fee_state)}
+            copyText={detail.fee_state}
+            testId="detail-fee-state"
+            t={t}
+          />
+        )}
         </>)}
         {detail.body_omitted ? (
           <MetaItem label={t("logs.bodyOmitted", "Bodies omitted")} value={t("logs.bodyOmittedHint", "write overload, metadata only")} t={t} />
