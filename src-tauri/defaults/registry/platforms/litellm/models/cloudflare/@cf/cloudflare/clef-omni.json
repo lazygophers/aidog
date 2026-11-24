@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499859,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "cloudflare/@cf/cloudflare/clef-omni",
-  "canonical_model": "@cf/cloudflare/clef-omni",
+  "canonical_model": "clef-omni",
   "capabilities": [
     "text",
     "vision"

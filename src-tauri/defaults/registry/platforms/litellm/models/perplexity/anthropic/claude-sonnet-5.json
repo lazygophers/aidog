@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "perplexity/anthropic/claude-sonnet-5",
+  "context_window": 1000000,
   "canonical_model": "claude-sonnet-5",
   "family": "claude",
   "version": "5",

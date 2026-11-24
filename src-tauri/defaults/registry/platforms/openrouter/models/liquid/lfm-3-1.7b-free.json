@@ -2,7 +2,7 @@
   "last_updated": 1795488926,
   "model_id": "liquid/lfm-3-1.7b:free",
   "canonical_model": "lfm-3-1.7b",
-  "family": "liquid",
+  "family": "lfm",
   "display_name": "LiquidAI: LFM3-1.7B (free)",
   "max_input_tokens": 262144,
   "context_window": 262144,

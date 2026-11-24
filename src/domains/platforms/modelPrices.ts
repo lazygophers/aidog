@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { useDisplayCurrency } from "../../utils/displayCurrency";
 import { modelInfoApi, onRegistryUpdated } from "../../services/api/pricing";
+import type { ModelEntryGroup, ModelInfoSnapshot } from "../../services/api";
 import {
   parsePriceData,
   effectiveUnitPrice,
@@ -27,6 +28,35 @@ export interface ModelPriceInfo {
   peakOutput?: number;
   /** 非 token 计价条目（$/张、$/秒等）的现成展示串；有值时优先于 token 四价。 */
   unitLabel?: string;
+  /** Cross-platform canonical fallback source, shown beside the price. */
+  sourcePlatform?: string;
+}
+
+/** Canonical representative prices fill missing platform entries; platform prices take precedence. */
+export function buildPlatformModelPrices(
+  groups: ModelEntryGroup[],
+  platformCode: string,
+): PriceMap {
+  const prices = new Map<string, ModelPriceInfo>();
+  for (const group of groups) {
+    const primary =
+      group.entries.find((entry) => entry.platform_code === group.primary_platform && entry.model_id === group.canonical_model) ??
+      group.entries.find((entry) => entry.platform_code === group.primary_platform && entry.official) ??
+      group.entries.find((entry) => entry.platform_code === group.primary_platform);
+    const fallback = primary && parseModelPrice(primary.price_data);
+    if (fallback) {
+      const representative = group.primary_platform === platformCode
+        ? fallback
+        : { ...fallback, sourcePlatform: group.primary_platform };
+      for (const entry of group.entries) prices.set(entry.model_id, representative);
+    }
+    for (const entry of group.entries) {
+      if (entry.platform_code !== platformCode) continue;
+      const ownPrice = parseModelPrice(entry.price_data);
+      if (ownPrice) prices.set(entry.model_id, ownPrice);
+    }
+  }
+  return prices;
 }
 
 /** `price` 子树 → 展示形状；无任何可展示价格返回 null（调用方留空渲染）。 */
@@ -104,34 +134,16 @@ export function fullPriceLines(info: ModelPriceInfo, peakWord: string): string[]
 // 同 defaults.ts docPromise idiom：模块级单次 promise 缓存，registry-updated 时整表失效。
 
 type PriceMap = ReadonlyMap<string, ModelPriceInfo>;
+type PriceSnapshot = { byPlatform: ReadonlyMap<string, PriceMap>; groups: ModelEntryGroup[] };
 const cache = new Map<string, Promise<unknown>>();
 const EMPTY_MAP: PriceMap = new Map();
 const EMPTY_ALL_MAP: ReadonlyMap<string, PriceMap> = new Map();
 
-function fetchPlatform(platformCode: string): Promise<PriceMap> {
-  const key = `list:${platformCode}`;
-  let p = cache.get(key) as Promise<PriceMap> | undefined;
-  if (!p) {
-    p = modelInfoApi.list(platformCode).then((entries) => {
-      const m = new Map<string, ModelPriceInfo>();
-      for (const e of entries) {
-        const info = parseModelPrice(e.price_data);
-        if (info) m.set(e.model_id, info);
-      }
-      return m;
-    });
-    // 失败不缓存，下次挂载重试
-    p.catch(() => cache.delete(key));
-    cache.set(key, p);
-  }
-  return p;
-}
-
-function fetchAll(): Promise<ReadonlyMap<string, PriceMap>> {
+function fetchAll(): Promise<PriceSnapshot> {
   const key = "snapshot";
-  let p = cache.get(key) as Promise<ReadonlyMap<string, PriceMap>> | undefined;
+  let p = cache.get(key) as Promise<PriceSnapshot> | undefined;
   if (!p) {
-    p = modelInfoApi.snapshot().then((snap) => {
+    p = modelInfoApi.snapshot().then((snap: ModelInfoSnapshot) => {
       const byPlatform = new Map<string, Map<string, ModelPriceInfo>>();
       for (const g of snap.groups) {
         for (const e of g.entries) {
@@ -142,7 +154,7 @@ function fetchAll(): Promise<ReadonlyMap<string, PriceMap>> {
           m.set(e.model_id, info);
         }
       }
-      return byPlatform;
+      return { byPlatform, groups: snap.groups };
     });
     p.catch(() => cache.delete(key));
     cache.set(key, p);
@@ -158,8 +170,8 @@ export function useModelPrices(platformCode?: string | null): PriceMap {
     if (!platformCode) return;
     let alive = true;
     const run = () => {
-      fetchPlatform(platformCode).then(
-        (m) => { if (alive) setMap(m); },
+      fetchAll().then(
+        ({ groups }) => { if (alive) setMap(buildPlatformModelPrices(groups, platformCode)); },
         () => { /* 失败静默：价格展示缺席，不阻塞编辑页 */ },
       );
     };
@@ -181,7 +193,7 @@ export function useAllModelPrices(): ReadonlyMap<string, PriceMap> {
     let alive = true;
     const run = () => {
       fetchAll().then(
-        (m) => { if (alive) setMap(m); },
+        ({ byPlatform }) => { if (alive) setMap(byPlatform); },
         () => { /* 失败静默 */ },
       );
     };

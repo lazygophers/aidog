@@ -5,7 +5,7 @@
 //
 // 共用 helpers（FormSection / ApiKeyField / toDatetimeLocal）也在此导出，供 PlatformEditForm 主组件消费。
 //   EndpointsSection 已移到 formSectionsEndpoints.tsx（体积大），通过末尾 re-export 暴露。
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { RateLimitPolicyLibrary } from "./RateLimitPolicyLibrary";
 import { RateLimitRulesList, ruleToDraft, draftToRule, type RateLimitRuleDraft } from "./RateLimitRules";
 import type { TFunction } from "i18next";
@@ -864,12 +864,14 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   t: TFunction;
 }) {
   const [defaultCache, setDefaultCache] = useState<TimeWindow[] | null>(null);
+  const windowsRef = useRef(windows);
+  const autoImportAttempted = useRef(false);
   const [modalOpen, setModalOpen] = useState(false);
   // model scope 候选列表：从 preset model_list 拉取，chip 编辑 + datalist 自动补全用。
   const [modelList, setModelList] = useState<string[]>([]);
   // 每窗口 model 输入框临时态（idx → 输入串），Enter/逗号/失定提交为 chip。
   const [modelInput, setModelInput] = useState<Record<number, string>>({});
-
+  const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
   useEffect(() => {
     // 竞态守卫：快速切协议时旧协议的默认 peak 后到会覆盖新协议的缓存，
@@ -896,18 +898,29 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
       ...w,
       days_of_week: w.days_of_week ? [...w.days_of_week] : undefined,
       models: w.models ? [...w.models] : undefined,
+      timezone: w.timezone ?? localTimezone,
     }));
     setWindows(copied);
     setModalOpen(false);
   };
+  useEffect(() => { windowsRef.current = windows; }, [windows]);
+  useEffect(() => {
+    if (defaultCache === null || autoImportAttempted.current) return;
+    autoImportAttempted.current = true;
+    if (windowsRef.current.length === 0 && defaultCache.length > 0) handleImportDefault();
+    // 初次编辑水合后只尝试一次，避免用户清空窗口时被重新导入。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultCache]);
   const update = (idx: number, patch: Partial<TimeWindow>) => {
-    setWindows(prev => prev.map((w, i) => i === idx ? { ...w, ...patch } : w));
+    setWindows(prev => prev.map((w, i) => i === idx
+      ? { ...w, ...patch, timezone: "timezone" in patch ? patch.timezone : w.timezone ?? localTimezone }
+      : w));
   };
   const remove = (idx: number) => {
     setWindows(prev => prev.filter((_, i) => i !== idx));
   };
   const add = () => {
-    setWindows(prev => [...prev, { start_hour: 0, end_hour: 24, multiplier: 1.0 }]);
+    setWindows(prev => [...prev, { start_hour: 0, end_hour: 24, multiplier: 1.0, timezone: localTimezone }]);
   };
   const toggleDay = (idx: number, day: number) => {
     setWindows(prev => prev.map((w, i) => {

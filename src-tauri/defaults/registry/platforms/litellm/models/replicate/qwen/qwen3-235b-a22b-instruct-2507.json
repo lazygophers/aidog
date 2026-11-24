@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "replicate/qwen/qwen3-235b-a22b-instruct-2507",
+  "context_window": 262144,
   "canonical_model": "qwen3-235b-a22b-instruct-2507",
   "family": "qwen",
   "version": "3",

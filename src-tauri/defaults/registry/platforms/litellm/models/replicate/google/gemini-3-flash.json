@@ -1,9 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795499859,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "replicate/google/gemini-3-flash",
+  "context_window": 1048576,
   "canonical_model": "google/gemini-3-flash",
   "family": "google",
   "version": "3",

@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "perplexity/anthropic/claude-opus-4-6",
+  "context_window": 1000000,
   "canonical_model": "claude-opus-4-6",
   "family": "claude",
   "version": "4.6",

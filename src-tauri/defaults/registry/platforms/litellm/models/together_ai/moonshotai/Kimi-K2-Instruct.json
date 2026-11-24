@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "together_ai/moonshotai/Kimi-K2-Instruct",
+  "context_window": 262144,
   "canonical_model": "kimi-k2-instruct",
   "family": "kimi",
   "capabilities": [

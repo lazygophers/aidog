@@ -4,6 +4,7 @@
     "openai"
   ],
   "model_id": "azure/eu/gpt-5.4-mini",
+  "context_window": 400000,
   "canonical_model": "gpt-5.4-mini",
   "family": "gpt",
   "version": "5.4",

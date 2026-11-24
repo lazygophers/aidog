@@ -1,128 +1,52 @@
 # 多会话共用一个工作区：提交纪律
 
-多个 Claude 会话同时在**同一个 checkout** 上改代码时，提交必须逐 hunk 认领。
-2026-09-23 一天之内发生三次误扫（A 的未提交改动被 B 的提交带走），三次内容都正确、
-功能都没坏，所以没人当场发现——这正是它危险的地方。
+多个 Claude 会话同时在**同一个 checkout** 上改代码时，提交必须逐 hunk 认领。2026-09-23 一天之内三次误扫（A 的未提交改动被 B 的提交带走），三次内容都正确、功能都没坏，没人当场发现——这正是它危险的地方。
 
 ## 默认：主 checkout 当前分支开发，implementer 串行（2026-11-04）
 
-用户原话：「尽可能的不要使用worktree开发，除非有必要」。代价实锤（ratelimit 线 4 个 worktree
-+ routing-model-node）：基点漂移后 `--no-ff` 合并、共享 `/tmp/aidog-agent-target` 写满磁盘
-（rustc `No space left on device`，约 80G 依赖）、cargo 锁与 `.git/index.lock` 反复残留、
-`check:docs` 只在 worktree 红、每票多一个合并 agent、崩溃 agent 的半成品散在 worktree 里。
+用户原话：「尽可能的不要使用worktree开发，除非有必要」。代价实锤（ratelimit 线 4 个 worktree + routing-model-node）：基点漂移后 `--no-ff` 合并、共享 `/tmp/aidog-agent-target` 写满磁盘（rustc `No space left on device`，约 80G 依赖）、cargo 锁与 `.git/index.lock` 反复残留、`check:docs` 只在 worktree 红、每票多一个合并 agent、崩溃 agent 的半成品散在 worktree 里。
 
-- 写代码的 agent 默认直接在主 checkout 当前分支改，一次一个，前一个回报后再派下一个；
-  串行即无 cargo 互斥、无基点漂移、无合并步骤。
-- **「有必要」只有三种**：① 两个写码 agent 必须同时跑，且各自改动文件集不相交，**且不在同一 cargo workspace crate**
-  （同 crate 不同模块文件集不相交也互踩：2026-11-10 两票并行同改 aidog_core，票 04 被迫等编译收敛；
-  cargo 一次锁整个 workspace，crate 层面没有「不相交」可用）；
-  ② 要构建旧版本 / 基线二进制（perf-testing.md §6/§7 的 detach worktree）；
-  ③ 主 checkout 正被别的会话占用（脏文件与本任务相交，无法并存）。
-  其余理由（「隔离更干净」「怕改坏」）不算；改坏用 `git diff` 按行号还原。
-  第四种：GitHub issue 开发（2026-11-15 用户拍板，一 issue 一 worktree 一 PR，见文末「issue 开发：独立 worktree + PR」节）。
+- 写代码的 agent 默认直接在主 checkout 当前分支改，一次一个，前一个回报后再派下一个；串行即无 cargo 互斥、无基点漂移、无合并步骤。
+- **「有必要」只有三种**：① 两个写码 agent 必须同时跑，文件集不相交，**且不在同一 cargo workspace crate**（同 crate 不同模块文件集不相交也互踩：2026-11-10 两票并行同改 aidog_core，票 04 被迫等编译收敛；cargo 一次锁整个 workspace，crate 层面没有「不相交」可用）；② 构建旧版本 / 基线二进制（perf-testing.md §6/§7 的 detach worktree）；③ 主 checkout 正被别的会话占用（脏文件与本任务相交，无法并存）。其余理由（「隔离更干净」「怕改坏」）不算；改坏用 `git diff` 按行号还原。第四种：GitHub issue 开发（2026-11-15 用户拍板，一 issue 一 worktree 一 PR，见文末「issue 开发：独立 worktree + PR」节）。
 - 用了 worktree 就写明是哪一种，验收标准全部满足后当场合回并删除；未满足时保留 worktree；下文各节是「用了 worktree 时」的卫生规则。
-- **主 checkout 带他线在途脏文件时，产出用户日常应用的构建（`make install` / release 包）从 detach worktree 构建**（2026-11-21 实锤）：`/usr/bin/git worktree add --detach .worktrees/build-<sha> <sha>` 里跑，否则他线半成品会编进用户日常应用；Makefile 硬编码 `src-tauri/target` 时在 worktree 内用 symlink 把该路径桥接到 worktree 自己的 target（`.worktrees/build-1c954cee9` + `CARGO_TARGET_DIR=.worktrees/.target` 跑通）。
-  用户自己在主 checkout 构建也会撞上：2026-11-21 会话页线，用户构建时撞上票 10 agent 改签名到一半，agent 把编译错误报给了用户。写 agent 在途期间，用户说「编译不过 / 装不上」时，主会话先核在途写 agent 及其改动文件；要装机时，给出上面 detach worktree 构建的命令，或等 agent 收工，不把半截改动当成缺陷报给用户。
+- **主 checkout 带他线在途脏文件时，产出用户日常应用的构建（`make install` / release 包）从 detach worktree 构建**（2026-11-21 实锤）：`/usr/bin/git worktree add --detach .worktrees/build-<sha> <sha>` 里跑，否则他线半成品会编进用户日常应用；Makefile 硬编码 `src-tauri/target` 时在 worktree 内用 symlink 把该路径桥接到 worktree 自己的 target（`.worktrees/build-1c954cee9` + `CARGO_TARGET_DIR=.worktrees/.target` 跑通）。用户自己在主 checkout 构建也会撞上：2026-11-21 会话页线，用户构建撞上票 10 agent 改签名到一半，agent 把编译错误报给了用户。写 agent 在途期间用户说「编译不过 / 装不上」时，主会话先核在途写 agent 及其改动文件；要装机时给出 detach worktree 构建命令或等 agent 收工，不把半截改动当成缺陷报给用户。
 
 ## 减少磁盘残留（2026-11-04）
 
 用户原话：「要尽可能的减少残留不要再磁盘导出拉屎」（否掉了「df < 20G 即停」的阈值规则，要的是源头少留）。
 
 - agent 收工当场清掉自己建的东西：临时日志、补丁、截图、临时 json、临时目录（位置见下条）。
-- **临时产物收回仓库目录（2026-11-05 改）**：用户原话「Debug 的产出或者是这些前端的产出，能不能都限制在当前目录，
-  而不是每次都去 temp 目录下面的临时文件里面创建，让它们每次都在同一个地方？这样更便于清理和管理。」
-  - 临时日志 / 补丁 / 脚本 / 截图：放仓库 `.tmp/<任务名>/`（已在 `.gitignore`），收工删该目录
-    （先红 / 门禁日志除外，留到 review 与合并后删——见 parallel-implement.md §18）；
-    `/tmp/<任务>-*.log` 写法作废（旧文中出现的 `/tmp/x.log` 一律读作 `.tmp/<任务名>/x.log`）。
-  - cargo / 前端构建目录见下「构建目录」节。
-  - 例外：跨会话互斥锁 `/tmp/aidog-cargo.lock` 留在 /tmp（锁不是产物）。
+- **临时产物收回仓库目录（2026-11-05 改）**：用户原话「Debug 的产出或者是这些前端的产出，能不能都限制在当前目录，而不是每次都去 temp 目录下面的临时文件里面创建，让它们每次都在同一个地方？这样更便于清理和管理。」临时日志 / 补丁 / 脚本 / 截图放仓库 `.tmp/<任务名>/`（已在 `.gitignore`），收工删该目录（先红 / 门禁日志除外，留到 review 与合并后删——见 parallel-implement.md §18）；`/tmp/<任务>-*.log` 写法作废（旧文中出现的 `/tmp/x.log` 一律读作 `.tmp/<任务名>/x.log`）。cargo / 前端构建目录见下「构建目录」节。例外：跨会话互斥锁 `/tmp/aidog-cargo.lock` 留在 /tmp（锁不是产物）。
 - 只留报告里引用到的文件，且留到主会话读完为止。
 - **读文件与删文件分两条命令，先确认读成功再删**（2026-11-21 性能轮实锤）：读 ask-me 答案的 node 命令按 `r.answers` 迭代报错（实际结构是 `answers.answers[]`），同一条命令里 `;` 串联的 `rm` 照样执行，答案在读出前被删，提问目录已被自动清理，用户被迫重填。唯一副本类文件（表单答案、取证输出）不与 `rm` 同链；确要同链用 `&&` 或 `set -e` 脚本。
-- 删共享缓存或任何 `rm -rf` 都要用户授权。
-  反例：2026-11-04 有 agent 在 `No space left on device` 后，未经授权自行删了
-  `/tmp/aidog-agent-target/debug/incremental` 32G。
-  2026-11-05 用户经表单授权只删 `/tmp/aidog-agent-target/debug/incremental`（24G），已删；
-  `/tmp/aidog-agent-target` 其余内容待清，同样需授权。
+- 删共享缓存或任何 `rm -rf` 都要用户授权。反例：2026-11-04 有 agent 在 `No space left on device` 后未经授权自行删了 `/tmp/aidog-agent-target/debug/incremental` 32G；2026-11-05 用户经表单授权只删该 incremental（24G），已删；`/tmp/aidog-agent-target` 其余内容待清，同样需授权。
 
 ## 硬规则
 
-1. **禁止 `git commit -a` / `git commit` 不带路径。** 一律 `git commit -- <路径> [<路径>…]`；
-   pathspec 精确到文件，禁目录级（例外见规则 6 的已核对暂存面提交）。
-2. **提交前逐 hunk 认领**：`git diff -- <文件>` 扫一遍，确认每一段改动都是自己写的。
-   不是自己的就 `git add -p` 只挑自己的那几段，再 `git commit`（不带 `-a`）。
-3. `git status` 只认到**文件**这一层，**防不住同文件内跨 hunk 的误扫**——
-   第三次事故就是这么来的：文件确实是自己的活，文件里还有别人的两段。
-   2026-11-06 复发（1719f68e8 票 03 带走另一会话 candidates.rs 直通链 402 与 RoutingCanvas blockedLabel 的 hunk，
-   事后取证才发现 review 项「已在 HEAD」）。`git commit -- <路径>` 提交整文件，规则 2 只靠事后扫 diff 拦不住：
-   **开工前**对将要改的文件跑 `git status --short`，已脏的文件记下，提交时对这些文件必须
-   `git add -p` / `git apply --cached` 只暂存自己的 hunk，再 `git diff --cached --stat` 核对；干净起步的文件才可整文件提交。
-   **locale 文件（`src-tauri/crates/aidog_i18n/locales/*.json`）一律按脏文件处理、走下文 patch 过滤**，不论开工时是否干净：
-   并行会话几乎总在同时加 key（2026-11-21 aef25ab1f 整文件 pathspec 提交 8 个 locale，带走另一会话未提交的
-   `sessions.resume*` 键）。派发含文案改动的票时，prompt 照贴这句。
-4. 发现自己扫走了别人的改动：**不回滚、不重写历史**（代价大于收益），
-   立刻告诉对方「你的那部分已经在 `<commit>` 里了」，让对方撤掉本地副本，
-   否则会重复改一遍。
-5. **共享 checkout 上 `git pull --rebase --autostash` 会把工作区里所有人
-   （含别人的 dirty 文件）一起 stash 再 pop**。用前先确认远端新提交不碰
-   dirty 文件集：`git fetch && git diff HEAD...@{u} --name-only` 对照
-   `git status --short`，无交集才可用；有交集就停，改手动处理
-   （2026-09-29 按「先核实远端 diff 不碰 dirty 文件」用过一次，前置检查
-   才是安全条件，autostash 本身不安全）。
-6. **`git commit -- <pathspec>` 提交的是工作区整文件，不是暂存面**（pathspec 提交忽略
-   索引、直接取匹配文件的工作区内容）。先 `git add -p` 挑完自己的 hunk、再用
-   `git commit -- <目录>` 收尾，别人的 hunk 照样被带走——pathspec 越宽扫走越多
-   （2026-11-10 闸门票 f6d840d69 目录级 pathspec 带走票 04 的 16 行 locale 键实锤）。
-   共改文件的选择性提交唯一安全流程：`git add -p` 只暂存自己的 hunk →
-   `git diff --cached --stat` 与 `git diff -- <文件>` 核对暂存面 == 想提交的内容 →
-   **不带 pathspec 的 `git commit`**（此时提交的就是暂存面，规则 1 的例外；
-   索引里有不明来源文件时按「开工前核对索引」节处理，不并入提交）。
-   agent 驱动不了交互式 `git add -p`，非交互等价手法见下「非交互选择性暂存」节。
-7. **rename + pathspec commit 会漏掉旧路径的删除半边**（2026-11-18 loop-me 文档轮实锤：
-   `git mv docs/adr/0013-*.md docs/adr/0016-*.md` 后 `git commit -- <新路径>`，
-   pathspec 只匹配到 rename 新路径，旧路径删除漏在索引外，多补一笔删除 commit
-   （b68edaea6 + a15a0e43e，净效果等价单 commit）。rename 类提交的 pathspec 必须
-   **两端都写**：`git commit -- <旧路径> <新路径>`；提交后跑 `git status --short`
-   确认 rename 两端都已落，无残留。amend 合并属改历史，未授权不用。
-8. **改写历史或整树重置的命令禁在共享主 checkout 上跑**（2026-11-21 历史密钥清除轮实锤：派出的重写 agent
-   本应在 `.tmp/rewrite-history/` 镜像里跑，却把 `git filter-repo --replace-text` 跑在了主仓，master 01ea4c0ef→91dc6821a；
-   之后的 `reset --hard` 和 `gc --prune=now` 清掉了票 10 agent 等他线的未提交改动，git 侧不可恢复，
-   只能靠 agent 从上下文重放。见 `.scratch/memory/2026-11-21.md`「历史重写事故」节）。
-   命令包括 `filter-repo` / `filter-branch`、对共享分支 rebase、`reset --hard`、`checkout -- .`、`clean -fd`、`gc --prune=now`：
-   - 用户已授权改历史时，也只在镜像或独立克隆（`git clone --mirror`）里改，结果经 push 或 fetch 回传；派发 prompt 写死镜像
-     绝对路径，并让 agent 每条破坏性命令前先跑 `git rev-parse --absolute-git-dir` 断言路径，不符即停；
-   - 必须动主 checkout 时（如重写后对齐 master），先快照全部在途改动：`git diff HEAD > .tmp/<任务>/dirty.patch`，
-     未跟踪文件 `tar` 进同目录，用 `git status --short` 列出清单；然后通知 peer 会话等它们收工；
-     执行后 `git apply --3way dirty.patch` 还原，并告知各会话核对；
+1. **禁止 `git commit -a` / `git commit` 不带路径。** 一律 `git commit -- <路径> [<路径>…]`；pathspec 精确到文件，禁目录级（例外见规则 6 的已核对暂存面提交）。
+2. **提交前逐 hunk 认领**：`git diff -- <文件>` 扫一遍，确认每一段改动都是自己写的。不是自己的就 `git add -p` 只挑自己的那几段，再 `git commit`（不带 `-a`）。
+3. `git status` 只认到**文件**这一层，**防不住同文件内跨 hunk 的误扫**——第三次事故就是这么来的：文件是自己的活，里面还有别人的两段。2026-11-06 复发（1719f68e8 票 03 带走另一会话 candidates.rs 直通链 402 与 RoutingCanvas blockedLabel 的 hunk，事后取证才发现 review 项「已在 HEAD」）。`git commit -- <路径>` 提交整文件，规则 2 只靠事后扫 diff 拦不住：**开工前**对将要改的文件跑 `git status --short`，已脏的文件记下，提交时对这些文件必须 `git add -p` / `git apply --cached` 只暂存自己的 hunk，再 `git diff --cached --stat` 核对；干净起步的文件才可整文件提交。**locale 文件（`src-tauri/crates/aidog_i18n/locales/*.json`）一律按脏文件处理、走下文 patch 过滤**，不论开工时是否干净：并行会话几乎总在同时加 key（2026-11-21 aef25ab1f 整文件 pathspec 提交 8 个 locale，带走另一会话未提交的 `sessions.resume*` 键）。派发含文案改动的票时，prompt 照贴这句。
+4. 发现自己扫走了别人的改动：**不回滚、不重写历史**（代价大于收益），立刻告诉对方「你的那部分已经在 `<commit>` 里了」，让对方撤掉本地副本，否则会重复改一遍。
+5. **共享 checkout 上 `git pull --rebase --autostash` 会把工作区里所有人（含别人的 dirty 文件）一起 stash 再 pop**。用前先确认远端新提交不碰 dirty 文件集：`git fetch && git diff HEAD...@{u} --name-only` 对照 `git status --short`，无交集才可用；有交集就停，改手动处理（2026-09-29 按「先核实远端 diff 不碰 dirty 文件」用过一次，前置检查才是安全条件，autostash 本身不安全）。
+6. **`git commit -- <pathspec>` 提交的是工作区整文件，不是暂存面**（pathspec 提交忽略索引、直接取匹配文件的工作区内容）。先 `git add -p` 挑完自己的 hunk、再用 `git commit -- <目录>` 收尾，别人的 hunk 照样被带走——pathspec 越宽扫走越多（2026-11-10 闸门票 f6d840d69 目录级 pathspec 带走票 04 的 16 行 locale 键实锤）。共改文件的选择性提交唯一安全流程：`git add -p` 只暂存自己的 hunk → `git diff --cached --stat` 与 `git diff -- <文件>` 核对暂存面 == 想提交的内容 → **不带 pathspec 的 `git commit`**（此时提交的就是暂存面，规则 1 的例外；索引里有不明来源文件时按「开工前核对索引」节处理，不并入提交）。agent 驱动不了交互式 `git add -p`，非交互等价手法见下「非交互选择性暂存」节。
+7. **rename + pathspec commit 会漏掉旧路径的删除半边**（2026-11-18 loop-me 文档轮实锤：`git mv docs/adr/0013-*.md docs/adr/0016-*.md` 后 `git commit -- <新路径>`，旧路径删除漏在索引外，多补一笔删除 commit（b68edaea6 + a15a0e43e，净效果等价单 commit））。rename 类提交的 pathspec 必须**两端都写**：`git commit -- <旧路径> <新路径>`；提交后跑 `git status --short` 确认 rename 两端都已落，无残留。amend 合并属改历史，未授权不用。
+8. **改写历史或整树重置的命令禁在共享主 checkout 上跑**（2026-11-21 历史密钥清除轮实锤：派出的重写 agent 本应在 `.tmp/rewrite-history/` 镜像里跑，却把 `git filter-repo --replace-text` 跑在了主仓，master 01ea4c0ef→91dc6821a；之后的 `reset --hard` 和 `gc --prune=now` 清掉了票 10 agent 等他线的未提交改动，git 侧不可恢复，只能靠 agent 从上下文重放。见 `.scratch/memory/2026-11-21.md`「历史重写事故」节）。命令包括 `filter-repo` / `filter-branch`、对共享分支 rebase、`reset --hard`、`checkout -- .`、`clean -fd`、`gc --prune=now`：
+   - 用户已授权改历史时，也只在镜像或独立克隆（`git clone --mirror`）里改，结果经 push 或 fetch 回传；派发 prompt 写死镜像绝对路径，并让 agent 每条破坏性命令前先跑 `git rev-parse --absolute-git-dir` 断言路径，不符即停。
+   - 必须动主 checkout 时（如重写后对齐 master），先快照全部在途改动：`git diff HEAD > .tmp/<任务>/dirty.patch`，未跟踪文件 `tar` 进同目录，`git status --short` 列清单；通知 peer 会话等它们收工；执行后 `git apply --3way dirty.patch` 还原，并告知各会话核对。
    - 不跑 `gc --prune=now`：保留 reflog 和悬空对象，误操作后才有救。
-   - **重写后对齐主 checkout 优先零接触法**（2026-11-22 密钥清除战役跑通）：mixed reset（`git reset` 不带
-     `--hard`/`--soft`）只挪分支指针、不动工作区，再 `git checkout -- <指定路径>` 恢复个别路径，全程不动在途
-     脏文件；用重写前后对脏文件路径的 patch diff 证明未动。快照-还原（上条）是重写命令必须进主仓时的兜底，
-     不再是首选。
-   - **重写后本地旧分支 / refs 缓存的「已合并」判据失效**（2026-11-22 实锤：`merge-base --is-ancestor` 对全部
-     旧分支报 0，祖先关系已被切断）：改用 GitHub PR 官方状态——`gh pr view <N> --json state,headRefName`
-     要求 `state == "MERGED"` 且 headRefName 与本地分支名一致；PR 标题里的 `(#N)` 可能是 issue 号，不能直接
-     当 PR 号（首轮实锤），分支名→PR 号 fallback `gh pr list --head <分支> --state all`。`fetch` 过的
-     `refs/remotes/origin/*`、`refs/pull/*` 缓存引用同批清理。
-   - **mirror 克隆本地路径时 origin 指回本地仓库**：`git clone --mirror /local/path mirror.git` 的 origin 是
-     本地路径，push 前先 `git -C mirror.git remote -v` 核对，改指真实远端（`git remote set-url origin <URL>`）
-     或 push 时写显式 URL；不核对会把强推打回本地盘空转。
-   - **分支保护与历史重写的相互作用**（2026-11-22 起）：secret-scan CI 设为 master 必需检查、`strict=true`、
-     `allow_force_pushes=false` 后 master 禁强推。未来历史重写需临时 `gh api` 开 allow_force_pushes，推完
-     立即关回；CI 门禁口径是 PR/push **区间扫描**（新增提交范围），不是全历史——全历史扫描撞 108 处测试
-     假密钥/文档占位符属基线红，禁改成全量扫描当门禁。
+   - **重写后对齐主 checkout 优先零接触法**（2026-11-22 密钥清除战役跑通）：mixed reset（`git reset` 不带 `--hard`/`--soft`）只挪分支指针、不动工作区，再 `git checkout -- <指定路径>` 恢复个别路径，全程不动在途脏文件；用重写前后对脏文件路径的 patch diff 证明未动。快照-还原（上条）是重写命令必须进主仓时的兜底，不再是首选。
+   - **重写后本地旧分支 / refs 缓存的「已合并」判据失效**（2026-11-22 实锤：`merge-base --is-ancestor` 对全部旧分支报 0，祖先关系已被切断）：改用 GitHub PR 官方状态——`gh pr view <N> --json state,headRefName` 要求 `state == "MERGED"` 且 headRefName 与本地分支名一致；PR 标题里的 `(#N)` 可能是 issue 号，不能直接当 PR 号（首轮实锤），分支名→PR 号 fallback `gh pr list --head <分支> --state all`。`fetch` 过的 `refs/remotes/origin/*`、`refs/pull/*` 缓存引用同批清理。
+   - **mirror 克隆本地路径时 origin 指回本地仓库**：`git clone --mirror /local/path mirror.git` 的 origin 是本地路径，push 前先 `git -C mirror.git remote -v` 核对，改指真实远端（`git remote set-url origin <URL>`）或 push 时写显式 URL；不核对会把强推打回本地盘空转。
+   - **分支保护与历史重写的相互作用**（2026-11-22 起）：secret-scan CI 设为 master 必需检查、`strict=true`、`allow_force_pushes=false` 后 master 禁强推。未来历史重写需临时 `gh api` 开 allow_force_pushes，推完立即关回；CI 门禁口径是 PR/push **区间扫描**（新增提交范围），不是全历史——全历史扫描撞 108 处测试假密钥/文档占位符属基线红，禁改成全量扫描当门禁。
 
 ### 非交互选择性暂存：patch 过滤（2026-11-11 ~ 11-12 中间件 / session id 轮实锤）
 
-agent 的 Bash 驱动不了交互式 `git add -p`；共改文件只取自己 hunk 用 patch 过滤，本轮
-closer agent 用此法完成 `test_middleware_try.rs` 双任务 hunk 拆分与 `lazygophers.json`
-外来段排除，零误扫：
+agent 的 Bash 驱动不了交互式 `git add -p`；closer agent 用 patch 过滤完成 `test_middleware_try.rs` 双任务 hunk 拆分与 `lazygophers.json` 外来段排除，零误扫：
 
 1. `git diff -- <文件> > .tmp/<任务名>/sel.patch`；
 2. 过滤脚本（python / node，**落盘成文件再跑**）按 hunk 头 `@@` 只保留自己的 hunk；
-3. patch 文件必须以换行结尾——缺结尾换行 `git apply` 报 `corrupt patch`（本轮实锤：
-   过滤脚本补结尾换行后三份 patch `--check` 全过）；
-4. `git apply --cached --check` → `git apply --cached` → `git diff --cached` 逐行核对
-   暂存面 == 想提交的内容 → 不带 pathspec 的 `git commit`。
+3. patch 文件必须以换行结尾——缺结尾换行 `git apply` 报 `corrupt patch`（过滤脚本补结尾换行后三份 patch `--check` 全过）；
+4. `git apply --cached --check` → `git apply --cached` → `git diff --cached` 逐行核对暂存面 == 想提交的内容 → 不带 pathspec 的 `git commit`；
 5. 整文件 `git add` 后发现混入他人 hunk：`git restore --staged <文件>` 撤回全部再按本节流程重做，不留半截暂存面（2026-11-21 实锤：test_integration.rs 整文件 add 差点带入他线 4839 行，撤回后 patch 过滤 304 hunks 取 1 hunk 成功）。
 
 ## 文件所有权
@@ -138,280 +62,127 @@ closer agent 用此法完成 `test_middleware_try.rs` 双任务 hunk 拆分与 `
 
 ## 后台 agent 的提交边界
 
-2026-09-27 r102：取证 agent 在官方源取不到（HF 401）时，凭「架构上限」自行写值并
-commit（c3bb3e4d0 把 crazyrouter gte-rerank-v2 写成 32768），其最终报告自己都没采信
-该值；主会话复核推翻，改官方值 30000（e49d0b385）。
+2026-09-27 r102：取证 agent 在官方源取不到（HF 401）时凭「架构上限」自行写值并 commit（c3bb3e4d0 把 crazyrouter gte-rerank-v2 写成 32768），其最终报告自己都没采信该值；主会话复核推翻，改官方值 30000（e49d0b385）。
 
-- **取证型 agent 只产报告，不写数据文件、不 commit。** 项目 CLAUDE.md 的自动 commit
-  授权属于主会话**已复核**的改动，不随任务派生继承给 agent。
-- 派 agent 时主会话要写明边界：只读取证 → 报告回传；需要落库的值由主会话采信后自己写。
-- agent 报告里标「存疑 / 需拍板 / 非官方源」的值不得出现在任何 commit 里——commit
-  message 自己写着 `architectural limit` 的值，就是没被采信的值。
-- agent 填入数据的任何外部 slug / URL（registry `logo_url` 的 simpleicons slug、
-  `source_urls` 等），主会话采信前 curl 一次可达（2026-10-08 passthrough-platform 轮：
-  implementer 填 slug `shuffle` 双源 404，被 `known_simpleicons_slugs_are_valid`
-  白名单测试拦下——测试是最后一道防线，主会话核对是更早的一道）。
+- **取证型 agent 只产报告，不写数据文件、不 commit。** 项目 CLAUDE.md 的自动 commit 授权属于主会话**已复核**的改动，不随任务派生继承给 agent。
+- 派 agent 时主会话写明边界：只读取证 → 报告回传；需要落库的值由主会话采信后自己写。
+- agent 报告里标「存疑 / 需拍板 / 非官方源」的值不得出现在任何 commit 里——commit message 自己写着 `architectural limit` 的值，就是没被采信的值。
+- agent 填入数据的任何外部 slug / URL（registry `logo_url` 的 simpleicons slug、`source_urls` 等），主会话采信前 curl 一次可达（2026-10-08 passthrough-platform 轮：implementer 填 slug `shuffle` 双源 404，被 `known_simpleicons_slugs_are_valid` 白名单测试拦下——测试是最后一道防线，主会话核对是更早的一道）。
 
 ## implementer 挂掉后的半成品采信（2026-09-28 cc-sub-mitm PR #43）
 
-修复 agent 中途 502 断连，主会话核对其未提交 diff 后采信、补跑全部门禁、代 commit。
-与上节 r102「取证 agent 不 commit」的边界在**验证成本**：
+修复 agent 中途 502 断连，主会话核对其未提交 diff 后采信、补跑全部门禁、代 commit。与上节 r102 的边界在**验证成本**：
 
-- **取证型 agent 产物是值**：机器验不了真假，必须主会话复核采信后才落库
-  （r102 原文）。报告里标「存疑 / 需拍板 / 非官方源」的值不进任何 commit。
-- **实现型 agent 产物是代码**：门禁可机器验证。挂掉后主会话可采信半成品，三条
-  前提全满足才采：① `git diff` 逐 hunk 看过、每段能归到票面任务；② 全部门禁
-  补跑绿（不是只跑改动相关子集）；③ commit message 注明来源（如
-  `fix: ... (adopted from crashed agent, gates re-run)`）。
+- **取证型 agent 产物是值**：机器验不了真假，必须主会话复核采信后才落库（r102 原文）。报告里标「存疑 / 需拍板 / 非官方源」的值不进任何 commit。
+- **实现型 agent 产物是代码**：门禁可机器验证。挂掉后主会话可采信半成品，三条前提全满足才采：① `git diff` 逐 hunk 看过、每段能归到票面任务；② 全部门禁补跑绿（不是只跑改动相关子集）；③ commit message 注明来源（如 `fix: ... (adopted from crashed agent, gates re-run)`）。
 
-**agent 基础设施故障（502 / 断连 / 超时）恢复路径**：核对现场（`git status` +
-`git diff`）后二选一——改动完整或差最后一步、门禁可跑 → 主会话按上面三条接管
-收尾；改动半截不可判定（编译不过、门禁红了修不动、线索只剩半份报告）→ 回滚
-该 worktree 重派，不硬续。判据只看「主会话能否独立验证到绿」，不看「已经写了
-多少」——沉没的 token 不是采信理由。
+**agent 基础设施故障（502 / 断连 / 超时）恢复路径**：核对现场（`git status` + `git diff`）后二选一——改动完整或差最后一步、门禁可跑 → 主会话按上面三条接管收尾；改动半截不可判定（编译不过、门禁红了修不动、线索只剩半份报告）→ 回滚该 worktree 重派，不硬续。判据只看「主会话能否独立验证到绿」，不看「已经写了多少」——沉没的 token 不是采信理由。
 
 ## 判据
 
-提交前问自己一句：**这次 `git diff --cached` 里的每一段，我都能说出它属于哪条任务吗？**
-说不出的那段就是别人的。
+提交前问自己一句：**这次 `git diff --cached` 里的每一段，我都能说出它属于哪条任务吗？**说不出的那段就是别人的。
 
 ## rtk 包装的 `git worktree add` 静默失败（2026-10-01）
 
-perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk 执行，
-输出 "ok" 但 worktree 实际没建（`rev-parse --show-toplevel` 指回主仓库），
-后续 `git add` 全部加进主仓库，差错一点就在共享 checkout 上提交了别人的位置。
+perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk 执行，输出 "ok" 但 worktree 实际没建（`rev-parse --show-toplevel` 指回主仓库），后续 `git add` 全部加进主仓库，差点在共享 checkout 上提交别人的位置。
 
-- **worktree 的建/删/查一律 `/usr/bin/git` 直跑**，绕开 rtk 包装。建完当场
-  `rev-parse --show-toplevel` 验一次 toplevel 指向新目录——「命令输出 ok」
-  不等于「worktree 存在」（registry-data-edit.md「判脚本干了什么以输出数字为准」
-  同模式）。
-- **判断工作区状态也走 `/usr/bin/git status --short`**（2026-10-22 入站密钥轮）：
-  rtk 包装的 `git status --short` 输出被截断，只列部分已改文件，一度误判改动
-  丢失。rtk 版只当摘要，数文件数以 `/usr/bin/git` 为准。
-- **`/usr/bin` 前缀只适用于 git**：本机 `/usr/bin` 下无 `rm` 等
-  其它命令（`rm` 在 `/bin/rm`）。（更正 2026-11-21：rtk 不只包装 git，`grep` / `ls` / `wc` 也会被
-  改写成 `rtk …`；`/usr/bin/git` 不被改写。）派发 prompt 与脚本里的删改类命令照常规路径写，
-  不照抄 `/usr/bin` 前缀（2026-11-16 插件预置轮：prompt 写 `/usr/bin/rm`，
-  exit 127 后改 `/bin/rm`）。
-- **rtk 改写触发自动模式分类器 no verdict**（2026-11-21 会话页线反复出现，Bash 与 Agent 调用都有；
-  retro agent 同日复现 3 次）：hook 改写命令后，分类器报 `a hook changed this call's input`。这不是拒绝。
-  处置：按报错原样重发一次 hook 给出的改写后命令。只读查询改用 Read 工具，或直接写 `rtk grep …` / `/usr/bin/git …`
-  等不会再被改写的形式，从源头省掉这一轮重发。同一调用重发后仍无裁决，就停手改用 Read，不换写法硬绕。
+- **worktree 的建/删/查一律 `/usr/bin/git` 直跑**，绕开 rtk 包装。建完当场 `rev-parse --show-toplevel` 验一次 toplevel 指向新目录——「命令输出 ok」不等于「worktree 存在」（registry-data-edit.md「判脚本干了什么以输出数字为准」同模式）。
+- **判断工作区状态也走 `/usr/bin/git status --short`**（2026-10-22 入站密钥轮）：rtk 包装的 `git status --short` 输出被截断，只列部分已改文件，一度误判改动丢失。rtk 版只当摘要，数文件数以 `/usr/bin/git` 为准。
+- **`/usr/bin` 前缀只适用于 git**：本机 `/usr/bin` 下无 `rm` 等其它命令（`rm` 在 `/bin/rm`）。（更正 2026-11-21：rtk 不只包装 git，`grep` / `ls` / `wc` 也会被改写成 `rtk …`；`/usr/bin/git` 不被改写。）派发 prompt 与脚本里的删改类命令照常规路径写，不照抄 `/usr/bin` 前缀（2026-11-16 插件预置轮：prompt 写 `/usr/bin/rm`，exit 127 后改 `/bin/rm`）。
+- **rtk 改写触发自动模式分类器 no verdict**（2026-11-21 会话页线反复出现，Bash 与 Agent 调用都有；retro agent 同日复现 3 次）：hook 改写命令后，分类器报 `a hook changed this call's input`。这不是拒绝。处置：按报错原样重发一次 hook 给出的改写后命令。只读查询改用 Read 工具，或直接写 `rtk grep …` / `/usr/bin/git …` 等不会再被改写的形式，从源头省掉这一轮重发。同一调用重发后仍无裁决，就停手改用 Read，不换写法硬绕。
 
 ## 构建目录：主仓默认 target，worktree 才用独立 target（2026-11-05 改）
 
 用户原话（2026-11-05）：「Debug 的产出或者是这些前端的产出，能不能都限制在当前目录，而不是每次都去 temp 目录下面的临时文件里面创建，让它们每次都在同一个地方？这样更便于清理和管理。」
 
+**锁级别改版（2026-11-24 用户拍板，优先于本节下文与全文的共享锁各条）**：「锁只是worktree级别的锁，而非项目级别的锁，你不要管别的地方的锁，你只关心你自己的」「你的工作都是独立的worktree，不可能有人和你强锁的」。issue worktree 开发（一 issue 一 worktree 一 PR）不再共用 `.worktrees/.target`、不再取 `/tmp/aidog-cargo.lock`：每个 worktree 用自己目录内的 target（`CARGO_TARGET_DIR=<worktree>/target`），worktree 隔离即互斥，不存在与他线争锁；禁因他线持有的锁等待或排队。本文件下文涉及 `/tmp/aidog-cargo.lock` 与 `.worktrees/.target` 串行的各条（锁轮询、等锁活性判据、删 target 持锁）不适用于 issue worktree 场景；worktree 收工时连同自己的 target 一起删。代价实锤（2026-11-24 issue 93~95 线）：三个 agent 在他线持有的锁上排队 10 分钟以上，触发多轮 idle 唤醒与主会话催收。`df -h .` 余量判据照跑（多 worktree 各建 target 加重磁盘占用）。
+
 - **cargo**：agent 一律用主仓默认 target，不设 `CARGO_TARGET_DIR`，产物落 `src-tauri/target`。
-- **仅** 文首「有必要」三种 worktree 情形（并行写码、基线二进制、主 checkout 被占）才用独立 target：
-  `CARGO_TARGET_DIR=<项目根>/.worktrees/.target`（`.worktrees/` 已是 worktree 约定目录，仍在仓库内）。
-  与主仓 target 分开的原因不变：同名 workspace crate 产物串味（2026-10-22 `aidog_core` 报
-  `cannot find function ... in crate aidog_db`；2026-10-30 `test_registry.rs:359` 假红）。
-  worktree 之间仍共用这一个目录，不按票新建。
+- **仅** 文首「有必要」三种 worktree 情形（并行写码、基线二进制、主 checkout 被占）才用独立 target：`CARGO_TARGET_DIR=<项目根>/.worktrees/.target`（`.worktrees/` 已是 worktree 约定目录，仍在仓库内）。与主仓 target 分开的原因不变：同名 workspace crate 产物串味（2026-10-22 `aidog_core` 报 `cannot find function ... in crate aidog_db`；2026-10-30 `test_registry.rs:359` 假红）。issue worktree 按上文 2026-11-24 改版用各自 target，不共用本目录。
 - **前端构建**：用仓库默认输出目录，不再 `--outDir /tmp/aidog-agent-dist`。
-- 下文「（已废止 2026-11-05）」的段落里所有 `/tmp/aidog-agent-target`、`/tmp/aidog-agent-dist` 写法同样作废，
-  其中的互斥锁、`cargo clean -p aidog_db`、`touch build.rs`、串味核对手法仍有效，目录按本节替换。
+- 下文「（已废止 2026-11-05）」段落里的 `/tmp/aidog-agent-target`、`/tmp/aidog-agent-dist` 写法同样作废，其中的互斥锁、`cargo clean -p aidog_db`、`touch build.rs`、串味核对手法仍有效，目录按本节替换。
 - **取锁排队超约 30 分钟，改用隔离构建**（2026-11-15：三个 agent 等 `/tmp/aidog-cargo.lock` 超 1 小时，他会话不经锁直接跑 cargo；用户原话「能不能在独立的环境测试，测试换成后移除各种缓存」）：每个构建一个 detach worktree（`/usr/bin/git worktree add --detach`），`CARGO_TARGET_DIR=<该 worktree>/target-iso` + `CARGO_PROFILE_DEV_DEBUG=0`，不取锁、多个构建串行排队；开跑前 `df -h` 余量 ≥15G（余量不够三份并行全量编译）；改动从主 checkout 用精确路径提交；门禁绿后 `rm -rf` 该 target-iso 并 `worktree remove --force`。代价：每次全量编译，无增量缓存。持锁的 agent 改走此路径后，主会话释放其持有的锁（先确认无 cargo 进程）。
 - **锁等待者侧的残留接管判据**（2026-11-20 issue 65 轮实锤：锁持有进程已死，等待 agent 干等约 50 分钟，主会话删锁后才恢复）：等锁超过约 10 分钟，等待方核一次持锁活性——`pgrep -fl 'cargo|rustc'` 全机无任何进程且锁 mtime 超约 30 分钟 → 判残留死锁，`rmdir` 删锁后照常重新取锁，回报记「删锁 1 次 + mtime」（对齐 `.git/index.lock` 的判据与记法）。有 cargo/rustc 进程或 mtime 新 → 继续等；两判据缺一禁删。任一等待方都可执行，先删先得。
-- **`.worktrees/.target` 同一时刻只允许一个 cargo**（2026-11-14 issue 61 轮实锤三连）：并行会话同时在
-  该目录跑 `cargo test --workspace` 会互相冲掉产物——`ident_case` extern 丢失、doctest `E0463`、
-  二进制被删，各会话各自持 `/tmp/aidog-cargo.lock` 独占重跑才拿到绿（锁手法见下节，仍有效）。
-  **假红判据**：extern 丢失 / doctest E0463 / 二进制消失这类「不该红的红」，先怀疑并发重建，
-  取锁独占重跑再归因，不在假红上改代码。
-- **删 target 目录也要持 `/tmp/aidog-cargo.lock`**（2026-11-15 logo 轮实锤）：磁盘不足 10G 时一会话在删
-  `src-tauri/target`、另一会话同时跑 clippy，首跑报 `extern location ... does not exist`，等删除结束后从零重编才绿。
-  删 `src-tauri/target` / `.worktrees/.target` 及其子目录（已获授权的前提下）一律先取锁、删完 `rmdir` 锁；
-  看到 extern 丢失时先 `ls <target>` + `df -h` 看目录是否正在消失，是就等删除方结束再重跑，不改代码。
-  **取锁+删除的多步危险链写成 `set -e` 脚本文件跑，禁分号串联**（2026-11-16 epic #67 轮实锤）：
-  agent 用 `mkdir lock; rm target; ...; rmdir lock` 分号链，mkdir 失败（锁刚被他会话拿走）后
-  后续 rm 照跑——未持锁删了 25G 主 target，还把别人的锁 rmdir 掉。落盘成文件：开头
-  `set -e`，锁 `mkdir` 失败即整链中止；`rmdir` 只删自己这条链成功创建的锁。
-  2026-11-21 复发于取锁 + cargo：取锁失败后分号链照跑 cargo。凡「取锁 → cargo」两步以上的链同样写
-  `set -e` 脚本文件；派 cargo 类票时 prompt 直接贴脚本全文（取锁用 node 轮询，见下「已废止」节的互斥手法），
-  不贴分号写法。
-- **锁只约束守约的会话，磁盘保护押容量不押锁**（2026-11-15 依赖更新轮实锤）：另一会话不经
-  `/tmp/aidog-cargo.lock` 直接跑 cargo，锁协议拦不住它；`.worktrees/.target` 全程靠「开跑前
-  `df -h <target>`，余量 <10G 不开跑 + 编译期间挂磁盘看门狗」挡住写满盘（<3G 自动停自己的构建
-  进程并回报，两度生效）。看门狗只停自己 pid 记录的进程，禁宽泛 pkill / 删共享缓存
-  （perf-testing.md §1、本文件「减少磁盘残留」节）。
+- **`.worktrees/.target` 同一时刻只允许一个 cargo**（2026-11-14 issue 61 轮实锤三连）：并行会话同时在该目录跑 `cargo test --workspace` 会互相冲掉产物——`ident_case` extern 丢失、doctest `E0463`、二进制被删，各会话各自持 `/tmp/aidog-cargo.lock` 独占重跑才拿到绿（锁手法见下节，仍有效）。**假红判据**：extern 丢失 / doctest E0463 / 二进制消失这类「不该红的红」，先怀疑并发重建，取锁独占重跑再归因，不在假红上改代码。
+- **删 target 目录也要持 `/tmp/aidog-cargo.lock`**（2026-11-15 logo 轮实锤）：磁盘不足 10G 时一会话在删 `src-tauri/target`、另一会话同时跑 clippy，首跑报 `extern location ... does not exist`，等删除结束后从零重编才绿。删 `src-tauri/target` / `.worktrees/.target` 及其子目录（已获授权的前提下）一律先取锁、删完 `rmdir` 锁；看到 extern 丢失时先 `ls <target>` + `df -h` 看目录是否正在消失，是就等删除方结束再重跑，不改代码。**取锁+删除的多步危险链写成 `set -e` 脚本文件跑，禁分号串联**（2026-11-16 epic #67 轮实锤）：agent 用 `mkdir lock; rm target; ...; rmdir lock` 分号链，mkdir 失败（锁刚被他会话拿走）后后续 rm 照跑——未持锁删了 25G 主 target，还把别人的锁 rmdir 掉。落盘成文件：开头 `set -e`，锁 `mkdir` 失败即整链中止；`rmdir` 只删自己这条链成功创建的锁。2026-11-21 复发于取锁 + cargo：取锁失败后分号链照跑 cargo。凡「取锁 → cargo」两步以上的链同样写 `set -e` 脚本文件；派 cargo 类票时 prompt 直接贴脚本全文（取锁用 node 轮询，见下「已废止」节的互斥手法），不贴分号写法。
+- **锁只约束守约的会话，磁盘保护押容量不押锁**（2026-11-15 依赖更新轮实锤）：另一会话不经 `/tmp/aidog-cargo.lock` 直接跑 cargo，锁协议拦不住它；`.worktrees/.target` 全程靠「开跑前 `df -h <target>`，余量 <10G 不开跑 + 编译期间挂磁盘看门狗」挡住写满盘（<3G 自动停自己的构建进程并回报，两度生效）。看门狗只停自己 pid 记录的进程，禁宽泛 pkill / 删共享缓存（perf-testing.md §1、本文件「减少磁盘残留」节）。
 - **`pgrep` 活性判据两坑**（2026-11-21 清理脚本实锤）：`pgrep -f` 按整条命令行匹配，PATH 环境串里含进程名（chrome-devtools-mcp 的 PATH 串误命中实锤）会把「无进程」误判成「有进程」——活性判据改 `pgrep -x <进程名>` 精确匹配进程名；`pgrep -x` 零匹配退出码 1，`set -e` 脚本里接 `|| true`，否则在预期分支上整链中断。
-- **磁盘吃紧先压产物体积再编**（同轮实锤）：看门狗拦下的是带调试信息的构建撑满盘——大盘重编
-  （依赖升级全量重验）先用瘦身 profile（如 `CARGO_PROFILE_DEV_DEBUG=0`）验，产物小一个量级，
-  绿了再按需重出完整产物；复用已有 target 缓存（本轮 18G）能大幅减少新增写入。
-  **瘦身 profile 只用在新建的空 target**（如 target-iso）：在已有完整缓存的 target 上加
-  `CARGO_PROFILE_DEV_DEBUG=0`，profile 变了缓存全部失效，cargo 另写一整份产物（2026-11-21 实锤：
-  workspace test 期间余量跌到 318MB）。已有缓存的 target 就用原 profile，复用缓存。
+- **磁盘吃紧先压产物体积再编**（同轮实锤）：看门狗拦下的是带调试信息的构建撑满盘——大盘重编（依赖升级全量重验）先用瘦身 profile（如 `CARGO_PROFILE_DEV_DEBUG=0`）验，产物小一个量级，绿了再按需重出完整产物；复用已有 target 缓存（本轮 18G）能大幅减少新增写入。**瘦身 profile 只用在新建的空 target**（如 target-iso）：在已有完整缓存的 target 上加 `CARGO_PROFILE_DEV_DEBUG=0`，profile 变了缓存全部失效，cargo 另写一整份产物（2026-11-21 实锤：workspace test 期间余量跌到 318MB）。已有缓存的 target 就用原 profile，复用缓存。
 
 ## agent / detach worktree 复用单一 CARGO_TARGET_DIR（已废止 2026-11-05：目录改为上节；2026-10-22 立，2026-10-30 改）
 
-历史（2026-10-22）：为跑基线 `git worktree add --detach /tmp/aidog-baseline-*` 并把
-`CARGO_TARGET_DIR` 指向主仓 `src-tauri/target` 共享，同名 workspace crate 产物串味
-（`aidog_core` 报 `cannot find function ... in crate aidog_db`；worktree 删后
-`build.rs:31 registry dir: NotFound`）。2026-10-30 又实锤：别的会话 worktree 共用主仓
-target 致 `test_registry.rs:359` 假红。
+历史（2026-10-22 / 2026-10-30 两实锤）：worktree 共用主仓 `src-tauri/target`，同名 workspace crate 产物串味（`aidog_core` 报 `cannot find function ... in crate aidog_db`；worktree 删后 `build.rs:31 registry dir: NotFound`；`test_registry.rs:359` 假红）。用户 2026-10-30 原话「要清理，以后尽量不要有临时编译目录，复用同一个」；该 `/tmp/aidog-agent-target` 单目录方案现已整体作废（见上节），下列仍有效的手法目录按上节替换：
 
-现行做法（用户 2026-10-30 原话「要清理，以后尽量不要有临时编译目录，复用同一个」）：
-
-- agent worktree / detach worktree 一律 `CARGO_TARGET_DIR=/tmp/aidog-agent-target`，
-  不按票新建；收尾不再逐票删 target。
-- 主仓 `src-tauri/target` 只给主仓自身构建用。
-- 跑测试前 `cargo clean --manifest-path <本 worktree>/src-tauri/Cargo.toml -p aidog_db --target-dir /tmp/aidog-agent-target`
-  （或先进 `src-tauri` 目录再跑，不带 manifest-path），消除 aidog_db build.rs registry 产物陈旧（该目录是 agent
-  自有，清它不影响别的会话）。**必须在 `src-tauri` 下或带 `--manifest-path`**：2026-10-30 事故，在仓库根跑因无
-  Cargo.toml 静默没清成，aidog_db build 产物仍指向已删 worktree，报 `build.rs:31 registry dir: NotFound`。
-- 前端构建输出 `--outDir /tmp/aidog-agent-dist`，不按票新建 dist。
-- **共享 target 下同一时刻只允许一个 agent 跑 cargo**（2026-10-30 实锤）：并发时别的 worktree 的 aidog_db
-  产物与 ts-rs `export_bindings` 输出会串味——向量化合并时主仓 `generated/PlatformModels.ts` 被覆盖成旧版，
-  推荐配置 worktree 的 `make lint` 编到别的 worktree 的 test_candidates.rs。派第二个 cargo agent 前先等前一个收工。
-  现成互斥手法（2026-10-30 ~ 11-02 平台-客户端白名单线，03/07、04/08、05/06 并行跑通多轮）：
-  每个 agent 的 cargo 步骤包在目录锁里。取锁用 node 轮询（shell `until mkdir …; do sleep` 循环会被权限拒绝）：
-  `node -e 'const fs=require("fs");const p="/tmp/aidog-cargo.lock";(function t(){try{fs.mkdirSync(p);console.log("LOCKED");process.exit(0)}catch(e){setTimeout(t,15000)}})()'`，
-  cargo 跑完 `rmdir /tmp/aidog-cargo.lock`；`mkdir` 原子，agent 被中断后锁目录残留，续做前先
-  `ls -ld /tmp/aidog-cargo.lock` 并确认无 cargo 进程（`pgrep -fl cargo`）再 `rmdir`。
-- 每次 `cargo test` 后立刻 `/usr/bin/git status --short` 核对 `src/services/api/types/generated/` 无意外变动；
-  有变动先判是该提交的真更新还是串味，串味用 `git show HEAD:<path> > <path>` 恢复。
-- **cargo 前 `touch src-tauri/crates/aidog_core/build.rs`**（2026-10-30 实锤两次）：共享 target
-  里 aidog_core build script 产物陈旧——一次 clippy 报 `CODEX_PRESETS` 未定义（touch 后绿），
-  一次 `cargo test --workspace` 中途 exit 101 无 panic、doctest 报
-  `extern location for aidog_db does not exist`（重跑绿）。`cargo clean -p aidog_db` 后同样会触发。
-  首轮红且无 panic / 报 build-script 产物缺失时，先 touch + 重跑，再谈归因。
-- **票面 / 派发 prompt 不写独立 target 目录名**（如 `/tmp/aidog-agent-target-gh`）：与「单一目录」
-  冲突，同轮被用户指令覆盖。同一目录切 `GITHUB_ACTIONS` 等环境变量安全——`build.rs` 带
-  `rerun-if-env-changed`，会正确重编。
+- 跑测试前 `cargo clean --manifest-path <本 worktree>/src-tauri/Cargo.toml -p aidog_db --target-dir <target>`（或先进 `src-tauri` 目录再跑，不带 manifest-path），消除 aidog_db build.rs registry 产物陈旧（该目录是 agent 自有，清它不影响别的会话）。**必须在 `src-tauri` 下或带 `--manifest-path`**：2026-10-30 事故，在仓库根跑因无 Cargo.toml 静默没清成，aidog_db build 产物仍指向已删 worktree，报 `build.rs:31 registry dir: NotFound`。
+- **共享 target 下同一时刻只允许一个 agent 跑 cargo**（2026-10-30 实锤）：并发时别的 worktree 的 aidog_db 产物与 ts-rs `export_bindings` 输出会串味——向量化合并时主仓 `generated/PlatformModels.ts` 被覆盖成旧版，推荐配置 worktree 的 `make lint` 编到别的 worktree 的 test_candidates.rs。派第二个 cargo agent 前先等前一个收工。互斥手法（2026-10-30 ~ 11-02 平台-客户端白名单线，03/07、04/08、05/06 并行跑通多轮）：每个 agent 的 cargo 步骤包在目录锁里，取锁用 node 轮询（shell `until mkdir …; do sleep` 循环会被权限拒绝）：`node -e 'const fs=require("fs");const p="/tmp/aidog-cargo.lock";(function t(){try{fs.mkdirSync(p);console.log("LOCKED");process.exit(0)}catch(e){setTimeout(t,15000)}})()'`，cargo 跑完 `rmdir /tmp/aidog-cargo.lock`；`mkdir` 原子，agent 被中断后锁目录残留，续做前先 `ls -ld /tmp/aidog-cargo.lock` 并确认无 cargo 进程（`pgrep -fl cargo`）再 `rmdir`。
+- 每次 `cargo test` 后立刻 `/usr/bin/git status --short` 核对 `src/services/api/types/generated/` 无意外变动；有变动先判是该提交的真更新还是串味，串味用 `git show HEAD:<path> > <path>` 恢复。
+- **cargo 前 `touch src-tauri/crates/aidog_core/build.rs`**（2026-10-30 实锤两次）：共享 target 里 aidog_core build script 产物陈旧——一次 clippy 报 `CODEX_PRESETS` 未定义（touch 后绿），一次 `cargo test --workspace` 中途 exit 101 无 panic、doctest 报 `extern location for aidog_db does not exist`（重跑绿）。`cargo clean -p aidog_db` 后同样会触发。首轮红且无 panic / 报 build-script 产物缺失时，先 touch + 重跑，再谈归因。
+- 票面 / 派发 prompt 不写独立 target 目录名：与「单一目录」冲突，同轮被用户指令覆盖。同一目录切 `GITHUB_ACTIONS` 等环境变量安全——`build.rs` 带 `rerun-if-env-changed`，会正确重编。
 
 ## `.git/index.lock` 残留（2026-10-22）
 
-0 字节 `.git/index.lock` 残留 33 分钟、无 git 进程时：先
-`pgrep -fl 'git '` 确认无进程、`ls -l` 确认 0 字节且 mtime 久远，再删，然后提交。
-有进程或非 0 字节就停，那是别的会话正在写。
+0 字节 `.git/index.lock` 残留 33 分钟、无 git 进程时：先 `pgrep -fl 'git '` 确认无进程、`ls -l` 确认 0 字节且 mtime 久远，再删，然后提交。有进程或非 0 字节就停，那是别的会话正在写。
 
-复发（2026-10-30 ~ 11-02 平台-客户端白名单线，mtime 18:24 / 20:47 / 21:23 三次，删时均无 git 进程）：
-多 agent 串行合并 master 的会话里高频出现，成因假设（`推测:`）是 agent 被中断 / 超时杀掉时
-`git merge` / `commit` 正持锁。合并 agent 起手固定做：`pgrep -fl 'git '` 无进程 + `ls -l` 0 字节 →
-删锁，再继续；派发 prompt 带上这一步，免得合并 agent 报错停下。
+复发（2026-10-30 ~ 11-02 平台-客户端白名单线，mtime 18:24 / 20:47 / 21:23 三次，删时均无 git 进程；成因假设（`推测:`）是 agent 被中断 / 超时杀掉时 `git merge` / `commit` 正持锁）：合并 agent 起手固定做三步删锁再继续；派发 prompt 带上这一步，免得合并 agent 报错停下。
 
-再复发（2026-11-04 起默认主 checkout 串行后仍出，账本 2026-11-04.md:53/139、2026-11-05.md:94/101/135：
-11-04 两次、11-05 三次，均 0 字节、无 git 进程，成因仍未查）：
-- 删锁的判据与动作不变，任何 implementer / 合并 agent 都按上面三步自行处理，回报里记「删锁 1 次 + mtime」，账本累计次数。
-- 自动模式分类器可能拒绝 agent 的 `rm .git/index.lock`（2026-11-04.md:53，合并 agent 被拒、未合并）：
-  agent 按判据（无 git 进程 + 0 字节）自动删、不问用户；被分类器拒删就停手回传，由主会话按同一判据
-  直接删（同样不问用户），再重派；不绕过分类器换写法。
+再复发（2026-11-04 起默认主 checkout 串行后仍出，账本 2026-11-04.md:53/139、2026-11-05.md:94/101/135：11-04 两次、11-05 三次，均 0 字节、无 git 进程，成因仍未查）：
+- 删锁的判据与动作不变，任何 implementer / 合并 agent 都按三步自行处理，回报里记「删锁 1 次 + mtime」，账本累计次数。
+- 自动模式分类器可能拒绝 agent 的 `rm .git/index.lock`（2026-11-04.md:53，合并 agent 被拒、未合并）：agent 按判据（无 git 进程 + 0 字节）自动删、不问用户；被分类器拒删就停手回传，由主会话按同一判据直接删（同样不问用户），再重派；不绕过分类器换写法。
 
 来源：用户 2026-11-05 原话「a. .git/index.lock 反复残留时怎么处理。自动清理，不需要询问我」。
 
 ## agent 子会话的 Bash cwd 每次调用重置（2026-09-30）
 
-Bash 的 cwd 本就不跨调用保留（系统行为，主会话与派生 agent 皆然），派生
-agent（team agent / implementer）的 cwd 每次 Bash 调用后都重置回自己的
-启动目录（通常是主 checkout）。jev-decision-proxy 轮（PR #46）因此翻车：
-implementer 在 worktree 里跑相对路径命令，静默打到主 checkout 两个文件
-（当场发现还原）。
+Bash 的 cwd 本就不跨调用保留（系统行为，主会话与派生 agent 皆然）。jev-decision-proxy 轮（PR #46）翻车：implementer 在 worktree 里跑相对路径命令，静默打到主 checkout 两个文件（当场发现还原）。
 
-- **脚本 / 命令里引用文件一律绝对路径**——不止 worktree 场景（2026-10-08
-  model-price-tag 轮实锤：locale 批量插入脚本的 insert 函数用裸文件名，cd 丢失后
-  文件解析落错目录，整轮白跑一次）。worktree 里同理：绝对路径，或单条
-  `(cd <worktree 绝对路径> && <cmd>)`。不能信任上一条命令切过去的目录——
-  那条 cd 已经没了。
-- 动手前后各跑一次 `git -C <主 checkout> status --short`：多出来的脏文件
-  就是误伤，当场还原并核对内容。
-- **改文档类文件（ADR / spec / md）同样走 worktree 绝对路径**（2026-11-02 票 05：agent 把
-  `docs/adr/0008-*.md` 改动写进主仓，与 worktree 内容逐字节相同，会话中断后才发现）。
-  agent 回报前 `git -C <主 checkout> status --short` 必须为空；非空且 `cmp` 与 worktree 同内容 = 误写副本，
-  撤掉主仓副本，保留 worktree 版。
+- **脚本 / 命令里引用文件一律绝对路径**——不止 worktree 场景（2026-10-08 model-price-tag 轮实锤：locale 批量插入脚本的 insert 函数用裸文件名，cd 丢失后文件解析落错目录，整轮白跑一次）。worktree 里同理：绝对路径，或单条 `(cd <worktree 绝对路径> && <cmd>)`。不能信任上一条命令切过去的目录——那条 cd 已经没了。
+- 动手前后各跑一次 `git -C <主 checkout> status --short`：多出来的脏文件就是误伤，当场还原并核对内容。
+- **改文档类文件（ADR / spec / md）同样走 worktree 绝对路径**（2026-11-02 票 05：agent 把 `docs/adr/0008-*.md` 改动写进主仓，与 worktree 内容逐字节相同，会话中断后才发现）。agent 回报前 `git -C <主 checkout> status --short` 必须为空；非空且 `cmp` 与 worktree 同内容 = 误写副本，撤掉主仓副本，保留 worktree 版。
 
 ## registry 盖戳脚本无参模式会盖到别人的脏文件（2026-10-02）
 
-`scripts/bump-registry-last-updated.mjs` 无参 = 「盖 git 变更（含 untracked）的 registry json」，
-共享 checkout 上 `git status` 里的脏文件含**别的会话未提交的改动**——commandcode-goat 轮另一会话
-在改 litellm/openrouter（4331 个文件），无参跑把 8709 个文件全部重盖戳。盖戳内容中性（只动
-last_updated 时间戳），但别人的 commit 会无声带上你的盖戳 diff（「误扫」的无害化版本），且时间戳
-被无谓推高、远程同步白拉一遍。
+`scripts/bump-registry-last-updated.mjs` 无参 = 「盖 git 变更（含 untracked）的 registry json」，共享 checkout 上 `git status` 里的脏文件含**别的会话未提交的改动**——commandcode-goat 轮另一会话在改 litellm/openrouter（4331 个文件），无参跑把 8709 个文件全部重盖戳。盖戳内容中性（只动 last_updated 时间戳），但别人的 commit 会无声带上你的盖戳 diff（「误扫」的无害化版本），且时间戳被无谓推高、远程同步白拉一遍。
 
-- **无参盖戳前先 `git status --short` 核对脏文件集**：全是自己的 → 直接跑；混有他人文件 →
-  等对方收工，或跑完**当场告知对方**「你的脏 registry 文件被盖了戳」并把自己 commit 严格限路径
-  （硬规则 1）。
-- 判据同 registry-data-edit.md「以输出数字为准」：输出「N 个文件已盖戳」的 N 远超自己的改动集
-  时，先 `git diff -- <他人文件>` 核对只有时间戳一行变化，再继续。
+- **无参盖戳前先 `git status --short` 核对脏文件集**：全是自己的 → 直接跑；混有他人文件 → 等对方收工，或跑完**当场告知对方**「你的脏 registry 文件被盖了戳」并把自己 commit 严格限路径（硬规则 1）。
+- 判据同 registry-data-edit.md「以输出数字为准」：输出「N 个文件已盖戳」的 N 远超自己的改动集时，先 `git diff -- <他人文件>` 核对只有时间戳一行变化，再继续。
 
 ## commit -m 双引号里的 `$` 会被 shell 展开（2026-10-15）
 
-registry-refresh 轮：`git commit -m "…$0.10/$0.50…"` 中两个 `$0` 均被 zsh
-展开成 `/bin/zsh`，message 变成「/bin/zsh.10//bin/zsh.50」，两条 commit 均中招，
-后经用户授权 rebase 改回。`$0` 这类位置性参数展开**不报错**，静默进历史——
-价格类 commit message 高频带 `$数字`，是重灾区。
-
-- 带 `$` 的 commit message 一律单引号 `'…'`，或写临时文件后 `git commit -F <file>`。
-- commit 后看一眼 git 输出首行摘要核对 message 原样落盘。
+registry-refresh 轮：`git commit -m "…$0.10/$0.50…"` 中两个 `$0` 均被 zsh 展开成 `/bin/zsh`，message 变成「/bin/zsh.10//bin/zsh.50」，两条 commit 均中招，后经用户授权 rebase 改回。`$0` 这类位置性参数展开**不报错**，静默进历史——价格类 commit message 高频带 `$数字`，是重灾区。带 `$` 的 commit message 一律单引号 `'…'`，或写临时文件后 `git commit -F <file>`；commit 后看一眼 git 输出首行摘要核对 message 原样落盘。
 
 ## 别的会话当天 commit 改夹具，绿门禁中途变红（2026-10-18）
 
-整仓审计收官全量门禁时 hooks 测试转红，本 session 的 diff 不碰它。根因：另一会话
-2a17cc818 给 `src-tauri/defaults/settings.json` 加了用户 hooks（tracking_progress
-等），测试断言「remove 后 hooks.Stop 键消失」随之过时——夹具语义变了，断言没跟。
-主会话按 parallel-implement.md「基线红只由主会话修一次」收敛断言为「aidog hook
-项已清」（9d085a726），不删别人夹具里的用户 hook。
+整仓审计收官全量门禁时 hooks 测试转红，本 session 的 diff 不碰它。根因：另一会话 2a17cc818 给 `src-tauri/defaults/settings.json` 加了用户 hooks（tracking_progress 等），测试断言「remove 后 hooks.Stop 键消失」随之过时——夹具语义变了，断言没跟。主会话按 parallel-implement.md「基线红只由主会话修一次」收敛断言为「aidog hook 项已清」（9d085a726），不删别人夹具里的用户 hook。
 
-- **排查中途新红先看夹具的近期提交**：`git log --oneline -5 -- <测试断言涉及的
-  夹具文件>`，别的会话当天改过就先归因到它，不在自己 diff 里翻（perf-testing.md
-  §6「按理已删的函数出现在 profile 里」同模式：先核实环境，再怀疑自己）。
-- 共享 checkout 上「开工时跑过全绿」不能保证收官时还绿——夹具、默认配置
-  （defaults/*.json）、门禁脚本本身都可能被并行会话推进。修法守基线红纪律：
-  主会话修一次、修断言不改别人夹具、commit 里注明夹具来源（9d085a726 的
-  "defaults now ships user hooks" 即此）。
+- **排查中途新红先看夹具的近期提交**：`git log --oneline -5 -- <测试断言涉及的夹具文件>`，别的会话当天改过就先归因到它，不在自己 diff 里翻（perf-testing.md §6「按理已删的函数出现在 profile 里」同模式：先核实环境，再怀疑自己）。
+- 共享 checkout 上「开工时跑过全绿」不能保证收官时还绿——夹具、默认配置（defaults/*.json）、门禁脚本本身都可能被并行会话推进。修法守基线红纪律：主会话修一次、修断言不改别人夹具、commit 里注明夹具来源（9d085a726 的 "defaults now ships user hooks" 即此）。
 
 ## 共享 $TMPDIR 固定名 fixture：格式变更后跨 worktree 互踩从无害变致命（2026-10-20）
 
-`test_rw_pool` 的两文件测试把主库存 `temp_dir()` 根，伴生库 log.db / platform.db
-由 `Db` 派生逻辑落在 `$TMPDIR` 顶层固定名（无 pid 后缀，清理循环也不删）。明文
-时代两个 worktree 并发跑测试，后写者覆盖先写者的文件，恰好无害；SQLCipher 整库
-加密后该文件变成加密库，plain worktree 的 `Db::new` 直接打不开——跨 worktree
-并发测试互踩从「碰巧无害」变「随机测试红」（00627eb41 改 `tempfile::tempdir()`
-修）。
+`test_rw_pool` 的两文件测试把伴生库 log.db / platform.db 落在 `$TMPDIR` 顶层固定名（无 pid 后缀，清理循环也不删）。明文时代两个 worktree 并发跑测试，后写者覆盖先写者的文件，恰好无害；SQLCipher 整库加密后该文件变成加密库，plain worktree 的 `Db::new` 直接打不开——跨 worktree 并发测试互踩从「碰巧无害」变「随机测试红」（00627eb41 改 `tempfile::tempdir()` 修）。
 
-- **测试 fixture 的 DB / 文件路径必须进程级唯一**（`tempfile::tempdir()` 或带
-  pid + 随机后缀），禁 `$TMPDIR` 顶层固定名。判据：换台机器并发跑两个 checkout，
-  你的 fixture 文件名会不会撞。
-- 「无害的共享」是格式决定的，不是结构决定的：做格式/编码变更类 spec（加密、
-  序列化格式、schema 迁移）时把 fixture 路径列进审查面——上一代认为安全的共享，
-  在格式变更后会变致命。
-- 排查这类红的对照法：隔离 `TMPDIR`（`TMPDIR=$(mktemp -d) cargo test ...`）全绿、
-  真 `$TMPDIR` 偶发红 = fixture 互踩实锤，不是 flaky。
+- **测试 fixture 的 DB / 文件路径必须进程级唯一**（`tempfile::tempdir()` 或带 pid + 随机后缀），禁 `$TMPDIR` 顶层固定名。判据：换台机器并发跑两个 checkout，你的 fixture 文件名会不会撞。
+- 「无害的共享」是格式决定的，不是结构决定的：做格式/编码变更类 spec（加密、序列化格式、schema 迁移）时把 fixture 路径列进审查面——上一代认为安全的共享，在格式变更后会变致命。
+- 排查这类红的对照法：隔离 `TMPDIR`（`TMPDIR=$(mktemp -d) cargo test ...`）全绿、真 `$TMPDIR` 偶发红 = fixture 互踩实锤，不是 flaky。
 
 ## harness `isolation: worktree` 的 worktree 收工清理：先 unlock 再 remove（2026-10-28）
 
-harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git worktree remove`
-被 locked 拒删。清理两步：`/usr/bin/git worktree unlock <path>` 后 `remove --force`；
-建/删/查照旧全走 `/usr/bin/git` 直跑（见上文 rtk 条）。
+harness 隔离建的 agent worktree 自带 lock，收工直接 `/usr/bin/git worktree remove` 被 locked 拒删。清理两步：`/usr/bin/git worktree unlock <path>` 后 `remove --force`；建/删/查照旧全走 `/usr/bin/git` 直跑（见上文 rtk 条）。
 
 ## 共享 checkout 合回 master：只挪指针，不 stash 外来脏文件（2026-10-29 计费线收官）
 
-工作区带别的会话的脏文件（如 `src-tauri/defaults/registry/index.json` 盖戳）时，
-集成分支回 master 的 `stash → checkout master → merge → pop` 会连别人的改动一起
-搬动，用户当场拒绝。做法：
+工作区带别的会话的脏文件（如 `src-tauri/defaults/registry/index.json` 盖戳）时，集成分支回 master 的 `stash → checkout master → merge → pop` 会连别人的改动一起搬动，用户当场拒绝。做法：
 
-1. 核对 master 是集成分支祖先：`/usr/bin/git merge-base --is-ancestor master <分支>`
-   退出码 0 才可快进。
-2. 按当前分支二选一：
-   - 当前不在 master → `/usr/bin/git fetch . <分支>:master`（只挪指针，不动工作区）；
-   - 当前就在 master → `/usr/bin/git merge --ff-only <分支>`（脏文件与合入内容不重叠才可用）。
-3. 切回 master 前确认脏文件在两边内容相同（`git diff <分支> master --stat -- <脏文件>`
-   为空），checkout 才不会碰它们。本步只适用于第一种（当前不在 master）。
+1. 核对 master 是集成分支祖先：`/usr/bin/git merge-base --is-ancestor master <分支>` 退出码 0 才可快进。
+2. 按当前分支二选一：当前不在 master → `/usr/bin/git fetch . <分支>:master`（只挪指针，不动工作区）；当前就在 master → `/usr/bin/git merge --ff-only <分支>`（脏文件与合入内容不重叠才可用）。
+3. 切回 master 前确认脏文件在两边内容相同（`git diff <分支> master --stat -- <脏文件>` 为空），checkout 才不会碰它们。本步只适用于第一种（当前不在 master）。
 4. 收尾 `/usr/bin/git status --short` 核对脏文件原样还在。
 
 ## 推送只走 origin（2026-10-29）
 
-历史：`no-mistakes` 远端（目录 `/Users/luoxin/.no-mistakes/repos/9d3abbd5e514.git` 已不存在）
-已于 2026-10-29 `git remote remove`。现行做法：推送只走 `origin`（GitHub `lazygophers/aidog`），
-先 `git fetch origin && git rev-list --left-right --count origin/master...master`，左边为 0
-（纯快进）才 `git push origin master`；origin 是公开远端，推送前仍按全局规则向用户确认一次。2026-11-06 起不主动推送；2026-11-15 起 issue 工作分支例外（见下节），其余分支（含 master）仍只在用户当轮明说时按上述快进检查推送。
+历史：`no-mistakes` 远端（目录 `/Users/luoxin/.no-mistakes/repos/9d3abbd5e514.git` 已不存在）已于 2026-10-29 `git remote remove`。现行做法：推送只走 `origin`（GitHub `lazygophers/aidog`），先 `git fetch origin && git rev-list --left-right --count origin/master...master`，左边为 0（纯快进）才 `git push origin master`；origin 是公开远端，推送前仍按全局规则向用户确认一次。2026-11-06 起不主动推送；2026-11-15 起 issue 工作分支例外（见下节），其余分支（含 master）仍只在用户当轮明说时按上述快进检查推送。
 
-PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-11-14 issue 61 轮实锤：本地 master
-领先 origin 19 提交，从本地 HEAD 开的 PR 分支带 7 个他线未推送提交，直推会把它们借 PR 发上 origin）；
-单提交用 cherry-pick；push 前核 `git rev-list --count origin/master..<分支>`，只含本任务提交才推。
-全局 git-worktree.md「所有开发基于 origin/master」缺「push 前核提交数」这步，本条补齐（仅项目级）。
-2026-11-15 依赖更新轮复发同病：`git fetch` DNS 失败后改基于**本地** master 建分支，把主仓未推送提交带进
-PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可；未能取得 `origin/master` 时，不建分支、不开工。
-2026-11-15 issue 68 轮记录：直连 push 两次 DNS 解析失败，改经本机 7890 代理后成功（PUSH_EXIT=0）。这是该次环境的结果，不构成其他环境或错误类型的操作建议。
+PR 分支同此：**从 `origin/master` 开分支，不从本地 HEAD**（2026-11-14 issue 61 轮实锤：本地 master 领先 origin 19 提交，从本地 HEAD 开的 PR 分支带 7 个他线未推送提交，直推会把它们借 PR 发上 origin）；单提交用 cherry-pick；push 前核 `git rev-list --count origin/master..<分支>`，只含本任务提交才推。全局 git-worktree.md「所有开发基于 origin/master」缺「push 前核提交数」这步，本条补齐（仅项目级）。2026-11-15 依赖更新轮复发同病：`git fetch` DNS 失败后改基于**本地** master 建分支，把主仓未推送提交带进 PR（事后 rebase 修复）——fetch 失败不是回落本地 master 的许可；未能取得 `origin/master` 时，不建分支、不开工。2026-11-15 issue 68 轮记录：直连 push 两次 DNS 解析失败，改经本机 7890 代理后成功（PUSH_EXIT=0）。这是该次环境的结果，不构成其他环境或错误类型的操作建议。
 
 ## 授权推送只推到授权时的 sha（2026-11-15）
 
@@ -424,24 +195,20 @@ PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可�
 1. 分支从 `origin/master` 开，命名 `issue-<编号>-<短slug>`；worktree 路径 `<仓库根>/.worktrees/issue-<编号>-<短slug>`。建/删/查走 `/usr/bin/git` 直跑（见「rtk 包装」节），建完 `rev-parse --show-toplevel` 验一次。
 2. push 该分支到 origin + 创建 PR 永久授权（CLAUDE.md git 授权条）；push 前核 `git rev-list --count origin/master..<分支>` 只含本 issue 提交（「推送只走 origin」节的快进检查照跑）。master 与非 issue 分支不在授权内。
 3. PR 仅在该 issue 验收标准全部满足后创建；PR 合并（验收满足后）无需逐次确认，合并回 master 在主仓做，照「共享 checkout 合回 master」节只挪指针、不动工作区脏文件。
-4. 多 issue 并行 = 多 worktree，共用 `<项目根>/.worktrees/.target` 独立 target；同刻只允许一个 cargo（见「构建目录」节）。
+4. 多 issue 并行时，每个 worktree 使用自己的 `<worktree>/target`，无需等待其他 worktree 的 cargo；构建前检查磁盘余量（见「构建目录」节）。
 5. PR 合入或废弃后清理 worktree 与分支（全局 `~/.claude/rules/worktree/git-worktree.md`「分支合入或废弃后清理」）。
 6. 清理 worktree 前把评审与门禁证据日志移出存档到主仓 `.tmp/pr-<PR号>/`，再删 worktree（2026-11-15~16 epic #67 轮 #171/#177/#179 三轮照此跑通；gate 日志留在 worktree 内，删 worktree 即丢证据）。
 
 ## 多个 agent 同时动主 checkout 的 master：串行（2026-10-29）
 
-合并 agent 与文档 commit agent 同时操作主仓 master，出现 `ff-only` 失败（master 已被
-5b6788efe 推进）和瞬时 `.git/index.lock`。
+合并 agent 与文档 commit agent 同时操作主仓 master，出现 `ff-only` 失败（master 已被 5b6788efe 推进）和瞬时 `.git/index.lock`。
 
-- 凡写主 checkout（merge / commit / 改 master 指针）的 agent 串行派；默认实现也直接在主 checkout
-  串行做（见文首「默认」）；确需并行的实现才留在各自 worktree，只在合并阶段排队进主仓。
-- ff-only 失败且双方无冲突：改 `merge --no-ff`（使 `branch -d` 仍可删，不用 rebase 改写历史、
-  不用 cherry-pick 后 `-D`）。
+- 凡写主 checkout（merge / commit / 改 master 指针）的 agent 串行派；默认实现也直接在主 checkout 串行做（见文首「默认」）；确需并行的实现才留在各自 worktree，只在合并阶段排队进主仓。
+- ff-only 失败且双方无冲突：改 `merge --no-ff`（使 `branch -d` 仍可删，不用 rebase 改写历史、不用 cherry-pick 后 `-D`）。
 
 ## 取「先红」不要 stash/pop；共享 checkout 上 lint 中途红先看红文件归属（2026-11-09）
 
-隐私脱敏线：票 01 agent 为拿先红输出对共享 checkout 做 `git stash` / `pop`（已恢复，但同工作区有并行 agent 的脏文件，stash 会一并搬走）。
-同线 `make lint` 两次转红，红点都在另一票在途文件（`middleware_body.rs`、`test_integration.rs`），与本票 diff 无关。
+隐私脱敏线：票 01 agent 为拿先红输出对共享 checkout 做 `git stash` / `pop`（已恢复，但同工作区有并行 agent 的脏文件，stash 会一并搬走）。同线 `make lint` 两次转红，红点都在另一票在途文件（`middleware_body.rs`、`test_integration.rs`），与本票 diff 无关。
 
 - 先红用「先加桩使其编译，再跑断言红」，或「改坏实现→红→按行号还原」（parallel-implement.md §18）；禁在共享 checkout 上 stash。
 - lint / tsc 红先 `git status --short` 对照：红文件在他人脏文件集里 = 等其收工再复核，回报写明「红在他票在途文件」，不替对方修、不 stash 绕开。
@@ -449,9 +216,7 @@ PR（事后 rebase 修复）。fetch 失败不是回落本地 master 的许可�
 
 ## 开工前核对索引：暂存区里不明来源的文件不动（2026-11-09）
 
-网关提示头线：一个 agent 开工发现索引里已躺着 5 个文件，不知谁暂存的。
-
-- 开工与提交前各跑一次 `/usr/bin/git diff --cached --stat`；不是自己暂存的文件不 `reset`、不带进提交（提交用 `git commit -- <路径>` 或先 `git apply --cached` 只暂存自己的 hunk），回报写明文件清单与「来源不明」。
+网关提示头线：一个 agent 开工发现索引里已躺着 5 个文件，不知谁暂存的。开工与提交前各跑一次 `/usr/bin/git diff --cached --stat`；不是自己暂存的文件不 `reset`、不带进提交（提交用 `git commit -- <路径>` 或先 `git apply --cached` 只暂存自己的 hunk），回报写明文件清单与「来源不明」。
 
 ## 在用 worktree 会被其他会话清理：阶段性 commit（2026-11-15 PR #159 修正轮）
 
@@ -468,7 +233,6 @@ fix-159 agent 的 worktree `.worktrees/fix/char-second-est-cost` 与本地分支
 - **预检查的是「分支相对 origin/master 只含自己的提交」，不是「origin/master 是分支祖先」**：写预检条件前对照「推送只走 origin」节的既有判据，不发明新的祖先关系条件。
 - 预检因 origin/master 前进失败时的正解：`git fetch origin && git merge origin/master`（进分支）解冲突后重跑预检再 push；这不是 push 禁令的例外，是预检失败的标准处置。本地 master 领先 origin 的 ff-only 同步失败属正常（见「多个 agent 同时动主 checkout 的 master」节），留待 master 管理方处理。
 
-
 ## 隔离构建期间 `make lint` 仍会在主 target 上不取锁跑 clippy（2026-11-22 中文字面量门禁轮）
 
 agent 等 `/tmp/aidog-cargo.lock` 超 30 分钟（他会话自 00:53 持有），按「构建目录」节改走 detach worktree + `target-iso` 跑 clippy / test，绿后删 10G target-iso。但 `make lint` 内含 `cargo clippy --workspace`（`Makefile:108`），照常在主仓 `src-tauri/target` 上不经锁执行。
@@ -478,6 +242,4 @@ agent 等 `/tmp/aidog-cargo.lock` 超 30 分钟（他会话自 00:53 持有）�
 
 ## commit message 里的计数取自命令输出（2026-11-23 eb212248f）
 
-agent 提交正文写「45 处改半角」，实际 47 处（53 = 47 + 4 + 2）；提交后才发现，按禁改历史未 amend，只能记账本遗留。
-
-- 正文里的处数 / 文件数 / 测试数从本轮脚本输出或 `git diff --cached --stat` 抄，各分项相加核对总数后再提交。
+agent 提交正文写「45 处改半角」，实际 47 处（53 = 47 + 4 + 2）；提交后才发现，按禁改历史未 amend，只能记账本遗留。正文里的处数 / 文件数 / 测试数从本轮脚本输出或 `git diff --cached --stat` 抄，各分项相加核对总数后再提交。

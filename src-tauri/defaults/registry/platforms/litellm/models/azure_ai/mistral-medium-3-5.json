@@ -6,7 +6,7 @@
   "model_id": "azure_ai/mistral-medium-3-5",
   "canonical_model": "mistral-medium-3-5",
   "family": "mistral",
-  "version": "3",
+  "version": "3.5",
   "capabilities": [
     "text",
     "vision"

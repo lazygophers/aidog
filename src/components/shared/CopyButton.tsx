@@ -109,6 +109,7 @@ export function CopyButton({
         setHovered(false);
       } : undefined}
       title={title || text}
+      aria-label={title || label || text}
       style={{ position: "relative", flexShrink: 0, height: "auto", gap: hasContent ? 5 : 0, fontSize: hasContent ? 12 : undefined, padding: hasContent ? "4px 10px" : undefined }}
     >
       {icon ? icon : copied ? (

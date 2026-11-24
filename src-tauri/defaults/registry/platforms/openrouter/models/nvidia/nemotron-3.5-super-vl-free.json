@@ -2,7 +2,7 @@
   "last_updated": 1795488926,
   "model_id": "nvidia/nemotron-3.5-super-vl:free",
   "canonical_model": "nemotron-3.5-super-vl",
-  "family": "nvidia",
+  "family": "nemotron",
   "display_name": "NVIDIA: Nemotron 3.5 Super VL (free)",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
