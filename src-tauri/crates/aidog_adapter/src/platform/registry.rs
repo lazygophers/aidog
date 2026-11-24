@@ -1695,6 +1695,34 @@ pub struct AnthropicFamilyAdapter;
 impl PlatformAdapter for AnthropicFamilyAdapter {}
 
 static GENERIC: GenericAdapter = GenericAdapter;
+
+/// SenseNova（商汤日日新）家族基座（issue 81；成员 sensenova / sensenova_en 共用，成员差异见子 issue #131 / #132）。
+///
+/// 家族共性取证（核对日期 2026-11-24）：
+/// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
+///   `sensenova` openai `https://token.sensenova.cn/v1` + anthropic `https://token.sensenova.cn`；
+///   `sensenova_en` openai `https://token.sensenova.ai/v1` + anthropic `https://token.sensenova.ai`。
+///   https://github.com/lazygophers/aidog/issues/81（票面端点表）
+/// - 官方文档站 https://platform.sensenova.cn 与 https://platform.sensenova.ai/docs 为客户端渲染 SPA，
+///   raw curl 无正文、无 sitemap / openapi.json / llms.txt，抓取不到文档原文；直连 API 网关
+///   `token.sensenova.cn` / `token.sensenova.ai` 的一手探测（curl，2026-11-24）：
+///   `POST /v1/chat/completions` 与 `POST /v1/messages` 未带鉴权时均返回 HTTP 401
+///   （仅证明网关要求鉴权；未对照过假路径的 401 差异，不证实路由命中，更不证实 wire 协议）；
+///   错误体形状 `{"error":{"code":16,"message":"Authorization Not Found"}}`（数字 gRPC 风格 code，
+///   `{"code":5,"message":"NOT_FOUND","details":[]}` 404 形）；`GET /v1/models` 返回 401
+///   （同上，仅证明要求鉴权，不证实该端点存在）。
+/// - 请求字段、思考参数、工具调用、图片多模态、system、usage（含缓存 token）、流式事件：
+///   文档抓取不到，全部未证实，保持 trait 默认（与 GenericAdapter 同形）。
+/// - 错误体：实锤与 OpenAI 标准形状（`error.type` 字符串）不同——数字 `code` + `message`；
+///   但框架 `classify_upstream_error` 读 error.message/code/type，message 文本仍可参与分类，
+///   数字 code 的映射语义未证实，不扩展错误分类，保持框架默认。
+///
+/// 结论：官方文档不可抓取，无可证实的家族级覆写；两成员继承 trait 默认实现。
+pub struct SenseNovaFamilyAdapter;
+
+impl PlatformAdapter for SenseNovaFamilyAdapter {}
+
+static SENSENOVA: SenseNovaFamilyAdapter = SenseNovaFamilyAdapter;
 static OPENAI: OpenAIFamilyAdapter = OpenAIFamilyAdapter;
 static ANTHROPIC_FAMILY: AnthropicFamilyAdapter = AnthropicFamilyAdapter;
 static COMPSHARE: CompshareFamilyAdapter = CompshareFamilyAdapter;
@@ -1788,8 +1816,8 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("pipellm", &GENERIC),
     ("qianfan", &QIANFAN),
     ("qianfan_coding", &QIANFAN),
-    ("sensenova", &GENERIC),
-    ("sensenova_en", &GENERIC),
+    ("sensenova", &SENSENOVA),
+    ("sensenova_en", &SENSENOVA),
     ("shengsuanyun", &GENERIC),
     ("siliconflow", &SILICONFLOW),
     ("siliconflow_en", &SILICONFLOW),
@@ -1961,6 +1989,24 @@ mod compshare_family_tests {
             body["generationConfig"]["thinkingConfig"],
             serde_json::json!({"thinkingBudget": 0})
         );
+    }
+}
+
+#[cfg(test)]
+mod sensenova_family_tests {
+    use super::*;
+
+    /// 两成员注册了同一家族基座单例，不再回落通用适配（GENERIC 与 deepseek 等平台共享）。
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let cn = lookup("sensenova").expect("SenseNova adapter must be registered");
+        let en = lookup("sensenova_en").expect("SenseNova En adapter must be registered");
+
+        assert!(std::ptr::eq(cn, en));
+        // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
+        assert!(!std::ptr::eq(cn, adapter_for("deepseek")));
+        assert!(!std::ptr::eq(en, adapter_for("deepseek")));
+        assert!(!std::ptr::eq(cn, adapter_for("openai")));
     }
 }
 

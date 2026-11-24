@@ -12296,6 +12296,222 @@ async fn anthropic_family_forwards_messages_and_records_cache_usage() {
     assert!(log.done, "successful Anthropic response must be terminal");
 }
 
+/// issue 81：SenseNova（商汤日日新）家族基座。成员 `sensenova` / `sensenova_en` 共用
+/// `SenseNovaFamilyAdapter`；两成员 × openai / anthropic 两 wire（与 registry 内置默认端点对应）
+/// 走真实代理与本地假上游，禁真实外呼。端点组 setup 复用家族通用的
+/// `setup_compshare_wire_group`（按 platform_type + wire 建平台与分组，与成员无关）。
+async fn setup_sensenova_wire_group(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    platform_type: Protocol,
+    wire: Protocol,
+    base_url: &str,
+) {
+    setup_compshare_wire_group(state, gk, platform_type, wire, base_url).await;
+}
+
+/// 两成员 × openai wire：流式 / 非流式转发、usage 落库、上游 400 错误透传 + proxy_log 终态；
+/// 非流式成功路径用记录型假上游断言 model / messages 到达上游（对齐 OpenCode 先例；
+/// 流式记录型 helper 只回 JSON content-type，喂不了 SSE，仍用 unified）。
+#[tokio::test]
+async fn sensenova_family_members_forward_openai_wire_with_usage_and_errors() {
+    const CHAT_OK: &str = r#"{"id":"chatcmpl-sensenova","object":"chat.completion","created":0,"model":"nova-2","choices":[{"index":0,"message":{"role":"assistant","content":"sensenova-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}"#;
+    const CHAT_SSE: &str = "data: {\"id\":\"chatcmpl-sensenova\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"nova-2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"sensenova-family-stream\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-sensenova\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"nova-2\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":2,\"total_tokens\":5}}\n\ndata: [DONE]\n\n";
+    const UPSTREAM_ERROR: &str =
+        r#"{"error":{"code":1,"message":"sensenova-family-error"}}"#;
+
+    for (member, platform) in [("cn", Protocol::SenseNova), ("en", Protocol::SenseNovaEn)] {
+        for streaming in [false, true] {
+            let content_type = if streaming {
+                "text/event-stream"
+            } else {
+                "application/json"
+            };
+            let body = if streaming { CHAT_SSE } else { CHAT_OK };
+            let (upstream_url, success_requests) = if streaming {
+                (spawn_unified_upstream(200, content_type, body).await, None)
+            } else {
+                let (u, r) = spawn_recording_response_upstream(200, CHAT_OK).await;
+                (u, Some(r))
+            };
+            let state = make_state(test_db().await).await;
+            let gk = format!("gksensenova{member}{streaming}");
+            setup_sensenova_wire_group(
+                &state,
+                &gk,
+                platform.clone(),
+                Protocol::OpenAI,
+                &upstream_url,
+            )
+            .await;
+            let request_body = serde_json::json!({
+                "model": "nova-2",
+                "messages": [{"role": "user", "content": "family request"}],
+                "stream": streaming,
+                "stream_options": {"include_usage": true}
+            });
+            let request = HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap();
+            let response = handle_proxy(AxumState(state.clone()), request).await;
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "{member}, streaming={streaming}"
+            );
+            let response = axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            let response = String::from_utf8(response.to_vec()).unwrap();
+            assert!(response.contains(if streaming {
+                "sensenova-family-stream"
+            } else {
+                "sensenova-family-ok"
+            }));
+            if streaming {
+                assert!(response.contains("[DONE]"));
+            }
+            let log = only_log_of(&state, &gk).await;
+            assert_eq!(
+                (log.input_tokens, log.output_tokens),
+                (3, 2),
+                "{member}, streaming={streaming}"
+            );
+            assert!(log.done, "{member}, streaming={streaming}");
+            if let Some(requests) = &success_requests {
+                let captured = requests.lock().unwrap().clone();
+                assert_eq!(
+                    captured.len(),
+                    1,
+                    "{member}: request must reach fake upstream"
+                );
+                assert!(
+                    captured[0].0.ends_with("/chat/completions"),
+                    "{member}: {}",
+                    captured[0].0
+                );
+                let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+                assert_eq!(sent["model"], "nova-2", "{member}");
+                assert_eq!(sent["messages"][0]["content"], "family request", "{member}");
+            }
+        }
+
+        let (error_upstream, error_requests) =
+            spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gksensenova{member}error");
+        setup_sensenova_wire_group(
+            &state,
+            &gk,
+            platform.clone(),
+            Protocol::OpenAI,
+            &error_upstream,
+        )
+        .await;
+        let request_body =
+            r#"{"model":"nova-2","messages":[{"role":"user","content":"family error"}]}"#;
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{member}");
+        let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&response_body).contains("sensenova-family-error"),
+            "{member}"
+        );
+        let captured = error_requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1, "{member}");
+        assert!(
+            captured[0].0.ends_with("/chat/completions"),
+            "{member}: {}",
+            captured[0].0
+        );
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["model"], "nova-2");
+        assert_eq!(sent["messages"][0]["content"], "family error");
+        let error_log = only_log_of(&state, &gk).await;
+        assert_eq!(
+            error_log.status_code,
+            StatusCode::BAD_REQUEST.as_u16() as i32,
+            "{member}"
+        );
+        assert!(error_log.done, "{member}: upstream error must be terminal");
+    }
+}
+
+/// 两成员 × anthropic wire：Messages 转发、缓存 usage（cache_read / cache_write）落库、
+/// 请求头（x-api-key / anthropic-version）与 body 到达上游。
+#[tokio::test]
+async fn sensenova_family_anthropic_wire_forwards_messages_and_cache_usage() {
+    const RESPONSE: &str = r#"{"id":"msg-sensenova","type":"message","role":"assistant","model":"nova-2","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":4}}"#;
+
+    for (member, platform) in [("cn", Protocol::SenseNova), ("en", Protocol::SenseNovaEn)] {
+        let (upstream, requests) = spawn_recording_response_upstream(200, RESPONSE).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gksensenovaanthropic{member}");
+        setup_sensenova_wire_group(
+            &state,
+            &gk,
+            platform.clone(),
+            Protocol::Anthropic,
+            &upstream,
+        )
+        .await;
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/messages")
+                .header("content-type", "application/json")
+                .header("anthropic-version", "2023-06-01")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(
+                    r#"{"model":"nova-2","max_tokens":64,"system":"system prompt","messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"tools":[{"name":"lookup","input_schema":{"type":"object"}}]}"#,
+                ))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK, "{member}");
+
+        let captured = requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1, "{member}: request must reach fake upstream");
+        assert!(
+            captured[0].0.ends_with("/v1/messages"),
+            "{member}: {}",
+            captured[0].0
+        );
+        assert_eq!(captured[0].2.get("x-api-key").unwrap(), "sk-up", "{member}");
+        assert_eq!(
+            captured[0].2.get("anthropic-version").unwrap(),
+            "2023-06-01",
+            "{member}"
+        );
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["model"], "nova-2", "{member}");
+        assert_eq!(sent["system"], "system prompt", "{member}");
+        assert_eq!(sent["tools"][0]["name"], "lookup", "{member}");
+
+        let log = only_log_of(&state, &gk).await;
+        assert_eq!((log.input_tokens, log.output_tokens), (7, 3), "{member}");
+        assert_eq!((log.cache_tokens, log.cache_write_tokens), (2, 4), "{member}");
+        assert!(log.done, "{member}: successful response must be terminal");
+    }
+}
+
 #[tokio::test]
 async fn compshare_family_members_forward_stream_and_nonstream_on_openai_wire() {
     const CHAT_OK: &str = r#"{"id":"chatcmpl-compshare","object":"chat.completion","created":0,"model":"glm-5.3","choices":[{"index":0,"message":{"role":"assistant","content":"compshare-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#;
