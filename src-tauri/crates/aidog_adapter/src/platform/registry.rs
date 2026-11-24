@@ -1574,6 +1574,38 @@ pub struct OpenCodeFamilyAdapter;
 
 impl PlatformAdapter for OpenCodeFamilyAdapter {}
 
+/// OpenAI 官方家族基座（issue 90；成员 openai / codex 共用，成员差异见后续 issue）。
+///
+/// 官方文档核对日期：2026-11-23。
+/// - OpenAI API reference 将 Responses API 列为文本、图像与工具调用首选接口；请求含 `model`、`input`，
+///   可选 `instructions`、`stream`、`tools`、`tool_choice`、`reasoning.effort`；本文仅记录 schema，
+///   框架现有转换器负责协议映射。https://platform.openai.com/docs/api-reference
+///   https://developers.openai.com/api/reference/resources/responses/methods/create.md
+/// - Codex 文档说明 Codex 是 OpenAI 编码 agent；未证实 Codex 服务端对网关请求有额外字段约定，
+///   因此沿用协议构件默认行为。https://platform.openai.com/docs/codex
+/// - Chat Completions 的请求 / 响应以及参数默认值按 API reference；`stream` 默认值、不同模型参数支持范围，
+///   以及 system/developer 消息、工具调用与图片具体限制依模型而异。基座不覆写请求构造。
+///   https://platform.openai.com/docs/api-reference
+/// - reasoning：Responses 接口用 `reasoning.effort`，文档列 none / minimal / low / medium / high / xhigh / max；
+///   Chat Completions 的 reasoning 字段依模型而异。基座不猜测转换之外的默认值。
+///   https://developers.openai.com/api/reference/resources/responses/methods/create.md
+/// - usage：Chat Completions `prompt_tokens_details.cached_tokens`；Responses `input_tokens_details.cached_tokens`、
+///   `cache_write_tokens`。现有 usage extractor 已识别两臂并扣除计入 input 的缓存 token。
+///   https://developers.openai.com/api/reference/resources/responses/methods/create.md
+/// - Responses SSE 使用 `response.output_text.delta` 等事件，终帧 `response.completed` 携带 usage；现有
+///   converter 按 Responses 事件结构解析。https://developers.openai.com/api/reference/resources/responses/methods/create.md
+/// - 错误对象字段 `type`、`message`、`param`、`code`；OpenAI 错误指南列出 HTTP 错误处理，框架已有解析。
+///   https://developers.openai.com/api/reference/resources/responses/methods/create.md
+///   https://platform.openai.com/docs/guides/error-codes
+/// - Codex API 独有的错误形状、缓存 token 计量语义以及 Chat Completions 的逐模型默认值未证实，保持框架默认。
+///
+/// 两成员无可证实的网关覆写；均继承协议构件默认实现。
+///
+/// 官方未证实项不外推；本适配器保持空实现。
+pub struct OpenAIFamilyAdapter;
+
+impl PlatformAdapter for OpenAIFamilyAdapter {}
+
 /// Cline 家族基座（issue 86；成员 cline / cline_pass 共用，成员差异见 issue 143 / 144）。
 ///
 /// 家族共性取证（官方文档，核对日期 2026-11-23）：
@@ -1619,7 +1651,53 @@ impl PlatformAdapter for ClineFamilyAdapter {
     }
 }
 
+/// Anthropic 家族基座（issue 89；成员 anthropic / claude_code 共用，成员差异见各成员 issue）。
+///
+/// 官方文档核对日期：2026-11-23。
+/// - 协议与端点（`anthropic`）：Messages API `POST /v1/messages`，`model` 与 `messages`
+///   必填、`max_tokens` 必填；默认 base_url `https://api.anthropic.com`。鉴权头
+///   `x-api-key`，版本头 `anthropic-version: 2023-06-01`（网关 build_upstream_headers /
+///   headers.rs 名单已带）。https://docs.anthropic.com/en/api/messages
+///   https://docs.anthropic.com/en/api/overview
+/// - 思考：`thinking` 配置 `{"type":"enabled","budget_tokens":≥1024}` / `{"type":"disabled"}`
+///   （另有 `adaptive` / `between_tools`，模型相关）；thinking 块须原样回传，篡改返回
+///   400 invalid_request_error。与框架 hooks / converter 现行为一致，无家族覆写。
+///   https://docs.anthropic.com/en/api/messages
+/// - 工具调用：`tools[]`（name/input_schema/description）+ `tool_choice`；响应
+///   `tool_use` / `tool_result` 块。框架 converter anthropic 臂已覆盖，无覆写。
+///   https://docs.anthropic.com/en/api/messages
+/// - 图片多模态：`source.type = "base64" | "url"` 的 `image` 内容块。converter 已支持，
+///   无覆写。https://docs.anthropic.com/en/api/messages
+/// - system：顶层 `system` 字符串或内容块数组（可带 `cache_control`）。converter 已支持。
+/// - usage：`input_tokens` / `output_tokens` + 缓存 `cache_read_input_tokens` /
+///   `cache_creation_input_tokens`（细粒度 `cache_creation.ephemeral_5m/1h_input_tokens`）
+///   + 按次 `server_tool_use`。框架 `usage.rs` `usage_cache_arms` anthropic 臂已按官方
+///     语义采集（input 不含缓存、扁平 creation 记 5m 桶），无覆写。
+///     https://docs.anthropic.com/en/api/messages
+/// - 流式：SSE `message_start` / `content_block_start` / `content_block_delta`
+///   （text_delta / input_json_delta / thinking_delta / signature_delta）/
+///   `content_block_stop` / `message_delta`（带累积 usage.output_tokens）/ `message_stop`，
+///   `data: [DONE]` 不发（以 message_stop 结束）。converter `parse_sse` anthropic 臂已覆盖。
+///   https://docs.anthropic.com/en/api/messages
+/// - 错误体：`{"type":"error","error":{"type":"<error type>","message":"..."}}`，状态码
+///   400/401/403/404/405/409/413/429/500/529（overloaded）。框架 `classify_upstream_error`
+///   已按该形状分类，无覆写。https://docs.anthropic.com/en/api/errors
+/// - `claude_code`（Claude Code 订阅）为透传平台（ADR 0008）：`Protocol::ClaudeCode`
+///   平台请求在 handler.rs 透传拦截分支原样 relay（handler.rs:784 起，test_endpoint.rs
+///   注释明示不引用 convert_request / build_upstream_headers），不经过 PlatformAdapter
+///   转换链；家族基座对它只承担注册语义（`adapter_for("claude_code")` 统一指向本基座，
+///   与 `anthropic` 成员指针相同），不产生行为差异。
+///
+/// 结论：官方行为与框架协议构件默认实现一致，无可证实的家族级覆写；两成员均继承
+/// trait 默认（与 OpenCodeFamilyAdapter 同形）。
+pub struct AnthropicFamilyAdapter;
+
+impl PlatformAdapter for AnthropicFamilyAdapter {}
+
 static GENERIC: GenericAdapter = GenericAdapter;
+static OPENAI: OpenAIFamilyAdapter = OpenAIFamilyAdapter;
+static ANTHROPIC_FAMILY: AnthropicFamilyAdapter = AnthropicFamilyAdapter;
+static COMPSHARE: CompshareFamilyAdapter = CompshareFamilyAdapter;
 static OPENCODE: OpenCodeFamilyAdapter = OpenCodeFamilyAdapter;
 static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
@@ -1663,20 +1741,20 @@ static TENCENT_CODING: TencentFamilyAdapter = TencentFamilyAdapter {
 /// 未列入家族适配器的平台走默认家族基座）。
 static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("aihubmix", &GENERIC),
-    ("anthropic", &GENERIC),
+    ("anthropic", &ANTHROPIC_FAMILY),
     ("atlascloud", &GENERIC),
     ("bailian", &BAILIAN),
     ("bailian_coding", &BAILIAN),
     ("bailian_coding_en", &BAILIAN),
     ("bailian_en", &BAILIAN),
     ("byteplus", &ARK),
-    ("claude_code", &GENERIC),
+    ("claude_code", &ANTHROPIC_FAMILY),
     ("cline", &CLINE),
     ("cline_pass", &CLINE),
-    ("codex", &GENERIC),
+    ("codex", &OPENAI),
     ("commandcode", &GENERIC),
-    ("compshare", &GENERIC),
-    ("compshare_coding", &GENERIC),
+    ("compshare", &COMPSHARE),
+    ("compshare_coding", &COMPSHARE),
     ("crazyrouter", &GENERIC),
     ("deepseek", &GENERIC),
     ("devin", &GENERIC),
@@ -1702,7 +1780,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("newapi", &GENERIC),
     ("novita", &GENERIC),
     ("nvidia", &GENERIC),
-    ("openai", &GENERIC),
+    ("openai", &OPENAI),
     ("opencode", &OPENCODE),
     ("opencode_zen", &OPENCODE),
     ("openrouter", &GENERIC),
@@ -1745,6 +1823,147 @@ pub fn adapter_for(code: &str) -> &'static dyn PlatformAdapter {
     table().get(code).copied().unwrap_or(&GENERIC)
 }
 
+/// Compshare（优云）家族基座（issue 88；成员 compshare / compshare_coding 共用，
+/// 成员差异见各成员 issue）。
+///
+/// 官方文档核对日期：2026-11-23。
+/// - 协议与端点（标准平台 `compshare`）：官方「我们的服务完全兼容这套标准（OpenAI API）」；
+///   OpenAI 兼容接口 `/v1/chat/completions`、`/v1/response`、`/v1/models`，Base URL
+///   `https://api.modelverse.cn/v1`；Anthropic 兼容 Messages 端点 `https://api.modelverse.cn/v1/messages`
+///   （认证 `x-api-key` 或 `Authorization: Bearer`，仅 Claude 系模型走此端点）；Gemini 兼容
+///   Base URL `https://api.modelverse.cn`。与 registry 内置默认端点一致。
+///   https://www.compshare.cn/docs/modelverse/models/quick-start
+///   https://www.compshare.cn/docs/modelverse/models/text_api/claude_compatible
+/// - 思考开关（openai 端点）：顶层对象参数 `thinking.type`，`enabled` / `disabled`
+///   （DeepSeek V3.1 系；Doubao 系另列 `auto`），请求示例 `"thinking": {"type": "enabled"}`。
+///   仅对官方证实模型清单按 `body["model"]` 门控写出（清单见 impl 注释），未证实模型
+///   保持基座第三方端点默认，不外推。
+///   https://www.compshare.cn/docs/modelverse/models/text_api/thinking/deepseek
+///   https://www.compshare.cn/docs/modelverse/models/text_api/thinking/doubao
+/// - 工具调用、图片与多模态、system 提示、usage 缓存 token 字段、错误体格式、流式
+///   SSE 事件：官方文档未给出 Modelverse 网关层差异证据，未证实，保持框架默认。
+///   https://www.compshare.cn/docs/modelverse/models/text_api/api-expand
+///   https://www.compshare.cn/docs/modelverse/models/text_api/model-competi
+/// - 套餐成员 `compshare_coding`（`https://cp.compshare.cn`，anthropic wire，官方文档
+///   https://www.compshare.cn/docs/modelverse/models/quick-start 未给 API 参数差异；
+///   cp.compshare.cn 文档站不可达 HTTP 404）：成员差异未证实，继承家族基座。
+///
+/// 家族级覆写只有 openai 端点禁思考的模型级门控（见 impl 注释）；其余接口继承协议构件
+/// 默认实现。
+pub struct CompshareFamilyAdapter;
+
+impl PlatformAdapter for CompshareFamilyAdapter {
+    /// 差异：openai 端点禁思考仅对官方证实支持 `thinking.type` 的模型写官方
+    /// `thinking: {"type": "disabled"}`（与基座 anthropic 臂同形），其余模型保持基座
+    /// 第三方端点默认（vLLM 式 `chat_template_kwargs.enable_thinking=false`）。
+    /// 证实模型清单（官方文档，核对 2026-11-23，按 `body["model"]` 逐字匹配）：
+    /// `deepseek-ai/DeepSeek-V3.1`、`deepseek-ai/DeepSeek-V3.1-Terminus`（词表
+    /// `enabled` / `disabled`），https://www.compshare.cn/docs/modelverse/models/text_api/thinking/deepseek；
+    /// `ByteDance/doubao-seed-1.6`、`ByteDance/doubao-1.5-thinking-vision-pro`（另列 `auto`），
+    /// https://www.compshare.cn/docs/modelverse/models/text_api/thinking/doubao。
+    /// 未证实模型不外推（全家族覆写在其余模型上的接受度未证实，f406b7f8f 收回后按
+    /// review 结论改为模型级门控）；新模型取证后在 [`compshare_official_thinking_model`]
+    /// 扩清单。anthropic / gemini wire 与强制思考路径同基座。
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let gated = disable
+            && !forced_thinking
+            && wire == &Protocol::OpenAI
+            && body
+                .get("model")
+                .and_then(Value::as_str)
+                .is_some_and(compshare_official_thinking_model);
+        let wire = match wire {
+            Protocol::OpenAI if gated => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+}
+
+/// 官方证实支持 `thinking.type` 的 Modelverse 模型（逐字 ID，出处见
+/// `CompshareFamilyAdapter::apply_disable_thinking` 注释）。
+fn compshare_official_thinking_model(model: &str) -> bool {
+    matches!(
+        model,
+        "deepseek-ai/DeepSeek-V3.1"
+            | "deepseek-ai/DeepSeek-V3.1-Terminus"
+            | "ByteDance/doubao-seed-1.6"
+            | "ByteDance/doubao-1.5-thinking-vision-pro"
+    )
+}
+
+#[cfg(test)]
+mod compshare_family_tests {
+    use super::*;
+
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let standard = lookup("compshare").unwrap();
+        let coding = lookup("compshare_coding").unwrap();
+        assert!(std::ptr::eq(standard, coding));
+        assert!(!std::ptr::eq(standard, adapter_for("openai")));
+    }
+
+    /// openai 端点禁思考按模型门控：官方证实模型写 `thinking.type=disabled`（官方词表
+    /// enabled/disabled，见 impl 注释），不写基座第三方 vLLM 式参数；未证实模型不外推，
+    /// 保持基座第三方端点默认；强制思考只剥禁用形参数不写关闭参数；非 openai wire 同基座。
+    #[test]
+    fn openai_disable_thinking_gated_on_official_models() {
+        let pa = adapter_for("compshare");
+
+        for model in [
+            "deepseek-ai/DeepSeek-V3.1",
+            "deepseek-ai/DeepSeek-V3.1-Terminus",
+            "ByteDance/doubao-seed-1.6",
+            "ByteDance/doubao-1.5-thinking-vision-pro",
+        ] {
+            let mut body = serde_json::json!({"model": model, "enable_thinking": true});
+            pa.apply_disable_thinking(&mut body, true, &Protocol::OpenAI, "https://stub", false);
+            assert_eq!(
+                body["thinking"],
+                serde_json::json!({"type": "disabled"}),
+                "{model}"
+            );
+            assert!(body.get("enable_thinking").is_none(), "{model}");
+            assert!(body.get("chat_template_kwargs").is_none(), "{model}");
+        }
+
+        // 未证实模型：保持基座第三方端点默认（chat_template_kwargs），不写 thinking。
+        let mut body = serde_json::json!({"model": "deepseek-ai/DeepSeek-V3.2"});
+        pa.apply_disable_thinking(&mut body, true, &Protocol::OpenAI, "https://stub", false);
+        assert_eq!(
+            body.pointer("/chat_template_kwargs/enable_thinking"),
+            Some(&Value::Bool(false))
+        );
+        assert!(body.get("thinking").is_none());
+
+        // 强制思考：证实模型同样只剥不写（基座强制思考路径）。
+        let mut body =
+            serde_json::json!({"model": "deepseek-ai/DeepSeek-V3.1", "thinking": {"type": "disabled"}});
+        pa.apply_disable_thinking(&mut body, true, &Protocol::OpenAI, "https://stub", true);
+        assert!(body.get("thinking").is_none());
+
+        // anthropic / gemini wire 同基座（anthropic 臂写 thinking.type=disabled、
+        // gemini 臂写 thinkingBudget=0），锁不回归即可。
+        let mut body = serde_json::json!({"model": "claude-3"});
+        pa.apply_disable_thinking(&mut body, true, &Protocol::Anthropic, "https://stub", false);
+        assert_eq!(body["thinking"], serde_json::json!({"type": "disabled"}));
+        let mut body = serde_json::json!({"model": "gemini-2.5"});
+        pa.apply_disable_thinking(&mut body, true, &Protocol::Gemini, "https://stub", false);
+        assert_eq!(
+            body["generationConfig"]["thinkingConfig"],
+            serde_json::json!({"thinkingBudget": 0})
+        );
+    }
+}
+
 #[cfg(test)]
 mod opencode_family_tests {
     use super::*;
@@ -1756,6 +1975,36 @@ mod opencode_family_tests {
 
         assert!(std::ptr::eq(go, zen));
         assert!(!std::ptr::eq(go, adapter_for("openai")));
+    }
+}
+
+#[cfg(test)]
+mod openai_family_tests {
+    use super::*;
+
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let openai = lookup("openai").expect("OpenAI adapter must be registered");
+        let codex = lookup("codex").expect("Codex adapter must be registered");
+        assert!(std::ptr::eq(openai, codex));
+        // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
+        assert!(!std::ptr::eq(openai, adapter_for("deepseek")));
+        assert!(!std::ptr::eq(codex, adapter_for("deepseek")));
+        assert!(!std::ptr::eq(openai, adapter_for("anthropic")));
+    }
+}
+
+#[cfg(test)]
+mod anthropic_family_tests {
+    use super::*;
+
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let anthropic = lookup("anthropic").expect("Anthropic adapter must be registered");
+        let claude_code = lookup("claude_code").expect("Claude Code adapter must be registered");
+
+        assert!(std::ptr::eq(anthropic, claude_code));
+        assert!(!std::ptr::eq(anthropic, adapter_for("openai")));
     }
 }
 

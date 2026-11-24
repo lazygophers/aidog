@@ -12222,10 +12222,703 @@ async fn opencode_family_members_reach_upstream_record_usage_and_forward_errors(
     }
 }
 
+/// issue 88：Compshare（优云）家族基座。成员 `compshare` / `compshare_coding` 共用
+/// `CompshareFamilyAdapter`；两成员 × 三 wire 协议（openai / anthropic / gemini，与 registry
+/// 内置默认端点对应）走真实代理与本地假上游，禁真实外呼。
+async fn setup_compshare_wire_group(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    platform_type: Protocol,
+    wire: Protocol,
+    base_url: &str,
+) {
+    let platform_id = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        platform_type,
+        base_url,
+        &[wire],
+    )
+    .await;
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn anthropic_family_forwards_messages_and_records_cache_usage() {
+    const RESPONSE: &str = r#"{"id":"msg-family","type":"message","role":"assistant","model":"claude-sonnet","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":4}}"#;
+    let (upstream, requests) = spawn_recording_response_upstream(200, RESPONSE).await;
+    let state = make_state(test_db().await).await;
+    let gk = "gkanthropicfamily";
+    setup_group_with_upstream(&state, gk, &upstream).await;
+
+    let response = handle_proxy(
+        AxumState(state.clone()),
+        HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("content-type", "application/json")
+            .header("anthropic-version", "2023-06-01")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(
+                r#"{"model":"claude-sonnet","max_tokens":64,"system":"system prompt","messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"tools":[{"name":"lookup","input_schema":{"type":"object"}}]}"#,
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let captured = requests.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1, "request must reach local upstream");
+    assert!(captured[0].0.ends_with("/v1/messages"), "{}", captured[0].0);
+    assert_eq!(captured[0].2.get("x-api-key").unwrap(), "sk-up");
+    assert_eq!(captured[0].2.get("anthropic-version").unwrap(), "2023-06-01");
+    let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+    assert_eq!(sent["model"], "claude-sonnet");
+    assert_eq!(sent["system"], "system prompt");
+    assert_eq!(sent["tools"][0]["name"], "lookup");
+
+    let log = only_log_of(&state, "gkanthropicfamily").await;
+    assert_eq!((log.input_tokens, log.output_tokens), (7, 3));
+    assert_eq!((log.cache_tokens, log.cache_write_tokens), (2, 4));
+    assert!(log.done, "successful Anthropic response must be terminal");
+}
+
+#[tokio::test]
+async fn compshare_family_members_forward_stream_and_nonstream_on_openai_wire() {
+    const CHAT_OK: &str = r#"{"id":"chatcmpl-compshare","object":"chat.completion","created":0,"model":"glm-5.3","choices":[{"index":0,"message":{"role":"assistant","content":"compshare-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#;
+    const CHAT_SSE: &str = "data: {\"id\":\"chatcmpl-compshare\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"compshare-family-stream\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-compshare\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"glm-5.3\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1,\"completion_tokens\":1,\"total_tokens\":2}}\n\ndata: [DONE]\n\n";
+
+    for (member, platform) in [
+        ("standard", Protocol::Compshare),
+        ("coding", Protocol::CompshareCoding),
+    ] {
+        for streaming in [false, true] {
+            let content_type = if streaming {
+                "text/event-stream"
+            } else {
+                "application/json"
+            };
+            let body = if streaming { CHAT_SSE } else { CHAT_OK };
+            let upstream = spawn_unified_upstream(200, content_type, body).await;
+            let state = make_state(test_db().await).await;
+            let gk = format!("gkcompshare{member}{streaming}");
+            setup_compshare_wire_group(
+                &state,
+                &gk,
+                platform.clone(),
+                Protocol::OpenAI,
+                &upstream,
+            )
+            .await;
+            let request_body = serde_json::json!({
+                "model": "glm-5.3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": streaming,
+                "stream_options": {"include_usage": true}
+            });
+            let request = HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap();
+            let response = handle_proxy(AxumState(state.clone()), request).await;
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "{member}, streaming={streaming}"
+            );
+            let response = axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            let response = String::from_utf8(response.to_vec()).unwrap();
+            assert!(response.contains(if streaming {
+                "compshare-family-stream"
+            } else {
+                "compshare-family-ok"
+            }));
+            if streaming {
+                assert!(response.contains("[DONE]"));
+            } else {
+                assert!(response.contains("\"total_tokens\":2"));
+            }
+            let log = only_log_of(&state, &gk).await;
+            assert_eq!(
+                (log.input_tokens, log.output_tokens),
+                (1, 1),
+                "{member}, streaming={streaming}"
+            );
+            assert!(log.est_cost > 0.0, "{member}: usage must yield est_cost");
+        }
+    }
+}
+
+/// 家族覆盖全部内置端点协议：anthropic wire（Messages SSE）两成员各走一轮、gemini wire
+/// （usageMetadata SSE）标准成员走一轮，真实代理 + 本地假上游，usage 记账进 proxy_log。
+#[tokio::test]
+async fn compshare_family_anthropic_and_gemini_wires_forward_with_usage() {
+    let anthropic_sse = concat!(
+        "data: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-3\",\"usage\":{\"input_tokens\":5,\"output_tokens\":1}}}\n\n",
+        "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+        "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":2}}\n\n",
+        "data: {\"type\":\"message_stop\"}\n\n",
+    );
+    let gemini_sse = concat!(
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hi\"}]}}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":2,\"thoughtsTokenCount\":1}}\n\n",
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"!\"}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":3,\"thoughtsTokenCount\":1}}\n\n",
+    );
+
+    for (label, platform, wire, sse, expect_input, expect_output) in [
+        (
+            "anthropic-standard",
+            Protocol::Compshare,
+            Protocol::Anthropic,
+            anthropic_sse,
+            5,
+            2,
+        ),
+        (
+            "anthropic-coding",
+            Protocol::CompshareCoding,
+            Protocol::Anthropic,
+            anthropic_sse,
+            5,
+            2,
+        ),
+        (
+            "gemini",
+            Protocol::Compshare,
+            Protocol::Gemini,
+            gemini_sse,
+            5,
+            4,
+        ),
+    ] {
+        let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkcompsharewire{label}");
+        setup_compshare_wire_group(&state, &gk, platform, wire.clone(), &upstream).await;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("authorization", format!("Bearer {gk}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"model":"claude-3","max_tokens":10,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            ))
+            .unwrap();
+        let response = handle_proxy(AxumState(state.clone()), request).await;
+        assert_eq!(response.status(), StatusCode::OK, "{label}");
+        let bytes = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        assert!(
+            String::from_utf8_lossy(&bytes).contains("hi"),
+            "{label}: response must reach client"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        let log = only_log_of(&state, &gk).await;
+        assert_eq!(
+            (log.input_tokens, log.output_tokens),
+            (expect_input, expect_output),
+            "{label}"
+        );
+    }
+}
+
+/// 上游 400 错误原样透传客户端（两成员 × openai wire）：状态码、错误体、到达上游、
+/// proxy_log 终态记账（本地假上游，禁真实外呼）。
+#[tokio::test]
+async fn compshare_family_forwards_upstream_errors_to_client() {
+    const UPSTREAM_ERROR: &str =
+        r#"{"error":{"type":"invalid_request_error","message":"compshare-family-error"}}"#;
+
+    for (member, platform) in [
+        ("standard", Protocol::Compshare),
+        ("coding", Protocol::CompshareCoding),
+    ] {
+        let (error_upstream, error_requests) =
+            spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkcompshare{member}error");
+        setup_compshare_wire_group(&state, &gk, platform, Protocol::OpenAI, &error_upstream).await;
+        let request_body =
+            r#"{"model":"glm-5.3","messages":[{"role":"user","content":"family error"}]}"#;
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{member}");
+        let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&response_body).contains("compshare-family-error"),
+            "{member}"
+        );
+        let captured = error_requests.lock().unwrap().clone();
+        assert_eq!(
+            captured.len(),
+            1,
+            "{member}: error request must reach fake upstream"
+        );
+        assert!(
+            captured[0].0.ends_with("/chat/completions"),
+            "{member}: {}",
+            captured[0].0
+        );
+        let error_log = only_log_of(&state, &gk).await;
+        assert_eq!(
+            error_log.status_code,
+            StatusCode::BAD_REQUEST.as_u16() as i32,
+            "{member}"
+        );
+        assert!(
+            error_log.done,
+            "{member}: upstream error must be recorded as terminal"
+        );
+    }
+}
+
+/// 禁思考门控端到端（openai wire）：客户端 `disable_thinking=true` 时，官方证实模型
+/// 出站写 `thinking.type=disabled`（无 vLLM 式参数），未证实模型保持基座第三方端点默认。
+#[tokio::test]
+async fn compshare_family_disable_thinking_gated_on_official_models_at_gateway() {
+    const CHAT_OK: &str = r#"{"id":"chatcmpl-compshare","object":"chat.completion","created":0,"model":"m","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}"#;
+
+    for (model, expect_official) in [
+        ("deepseek-ai/DeepSeek-V3.1", true),
+        ("deepseek-ai/DeepSeek-V3.1-Terminus", true),
+        ("ByteDance/doubao-seed-1.6", true),
+        ("ByteDance/doubao-1.5-thinking-vision-pro", true),
+        // 未证实模型取 registry `thinking_toggleable:true` 的 MiniMax-M2.1（非强制思考，
+        // 才能走到基座第三方端点默认分支）。
+        ("MiniMax-M2.1", false),
+    ] {
+        let (upstream, requests) = spawn_recording_upstream(CHAT_OK).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkcompsharegate{}", expect_official as u8);
+        setup_compshare_wire_group(&state, &gk, Protocol::Compshare, Protocol::OpenAI, &upstream)
+            .await;
+        let request_body = serde_json::json!({
+            "model": model,
+            "messages": [{"role": "user", "content": "gate"}],
+            "disable_thinking": true
+        });
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK, "{model}");
+        let captured = requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1, "{model}");
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert!(sent.get("disable_thinking").is_none(), "{model}");
+        if expect_official {
+            assert_eq!(
+                sent["thinking"],
+                serde_json::json!({"type": "disabled"}),
+                "{model}"
+            );
+            assert!(sent.get("chat_template_kwargs").is_none(), "{model}");
+        } else {
+            assert_eq!(
+                sent.pointer("/chat_template_kwargs/enable_thinking"),
+                Some(&serde_json::Value::Bool(false)),
+                "{model}"
+            );
+            assert!(sent.get("thinking").is_none(), "{model}");
+        }
+    }
+}
+
+/// issue 90：OpenAI 官方家族基座。成员 `openai` / `codex` 共用 `OpenAIFamilyAdapter`，
+/// 两成员 × 两内置端点协议（openai / openai_responses）走真实代理与本地假上游，禁真实外呼。
+async fn setup_family_wire_group(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    platform_type: Protocol,
+    wire: Protocol,
+    base_url: &str,
+) {
+    let platform_id = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        platform_type,
+        base_url,
+        &[wire],
+    )
+    .await;
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn openai_family_sends_upstream_authorization_on_both_wires() {
+    for (member, platform, wire, suffix, body) in [
+        ("openai", Protocol::OpenAI, Protocol::OpenAI, "/chat/completions", r#"{"id":"c1","object":"chat.completion","model":"gpt-5.5","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}"#),
+        ("codex", Protocol::Codex, Protocol::OpenAIResponses, "/responses", r#"{"id":"r1","object":"response","model":"gpt-5.5","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}]}"#),
+    ] {
+        let (upstream, seen) = spawn_header_recording_upstream(body).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkopenaiheader{member}");
+        setup_family_wire_group(&state, &gk, platform, wire, &upstream).await;
+        let request = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/chat/completions")
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(r#"{"model":"gpt-5.5","messages":[{"role":"user","content":"hi"}]}"#))
+            .unwrap();
+        let response = handle_proxy(AxumState(state), request).await;
+        assert_eq!(response.status(), StatusCode::OK, "{member}");
+        let captured = seen.lock().unwrap();
+        assert_eq!(captured.len(), 1, "{member}");
+        assert!(captured[0].0.ends_with(suffix), "{member}: {}", captured[0].0);
+        assert_eq!(captured[0].1.get("authorization").map(String::as_str), Some("Bearer sk-up"), "{member}");
+        assert_eq!(captured[0].1.get("content-type").map(String::as_str), Some("application/json"), "{member}");
+    }
+}
+
+/// openai wire（Chat Completions）：流式 / 非流式各一轮，断言到达上游的 URI 与 body
+/// （chat completions 形状）、usage 缓存臂（prompt_tokens_details.cached_tokens 计入
+/// prompt → input 扣减）落 proxy_log。
+#[tokio::test]
+async fn openai_family_members_forward_stream_and_nonstream_on_openai_wire() {
+    let openai_adapter = aidog_adapter::platform::lookup("openai").unwrap();
+    let codex_adapter = aidog_adapter::platform::lookup("codex").unwrap();
+    assert!(std::ptr::eq(openai_adapter, codex_adapter));
+    assert!(!std::ptr::eq(
+        openai_adapter,
+        aidog_adapter::platform::lookup("deepseek").unwrap()
+    ));
+    const CHAT_OK: &str = r#"{"id":"chatcmpl-openai","object":"chat.completion","created":0,"model":"gpt-5.5","choices":[{"index":0,"message":{"role":"assistant","content":"openai-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"prompt_tokens_details":{"cached_tokens":4,"audio_tokens":0}}}"#;
+    const CHAT_SSE: &str = "data: {\"id\":\"chatcmpl-openai\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"gpt-5.5\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"openai-family-stream\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"chatcmpl-openai\",\"object\":\"chat.completion.chunk\",\"created\":0,\"model\":\"gpt-5.5\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2,\"total_tokens\":12,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\ndata: [DONE]\n\n";
+
+    for (member, platform) in [("openai", Protocol::OpenAI), ("codex", Protocol::Codex)] {
+        // 非流式：记录上游收到的 URI 与 body。
+        let (upstream, requests) = spawn_recording_response_upstream(200, CHAT_OK).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkopenai{member}nonstream");
+        setup_family_wire_group(&state, &gk, platform.clone(), Protocol::OpenAI, &upstream).await;
+        let request_body = serde_json::json!({
+            "model": "gpt-5.5",
+            "messages": [{"role": "user", "content": "hi"}],
+            "stream": false
+        });
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK, "{member}");
+        let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&response_body).contains("openai-family-ok"),
+            "{member}"
+        );
+        let captured = requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1, "{member}");
+        assert!(captured[0].0.ends_with("/chat/completions"), "{member}: {}", captured[0].0);
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["model"], "gpt-5.5", "{member}");
+        assert!(sent.get("messages").is_some(), "{member}");
+        let log = only_log_of(&state, &gk).await;
+        // cached_tokens 计入 prompt：input = 10 - 4 = 6，cache_read = 4。
+        assert_eq!(
+            (log.input_tokens, log.output_tokens, log.cache_tokens),
+            (6, 2, 4),
+            "{member}"
+        );
+        assert!(log.done, "{member}: non-stream must be terminal");
+
+        // 流式：usage 在末帧 chunk。
+        let upstream = spawn_unified_upstream(200, "text/event-stream", CHAT_SSE).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkopenai{member}stream");
+        setup_family_wire_group(&state, &gk, platform.clone(), Protocol::OpenAI, &upstream).await;
+        let request_body = serde_json::json!({
+            "model": "gpt-5.5",
+            "messages": [{"role": "user", "content": "hi"}],
+            "stream": true,
+            "stream_options": {"include_usage": true}
+        });
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK, "{member}");
+        let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let response = String::from_utf8(response_body.to_vec()).unwrap();
+        assert!(response.contains("openai-family-stream"), "{member}");
+        assert!(response.contains("[DONE]"), "{member}");
+        let log = only_log_of(&state, &gk).await;
+        assert_eq!(
+            (log.input_tokens, log.output_tokens, log.cache_tokens),
+            (6, 2, 4),
+            "{member}"
+        );
+        assert!(log.done, "{member}: stream must be terminal");
+    }
+}
+
+/// openai_responses wire（Responses API）：流式 / 非流式各一轮，断言 URI 以 /responses
+/// 结尾、出站 body 是 Responses 形状（`input` 字段）、usage 缓存臂
+/// （input_tokens_details.cached_tokens 从 input_tokens 扣减）落 proxy_log。
+#[tokio::test]
+async fn openai_family_members_forward_on_openai_responses_wire() {
+    const RESPONSES_OK: &str = r#"{"id":"resp-openai","object":"response","created_at":0,"model":"gpt-5.5","output":[{"type":"message","role":"assistant","id":"msg-1","content":[{"type":"output_text","text":"openai-family-responses-ok","annotations":[]}]}],"usage":{"input_tokens":7,"output_tokens":2,"total_tokens":9,"input_tokens_details":{"cached_tokens":3},"output_tokens_details":{"reasoning_tokens":0}}}"#;
+    const RESPONSES_SSE: &str = concat!(
+        "data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp-openai\",\"model\":\"gpt-5.5\"}}\n\n",
+        "data: {\"type\":\"response.output_text.delta\",\"delta\":\"openai-family-responses-stream\"}\n\n",
+        "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp-openai\",\"model\":\"gpt-5.5\",\"usage\":{\"input_tokens\":7,\"output_tokens\":2,\"total_tokens\":9,\"input_tokens_details\":{\"cached_tokens\":3}}}}\n\n"
+    );
+
+    for (member, platform) in [("openai", Protocol::OpenAI), ("codex", Protocol::Codex)] {
+        // 非流式。
+        let (upstream, requests) = spawn_recording_response_upstream(200, RESPONSES_OK).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkopenairesp{member}nonstream");
+        setup_family_wire_group(&state, &gk, platform.clone(), Protocol::OpenAIResponses, &upstream).await;
+        let request_body = serde_json::json!({
+            "model": "gpt-5.5",
+            "messages": [{"role": "user", "content": "hi"}],
+            "stream": false
+        });
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK, "{member}");
+        let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        assert!(
+            String::from_utf8_lossy(&response_body).contains("openai-family-responses-ok"),
+            "{member}"
+        );
+        let captured = requests.lock().unwrap().clone();
+        assert_eq!(captured.len(), 1, "{member}");
+        assert!(captured[0].0.ends_with("/responses"), "{member}: {}", captured[0].0);
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["model"], "gpt-5.5", "{member}");
+        assert!(sent.get("input").is_some(), "{member}: Responses shape input");
+        let log = only_log_of(&state, &gk).await;
+        // cached 计入 input_tokens：input = 7 - 3 = 4，cache_read = 3。
+        assert_eq!(
+            (log.input_tokens, log.output_tokens, log.cache_tokens),
+            (4, 2, 3),
+            "{member}"
+        );
+
+        // 流式：response.output_text.delta 文本 + response.completed 内嵌 usage。
+        let upstream = spawn_unified_upstream(200, "text/event-stream", RESPONSES_SSE).await;
+        let state = make_state(test_db().await).await;
+        let gk = format!("gkopenairesp{member}stream");
+        setup_family_wire_group(&state, &gk, platform.clone(), Protocol::OpenAIResponses, &upstream).await;
+        let request_body = serde_json::json!({
+            "model": "gpt-5.5",
+            "messages": [{"role": "user", "content": "hi"}],
+            "stream": true
+        });
+        let response = handle_proxy(
+            AxumState(state.clone()),
+            HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/chat/completions")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {gk}"))
+                .body(Body::from(request_body.to_string()))
+                .unwrap(),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK, "{member}");
+        let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+            .await
+            .unwrap();
+        let response = String::from_utf8(response_body.to_vec()).unwrap();
+        assert!(response.contains("openai-family-responses-stream"), "{member}");
+        let log = only_log_of(&state, &gk).await;
+        assert_eq!(
+            (log.input_tokens, log.output_tokens, log.cache_tokens),
+            (4, 2, 3),
+            "{member}"
+        );
+        assert!(log.done, "{member}: stream must be terminal");
+    }
+}
+
+/// 上游 400 错误体透传：客户端拿原文 message，proxy_log 终态记录 status 400；
+/// 请求确实到达上游（URI 按端点协议分派 /chat/completions 或 /responses）。
+#[tokio::test]
+async fn openai_family_forwards_upstream_errors_to_client() {
+    const UPSTREAM_ERROR: &str =
+        r#"{"error":{"message":"openai-family-error","type":"invalid_request_error","code":"invalid_value"}}"#;
+
+    for (member, platform) in [("openai", Protocol::OpenAI), ("codex", Protocol::Codex)] {
+        for wire in [Protocol::OpenAI, Protocol::OpenAIResponses] {
+            let expected_suffix = if wire == Protocol::OpenAI {
+                "/chat/completions"
+            } else {
+                "/responses"
+            };
+            let (error_upstream, error_requests) =
+                spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+            let state = make_state(test_db().await).await;
+            let gk = format!("gkopenai{member}{expected_suffix}err");
+            setup_family_wire_group(&state, &gk, platform.clone(), wire.clone(), &error_upstream).await;
+            let request_body =
+                r#"{"model":"gpt-5.5","messages":[{"role":"user","content":"family error"}]}"#;
+            let response = handle_proxy(
+                AxumState(state.clone()),
+                HttpRequest::builder()
+                    .method("POST")
+                    .uri("/v1/chat/completions")
+                    .header("content-type", "application/json")
+                    .header("authorization", format!("Bearer {gk}"))
+                    .body(Body::from(request_body))
+                    .unwrap(),
+            )
+            .await;
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{member} {wire:?}");
+            let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            assert!(
+                String::from_utf8_lossy(&response_body).contains("openai-family-error"),
+                "{member} {wire:?}"
+            );
+            let captured = error_requests.lock().unwrap().clone();
+            assert_eq!(captured.len(), 1, "{member} {wire:?}");
+            assert!(
+                captured[0].0.ends_with(expected_suffix),
+                "{member} {wire:?}: {}",
+                captured[0].0
+            );
+            let error_log = only_log_of(&state, &gk).await;
+            assert_eq!(
+                error_log.status_code,
+                StatusCode::BAD_REQUEST.as_u16() as i32,
+                "{member} {wire:?}"
+            );
+            assert!(error_log.done, "{member} {wire:?}: error must be terminal");
+        }
+    }
+}
+
+/// issue 89（Anthropic 家族基座）：上游 400（anthropic 官方错误体形状 `type` +
+/// `error.type` / `error.message`）→ 客户端原样透传；URI /v1/messages；proxy_log
+/// 终态记账。官方错误体格式：https://docs.anthropic.com/en/api/errors（核对 2026-11-23）。
+#[tokio::test]
+async fn anthropic_family_forwards_upstream_errors_to_client() {
+    const UPSTREAM_ERROR: &str =
+        r#"{"type":"error","error":{"type":"invalid_request_error","message":"anthropic-family-error"}}"#;
+    let (error_upstream, error_requests) =
+        spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
+    let state = make_state(test_db().await).await;
+    let gk = "gkanthropicfamilyerror";
+    setup_group_with_upstream(&state, gk, &error_upstream).await;
+
+    let response = handle_proxy(
+        AxumState(state.clone()),
+        HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("content-type", "application/json")
+            .header("anthropic-version", "2023-06-01")
+            .header("authorization", format!("Bearer {gk}"))
+            .body(Body::from(
+                r#"{"model":"claude-sonnet","max_tokens":16,"messages":[{"role":"user","content":"family error"}]}"#,
+            ))
+            .unwrap(),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let response_body = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
+    assert!(
+        String::from_utf8_lossy(&response_body).contains("anthropic-family-error"),
+        "error body must pass through to client"
+    );
+
+    let captured = error_requests.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1, "error request must reach fake upstream");
+    assert!(captured[0].0.ends_with("/v1/messages"), "{}", captured[0].0);
+    assert_eq!(captured[0].2.get("x-api-key").unwrap(), "sk-up");
+
+    let error_log = only_log_of(&state, "gkanthropicfamilyerror").await;
+    assert_eq!(
+        error_log.status_code,
+        StatusCode::BAD_REQUEST.as_u16() as i32
+    );
+    assert!(error_log.done, "upstream error must be recorded as terminal");
+}
+
 async fn spawn_recording_response_upstream(
     status: u16,
     body: &'static str,
-) -> (String, Arc<std::sync::Mutex<Vec<(String, String)>>>) {
+) -> (String, Arc<std::sync::Mutex<Vec<(String, String, axum::http::HeaderMap)>>>) {
     use axum::routing::any;
     let rec = Arc::new(std::sync::Mutex::new(Vec::new()));
     let rec_srv = rec.clone();
@@ -12233,12 +12926,13 @@ async fn spawn_recording_response_upstream(
         let rec = rec_srv.clone();
         async move {
             let uri = req.uri().to_string();
+            let headers = req.headers().clone();
             let bytes = axum::body::to_bytes(req.into_body(), 1 << 20)
                 .await
                 .unwrap_or_default();
             rec.lock()
                 .unwrap()
-                .push((uri, String::from_utf8_lossy(&bytes).to_string()));
+                .push((uri, String::from_utf8_lossy(&bytes).to_string(), headers));
             (
                 axum::http::StatusCode::from_u16(status).unwrap(),
                 [("content-type", "application/json")],
