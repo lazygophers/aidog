@@ -1706,9 +1706,11 @@ static GENERIC: GenericAdapter = GenericAdapter;
 /// - 官方文档站 https://platform.sensenova.cn 与 https://platform.sensenova.ai/docs 为客户端渲染 SPA，
 ///   raw curl 无正文、无 sitemap / openapi.json / llms.txt，抓取不到文档原文；直连 API 网关
 ///   `token.sensenova.cn` / `token.sensenova.ai` 的一手探测（curl，2026-11-24）：
-///   `POST /v1/chat/completions` 与 `POST /v1/messages` 未带鉴权时均返回 HTTP 401（路由存在）；
+///   `POST /v1/chat/completions` 与 `POST /v1/messages` 未带鉴权时均返回 HTTP 401
+///   （仅证明网关要求鉴权；未对照过假路径的 401 差异，不证实路由命中，更不证实 wire 协议）；
 ///   错误体形状 `{"error":{"code":16,"message":"Authorization Not Found"}}`（数字 gRPC 风格 code，
-///   `{"code":5,"message":"NOT_FOUND","details":[]}` 404 形）；`GET /v1/models` 返回 401（端点存在）。
+///   `{"code":5,"message":"NOT_FOUND","details":[]}` 404 形）；`GET /v1/models` 返回 401
+///   （同上，仅证明要求鉴权，不证实该端点存在）。
 /// - 请求字段、思考参数、工具调用、图片多模态、system、usage（含缓存 token）、流式事件：
 ///   文档抓取不到，全部未证实，保持 trait 默认（与 GenericAdapter 同形）。
 /// - 错误体：实锤与 OpenAI 标准形状（`error.type` 字符串）不同——数字 `code` + `message`；

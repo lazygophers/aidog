@@ -12310,7 +12310,9 @@ async fn setup_sensenova_wire_group(
     setup_compshare_wire_group(state, gk, platform_type, wire, base_url).await;
 }
 
-/// 两成员 × openai wire：流式 / 非流式转发、usage 落库、上游 400 错误透传 + proxy_log 终态。
+/// 两成员 × openai wire：流式 / 非流式转发、usage 落库、上游 400 错误透传 + proxy_log 终态；
+/// 非流式成功路径用记录型假上游断言 model / messages 到达上游（对齐 OpenCode 先例；
+/// 流式记录型 helper 只回 JSON content-type，喂不了 SSE，仍用 unified）。
 #[tokio::test]
 async fn sensenova_family_members_forward_openai_wire_with_usage_and_errors() {
     const CHAT_OK: &str = r#"{"id":"chatcmpl-sensenova","object":"chat.completion","created":0,"model":"nova-2","choices":[{"index":0,"message":{"role":"assistant","content":"sensenova-family-ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5}}"#;
@@ -12326,7 +12328,12 @@ async fn sensenova_family_members_forward_openai_wire_with_usage_and_errors() {
                 "application/json"
             };
             let body = if streaming { CHAT_SSE } else { CHAT_OK };
-            let upstream_url = spawn_unified_upstream(200, content_type, body).await;
+            let (upstream_url, success_requests) = if streaming {
+                (spawn_unified_upstream(200, content_type, body).await, None)
+            } else {
+                let (u, r) = spawn_recording_response_upstream(200, CHAT_OK).await;
+                (u, Some(r))
+            };
             let state = make_state(test_db().await).await;
             let gk = format!("gksensenova{member}{streaming}");
             setup_sensenova_wire_group(
@@ -12375,6 +12382,22 @@ async fn sensenova_family_members_forward_openai_wire_with_usage_and_errors() {
                 "{member}, streaming={streaming}"
             );
             assert!(log.done, "{member}, streaming={streaming}");
+            if let Some(requests) = &success_requests {
+                let captured = requests.lock().unwrap().clone();
+                assert_eq!(
+                    captured.len(),
+                    1,
+                    "{member}: request must reach fake upstream"
+                );
+                assert!(
+                    captured[0].0.ends_with("/chat/completions"),
+                    "{member}: {}",
+                    captured[0].0
+                );
+                let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+                assert_eq!(sent["model"], "nova-2", "{member}");
+                assert_eq!(sent["messages"][0]["content"], "family request", "{member}");
+            }
         }
 
         let (error_upstream, error_requests) =
