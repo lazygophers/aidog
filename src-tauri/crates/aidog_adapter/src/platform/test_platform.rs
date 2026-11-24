@@ -36,6 +36,17 @@ fn atlascloud_has_dedicated_adapter_registration() {
     assert_eq!(body, json!({"model":"atlas-test"}));
 }
 
+#[test]
+fn atlascloud_error_msg_field_classifies_model_errors() {
+    assert_eq!(
+        super::adapter_for("atlascloud").classify_error(
+            422,
+            r#"{"code":422,"msg":"model not found","request_id":"req-test","data":null}"#,
+        ),
+        UpstreamErrorClass::Model
+    );
+}
+
 /// Kimi 家族（issue 76 / 119）：coding_plan 注入按平台协议分派，kimi 与 kimi_coding 注入
 /// prompt_cache_key（chat.md「对于 Kimi Code Plan，此字段为必填」，issue 119 扩入 KimiCoding 臂），
 /// 产出同形状（注入条件同源：端点 coding_plan flag）。

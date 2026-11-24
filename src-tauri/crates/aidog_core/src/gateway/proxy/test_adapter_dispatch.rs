@@ -609,7 +609,7 @@ data: {"type":"message_stop"}
 
 "#;
 const ATLASCLOUD_ANTHROPIC_ERROR: &str =
-    r#"{"type":"error","error":{"type":"invalid_request_error","message":"bad request"}}"#;
+    r#"{"code":422,"msg":"model not found","request_id":"req-atlas-anthropic","data":null}"#;
 const ATLASCLOUD_OPENAI_RESP: &str = r#"{"id":"chatcmpl_atlas","object":"chat.completion","model":"atlas-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
 const ATLASCLOUD_OPENAI_SSE: &str = r#"data: {"id":"chatcmpl_atlas","object":"chat.completion.chunk","model":"atlas-test","choices":[{"index":0,"delta":{"content":"hi"}}]}
 
@@ -619,7 +619,7 @@ data: [DONE]
 
 "#;
 const ATLASCLOUD_OPENAI_ERROR: &str =
-    r#"{"error":{"type":"invalid_request_error","message":"bad request"}}"#;
+    r#"{"code":422,"msg":"model not found","request_id":"req-atlas-openai","data":null}"#;
 
 #[tokio::test]
 async fn atlascloud_anthropic_endpoint_proxy_conversion_response_stream_error_and_usage() {
@@ -676,7 +676,7 @@ async fn atlascloud_anthropic_endpoint_proxy_conversion_response_stream_error_an
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{resp}");
     assert!(!hits.is_empty(), "fake upstream must receive request");
-    assert!(resp.contains("invalid_request_error"), "{resp}");
+    assert!(resp.contains("model not found"), "{resp}");
 }
 
 #[tokio::test]
@@ -720,6 +720,10 @@ async fn atlascloud_openai_endpoint_proxy_conversion_response_stream_error_and_u
     assert_eq!(hits[0].0, "/chat/completions");
     assert!(resp.contains("text_delta") && resp.contains("hi"), "{resp}");
     assert!(resp.contains("message_stop"), "{resp}");
+    assert!(
+        !resp.contains("[DONE]"),
+        "OpenAI upstream terminator must not leak into Anthropic output: {resp}"
+    );
 
     let (status, resp, hits) = glm_member_call(
         Protocol::AtlasCloud,
@@ -727,12 +731,12 @@ async fn atlascloud_openai_endpoint_proxy_conversion_response_stream_error_and_u
         "gk92oae",
         "/v1/messages",
         r#"{"model":"atlas-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
-        (401, "application/json", ATLASCLOUD_OPENAI_ERROR),
+        (422, "application/json", ATLASCLOUD_OPENAI_ERROR),
     )
     .await;
-    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{resp}");
     assert!(!hits.is_empty(), "fake upstream must receive request");
-    assert!(resp.contains("invalid_request_error"), "{resp}");
+    assert!(resp.contains("model not found"), "{resp}");
 }
 
 // ══ issue 113：GLM（智谱）成员 `glm` 逐端点协议护栏（请求转换 / 非流式 / 流式 / 错误 / usage）══

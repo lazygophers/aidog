@@ -41,20 +41,33 @@ impl PlatformAdapter for GenericAdapter {}
 ///   chat returns SSE chunks. AtlasCloud forces final usage inclusion for streaming.
 ///   OpenAI's exact event sequence and terminal marker were not documented.
 /// - Usage/errors: OpenAI examples expose prompt/completion/total tokens; cache fields are
-///   undocumented. Anthropic usage field names and cache accounting are undocumented.
-///   Anthropic errors list HTTP 401/422; OpenAI errors list 401/422; neither page documents
-///   a complete error body schema. AtlasCloud documents requests over 50 MB as HTTP 413.
+///   undocumented. Anthropic usage field names and cache accounting are undocumented. The errors
+///   page says LLM protocol endpoints use `{code,msg,request_id,data}`; protocol docs list HTTP
+///   401/422 errors. AtlasCloud documents requests over 50 MB as HTTP 413.
 /// - This platform is not a coding plan; `Protocol::AtlasCloud` keeps the existing no-op
 ///   coding-plan injection behavior.
 /// - Unverified, keep framework defaults: thinking parameter values/defaults, max-token cap,
-///   cache-token fields, complete error bodies, OpenAI streaming terminator, and audio/video
-///   limits. No adapter override is justified by the docs.
+///   cache-token fields and semantics, protocol-specific error-code meanings, OpenAI streaming
+///   event sequence/terminator, and audio/video limits. No other override is justified by the docs.
 ///   https://www.atlascloud.ai/docs/llm-protocols
 ///   https://www.atlascloud.ai/docs/createChatCompletion
 ///   https://www.atlascloud.ai/docs/errors
 struct AtlasCloudAdapter;
 
-impl PlatformAdapter for AtlasCloudAdapter {}
+impl PlatformAdapter for AtlasCloudAdapter {
+    fn classify_error(&self, status: u16, body: &str) -> error::UpstreamErrorClass {
+        let Ok(value) = serde_json::from_str::<Value>(body) else {
+            return error::classify_upstream_error(status, body);
+        };
+        let Some(message) = value.get("msg").and_then(Value::as_str) else {
+            return error::classify_upstream_error(status, body);
+        };
+        let normalized = serde_json::json!({
+            "error": {"message": message, "code": value.get("code")}
+        });
+        error::classify_upstream_error(status, &normalized.to_string())
+    }
+}
 
 /// 月之暗面 Kimi 家族基座（issue 76；成员 kimi / kimi_en / kimi_coding 共用，
 /// 成员差异见各成员 issue 117 / 118 / 119）。
