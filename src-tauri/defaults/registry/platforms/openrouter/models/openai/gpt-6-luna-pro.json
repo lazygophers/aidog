@@ -22,9 +22,9 @@
         "output": 7.5e-07,
         "cache_read": 2e-08
       }
-    ]
-  },
-  "last_updated": 1793244705,
+    ],
+    "cache_write": 1.25e-7},
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"

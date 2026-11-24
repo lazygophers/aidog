@@ -13,17 +13,17 @@
     "currency": "USD",
     "input": 0.000001,
     "output": 0.000005,
-    "cache_read": 2e-07,
+    "cache_read": 5e-8,
     "context_tiers": [
       {
         "min_tokens": 272001,
-        "input": 4e-06,
-        "output": 1.8e-05,
-        "cache_read": 4e-07
+        "input": 0.000002,
+        "output": 0.0000075,
+        "cache_read": 1e-7
       }
-    ]
-  },
-  "last_updated": 1794017726,
+    ],
+    "cache_write": 0.00000125},
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"

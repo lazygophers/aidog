@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "kt/midm-k-3.0-pro",
+  "canonical_model": "midm-k-3.0-pro",
+  "family": "midm",
+  "version": "3.0",
+  "display_name": "KT: Mi:dm K 3.0 Pro",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 261795,
+  "context_window": 261795,
+  "max_output_tokens": 235615,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 2e-7,
+    "output": 8e-7,
+    "cache_read": 4e-8
+  }
+}

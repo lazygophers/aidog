@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "z-ai/glm-5.2:batch",
+  "canonical_model": "glm-5.2",
+  "family": "glm",
+  "version": "5.2",
+  "display_name": "Z.ai: GLM 5.2 (batch)",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 943718,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 3.22e-7,
+    "output": 9.89e-7,
+    "cache_read": 1.09e-7
+  }
+}

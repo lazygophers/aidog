@@ -1,0 +1,30 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "qwen/qwen3.8-max-0902:batch",
+  "canonical_model": "qwen3.8-max-0902",
+  "family": "qwen",
+  "version": "3.8",
+  "display_name": "Qwen: Qwen3.8 Max (0902) (batch)",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning",
+    "video"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 131072,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 0.00000115,
+    "output": 0.00000345
+  }
+}

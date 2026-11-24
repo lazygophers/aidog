@@ -11,11 +11,11 @@
   "thinking_toggleable": true,
   "price": {
     "currency": "USD",
-    "input": 1.8239999999999997e-7,
-    "output": 0.0000101522,
-    "cache_read": 3e-07
+    "input": 0.0000001824,
+    "output": 0.0000110055,
+    "cache_read": 1.8e-7
   },
-  "last_updated": 1794017726,
+  "last_updated": 1795488926,
   "supported_protocols": [
     "anthropic",
     "openai"

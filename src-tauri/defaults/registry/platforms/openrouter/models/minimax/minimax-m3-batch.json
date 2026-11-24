@@ -1,0 +1,31 @@
+{
+  "last_updated": 1795488926,
+  "model_id": "minimax/minimax-m3:batch",
+  "canonical_model": "minimax-m3",
+  "family": "minimax",
+  "version": "m3",
+  "display_name": "MiniMax: MiniMax M3 (batch)",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning",
+    "video"
+  ],
+  "max_input_tokens": 524288,
+  "context_window": 524288,
+  "max_output_tokens": 512000,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "price": {
+    "currency": "USD",
+    "input": 2.24e-7,
+    "output": 8.8e-7,
+    "cache_read": 4.48e-8
+  }
+}
