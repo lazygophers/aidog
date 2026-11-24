@@ -12,6 +12,7 @@ import { GroupSidePanels, staticOrder } from "./GroupSidePanels";
 import type { CardsSnapshot } from "./GroupListItem";
 import { GroupFlowPanel } from "./GroupFlowPanel";
 import { PlatformRow, PlatformRowCols } from "../platforms/PlatformRow";
+import { ModelTestPanel } from "../ModelTestPanel";
 import { formatNumber, formatMoney, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { routingModeLabel } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
@@ -283,6 +284,7 @@ function MembersCard(props: {
                 onDuplicate={(pp) => props.cardService.onDuplicate(pp)}
                 onViewLogs={(pp) => props.cardService.onViewLogs(pp)}
                 onQuickTest={(pp) => props.cardService.onQuickTest(pp)}
+                onCustomTest={(pp) => props.cardService.onCustomTest(pp)}
                 onDelete={(id) => props.onDeletePlatform?.(id)}
                 levelPriority={gp?.level_priority}
                 onLevelPriorityChange={gp != null && props.onSetLevelPriority ? (v) => props.onSetLevelPriority!(p.id, v) : undefined}
@@ -471,6 +473,17 @@ export function GroupDetailPage(props: {
           </div>
         </div>
       </div>
+      {/* 自定义测试弹窗（与 GroupListView 同款；ModelTestPanel 自带 overlay 且经 createPortal 挂 body） */}
+      {cards.testingPlatform != null && cards.setTestingPlatform != null && (
+        <ModelTestPanel
+          platform={cards.testingPlatform}
+          onClose={() => cards.setTestingPlatform!(null)}
+          onResult={(success) => {
+            const tp = cards.testingPlatform;
+            if (tp && cards.setTestResults) cards.setTestResults(prev => ({ ...prev, [tp.id]: success ? "ok" : "fail" }));
+          }}
+        />
+      )}
     </div>
   );
 }

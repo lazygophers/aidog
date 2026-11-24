@@ -42,6 +42,10 @@ export interface CardsSnapshot {
   lastTestMap: Record<number, import("../../services/api").LastTestResult>;
   /** 真查刷新（usePlatformCards 同款）；详情页成员行刷新按钮用，缺省不渲染按钮 */
   refreshQuota?: (p: Platform, opts?: { silent?: boolean }) => Promise<void>;
+  /** 自定义测试（usePlatformCards 全量快照带；详情页 ModelTestPanel 用，缺省不渲染面板） */
+  testingPlatform?: Platform | null;
+  setTestingPlatform?: React.Dispatch<React.SetStateAction<Platform | null>>;
+  setTestResults?: React.Dispatch<React.SetStateAction<Record<number, "ok" | "fail">>>;
 }
 
 /** GroupListItem props：每个分组行的全部渲染依赖，显式化为 props 以支持 React.memo 细粒度更新。 */
