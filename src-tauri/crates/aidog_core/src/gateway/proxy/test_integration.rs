@@ -12280,6 +12280,9 @@ async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
             .unwrap();
         let response = handle_proxy(AxumState(state.clone()), request).await;
         assert_eq!(response.status(), StatusCode::OK, "anthropic non-stream");
+        let body = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["content"][0]["text"], "aihubmix-ok");
         let captured = requests.lock().unwrap().clone();
         assert_eq!(captured.len(), 1, "request must reach fake upstream");
         assert!(
@@ -12314,6 +12317,8 @@ async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
         assert_eq!(response.status(), StatusCode::OK, "anthropic stream");
         let bytes = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
         let text = String::from_utf8_lossy(&bytes);
+        assert!(text.contains("message_start"), "anthropic message starts");
+        assert!(text.contains("content_block_delta"), "anthropic text event is converted");
         assert!(text.contains("aihubmix-stream"), "stream deltas reach client");
         assert!(text.contains("message_stop"), "anthropic end marker preserved");
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
@@ -12338,6 +12343,9 @@ async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
             .unwrap();
         let response = handle_proxy(AxumState(state.clone()), request).await;
         assert_eq!(response.status(), StatusCode::OK, "openai");
+        let body = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["choices"][0]["message"]["content"], "aihubmix-openai");
         let captured = requests.lock().unwrap().clone();
         assert_eq!(captured.len(), 1);
         assert!(
@@ -12345,6 +12353,7 @@ async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
             "openai uri: {}",
             captured[0].0
         );
+        assert_eq!(captured[0].2.get("authorization").unwrap(), "Bearer sk-up");
         let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
         assert_eq!(sent["model"], "gpt-x");
         assert_eq!(sent["messages"][0]["content"], "hello");
@@ -12370,6 +12379,9 @@ async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
             .unwrap();
         let response = handle_proxy(AxumState(state.clone()), request).await;
         assert_eq!(response.status(), StatusCode::OK, "gemini");
+        let body = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["candidates"][0]["content"]["parts"][0]["text"], "aihubmix-gemini");
         let captured = requests.lock().unwrap().clone();
         assert_eq!(captured.len(), 1);
         assert!(
@@ -12377,6 +12389,9 @@ async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
             "gemini uri: {}",
             captured[0].0
         );
+        assert_eq!(captured[0].2.get("x-goog-api-key").unwrap(), "sk-up");
+        let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
+        assert_eq!(sent["contents"][0]["parts"][0]["text"], "hi");
         let log = only_log_of(&state, gk).await;
         assert_eq!((log.input_tokens, log.output_tokens), (5, 2), "gemini usage");
         assert!(log.done);
@@ -12403,7 +12418,10 @@ async fn aihubmix_adapters_forward_all_three_wires_with_usage_and_errors() {
         let response = handle_proxy(AxumState(state.clone()), request).await;
         assert_eq!(response.status(), StatusCode::OK, "{label}");
         let bytes = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
-        assert!(String::from_utf8_lossy(&bytes).contains(text), "{label}");
+        let stream = String::from_utf8_lossy(&bytes);
+        assert!(stream.contains(text), "{label}: stream text reaches client");
+        assert!(stream.contains("content_block_delta"), "{label}: converted text event");
+        assert!(stream.contains("message_stop"), "{label}: terminal event");
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
         let log = only_log_of(&state, &gk).await;
         assert_eq!((log.input_tokens, log.output_tokens), (expected_input, expected_output), "{label}");
