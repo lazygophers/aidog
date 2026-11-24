@@ -94,6 +94,8 @@ mod test_outbound_shape;
 #[cfg(test)]
 mod test_integration;
 #[cfg(test)]
+mod test_mcp_http;
+#[cfg(test)]
 mod test_mitm_bypass;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
