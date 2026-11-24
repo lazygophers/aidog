@@ -187,6 +187,7 @@ pub(crate) async fn mcp_generate_image(
     state: &Arc<ProxyState>,
     group: &Group,
     args: &Value,
+    headers: &axum::http::HeaderMap,
 ) -> Result<String, String> {
     let prompt = args.get("prompt").and_then(Value::as_str).unwrap_or_default();
     let mut body = serde_json::json!({ "model": "", "prompt": prompt, "n": 1 });
@@ -215,7 +216,7 @@ pub(crate) async fn mcp_generate_image(
         log_settings: &log_settings,
         start: std::time::Instant::now(),
         lang,
-        client: super::ClientGate::On(super::client_detect::client_probe(&Default::default())),
+        client: super::ClientGate::On(super::client_detect::client_probe(headers)),
     };
     let resp = handle_aux_model(&IMAGE, state, &mut log, group, &bytes, None, ctx).await;
     let status = resp.status();
@@ -1048,7 +1049,12 @@ async fn aux_attempt(
 
     // ── 2xx：非流式。gemini 方言先把 interaction 转 ImagesResponse（票 06）；
     // JSON 响应 model 回写客户端原名；二进制音频原样回客户端。──
-    let body = resp.bytes().await.unwrap_or_default();
+    // 读体失败（上游中途断连 / 解码错）＝传输类：同 transport_failed 语义，非末位换候选，末位 502
+    //（unwrap_or_default 会把失败当 200 空体成功并照估算计费）。
+    let body = match resp.bytes().await {
+        Ok(b) => b,
+        Err(e) => return scope.transport_failed(log, attempts, &e, &url).await,
+    };
     // gemini 方言：0 图 / 坏 JSON = 上游契约不符 → 服务类失败换平台，末位 502。
     let body: Vec<u8> = if gemini {
         match serde_json::from_slice::<Value>(&body)
@@ -1193,6 +1199,9 @@ async fn image_terminal(
     log.platform_id = route.platform.id;
     log.status_code = status.as_u16() as i32;
     log.done = true;
+    // 失败终态费用状态（票 03 口径，同 non_success 失败终态）：有已收用量 → 不完整，无 → 未知。
+    log.fee_state =
+        Some(failure_fee_state(log.input_tokens, log.output_tokens).to_string());
     log.response_body = msg.clone();
     log.user_response_body = msg.clone();
     log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
@@ -1212,11 +1221,17 @@ async fn image_terminal(
 struct ImageStreamAcc {
     text: String,
     scanned: usize,
+    /// 当前尾窗首字节在完整响应流中的偏移；用于截断重扫时按事件位置去重。
+    text_offset: u64,
     input: i32,
     output: i32,
     /// 收到的 `image_generation.partial_image` 事件数（票 07 附加费计量）。
     partials: i32,
+    /// 已完成的图数（`image_generation.completed` 事件数；每事件一张图，计量张数口径）。
+    images: i32,
     completed: bool,
+    /// 已吸收事件的绝对字节偏移：尾窗截断重扫时去重，不合并内容相同的独立事件。
+    seen: std::collections::HashSet<u64>,
 }
 
 impl ImageStreamAcc {
@@ -1224,24 +1239,32 @@ impl ImageStreamAcc {
 
     fn feed(&mut self, chunk: &[u8]) {
         self.text.push_str(&String::from_utf8_lossy(chunk));
-        // 尾窗截断：丢弃头部一半，重扫（absorb 幂等，不会双计 usage）。
+        // 尾窗截断：丢弃头部一半，重扫；按绝对行偏移去重，保留同内容的独立事件计数。
         if self.text.len() > Self::TEXT_CAP {
-            let keep = self.text.split_off(self.text.len() / 2);
+            let cut = self.text.len() / 2;
+            let keep = self.text.split_off(cut);
             self.text = keep;
+            self.text_offset += cut as u64;
+            self.seen.retain(|offset| *offset >= self.text_offset);
             self.scanned = 0;
         }
         while let Some(idx) = self.text[self.scanned..].find('\n') {
-            let end = self.scanned + idx + 1;
-            let line = self.text[self.scanned..end].to_string();
+            let start = self.scanned;
+            let end = start + idx + 1;
+            let line = self.text[start..end].to_string();
             self.scanned = end;
-            self.absorb_line(&line);
+            self.absorb_line(&line, self.text_offset + start as u64);
         }
     }
 
-    fn absorb_line(&mut self, line: &str) {
+    fn absorb_line(&mut self, line: &str, offset: u64) {
         let Some(data) = line.strip_prefix("data:") else {
             return;
         };
+        // 截断后同一行可能重扫；不同偏移的相同事件仍分别计数。
+        if !self.seen.insert(offset) {
+            return;
+        }
         let Ok(v) = serde_json::from_str::<Value>(data.trim()) else {
             return;
         };
@@ -1250,7 +1273,9 @@ impl ImageStreamAcc {
                 self.partials += 1;
                 return;
             }
-            Some("image_generation.completed") => {}
+            Some("image_generation.completed") => {
+                self.images += 1;
+            }
             _ => return,
         }
         let tok = |field: &str, legacy: &str| {
@@ -1300,8 +1325,9 @@ impl Drop for ImageStreamGuard {
         log.fee_state = Some(
             stream_fee_state(acc.completed, acc.input, output_with_surcharge).to_string(),
         );
-        // 中断且无 completed usage → 0 units，避免把请求 n 当成已完成图数；费用未知按票 03 口径。
-        let units = i64::from(acc.completed);
+        // 中断（images=0）→ 0 units，避免把请求 n 当成已完成图数；完成张数按 completed
+        // 事件数计（n>1 流式此前恒记 1 假少计）；费用未知按票 03 口径。
+        let units = i64::from(acc.images);
         log.tool_call_counts
             .push((crate::gateway::billing::SEARCH_UNITS_KEY.to_string(), units));
         log.response_body = acc.text.clone();

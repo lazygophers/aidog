@@ -2015,6 +2015,7 @@
   "logs.blockedClientNotAllowed": "クライアント不許可",
   "logs.blockedClientNotAllowedMixed": "クライアント不許可（混在）",
   "logs.blockedObserve": "監視",
+  "logs.blockedImageVariations": "画像バリエーション未対応",
   "logs.blockedBy": "ブロック",
   "platform.add": "追加",
   "platform.addEndpoint": "エンドポイント追加",

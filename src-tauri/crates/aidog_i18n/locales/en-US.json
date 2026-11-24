@@ -1927,6 +1927,7 @@
   "logs.blockedClientNotAllowed": "Client not allowed",
   "logs.blockedClientNotAllowedMixed": "Client not allowed (mixed)",
   "logs.blockedObserve": "Observed",
+  "logs.blockedImageVariations": "Image variations not supported",
   "logs.blockedBy": "Blocked",
   "platform.add": "Add Platform",
   "platform.addEndpoint": "Add Endpoint",

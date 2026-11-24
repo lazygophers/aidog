@@ -2015,6 +2015,7 @@
   "logs.blockedClientNotAllowed": "Клиент не разрешён",
   "logs.blockedClientNotAllowedMixed": "Клиент не разрешён (смешанно)",
   "logs.blockedObserve": "Наблюдение",
+  "logs.blockedImageVariations": "Вариации изображений не поддерживаются",
   "logs.blockedBy": "Заблокировано",
   "platform.add": "Добавить",
   "platform.addEndpoint": "Добавить конечную точку",

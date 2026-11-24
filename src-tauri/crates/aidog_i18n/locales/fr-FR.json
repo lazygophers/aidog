@@ -2015,6 +2015,7 @@
   "logs.blockedClientNotAllowed": "Client non autorisé",
   "logs.blockedClientNotAllowedMixed": "Client non autorisé (mixte)",
   "logs.blockedObserve": "Observé",
+  "logs.blockedImageVariations": "Variantes d'image non prises en charge",
   "logs.blockedBy": "Bloqué",
   "platform.add": "Ajouter",
   "platform.addEndpoint": "Ajouter un endpoint",

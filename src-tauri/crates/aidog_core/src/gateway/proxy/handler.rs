@@ -482,6 +482,24 @@ pub(crate) async fn handle_proxy_core(
         .await;
     }
 
+    // ── 未实现的生图子端点：明确报不支持，不落聊天解析（那会报无关 messages/JSON 错误）──
+    // /v1/images/variations（图变体）未实现：400 + blocked_reason 审计行。
+    if is_image_variation_endpoint(&path) {
+        log.blocked_by = "router".to_string();
+        log.blocked_reason = "image_variations_unsupported".to_string();
+        log.done = true;
+        log.status_code = 400;
+        let msg = i18n::t(lang, ErrorKey::ImageVariationsUnsupported).to_string();
+        log.response_body = msg.clone();
+        log.user_response_body = msg.clone();
+        log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(&state, &log, &log_settings).await;
+        let mut r = (StatusCode::BAD_REQUEST, msg).into_response();
+        inject_trace_header(&mut r);
+        return r;
+    }
+
     // ── 生图请求分流（生图-模型类型 票 04 / 05）──
     // /images/{generations,edits} 无 messages，进 parse_incoming_request 会本地 400。
     if is_image_endpoint(&path) || is_image_edit_endpoint(&path) {

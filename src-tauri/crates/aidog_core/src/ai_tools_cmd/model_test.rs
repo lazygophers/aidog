@@ -464,7 +464,30 @@ crate::tauri_command! {
             serde_json::Value::Object(h).to_string()
         };
 
-        let body = resp.text().await.unwrap_or_default();
+        let body = match resp.text().await {
+            Ok(b) => b,
+            Err(e) => {
+                let result = ModelTestResult {
+                    success: false,
+                    model: ctx.model.clone(),
+                    prompt_preview: truncate_str(&ctx.prompt, 100),
+                    response_preview: String::new(),
+                    duration_ms: http_ctx.start.elapsed().as_millis() as i32,
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    error: format!("read upstream response failed: {e}"),
+                };
+                tracing::warn!(command = "model_test", platform_id = ctx.platform.id, error = %e, "read upstream response failed");
+                if let Err(le) = aidog_logs::upsert_request_log(db, build_test_proxy_log(
+                    &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
+                    &format!("upstream error: {e}"), upstream_status_code, 502,
+                    &upstream_resp_headers, &format!("upstream error: {e}"), 0, 0,
+                )).await {
+                    tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
+                }
+                return Ok(result);
+            }
+        };
 
         if !status.is_success() {
             let result = ModelTestResult {
@@ -658,20 +681,9 @@ crate::tauri_command! {
             .filter(|p| !p.trim().is_empty())
             .unwrap_or_else(|| "a simple red circle on a white background".to_string());
 
-        // endpoint：OpenAI 系硬序（与 /v1/images 出站同口径，candidates.rs RequestKind::Image 门一致）；
-        // 零端点平台回平台主 base_url（aux_model 同兜底）。
-        let (base_url, client_type, target_protocol) =
-            gateway::proxy::select_endpoint_for_openai_family(&platform.endpoints)
-                .map(|ep| (ep.base_url.clone(), ep.client_type.clone(), ep.protocol.clone()))
-                .unwrap_or_else(|| {
-                    (
-                        platform.base_url.clone(),
-                        aidog_db::registry::derive_client_type_for_platform(
-                            aidog_db::registry::PlatformCode(&platform.platform_type.wire_str()),
-                        ),
-                        platform.platform_type.clone(),
-                    )
-                });
+        // 出站目标：gemini 方言平台走 Interactions 出站（票 06 同口径）；其余 OpenAI 系硬序
+        //（与 /v1/images 出站同口径，candidates.rs RequestKind::Image 门一致）；零端点平台回平台主 base_url。
+        let (gemini, base_url, client_type, target_protocol) = image_test_outbound(&platform);
 
         // base_url 缺失 guard：与 model_test 同文案（OAuth 未回填 / 手建平台漏配 → 友好错误）。
         if base_url.trim().is_empty() {
@@ -679,25 +691,48 @@ crate::tauri_command! {
             return Err("base_url 缺失，请在平台 endpoints 配置上游地址".to_string());
         }
 
-        let req_body = serde_json::json!({ "model": model, "prompt": prompt, "n": 1 });
-        let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
+        let openai_body = serde_json::json!({ "model": model, "prompt": prompt, "n": 1 });
         // URL 构造对齐「URL 构造」约束：base_url 已含版本前缀，直接拼出站后缀（无版本段，无需 dedupe）。
-        let url = format!("{}/images/generations", base_url.trim_end_matches('/'));
+        let url = if gemini {
+            format!(
+                "{}{}",
+                base_url.trim_end_matches('/'),
+                gateway::proxy::image_dialect::GEMINI_API_PATH
+            )
+        } else {
+            format!("{}/images/generations", base_url.trim_end_matches('/'))
+        };
         let eff_api_key = gateway::proxy::resolve_opencode_zen_key(&platform);
-        let upstream_headers = gateway::proxy::build_upstream_headers_for_model(
-            &client_type,
-            &target_protocol,
-            &eff_api_key,
-            &model,
-            &axum::http::HeaderMap::new(),
-        );
-        let upstream_headers_json = serde_json::Value::Object(
-            upstream_headers
-                .iter()
-                .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
-                .collect(),
-        )
-        .to_string();
+        // 出站 body / 请求头：gemini 方言先做 OpenAI→Interactions 等价转换（与网关 aux_attempt
+        // 同转换；API key 走 x-goog-api-key），其余照 OpenAI Images 出站（headers 按模型客户端形态注入）。
+        let (req_body_str, upstream_headers_json) = if gemini {
+            let converted = gateway::proxy::image_dialect::generation_to_gemini(&openai_body, &model)?;
+            (
+                serde_json::to_string(&converted).unwrap_or_default(),
+                serde_json::json!({
+                    "x-goog-api-key": "[REDACTED]",
+                    "content-type": "application/json",
+                    "api-revision": gateway::proxy::image_dialect::GEMINI_API_REVISION,
+                })
+                .to_string(),
+            )
+        } else {
+            let upstream_headers = gateway::proxy::build_upstream_headers_for_model(
+                &client_type,
+                &target_protocol,
+                &eff_api_key,
+                &model,
+                &axum::http::HeaderMap::new(),
+            );
+            let headers_json = serde_json::Value::Object(
+                upstream_headers
+                    .iter()
+                    .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
+                    .collect(),
+            )
+            .to_string();
+            (serde_json::to_string(&openai_body).unwrap_or_default(), headers_json)
+        };
 
         let http_ctx = HttpRequestContext {
             target_protocol: target_protocol.clone(),
@@ -791,13 +826,20 @@ crate::tauri_command! {
             .post(&http_ctx.url)
             .header("Content-Type", "application/json")
             .body(http_ctx.req_body_str.clone());
-        let req_builder = gateway::proxy::apply_client_headers_for_model(
-            req_builder,
-            &http_ctx.client_type,
-            &http_ctx.target_protocol,
-            &http_ctx.eff_api_key,
-            &http_ctx.model,
-        );
+        let req_builder = if gemini {
+            // Gemini REST：API key 走 x-goog-api-key 头 + Api-Revision（与网关 aux_attempt 同口径）。
+            req_builder
+                .header("x-goog-api-key", &http_ctx.eff_api_key)
+                .header("Api-Revision", gateway::proxy::image_dialect::GEMINI_API_REVISION)
+        } else {
+            gateway::proxy::apply_client_headers_for_model(
+                req_builder,
+                &http_ctx.client_type,
+                &http_ctx.target_protocol,
+                &http_ctx.eff_api_key,
+                &http_ctx.model,
+            )
+        };
 
         let resp = match req_builder.send().await {
             Ok(r) => r,
@@ -819,13 +861,44 @@ crate::tauri_command! {
             }
             serde_json::Value::Object(h).to_string()
         };
-        let body = resp.text().await.unwrap_or_default();
-
+        let body = match resp.text().await {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::warn!(command = "image_test", platform_id = platform.id, error = %e, "image test read upstream response failed");
+                return Ok(fail(db, &http_ctx, platform.id,
+                    format!("read upstream response failed: {e}"),
+                    &format!("upstream error: {e}"), upstream_status_code, 502,
+                    &upstream_resp_headers, &format!("upstream error: {e}")).await);
+            }
+        };
         if !status.is_success() {
             tracing::warn!(command = "image_test", platform_id = platform.id, %status, "image test non-success upstream status");
             return Ok(fail(db, &http_ctx, platform.id, format!("HTTP {status}"),
                 &body, upstream_status_code, upstream_status_code, &upstream_resp_headers, &body).await);
         }
+
+        // gemini 方言：interaction → ImagesResponse 再走既有校验 / usage 提取（与网关同转换）；
+        // 不可转换 = 上游契约不符，按失败落 request_log。
+        let body = if gemini {
+            match serde_json::from_str::<Value>(&body)
+                .map_err(|e| e.to_string())
+                .and_then(|v| gateway::proxy::image_dialect::interaction_to_openai(&v, &model))
+            {
+                Ok(v) => v.to_string(),
+                Err(e) => {
+                    tracing::warn!(command = "image_test", platform_id = platform.id, error = %e, "image test interaction not convertible");
+                    return Ok(fail(
+                        db, &http_ctx, platform.id,
+                        format!("gemini interaction response not convertible: {e}"),
+                        &body,
+                        upstream_status_code, 502,
+                        &upstream_resp_headers, &body,
+                    ).await);
+                }
+            }
+        } else {
+            body
+        };
 
         let (in_tok, out_tok) = gateway::proxy::image_usage(&body);
         let result = match validate_image_response(&body) {
@@ -892,10 +965,87 @@ fn validate_image_response(body: &str) -> Result<(usize, String), String> {
     Ok((displayable, format!("{displayable} image(s) generated")))
 }
 
+/// 生图测试出站目标：gemini 方言平台（`extra.image_dialect=gemini`）走 Interactions 出站
+///（与 /v1/images 网关路径同口径，票 06）；其余 OpenAI 系硬序（与网关 RequestKind::Image
+/// 门同口径）；零端点平台回平台主 base_url（aux_model 同兜底）。
+/// 返回 (gemini 方言, base_url, endpoint client_type, 目标协议)。
+fn image_test_outbound(platform: &gateway::models::Platform) -> (bool, String, String, Protocol) {
+    let gemini = aidog_db::image_dialect_is_gemini(&platform.extra);
+    if gemini {
+        return (
+            true,
+            platform.base_url.clone(),
+            String::new(),
+            platform.platform_type.clone(),
+        );
+    }
+    let (base_url, client_type, target_protocol) =
+        gateway::proxy::select_endpoint_for_openai_family(&platform.endpoints)
+            .map(|ep| (ep.base_url.clone(), ep.client_type.clone(), ep.protocol.clone()))
+            .unwrap_or_else(|| {
+                (
+                    platform.base_url.clone(),
+                    aidog_db::registry::derive_client_type_for_platform(
+                        aidog_db::registry::PlatformCode(&platform.platform_type.wire_str()),
+                    ),
+                    platform.platform_type.clone(),
+                )
+            });
+    (gemini, base_url, client_type, target_protocol)
+}
+
+#[cfg(test)]
+mod test_image_outbound {
+    use super::*;
+
+    fn platform_from(extra: &str, endpoints: serde_json::Value) -> gateway::models::Platform {
+        serde_json::from_value(serde_json::json!({
+            "id": 1,
+            "name": "test",
+            "platform_type": "gemini",
+            "base_url": "https://g.example",
+            "api_key": "",
+            "extra": extra,
+            "models": {},
+            "available_models": [],
+            "created_at": 0,
+            "updated_at": 0,
+            "endpoints": endpoints,
+        }))
+        .unwrap()
+    }
+
+    /// gemini 方言平台 → Interactions 出站（平台主 base_url），不走 OpenAI Images 硬序
+    ///（gemini-only 端点平台旧逻辑测试必败，而网关 /v1/images 经方言转换本可成功）。
+    #[test]
+    fn gemini_dialect_platform_uses_interactions_outbound() {
+        let platform = platform_from(
+            r#"{"image_dialect":"gemini"}"#,
+            serde_json::json!([{"protocol":"gemini","base_url":"https://g.example/v1beta","client_type":"default","coding_plan":false}]),
+        );
+        let (gemini, base_url, _ct, proto) = image_test_outbound(&platform);
+        assert!(gemini, "gemini 方言走 Interactions 出站");
+        assert_eq!(base_url, "https://g.example", "gemini 走平台主 base_url");
+        assert_eq!(proto, Protocol::Gemini);
+    }
+
+    /// 非 gemini 方言平台维持 OpenAI Images 硬序（既有行为不变）。
+    #[test]
+    fn openai_endpoint_platform_keeps_images_outbound() {
+        let platform = platform_from(
+            "",
+            serde_json::json!([{"protocol":"openai","base_url":"https://o.example/v1","client_type":"default","coding_plan":false}]),
+        );
+        let (gemini, base_url, _ct, proto) = image_test_outbound(&platform);
+        assert!(!gemini);
+        assert_eq!(base_url, "https://o.example/v1");
+        assert_eq!(proto, Protocol::OpenAI);
+    }
+}
+
 #[cfg(test)]
 mod test_image_response {
     use super::*;
-
     #[test]
     fn b64_entries_validate() {
         let body = serde_json::json!({

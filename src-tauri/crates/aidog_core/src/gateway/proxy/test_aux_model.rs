@@ -428,3 +428,36 @@ fn image_stream_acc_counts_partials_for_surcharge() {
     assert_eq!(out2, 200);
     assert_eq!(stream_fee_state(acc2.completed, acc2.input, out2), "incomplete");
 }
+
+/// >16MB 尾窗截断重扫不双计：已吸收的 partial / completed 事件按绝对字节偏移去重
+/// >（seen 存事件起始偏移；重扫幂等旧注释只对 usage 成立，partials / 事件张数不幂等，会 100×partials 虚增）。
+#[test]
+fn image_stream_acc_truncation_rescan_does_not_double_count() {
+    let partial = "data: {\"type\":\"image_generation.partial_image\",\"b64_json\":\"AA==\"}\r\n\r\n";
+    let completed = "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"QQ==\",\"usage\":{\"input_tokens\":10,\"output_tokens\":50}}\r\n\r\n";
+    // 17MB 填充行（带换行，可被行扫描器消费）触发尾窗截断
+    let big = format!("{}\n", "y".repeat(63)).repeat(17 * 1024 * 1024 / 64 + 1);
+
+    let mut acc = ImageStreamAcc::default();
+    acc.feed(big.as_bytes()); // 首次截断：填充占满缓冲
+    acc.feed(format!("{partial}{partial}{completed}").as_bytes()); // 事件落在保留窗尾部
+    assert_eq!((acc.partials, acc.completed, acc.input, acc.output), (2, true, 10, 50));
+
+    // 再灌约 8.1MB 触发第二次截断：事件保留在尾窗内并被重扫
+    let trigger = format!("{}\n", "z".repeat(63)).repeat(8 * 1024 * 1024 / 64 + 1);
+    acc.feed(trigger.as_bytes());
+    assert_eq!(acc.partials, 2, "截断重扫不双计 partial（虚增 100×partials 附加费）");
+    assert!(acc.completed);
+    assert_eq!((acc.input, acc.output), (10, 50), "usage 重扫幂等（既有口径不变）");
+}
+
+/// /v1/images/variations 端点判定（未实现端点在入口明确拒绝，不落聊天解析）。
+#[test]
+fn image_variation_endpoint_suffix_match() {
+    for p in ["/v1/images/variations", "/images/variations", "/proxy/v1/images/variations", "/v1/images/variations/"] {
+        assert!(is_image_variation_endpoint(p), "{p}");
+    }
+    for p in ["/v1/images/generations", "/v1/images/edits", "/v1/images/variationsfoo"] {
+        assert!(!is_image_variation_endpoint(p), "{p}");
+    }
+}

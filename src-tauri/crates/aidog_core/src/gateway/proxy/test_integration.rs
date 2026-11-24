@@ -14466,6 +14466,7 @@ async fn passthrough_platform_image_edits_multipart_relayed_verbatim() {
 async fn mcp_generate_image(state: &Arc<ProxyState>, gk: &str, id: i64) -> serde_json::Value {
     let mut headers = axum::http::HeaderMap::new();
     headers.insert("authorization", format!("Bearer {gk}").parse().unwrap());
+    headers.insert("user-agent", "claude-cli/2.0 (external, cli)".parse().unwrap());
     let body = serde_json::json!({"jsonrpc":"2.0","id":id,"method":"tools/call","params":{"name":"generate_image","arguments":{"prompt":"a cat","size":"1024x1024"}}});
     let resp = handle_mcp(
         AxumState(state.clone()),
@@ -14556,6 +14557,70 @@ async fn mcp_generate_image_without_image_platform_is_clear_error() {
     let row = &page.rows[0];
     assert!(!row.success, "{:?}", row);
     assert!(!row.error.is_empty());
+}
+
+/// 客户端白名单平台（extra.allowed_clients=["claude_code"]）+ MCP generate_image 带真实
+/// UA（claude-cli → claude_code）：探测用请求头放行，不被白名单误杀（此前用空 headers
+/// 探测恒 unknown → 403）。
+#[tokio::test]
+async fn mcp_generate_image_respects_client_whitelist_with_real_headers() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkmcpwl",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a", WL_CC_EXTRA)],
+    )
+    .await;
+
+    let v = mcp_generate_image(&state, "gkmcpwl", 11).await;
+    assert!(v["result"]["isError"].is_null(), "{v}");
+    let text = v["result"]["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("![generated image]"), "text={text}");
+    assert_eq!(hits.lock().unwrap().len(), 1, "白名单放行后打到上游");
+}
+
+/// 非白名单客户端的 MCP 生图仍被拦（闸门语义不受修复影响）。
+#[tokio::test]
+async fn mcp_generate_image_blocked_for_non_whitelisted_client() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group_extra(
+        &state,
+        "gkmcpbl",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a", WL_CC_EXTRA)],
+    )
+    .await;
+
+    // 用 curl UA（词表认不出 → 白名单未命中）直调 handle_mcp
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert("authorization", "Bearer gkmcpbl".parse().unwrap());
+    headers.insert("user-agent", "curl/8.0".parse().unwrap());
+    let body = serde_json::json!({"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"generate_image","arguments":{"prompt":"a cat"}}});
+    let resp = handle_mcp(
+        AxumState(state.clone()),
+        headers,
+        axum::extract::ConnectInfo("127.0.0.1:50000".parse().unwrap()),
+        axum::body::Bytes::from(body.to_string()),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(v["result"]["isError"], true, "{v}");
+    assert!(hits.lock().unwrap().is_empty(), "白名单未命中不得打到上游");
 }
 
 // ══ 票 05：图片编辑与流式（本地假上游，禁外呼）══
@@ -15315,6 +15380,147 @@ async fn image_stream_interrupted_marks_incomplete() {
         log.attempts.iter().any(|a| a.kind.as_deref() == Some("stream_interrupted")),
         "中断标记在 attempts（元数据，不受原始信息开关控）"
     );
+}
+
+/// 流式完成张数按 completed 事件数计（n=2 两张图两个 completed 事件）：
+/// 按张计价条目 est_cost = 2 × unit_price（此前恒记 1 → 0.05 假少计）。
+#[tokio::test]
+async fn image_stream_units_count_completed_events() {
+    let sse = concat!(
+        "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"QQ==\",\"usage\":{\"input_tokens\":10,\"output_tokens\":50}}\r\n\r\n",
+        "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"Qg==\",\"usage\":{\"input_tokens\":10,\"output_tokens\":50}}\r\n\r\n",
+        "data: [DONE]\r\n\r\n",
+    );
+    let (up, _h) = spawn_typed_upstream(200, "text/event-stream", sse).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"unit":"image","unit_price":0.05}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkunits",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let req = embedding_request(
+        "gkunits",
+        r#"{"model":"client-img","prompt":"a cat","stream":true}"#,
+        "/v1/images/generations",
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    // 消费 SSE body 才会 poll 完流并 Drop ImageStreamGuard 落终态日志。
+    let _ = axum::body::to_bytes(resp.into_body(), 4 * 1024 * 1024).await.unwrap();
+
+    let mut log = last_log_for(&state, "gkunits").await;
+    for _ in 0..40 {
+        if log.done && log.est_cost != 0.0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        log = last_log_for(&state, "gkunits").await;
+    }
+    assert!(log.done);
+    assert!(
+        (log.est_cost - 0.10).abs() < 1e-12,
+        "两张图两个 completed 事件 → 2 × 0.05，got {}",
+        log.est_cost
+    );
+}
+
+/// 非流式 2xx 响应体读取失败（上游中途断开，content-length 不满足）：不得当成功
+/// 回 200 空体并照估算计费——按传输类失败走 failover，末位 502 终态落库。
+#[tokio::test]
+async fn image_response_body_read_error_failover() {
+    // 原始 TCP 上游：回完整响应头（content-length: 100）但只发 4 字节即断开
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        use tokio::io::AsyncWriteExt;
+        let Ok((mut sock, _)) = listener.accept().await else {
+            return;
+        };
+        let _ = sock
+            .write_all(
+                b"HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 100\r\n\r\n{\"da",
+            )
+            .await;
+        // 连接随即关闭：客户端读体失败
+    });
+    let up = format!("http://{addr}");
+
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gktrunc",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request("gktrunc", IMG_REQ, "/v1/images/generations"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY, "末位候选读体失败 → 502");
+
+    let log = last_log_for(&state, "gktrunc").await;
+    assert_eq!(log.status_code, 502);
+    assert!(log.done, "终态落库");
+    assert!(
+        log.attempts
+            .iter()
+            .any(|a| a.error_class.as_deref() == Some("service")),
+        "读体失败按服务类留痕（同 transport 失败语义）"
+    );
+}
+
+/// /v1/images/variations 未实现：明确报「不支持该端点」（400 + blocked_reason），
+/// 不落聊天解析（那会报无关 messages/JSON 错误），不打上游。
+#[tokio::test]
+async fn image_variations_endpoint_clearly_rejected() {
+    let (up, hits) = spawn_embedding_upstream(vec![(200, IMG_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    aidog_db::upsert_model_entries(
+        &state.db,
+        vec![image_entry(r#"{"input":2e-8,"output":1e-8}"#)],
+    )
+    .await
+    .unwrap();
+    setup_aux_group(
+        &state,
+        "gkvar",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        embedding_request(
+            "gkvar",
+            r#"{"model":"client-img","prompt":"a cat"}"#,
+            "/v1/images/variations",
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let body = axum::body::to_bytes(resp.into_body(), 64 * 1024).await.unwrap();
+    let text = String::from_utf8_lossy(&body);
+    assert!(text.contains("not supported"), "明确不支持文案：{text}");
+    assert!(hits.lock().unwrap().is_empty(), "不打上游");
+    let log = last_log_for(&state, "gkvar").await;
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "image_variations_unsupported");
 }
 
 /// stream + output_format=gif → 官方契约不支持流式，400 明确拒（先于路由，不打上游）。

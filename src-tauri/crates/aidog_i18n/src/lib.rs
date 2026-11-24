@@ -139,6 +139,8 @@ pub enum ErrorKey {
     BalanceInsufficient,
     /// 分组无可用生图平台（生图-模型类型 票 04：image 槽位全空 / 无 OpenAI 系 endpoint）
     NoImagePlatform,
+    /// `/v1/images/variations` 尚未实现
+    ImageVariationsUnsupported,
 }
 
 /// 返回翻译后的错误消息
@@ -181,6 +183,9 @@ fn t_en(key: ErrorKey) -> &'static str {
         ErrorKey::NoImagePlatform => {
             "no image platform in this group: configure image model slots for a platform"
         }
+        ErrorKey::ImageVariationsUnsupported => {
+            "image variations are not supported; use image generations or edits"
+        }
     }
 }
 
@@ -206,6 +211,9 @@ fn t_zh(key: ErrorKey) -> &'static str {
         ErrorKey::QuotaExhaustedCodingPlanResume => "套餐额度已用完，将于 {{time}} 恢复",
         ErrorKey::BalanceInsufficient => "余额不足",
         ErrorKey::NoImagePlatform => "分组内没有可用的生图平台：请为平台配置生图模型槽位",
+        ErrorKey::ImageVariationsUnsupported => {
+            "暂不支持图片变体端点，请使用图片生成或图片编辑端点"
+        }
     }
 }
 
@@ -235,6 +243,9 @@ fn t_ja(key: ErrorKey) -> &'static str {
         ErrorKey::NoImagePlatform => {
             "このグループには画像生成プラットフォームがありません：プラットフォームに画像モデルスロットを設定してください"
         }
+        ErrorKey::ImageVariationsUnsupported => {
+            "画像バリエーションには対応していません。画像生成または画像編集エンドポイントを使用してください"
+        }
     }
 }
 
@@ -263,6 +274,9 @@ fn t_fr(key: ErrorKey) -> &'static str {
         ErrorKey::BalanceInsufficient => "Solde insuffisant",
         ErrorKey::NoImagePlatform => {
             "aucune plateforme d'image dans ce groupe : configurez des emplacements de modèles d'image"
+        }
+        ErrorKey::ImageVariationsUnsupported => {
+            "les variations d'images ne sont pas prises en charge ; utilisez la génération ou la modification d'images"
         }
     }
 }
@@ -297,6 +311,9 @@ fn t_de(key: ErrorKey) -> &'static str {
         ErrorKey::NoImagePlatform => {
             "keine Bildplattform in dieser Gruppe: konfigurieren Sie Bildmodell-Slots für eine Plattform"
         }
+        ErrorKey::ImageVariationsUnsupported => {
+            "Bildvarianten werden nicht unterstützt; verwenden Sie Bildgenerierung oder Bildbearbeitung"
+        }
     }
 }
 
@@ -325,6 +342,9 @@ fn t_ru(key: ErrorKey) -> &'static str {
         ErrorKey::BalanceInsufficient => "Недостаточно средств",
         ErrorKey::NoImagePlatform => {
             "в группе нет платформы для изображений: настройте слоты моделей изображений"
+        }
+        ErrorKey::ImageVariationsUnsupported => {
+            "вариации изображений не поддерживаются; используйте генерацию или редактирование изображений"
         }
     }
 }
@@ -356,6 +376,9 @@ fn t_ar(key: ErrorKey) -> &'static str {
         ErrorKey::BalanceInsufficient => "الرصيد غير كافٍ",
         ErrorKey::NoImagePlatform => {
             "لا توجد منصة لتوليد الصور في هذه المجموعة: قم بإعداد خانات نماذج الصور للمنصة"
+        }
+        ErrorKey::ImageVariationsUnsupported => {
+            "تنويعات الصور غير مدعومة؛ استخدم نقطة نهاية توليد الصور أو تعديلها"
         }
     }
 }
@@ -389,6 +412,9 @@ fn t_es(key: ErrorKey) -> &'static str {
         ErrorKey::BalanceInsufficient => "Saldo insuficiente",
         ErrorKey::NoImagePlatform => {
             "no hay plataforma de imágenes en este grupo: configure ranuras de modelos de imagen"
+        }
+        ErrorKey::ImageVariationsUnsupported => {
+            "las variaciones de imágenes no están disponibles; use la generación o edición de imágenes"
         }
     }
 }

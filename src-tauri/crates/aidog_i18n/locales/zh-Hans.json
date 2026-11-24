@@ -1927,6 +1927,7 @@
   "logs.blockedClientNotAllowed": "客户端被拒",
   "logs.blockedClientNotAllowedMixed": "客户端被拒（混合）",
   "logs.blockedObserve": "观察",
+  "logs.blockedImageVariations": "生图变体不支持",
   "logs.blockedBy": "拦截",
   "platform.add": "添加平台",
   "platform.addEndpoint": "添加端点",
