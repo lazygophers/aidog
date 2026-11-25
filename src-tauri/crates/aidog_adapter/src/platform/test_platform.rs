@@ -2316,6 +2316,14 @@ fn novita_has_dedicated_adapter_registration() {
 }
 
 #[test]
+fn nvidia_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("nvidia"), super::adapter_for("openrouter")),
+        "NVIDIA registration must not use the generic adapter"
+    );
+}
+
+#[test]
 fn magpie_has_dedicated_adapter_registration() {
     assert!(
         !std::ptr::eq(super::adapter_for("magpie"), super::adapter_for("openrouter")),
