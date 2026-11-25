@@ -3,7 +3,7 @@
 //! 覆盖：① 加密库标准 sqlite 打开失败（静态加密生效）② 存量明文迁移零丢失 + 幂等
 //! ③ 迁移失败注入 → 明文库完好保留 ④ key 不可得 → 清晰错误且不建明文库。
 //! 内存库透明性由既有套件全绿承载（不设 key，行为等同标准 SQLite）。
-use crate::test_support::{ensure_test_master_key, three_file_db};
+use crate::test_support::{ensure_test_master_key, three_file_db, HomeGuard};
 use crate::Db;
 use rusqlite::Connection;
 
@@ -31,6 +31,9 @@ fn build_plaintext_db(path: &str) {
 /// `file is not a database`（静态加密生效，spec Testing ②）。
 #[tokio::test]
 async fn encrypted_files_reject_standard_sqlite_open() {
+    // Db::new 读进程 HOME 下的 db-cipher.json；独占 HOME 防与其它 HomeGuard 测试互踩
+    // （ENV_LOCK 串行，见 db-pool-routing.md）。
+    let _home = HomeGuard::new();
     let (_db, dir) = three_file_db().await;
     for name in ["aidog.db", "log.db", "platform.db"] {
         let path = dir.path().join(name);
@@ -56,6 +59,10 @@ fn path_exist(path: &str) -> bool {
 /// 文件头非明文 + 二次打开幂等（已加密不再迁移）。
 #[tokio::test]
 async fn plaintext_dbs_migrate_with_zero_loss() {
+    // Db::new 读进程 HOME 下的 db-cipher.json；独占 HOME 防与其它 HomeGuard 测试互踩
+    // （ENV_LOCK 串行；否则并行的 corrupt_config 家族会把「not json」灌进本测试读到的 HOME，
+    // 明文迁移被正确拒绝 → Db::new Err，即曾复现的竞态）。
+    let _home = HomeGuard::new();
     ensure_test_master_key();
     let dir = tempfile::tempdir().unwrap();
     let main = dir.path().join("aidog.db");
@@ -129,6 +136,7 @@ async fn read_probe(db: &Db, site: CallSite) -> Vec<(i64, String)> {
 /// 明文库完好保留（可继续用普通 sqlite 读，下次启动可重试）。
 #[tokio::test]
 async fn migration_failure_preserves_plaintext() {
+    let _home = HomeGuard::new();
     ensure_test_master_key();
     let dir = tempfile::tempdir().unwrap();
     let main = dir.path().join("aidog.db");
@@ -161,6 +169,8 @@ async fn migration_failure_preserves_plaintext() {
 fn key_unavailable_no_plaintext_db_created() {
     let bad_key = std::env::temp_dir().join(format!("aidog_bad_key_{}.bin", std::process::id()));
     std::fs::write(&bad_key, b"short").unwrap();
+    // 子进程 HOME 也隔离：不读真用户 ~/.aidog/db-cipher.json。
+    let child_home = tempfile::tempdir().unwrap();
     let out = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
@@ -169,6 +179,7 @@ fn key_unavailable_no_plaintext_db_created() {
             "test_sqlcipher::key_unavailable_child",
         ])
         .env("AIDOG_DB_MASTER_KEY_FILE", &bad_key)
+        .env("HOME", child_home.path())
         .output()
         .expect("spawn test binary");
     let _ = std::fs::remove_file(&bad_key);

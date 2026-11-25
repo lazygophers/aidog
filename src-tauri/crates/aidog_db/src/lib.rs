@@ -1414,6 +1414,9 @@ mod test_maintenance;
 mod test_middleware;
 #[cfg(test)]
 mod test_crypt;
+#[cfg(test)]
+#[path = "test_sqlcipher_params.rs"]
+mod test_sqlcipher_params;
 mod test_mod;
 #[cfg(test)]
 mod test_flow_migration;
