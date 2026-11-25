@@ -2284,6 +2284,14 @@ fn intern_inkstone_has_dedicated_adapter_registration() {
 }
 
 #[test]
+fn meta_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("meta"), super::adapter_for("openrouter")),
+        "Meta registration must not use the generic adapter"
+    );
+}
+
+#[test]
 fn magpie_has_dedicated_adapter_registration() {
     assert!(
         !std::ptr::eq(super::adapter_for("magpie"), super::adapter_for("openrouter")),
