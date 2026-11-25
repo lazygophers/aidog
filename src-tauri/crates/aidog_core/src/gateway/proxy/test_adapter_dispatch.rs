@@ -3378,3 +3378,263 @@ async fn cline_family_openai_endpoint_stream() {
         assert!(resp.contains("hi"), "{pt:?}: {resp}");
     }
 }
+
+// ══ issue 93：Command Code（commandcode）Provider API 四端点协议 ══
+// Official docs checked 2026-11-24: https://commandcode.ai/docs/provider
+// 三 chat 协议「request and response bodies follow the」官方 schema（基座构件即官方形状）；
+// 「Every endpoint emits token usage at the end of every stream … No opt-in required」；
+// 错误体为标准 OpenAI / Anthropic envelope（400 unsupported_model 仅 OpenAI envelope 有 code）。
+const CC_OPENAI_RESP: &str = r#"{"id":"cc_1","object":"chat.completion","model":"cc-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":6,"completion_tokens":3,"total_tokens":9,"prompt_tokens_details":{"cached_tokens":2}}}"#;
+const CC_OPENAI_SSE: &str = "data: {\"id\":\"cc_1\",\"object\":\"chat.completion.chunk\",\"model\":\"cc-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
+data: {\"id\":\"cc_1\",\"object\":\"chat.completion.chunk\",\"model\":\"cc-test\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":3,\"total_tokens\":9}}\n\n\
+data: [DONE]\n\n";
+const CC_OPENAI_ERROR: &str = r#"{"error":{"message":"Model isn't in the catalog","type":"invalid_request_error","code":"unsupported_model","param":null}}"#;
+const CC_ANTHROPIC_RESP: &str = r#"{"id":"msg_cc","type":"message","role":"assistant","model":"cc-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+const CC_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_cc\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"cc-test\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":2}}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+const CC_ANTHROPIC_ERROR: &str =
+    r#"{"type":"error","error":{"type":"invalid_request_error","message":"Wrong endpoint for the model"}}"#;
+const CC_RESPONSES_RESP: &str = r#"{"id":"resp_cc","object":"response","model":"cc-test","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi","annotations":[]}]}],"usage":{"input_tokens":6,"output_tokens":2,"input_tokens_details":{"cached_tokens":4}}}"#;
+const CC_RESPONSES_SSE: &str = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\n\
+data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_cc\",\"status\":\"completed\",\"usage\":{\"input_tokens\":6,\"output_tokens\":2}}}\n\n";
+const CC_DECISION_RESP: &str = r#"{"model":"cc-jev-1","answers":[{"type":"noul","noul":0.96}],"usage":{"input_tokens":84,"output_tokens":3}}"#;
+
+/// openai 端点：入站 anthropic → 出站 openai 打 `/chat/completions`；非流式回 anthropic、
+/// 流式末帧带 usage 后 `[DONE]`；400 unsupported_model（官方 code）原样回客户端。
+#[tokio::test]
+async fn commandcode_openai_endpoint_request_response_stream_error_usage() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::OpenAI,
+        "gk93oa",
+        "/v1/messages",
+        r#"{"model":"cc-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", CC_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["model"], "cc-test", "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    // 入站 anthropic（/v1/messages）→ 出站 openai 转换、响应按客户端协议回 anthropic 形状。
+    assert_eq!(response["content"][0]["text"], "hi", "{response}");
+    assert!(response.get("usage").is_some(), "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("commandcode").extract_usage(CC_OPENAI_RESP);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (4, 3, 2, 0, 0)
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::OpenAI,
+        "gk93oas",
+        "/v1/messages",
+        r#"{"model":"cc-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", CC_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    // 客户端协议 anthropic：流按 anthropic SSE 输出，message_stop 收官、无 [DONE]。
+    assert!(resp.contains("hi"), "{resp}");
+    assert!(resp.contains("message_stop"), "{resp}");
+    assert!(
+        !resp.contains("[DONE]"),
+        "openai upstream terminator must not leak into Anthropic output: {resp}"
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::OpenAI,
+        "gk93oae",
+        "/v1/messages",
+        r#"{"model":"cc-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", CC_OPENAI_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(!hits.is_empty(), "fake upstream must receive request");
+    assert!(resp.contains("unsupported_model"), "{resp}");
+}
+
+/// anthropic 端点：入站 openai → 出站 anthropic 打 `/v1/messages`；流式 message_delta
+/// 带 usage；anthropic envelope 错误原样回客户端。
+#[tokio::test]
+async fn commandcode_anthropic_endpoint_request_response_stream_error() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::Anthropic,
+        "gk93an",
+        "/chat/completions",
+        r#"{"model":"cc-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", CC_ANTHROPIC_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["max_tokens"], 32, "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi", "{response}");
+    assert!(response.get("usage").is_some(), "{response}");
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::Anthropic,
+        "gk93ans",
+        "/chat/completions",
+        r#"{"model":"cc-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", CC_ANTHROPIC_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert!(resp.contains("hi"), "{resp}");
+    assert!(resp.contains("[DONE]"), "{resp}");
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::Anthropic,
+        "gk93ane",
+        "/chat/completions",
+        r#"{"model":"cc-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", CC_ANTHROPIC_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(!hits.is_empty(), "fake upstream must receive request");
+    assert!(resp.contains("Wrong endpoint for the model"), "{resp}");
+}
+
+/// openai_responses 端点：出站打 `/responses`；流式 `response.completed` 收官；
+/// usage 走 responses 缓存臂（cached_tokens 从 input 扣减）。
+#[tokio::test]
+async fn commandcode_openai_responses_endpoint_request_response_stream_usage() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::OpenAIResponses,
+        "gk93or",
+        "/chat/completions",
+        r#"{"model":"cc-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", CC_RESPONSES_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/responses");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["model"], "cc-test", "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi", "{response}");
+    assert!(response.get("usage").is_some(), "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("commandcode").extract_usage(CC_RESPONSES_RESP);
+    // responses 官方公式：ordinary input = input_tokens − cached。
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (2, 2, 4, 0, 0)
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::OpenAIResponses,
+        "gk93ors",
+        "/chat/completions",
+        r#"{"model":"cc-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", CC_RESPONSES_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/responses");
+    assert!(resp.contains("hi"), "{resp}");
+    assert!(resp.contains("[DONE]"), "{resp}");
+}
+
+/// typesafe 端点：决策请求 `/v1/systemone` 打用户 base_url + `/systemone`（R10），
+/// model 改写为 jev 槽位（R8），usage.input_tokens 落 proxy_log。
+#[tokio::test]
+async fn commandcode_typesafe_endpoint_decision_dispatch_usage() {
+    let (base, hits) = spawn_glm_upstream(200, "application/json", CC_DECISION_RESP).await;
+    let state = make_state(test_db().await).await;
+    let pid = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        Protocol::CommandCode,
+        &base,
+        std::slice::from_ref(&Protocol::TypeSafe),
+    )
+    .await;
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id: pid,
+            models: Some(crate::gateway::models::PlatformModels {
+                jev: vec!["cc-test".into()],
+                ..Default::default()
+            }),
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: None,
+            endpoints: None,
+            available_models: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gk93ts", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: pid,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/systemone")
+        .header("authorization", "Bearer gk93ts")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"whatever","usage":{},"answers":[]}"#,
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(v["model"], "cc-jev-1", "决策响应透传: {v}");
+
+    let hits = hits.lock().unwrap();
+    assert_eq!(hits.len(), 1, "{hits:?}");
+    assert_eq!(hits[0].0, "/systemone", "URL = 用户 base_url + /systemone (R10)");
+    let sent: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(sent["model"], "cc-test", "model 应改写为平台模型链首: {sent}");
+    drop(hits);
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let log = logs.iter().find(|l| l.group_key == "gk93ts").expect("log row missing");
+    assert_eq!(log.input_tokens, 84, "typesafe usage.input_tokens 应落库");
+}
