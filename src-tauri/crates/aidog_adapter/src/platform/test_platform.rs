@@ -2219,7 +2219,6 @@ fn litellm_has_dedicated_adapter_registration() {
     assert_eq!(body, json!({"model":"lt-test"}));
 }
 
-/// 官方错误参考（https://docs.litellm.ai/docs/proxy/error_reference，核对日期 2026-11-25）
 /// 官方错误参考（https://docs.litellm.ai/docs/proxy/error_reference，核对日期 2026-11-25）：
 /// 401 / 429 基座已按状态码归 Service；422 BudgetExceededError 为网关预算拒绝（不点名
 /// provider、`litellm_error_type: budget_exceeded`），语义 = 整个平台 key 无可用余额 →
@@ -2248,5 +2247,23 @@ fn litellm_error_envelopes_classify_per_base() {
         adapter.classify_error(400, r#"{"error":{"message":"litellm.BadRequestError: llm provider error","type":null,"code":"400"}}"#),
         super::error::classify_upstream_error(400, r#"{"error":{"message":"litellm.BadRequestError: llm provider error","type":null,"code":"400"}}"#),
         "400 未证实模型类特征不扩展，同基座"
+    );
+}
+
+/// 官方错误参考「Errors on the Anthropic Messages routes」节（核对日期 2026-11-25）：
+/// anthropic 路由上 `error.type` 持 Anthropic 的状态类型（如 invalid_request_error），
+/// 网关错误类型移到 `error.litellm_error_type`（budget_exceeded / team_model_access_denied /
+/// token_not_found_in_db）；预算拒绝同样可能带非默认状态码（`litellm.budget_exceeded_status_code`
+/// 可配置），故按类型匹配不限状态码。
+#[test]
+fn litellm_anthropic_route_budget_error_classifies_service() {
+    let adapter = super::adapter_for("litellm");
+    assert_eq!(
+        adapter.classify_error(
+            422,
+            r#"{"type":"error","error":{"type":"invalid_request_error","message":"Budget has been exceeded! Key=zero-budget Current cost: 0.0, Max budget: 0.0","litellm_error_type":"budget_exceeded"}}"#,
+        ),
+        UpstreamErrorClass::Service,
+        "anthropic 路由预算错误经 error.litellm_error_type 识别"
     );
 }

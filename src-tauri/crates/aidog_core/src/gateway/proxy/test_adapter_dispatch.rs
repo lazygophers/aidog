@@ -3787,3 +3787,55 @@ async fn litellm_openai_endpoint_dispatch() {
     assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
     assert!(resp.contains("Invalid Virtual Key"), "{resp}");
 }
+
+const LITELLM_ANTHROPIC_RESP: &str = r#"{"id":"msg_lt","type":"message","role":"assistant","model":"lt-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+const LITELLM_ANTHROPIC_SSE: &str = concat!(
+    "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_lt\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"lt-test\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":2,\"cache_creation_input_tokens\":1}}}\n\n",
+    "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+    "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+    "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n",
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+);
+// anthropic 路由预算错误：error.type 持 Anthropic 状态类型，网关类型在 error.litellm_error_type
+// （官方错误参考「Errors on the Anthropic Messages routes」节，核对日期 2026-11-25）。
+const LITELLM_ANTHROPIC_BUDGET_ERROR: &str = r#"{"type":"error","error":{"type":"invalid_request_error","message":"Budget has been exceeded! Key=zero-budget Current cost: 0.0, Max budget: 0.0","litellm_error_type":"budget_exceeded"}}"#;
+
+/// anthropic 端点（用户可配，官方 /v1/messages 路由）：出站打 `/v1/messages`；
+/// 流式透传标准事件；预算错误归服务类、末次尝试原样透传。
+#[tokio::test]
+async fn litellm_anthropic_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::LiteLLM, Protocol::Anthropic, "gk98an", "/chat/completions", r#"{"model":"lt-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", LITELLM_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["choices"][0]["message"]["content"], "hi");
+    assert_eq!(adapter_for("litellm").extract_usage(LITELLM_ANTHROPIC_RESP).2, 2);
+    let (status, resp, _) = glm_member_call(Protocol::LiteLLM, Protocol::Anthropic, "gk98ans", "/chat/completions", r#"{"model":"lt-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", LITELLM_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::LiteLLM, Protocol::Anthropic, "gk98ane", "/chat/completions", r#"{"model":"lt-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (422, "application/json", LITELLM_ANTHROPIC_BUDGET_ERROR)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{resp}");
+    assert!(resp.contains("Budget has been exceeded"), "{resp}");
+}
+
+const LITELLM_GEMINI_RESP: &str = r#"{"candidates":[{"index":0,"finishReason":"STOP","content":{"role":"model","parts":[{"text":"hi"}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":3,"totalTokenCount":13,"cachedContentTokenCount":4}}"#;
+const LITELLM_GEMINI_SSE: &str = concat!(
+    "data: {\"candidates\":[{\"index\":0,\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"hi\"}]}}]}\n\n",
+    "data: {\"candidates\":[{\"index\":0,\"finishReason\":\"STOP\",\"content\":{\"role\":\"model\",\"parts\":[]}}],\"usageMetadata\":{\"promptTokenCount\":10,\"candidatesTokenCount\":3,\"totalTokenCount\":13,\"cachedContentTokenCount\":4}}\n\n",
+);
+
+/// gemini 端点（用户可配）：出站打 `/v1beta/models/<model>:generateContent`；
+/// 非流式与流式照 Gemini wire 转换。
+#[tokio::test]
+async fn litellm_gemini_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::LiteLLM, Protocol::Gemini, "gk98ge", "/v1/messages", r#"{"model":"lt-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", LITELLM_GEMINI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1beta/models/lt-test:generateContent");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["contents"][0]["parts"][0]["text"], "hi");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    let (status, resp, _) = glm_member_call(Protocol::LiteLLM, Protocol::Gemini, "gk98ges", "/v1/messages", r#"{"model":"lt-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", LITELLM_GEMINI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi"), "{resp}");
+}
