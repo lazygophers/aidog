@@ -380,12 +380,23 @@ pub async fn prepare_statusline_fields(
     ];
     let mut out = [("statusLine", None), ("subagentStatusLine", None)];
     for (i, (field, aidog_key, is_main, filename, legacy_sh)) in targets.into_iter().enumerate() {
+        // 无条件物化最新内置脚本（Disabled/Custom 也重写，保证落盘与最新生成内容一致）；
+        // 注入值仍按三态语义返回（Disabled/Custom 不注入内置命令）。
+        let segments = parse_segments(
+            base_config.get(aidog_key).and_then(Value::as_object),
+            is_main,
+        );
+        let script = if is_main {
+            generate_main(&segments, lang)
+        } else {
+            generate_subagent(&segments, lang)
+        };
+        let path = write_script(filename, legacy_sh, &script)?;
         let value = match materialize(base_config.get(aidog_key), is_main, lang) {
             Materialized::Disabled => None,
             Materialized::Custom(cmd) if cmd.is_empty() => None,
             Materialized::Custom(cmd) => Some(json!({ "type": "command", "command": cmd })),
-            Materialized::Builtin(script) => {
-                let path = write_script(filename, legacy_sh, &script)?;
+            Materialized::Builtin(_) => {
                 Some(json!({ "type": "command", "command": invoker.command_for(&path) }))
             }
         };
@@ -740,5 +751,22 @@ mod tests {
     #[test]
     fn group_coding_fallback_empty_without_stdin_rate_limits() {
         assert_eq!(run_group_coding(&[], "{}").trim(), "");
+    }
+
+    #[tokio::test]
+    async fn prepare_fields_writes_scripts_when_disabled() {
+        let guard = aidog_db::test_support::HomeGuard::new();
+        let db = aidog_db::test_support::test_db().await;
+        let config = serde_json::json!({
+            "_aidog_statusline": { "enabled": false },
+            "_aidog_subagent_statusline": { "enabled": false },
+        });
+        let fields = prepare_statusline_fields(&db, &config).await.unwrap();
+        assert_eq!(fields[0].1, None);
+        assert_eq!(fields[1].1, None);
+        let scripts = guard.dir.path().join(".aidog/scripts");
+        for name in ["aidog-statusline.py", "aidog-subagent-statusline.py"] {
+            assert!(scripts.join(name).exists(), "{name} should be materialized");
+        }
     }
 }

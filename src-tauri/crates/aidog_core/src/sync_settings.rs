@@ -405,8 +405,10 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     // 默认通知 hook 物化（镜像 statusLine）：marker `_aidog_hooks.enabled` 为 true 时，
     // 为每个分组 config 注入 hooks.Stop/Notification（strip marker 之前），并对 Codex
     // 全局 config.toml 一次性注入/移除 notify。脚本只生成一次（循环外）。
+    // 脚本落盘无条件执行（marker 关也重写，保证 ~/.aidog/scripts/ 与最新生成内容一致）；
+    // 注入是否生效仍由 hooks_enabled 决定。
     let hooks_enabled = aidog_hooks::hooks_marker_enabled(&base_config);
-    let hook_scripts = if hooks_enabled {
+    let hook_scripts = {
         let invoker = resolve_script_invoker(db).await;
         match generate_hook_scripts(invoker) {
             Ok(s) => Some(s),
@@ -415,8 +417,6 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                 None
             }
         }
-    } else {
-        None
     };
     // N2：注入哪些 CC 事件（settings.per_event 中 enabled，回退默认精选集）。每组一致，循环外算一次。
     let inject_events = if hooks_enabled {
@@ -573,7 +573,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
 
         // 默认通知 hook 物化：marker 开启时为本组 config 注入 CC hooks（strip marker 之前）。
         // N2：遍历 inject_events（enabled 事件）注入，每个指向通用脚本 command。
-        if let Some(scripts) = &hook_scripts {
+        if let (Some(scripts), true) = (&hook_scripts, hooks_enabled) {
             aidog_hooks::inject_claude_code_hooks(&mut config, scripts, &inject_events);
         }
 

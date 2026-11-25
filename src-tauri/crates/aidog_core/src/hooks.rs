@@ -41,8 +41,10 @@ pub fn generate_hook_scripts(
     chmod755(&event_path, aidog_hooks::SCRIPT_EVENT_NOTIFY)?;
     let event_notify = invoker.command_for(&event_path.to_string_lossy());
 
-    // waiting 脚本已并入通用事件脚本（N2），不再生成；仅清理历史 ~/.aidog/*.sh 残留。
+    // waiting 脚本已并入通用事件脚本（N2），不再生成；清理历史 ~/.aidog/*.sh
+    // 与 scripts/ 下退役的 .py 残留。
     cleanup_legacy_root_script(aidog_hooks::LEGACY_SCRIPT_WAITING);
+    cleanup_legacy_scripts_dir_file(&scripts_dir, aidog_hooks::SCRIPT_WAITING);
 
     // subagent 硬并发上限闸门脚本（lazygophers 预设 hooks 引用该路径，node 直跑）。
     let cap_path = scripts_dir.join(aidog_hooks::SCRIPT_SUBAGENT_CAP);
@@ -273,6 +275,69 @@ mod test_hooks {
             std::fs::read_to_string(&script_path).unwrap(),
             aidog_hooks::build_event_notify_script()
         );
+    }
+
+    #[tokio::test]
+    async fn sync_rewrites_hook_scripts_when_marker_disabled() {
+        let _guard = HomeGuard::new();
+        let db = test_db().await;
+        aidog_db::create_group(&db, sample_group("default", vec![]))
+            .await
+            .unwrap();
+        aidog_db::set_setting(
+            &db,
+            SetSettingInput {
+                scope: "global".to_string(),
+                key: "claude_code".to_string(),
+                value: serde_json::json!({ "_aidog_hooks": { "enabled": false } }),
+            },
+        )
+        .await
+        .unwrap();
+
+        let script_path = _guard
+            .dir
+            .path()
+            .join(".aidog/scripts")
+            .join(aidog_hooks::SCRIPT_EVENT_NOTIFY);
+        std::fs::create_dir_all(script_path.parent().unwrap()).unwrap();
+        std::fs::write(&script_path, "stale script").unwrap();
+
+        do_sync_group_settings(&db, 0).await.unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&script_path).unwrap(),
+            aidog_hooks::build_event_notify_script()
+        );
+    }
+
+    #[tokio::test]
+    async fn sync_cleans_retired_waiting_py() {
+        let _guard = HomeGuard::new();
+        let db = test_db().await;
+        aidog_db::create_group(&db, sample_group("default", vec![]))
+            .await
+            .unwrap();
+        aidog_db::set_setting(
+            &db,
+            SetSettingInput {
+                scope: "global".to_string(),
+                key: "claude_code".to_string(),
+                value: serde_json::json!({ "_aidog_hooks": { "enabled": false } }),
+            },
+        )
+        .await
+        .unwrap();
+
+        let waiting_py = _guard
+            .dir
+            .path()
+            .join(".aidog/scripts")
+            .join(aidog_hooks::SCRIPT_WAITING);
+        std::fs::create_dir_all(waiting_py.parent().unwrap()).unwrap();
+        std::fs::write(&waiting_py, "retired").unwrap();
+
+        do_sync_group_settings(&db, 0).await.unwrap();
+        assert!(!waiting_py.exists(), "retired waiting .py should be removed");
     }
 
     #[tokio::test]
