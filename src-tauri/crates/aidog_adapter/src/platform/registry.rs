@@ -2419,6 +2419,23 @@ struct OpenrouterAdapter;
 impl PlatformAdapter for OpenrouterAdapter {}
 static OPENROUTER: OpenrouterAdapter = OpenrouterAdapter;
 
+/// TheRouter.ai，官方文档核对日期 2026-11-25（https://therouter.ai/docs/api/reference/overview/ ）。
+/// OpenAI 兼容核心端点 `/v1/*`（含 `/v1/chat/completions`）；另有 Anthropic Messages 与
+/// Responses API 端点；`/api/v1/*` 为 OpenRouter 兼容层。Bearer 鉴权，每个响应带
+/// x-request-id。流式 SSE：`stream` 默认 false，`stream_options.include_usage` 必须为
+/// true 才在 `data: [DONE]` 前发独立的 usage 终块（choices 为空数组）。错误体：
+/// 标准 `{error: {message, type, code, param}}`；402 扩展带 `error.balance` 与
+/// `error.actions`，语义码 `insufficient_credits`；404 `model_not_found` 带
+/// did_you_mean/suggestions/docs/trace_id。错误码：400/401/402/404/429/500/502/503。
+/// https://therouter.ai/docs/api/reference/streaming/
+/// https://therouter.ai/docs/api/reference/errors-and-debugging/
+/// 未证实：usage 缓存 token 字段、思考开关/档位、工具与媒体细节、max_tokens 上限、
+/// Anthropic/Responses 端点的完整事件与错误形状；保持协议构件默认行为。官方未列其他
+/// wire 协议端点；对用户配置其他协议仅做合成假上游兼容性测试，不表示 TheRouter 官方支持。
+struct TherouterAdapter;
+impl PlatformAdapter for TherouterAdapter {}
+static THEROUTER: TherouterAdapter = TherouterAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -2482,7 +2499,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("tencent_coding", &TENCENT_CODING),
     ("tencent_tokenhub", &TENCENT),
     ("tencent_tokenhub_intl", &TENCENT),
-    ("therouter", &GENERIC),
+    ("therouter", &THEROUTER),
     ("tokenrhythm", &GENERIC),
     ("typesafe", &GENERIC),
     ("xai", &GENERIC),

@@ -2284,6 +2284,14 @@ fn intern_inkstone_has_dedicated_adapter_registration() {
 }
 
 #[test]
+fn therouter_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("therouter"), super::adapter_for("devin")),
+        "TheRouter registration must not use the generic adapter"
+    );
+}
+
+#[test]
 fn meta_has_dedicated_adapter_registration() {
     assert!(
         !std::ptr::eq(super::adapter_for("meta"), super::adapter_for("devin")),
