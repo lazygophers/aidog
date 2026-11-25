@@ -2400,6 +2400,25 @@ struct NvidiaAdapter;
 impl PlatformAdapter for NvidiaAdapter {}
 static NVIDIA: NvidiaAdapter = NvidiaAdapter;
 
+/// OpenRouter，官方文档核对日期 2026-11-25。
+/// Chat Completions 端点 `/api/v1/chat/completions`（base `https://openrouter.ai/api/v1`）；
+/// Anthropic 兼容接口 base `https://openrouter.ai/api`（reasoning 预算走 Anthropic 式
+/// `reasoning.max_tokens`）。`reasoning` 参数：`effort` 取 max/xhigh/high/medium/low/minimal，
+/// `max_tokens` 为 Anthropic 式预算，`enabled` 缺省由 effort/max_tokens 推断，`exclude`
+/// 仅 Chat Completions 支持；模型元数据带 supported_efforts/default_effort/mandatory。
+/// usage 含 `output_tokens_details.reasoning_tokens`；思考耗尽预算时返回 200 +
+/// `finish_reason:"length"` + 空 content。流式 SSE 以 `data: [DONE]` 结束；错误体为
+/// `{error: {code, message, metadata}}`，HTTP 状态与 error.code 一致，429 限频的
+/// `error.metadata.limit_source` 标记来源，审核拦截细节在 error.metadata。
+/// https://openrouter.ai/docs/guides/best-practices/reasoning-tokens.md
+/// https://openrouter.ai/docs/api_reference/errors-and-debugging.md
+/// 未证实：usage 缓存 token 字段形状、max_tokens 各模型上限、工具与图片细节、
+/// Anthropic 兼容端点的完整流事件；保持协议构件默认行为。官方未列其他 wire 协议端点；
+/// 对用户配置其他协议仅做合成假上游兼容性测试，不表示 OpenRouter 官方支持。
+struct OpenrouterAdapter;
+impl PlatformAdapter for OpenrouterAdapter {}
+static OPENROUTER: OpenrouterAdapter = OpenrouterAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -2448,7 +2467,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("openai", &OPENAI),
     ("opencode", &OPENCODE),
     ("opencode_zen", &OPENCODE),
-    ("openrouter", &GENERIC),
+    ("openrouter", &OPENROUTER),
     ("passthrough", &GENERIC),
     ("pipellm", &GENERIC),
     ("qianfan", &QIANFAN),
@@ -2641,9 +2660,9 @@ mod sensenova_family_tests {
 
         assert!(std::ptr::eq(cn, en));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
-        assert!(!std::ptr::eq(cn, adapter_for("openrouter")));
-        assert!(!std::ptr::eq(en, adapter_for("openrouter")));
+        // 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+        assert!(!std::ptr::eq(cn, adapter_for("devin")));
+        assert!(!std::ptr::eq(en, adapter_for("devin")));
         assert!(!std::ptr::eq(cn, adapter_for("openai")));
     }
 }
@@ -2672,9 +2691,9 @@ mod openai_family_tests {
         let codex = lookup("codex").expect("Codex adapter must be registered");
         assert!(std::ptr::eq(openai, codex));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
-        assert!(!std::ptr::eq(openai, adapter_for("openrouter")));
-        assert!(!std::ptr::eq(codex, adapter_for("openrouter")));
+        // 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+        assert!(!std::ptr::eq(openai, adapter_for("devin")));
+        assert!(!std::ptr::eq(codex, adapter_for("devin")));
         assert!(!std::ptr::eq(openai, adapter_for("anthropic")));
     }
 }
@@ -2717,11 +2736,11 @@ mod aihubmix_tests {
     use super::*;
 
     /// issue 91：aihubmix 必须走专属适配器（显式注册），不再回落通用适配。
-    /// 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
+    /// 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
     #[test]
     fn aihubmix_uses_registered_adapter() {
         let a = adapter_for("aihubmix");
-        assert!(!std::ptr::eq(a, adapter_for("openrouter")));
+        assert!(!std::ptr::eq(a, adapter_for("devin")));
     }
 
     /// 官方把错误体 response ID 改为 tid（traceId）；分类仍读 error.message/type，
@@ -2766,7 +2785,7 @@ mod deepseek_tests {
     #[test]
     fn deepseek_uses_dedicated_adapter() {
         let a = adapter_for("deepseek");
-        assert!(!std::ptr::eq(a, lookup("openrouter").unwrap()));
+        assert!(!std::ptr::eq(a, lookup("devin").unwrap()));
     }
 
     /// 官方禁思考写法是顶层 `thinking: {"type": "disabled"}`（思考开关缺省 = 开启，
