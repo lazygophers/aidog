@@ -755,6 +755,18 @@ fn convert_response_case_cd7ff24d_openai_reasoning_to_anthropic() {
 // 实测 Gemini `streamGenerateContent?alt=sse` wire 格式：每帧 `data: {json}\n\n`，无 [DONE] 终止哨兵，
 // 流结束由末帧 candidates[0].finishReason 承载（见 gemini.rs::to_gemini_sse 注释 + 调研依据）。
 
+#[test]
+fn gemini_content_and_finish_in_same_frame() {
+    for reason in ["STOP", "MAX_TOKENS"] {
+        let frame = json!({"candidates": [{"content": {"parts": [{"text": "hello"}]}, "finishReason": reason}]});
+        let events = parse_sse(&frame, &Protocol::Gemini);
+        assert!(matches!(&events[..], [ChatStreamEvent::Delta { text }, ChatStreamEvent::Stop { .. }] if text == "hello"));
+    }
+    let frame = json!({"candidates": [{"content": {"parts": [{"text": "hello"}]}, "finishReason": "OTHER"}]});
+    let events = parse_sse(&frame, &Protocol::Gemini);
+    assert!(matches!(&events[..], [ChatStreamEvent::Delta { text }] if text == "hello"));
+}
+
 const GEMINI_UPSTREAM_SSE: &str = concat!(
     "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hello\"}],\"role\":\"model\"}}],\"modelVersion\":\"gemini-2.0-flash\"}\n\n",
     "data: {\"candidates\":[{\"finishReason\":\"STOP\",\"content\":{\"parts\":[{}],\"role\":\"model\"}}]}\n\n",

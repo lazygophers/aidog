@@ -1794,6 +1794,21 @@ impl PlatformAdapter for AiHubMixAdapter {}
 
 static GENERIC: GenericAdapter = GenericAdapter;
 
+/// Gemini adapter; official GenerateContent thinking guide checked 2026-11-25:
+/// - `generationConfig.thinkingConfig.thinkingLevel` is used by Gemini 3/4;
+///   Gemini 2.5 uses `thinkingBudget`. Supported values and defaults depend on model.
+/// - Thinking summaries use `includeThoughts`; usage includes `thoughtsTokenCount`.
+/// - Function calls require preserving thought signatures in subsequent requests.
+///   https://ai.google.dev/gemini-api/docs/thinking?generate-content=true
+///
+/// Other request fields, tools, media, system prompts, output limits, usage cache fields,
+/// errors and streaming wire details require further verification.
+struct GeminiAdapter;
+
+impl PlatformAdapter for GeminiAdapter {}
+
+static GEMINI: GeminiAdapter = GeminiAdapter;
+
 /// SenseNova（商汤日日新）家族基座（issue 81；成员 sensenova / sensenova_en 共用，成员差异见子 issue #131 / #132）。
 ///
 /// 家族共性取证（核对日期 2026-11-24）：
@@ -1888,7 +1903,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("deepseek", &GENERIC),
     ("devin", &GENERIC),
     ("doubao", &ARK),
-    ("gemini", &GENERIC),
+    ("gemini", &GEMINI),
     ("glm", &GLM),
     ("glm_coding", &GLM),
     ("glm_coding_en", &GLM),

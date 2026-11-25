@@ -819,6 +819,47 @@ async fn glm_member_call(
     (status, String::from_utf8_lossy(&bytes).into_owned(), hits)
 }
 
+#[tokio::test]
+async fn gemini_local_upstream_request_and_response() {
+    let response = r#"{"candidates":[{"content":{"role":"model","parts":[{"text":"hi"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":3,"cachedContentTokenCount":4}}"#;
+    let (status, body, hits) = glm_member_call(
+        Protocol::Gemini,
+        Protocol::Gemini,
+        "gk96gem",
+        "/v1/messages",
+        r#"{"model":"gemini-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", response),
+    ).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(hits[0].0.contains(":generateContent"), "{:?}", hits[0].0);
+    let request: Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["contents"][0]["parts"][0]["text"], "hi");
+    let response: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi", "{response}");
+    let usage = aidog_adapter::platform::adapter_for("gemini").extract_usage(
+        r#"{"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":3,"cachedContentTokenCount":4}}"#,
+    );
+    assert_eq!((usage.0, usage.1, usage.2), (6, 3, 4));
+
+    let (status, body, hits) = glm_member_call(
+        Protocol::Gemini, Protocol::Gemini, "gk96stream", "/v1/messages",
+        r#"{"model":"gemini-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"hi\"}]},\"finishReason\":\"STOP\"}]}\n\n"),
+    ).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(hits[0].0.contains(":streamGenerateContent"), "{:?}", hits[0].0);
+    assert!(body.contains("hi"), "{body}");
+
+    let (status, body, hits) = glm_member_call(
+        Protocol::Gemini, Protocol::Gemini, "gk96error", "/v1/messages",
+        r#"{"model":"gemini-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", r#"{"error":{"code":400,"message":"invalid request","status":"INVALID_ARGUMENT"}}"#),
+    ).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(!hits.is_empty());
+    assert!(body.contains("invalid request"), "{body}");
+}
+
 const GLM_ANTHROPIC_IN: &str =
     r#"{"model":"glm-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
 const GLM_ANTHROPIC_IN_STREAM: &str =

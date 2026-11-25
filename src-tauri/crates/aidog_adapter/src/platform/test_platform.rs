@@ -23,6 +23,14 @@ fn every_registry_platform_has_adapter_registration() {
     );
 }
 
+#[test]
+fn gemini_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("gemini"), super::adapter_for("deepseek")),
+        "Gemini registration must not use generic adapter"
+    );
+}
+
 /// AtlasCloud must own a platform adapter entry, even when verified behavior uses protocol defaults.
 #[test]
 fn atlascloud_has_dedicated_adapter_registration() {
