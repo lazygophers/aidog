@@ -403,7 +403,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   }, [footChips]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* Header */}
       <div>
         <div className="section-title">{t("page.home", "Home")}</div>
