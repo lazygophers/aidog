@@ -43,7 +43,7 @@ when_to_use: 用户要求处理一个或全部 GitHub issue；继续 issue 处�
 
 ## 并行约束
 
-- cargo 全局串行：共用 `<项目根>/.worktrees/.target`，同一时刻只允许一个 cargo 跑；取锁走 `/tmp/aidog-cargo.lock` node 轮询；删 target 目录也要持锁。
+- cargo 按 worktree 独立（2026-11-24 用户拍板：锁只是 worktree 级）：每个 worktree 用自己的 target（`CARGO_TARGET_DIR=<worktree>/target`），不取 `/tmp/aidog-cargo.lock`、不因他线持锁等待排队；收工连同自己的 target 一起删。共享 target 与全局锁各条见 shared-worktree.md「构建目录」节 2026-11-24 改版。
 - 后台 agent 同时 ≤ 3 个；同一工作区一个写 agent。
 - 开跑前 `df -h .`，余量 <10G 不开跑；满盘先报主会话，不擅自删 target。
 - 分支保护：master 禁强推，secret-scan 是必需检查，PR/push 只扫新增提交区间。

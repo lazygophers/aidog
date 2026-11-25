@@ -4,7 +4,7 @@
 
 按顺序排查；假红期间你的唯一动作是取证和独占重跑，归因清楚了才动代码：
 
-1. **并发重建**：extern 丢失 / doctest E0463 / 二进制消失这类「不该红的红」→ 取 `/tmp/aidog-cargo.lock` 独占重跑再归因。
+1. **并发重建**：extern 丢失 / doctest E0463 / 二进制消失这类「不该红的红」→ 前台独占重跑再归因（2026-11-24 起 issue worktree 用各自 target、无全局锁；同一 worktree 内同时只跑一个 cargo 即无并发重建）。
 2. **build-script 产物陈旧**：首跑红且无 panic / 报产物缺失 → `touch src-tauri/crates/aidog_core/build.rs` 重跑（`cargo clean -p aidog_db` 后同样触发）。
 3. **本机代理 env**：设了 HTTP_PROXY 时 aidog_kernel search / media 等约 5 测红 → 门禁命令前缀 `env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy`。
 4. **计时断言偶红**：先单跑该测试一次；绿 = 负载抖动记遗留，仍红才按回归。已知挂钟断言先例：`mock_platform_ttft_and_inter_chunk_split`（预热已内置）。

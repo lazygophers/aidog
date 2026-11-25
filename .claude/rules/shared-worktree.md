@@ -14,7 +14,7 @@
 原则是源头少留，不靠事后阈值（否掉了「df < 20G 即停」的阈值规则）。
 
 - agent 收工当场清掉自己建的东西：临时日志、补丁、截图、临时 json、临时目录（位置见下条）。
-- **临时产物收回仓库目录**：临时日志 / 补丁 / 脚本 / 截图放仓库 `.tmp/<任务名>/`（已在 `.gitignore`），收工删该目录（先红 / 门禁日志除外，留到 review 与合并后删——见 parallel-implement.md §18）；`/tmp/<任务>-*.log` 写法作废（旧文中出现的 `/tmp/x.log` 一律读作 `.tmp/<任务名>/x.log`）。cargo / 前端构建目录见下「构建目录」节。例外：跨会话互斥锁 `/tmp/aidog-cargo.lock` 留在 /tmp（锁不是产物）。
+- **临时产物收回仓库目录**：临时日志 / 补丁 / 脚本 / 截图放仓库 `.tmp/<任务名>/`（已在 `.gitignore`），收工删该目录（先红 / 门禁日志除外，留到 review 与合并后删——见 parallel-implement.md §18）；`/tmp/<任务>-*.log` 写法作废（旧文中出现的 `/tmp/x.log` 一律读作 `.tmp/<任务名>/x.log`）。cargo / 前端构建目录见下「构建目录」节。例外：跨会话互斥锁 `/tmp/aidog-cargo.lock` 留在 /tmp。
 - 只留报告里引用到的文件，且留到主会话读完为止。
 - **读文件与删文件分两条命令，先确认读成功再删**：唯一副本类文件（表单答案、取证输出）不与 `rm` 同链；确要同链用 `&&` 或 `set -e` 脚本。
 - 删共享缓存或任何 `rm -rf` 都要用户授权。
@@ -23,7 +23,7 @@
 
 1. **禁止 `git commit -a` / `git commit` 不带路径。** 一律 `git commit -- <路径> [<路径>…]`；pathspec 精确到文件，禁目录级（例外见规则 6 的已核对暂存面提交）。
 2. **提交前逐 hunk 认领**：`git diff -- <文件>` 扫一遍，确认每一段改动都是自己写的。不是自己的就 `git add -p` 只挑自己的那几段，再 `git commit`（不带 `-a`）。
-3. `git status` 只认到**文件**这一层，**防不住同文件内跨 hunk 的误扫**——文件是自己的活，里面可能还有别人的几段。`git commit -- <路径>` 提交整文件，规则 2 只靠事后扫 diff 拦不住：**开工前**对将要改的文件跑 `git status --short`，已脏的文件记下，提交时对这些文件必须 `git add -p` / `git apply --cached` 只暂存自己的 hunk，再 `git diff --cached --stat` 核对；干净起步的文件才可整文件提交。**locale 文件（`src-tauri/crates/aidog_i18n/locales/*.json`）一律按脏文件处理、走下文 patch 过滤**，不论开工时是否干净：并行会话几乎总在同时加 key。派发含文案改动的票时，prompt 照贴这句。
+3. `git status` 只认到**文件**这一层，**防不住同文件内跨 hunk 的误扫**——文件是自己的活，里面可能还有别人的几段。`git commit -- <路径>` 提交整文件，规则 2 只靠事后扫 diff 拦不住：**开工前**对将要改的文件跑 `git status --short`，已脏的文件记下，提交时对这些文件必须 `git add -p` / `git apply --cached` 只暂存自己的 hunk，再 `git diff --cached --stat` 核对；干净起步的文件才可整文件提交。**locale 文件（`src-tauri/crates/aidog_i18n/locales/*.json`）一律按脏文件处理、走下文 patch 过滤**，不论开工时是否干净。派发含文案改动的票时，prompt 照贴这句。
 4. 发现自己扫走了别人的改动：**不回滚、不重写历史**（代价大于收益），立刻告诉对方「你的那部分已经在 `<commit>` 里了」，让对方撤掉本地副本，否则会重复改一遍。
 5. **共享 checkout 上 `git pull --rebase --autostash` 会把工作区里所有人（含别人的 dirty 文件）一起 stash 再 pop**。用前先确认远端新提交不碰 dirty 文件集：`git fetch && git diff HEAD...@{u} --name-only` 对照 `git status --short`，无交集才可用；有交集就停，改手动处理——前置检查才是安全条件，autostash 本身不安全。
 6. **`git commit -- <pathspec>` 提交的是工作区整文件，不是暂存面**（pathspec 提交忽略索引、直接取匹配文件的工作区内容）。先 `git add -p` 挑完自己的 hunk、再用 `git commit -- <目录>` 收尾，别人的 hunk 照样被带走——pathspec 越宽扫走越多。共改文件的选择性提交唯一安全流程：`git add -p` 只暂存自己的 hunk → `git diff --cached --stat` 与 `git diff -- <文件>` 核对暂存面 == 想提交的内容 → **不带 pathspec 的 `git commit`**（此时提交的就是暂存面，规则 1 的例外；索引里有不明来源文件时按「开工前核对索引」节处理，不并入提交）。agent 驱动不了交互式 `git add -p`，非交互等价手法见下「非交互选择性暂存」节。
@@ -63,16 +63,14 @@ agent 的 Bash 驱动不了交互式 `git add -p`；用 patch 过滤等价替代
 - **取证型 agent 只产报告，不写数据文件、不 commit。** 项目 CLAUDE.md 的自动 commit 授权属于主会话**已复核**的改动，不随任务派生继承给 agent。
 - 派 agent 时主会话写明边界：只读取证 → 报告回传；需要落库的值由主会话采信后自己写。
 - agent 报告里标「存疑 / 需拍板 / 非官方源」的值不得出现在任何 commit 里——commit message 自己写着 `architectural limit` 的值，就是没被采信的值。
-- agent 填入数据的任何外部 slug / URL（registry `logo_url` 的 simpleicons slug、`source_urls` 等），主会话采信前 curl 一次可达（`known_simpleicons_slugs_are_valid` 白名单测试是最后一道防线，主会话核对是更早的一道）。
+- agent 填入数据的任何外部 slug / URL（registry `logo_url` 的 simpleicons slug、`source_urls` 等），主会话采信前 curl 一次可达（`known_simpleicons_slugs_are_valid` 白名单测试兜底）。
 
 ## implementer 挂掉后的半成品采信
-
-与上节的边界在**验证成本**：
 
 - **取证型 agent 产物是值**：机器验不了真假，必须主会话复核采信后才落库。报告里标「存疑 / 需拍板 / 非官方源」的值不进任何 commit。
 - **实现型 agent 产物是代码**：门禁可机器验证。挂掉后主会话可采信半成品，三条前提全满足才采：① `git diff` 逐 hunk 看过、每段能归到票面任务；② 全部门禁补跑绿（不是只跑改动相关子集）；③ commit message 注明来源（如 `fix: ... (adopted from crashed agent, gates re-run)`）。
 
-**agent 基础设施故障（502 / 断连 / 超时）恢复路径**：核对现场（`git status` + `git diff`）后二选一——改动完整或差最后一步、门禁可跑 → 主会话按上面三条接管收尾；改动半截不可判定（编译不过、门禁红了修不动、线索只剩半份报告）→ 回滚该 worktree 重派，不硬续。判据只看「主会话能否独立验证到绿」，不看「已经写了多少」——沉没的 token 不是采信理由。
+**agent 基础设施故障（502 / 断连 / 超时）恢复路径**：核对现场（`git status` + `git diff`）后二选一——改动完整或差最后一步、门禁可跑 → 主会话按上面三条接管收尾；改动半截不可判定（编译不过、门禁红了修不动、线索只剩半份报告）→ 回滚该 worktree 重派，不硬续。判据只看「主会话能否独立验证到绿」，不看「已经写了多少」。
 
 ## 判据
 
@@ -133,7 +131,7 @@ Bash 的 cwd 本就不跨调用保留（系统行为，主会话与派生 agent 
 
 ## registry 盖戳脚本无参模式会盖到别人的脏文件
 
-`scripts/bump-registry-last-updated.mjs` 无参 = 「盖 git 变更（含 untracked）的 registry json」，共享 checkout 上 `git status` 里的脏文件可能含**别的会话未提交的改动**，无参跑会把对方全部脏文件重盖戳。盖戳内容中性（只动 last_updated 时间戳），但别人的 commit 会无声带上你的盖戳 diff（「误扫」的无害化版本），且时间戳被无谓推高、远程同步白拉一遍。
+`scripts/bump-registry-last-updated.mjs` 无参 = 「盖 git 变更（含 untracked）的 registry json」，共享 checkout 上 `git status` 里的脏文件可能含**别的会话未提交的改动**，无参跑会把对方全部脏文件重盖戳。盖戳内容中性（只动 last_updated 时间戳），但别人的 commit 会无声带上你的盖戳 diff。
 
 - **无参盖戳前先 `git status --short` 核对脏文件集**：全是自己的 → 直接跑；混有他人文件 → 等对方收工，或跑完**当场告知对方**「你的脏 registry 文件被盖了戳」并把自己 commit 严格限路径（硬规则 1）。
 - 判据同 registry-data-edit.md「以输出数字为准」：输出「N 个文件已盖戳」的 N 远超自己的改动集时，先 `git diff -- <他人文件>` 核对只有时间戳一行变化，再继续。

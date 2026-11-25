@@ -25,7 +25,7 @@ SSL / 429 / 会话退出中断是常态。续做 agent 先五查，再接着做�
 1. 票 `Status:` 是否停在 `claimed`（无 `## Answer` = 没结票）；
 2. `git -C <worktree> status --short` / `diff --stat` 半成品范围 + 最后一次报错原文；
 3. 主仓 `status --short` 有无误写副本（与 worktree `cmp`，同内容撤主仓副本）；
-4. 锁残留：`/tmp/aidog-cargo.lock`（等锁 >10 分钟核持锁活性：`pgrep -x cargo` / `pgrep -x rustc` 零匹配且锁 mtime 超 30 分钟 → 判残留，`rmdir` 删锁，回报记「删锁 1 次 + mtime」）；`.git/index.lock`（无 git 进程 + 0 字节才删）；
+4. 锁残留：issue worktree 用各自 target、无 `/tmp/aidog-cargo.lock`（2026-11-24 改版）；主仓共享场景残留判据照 shared-worktree.md「构建目录」节；`.git/index.lock`（无 git 进程 + 0 字节才删）；
 5. 半成品含 JSON / 数据文件先跑 `yarn check:defaults` 再续做。
 
 半成品采信三前提（你信的判据只有一个：能否独立验证到绿；沉没的 token 不是续做理由）：
@@ -41,4 +41,4 @@ SSL / 429 / 会话退出中断是常态。续做 agent 先五查，再接着做�
 - 开跑前 `df -h .`；余量 <10G 不开跑；跑到一半满盘先报主会话，删 target / 缓存要授权且持锁。
 - 门禁命令写法：`{ cmd; rc=$?; echo EXIT=$rc; } > .tmp/<任务名>/x.log 2>&1`，退出码不进管道；`&&` 链上计数类 grep 补 `|| true`，链尾 `echo GATE_CHAIN_DONE`，链尾再核 `test result: ok` 计数 = 期望 suite 数。
 - 先红与门禁日志留到 review 与合并完成，之后压缩：`grep -E 'EXIT=|test result|FAILED|panicked' x.log > x.summary.log` 再删原日志。
-- 临时产物全部进仓库 `.tmp/<任务名>/`（`.gitignore` 内），收工清自己建的；跨会话互斥锁 `/tmp/aidog-cargo.lock` 例外。
+- 临时产物全部进仓库 `.tmp/<任务名>/`（`.gitignore` 内），收工清自己建的；issue worktree 连自己的 target 一起清（2026-11-24 改版，无共享锁目录例外）。
