@@ -2073,6 +2073,35 @@ struct CommandCodeAdapter;
 
 impl PlatformAdapter for CommandCodeAdapter {}
 
+/// LiteLLM Gateway: the OpenAI-compatible routes use the configured endpoint.
+/// Gateway budget errors carry `budget_exceeded` in `error.type` on OpenAI-shaped
+/// routes and in `error.litellm_error_type` on the Anthropic Messages routes
+/// (where `error.type` holds Anthropic's per-status type). Budget matching is
+/// status-agnostic because `litellm.budget_exceeded_status_code` is configurable
+/// (default 422). Stream failures before the first chunk reuse the non-stream
+/// error body; after streaming begins the gateway emits the same error object as
+/// a final SSE data frame (gateway-side stream peek already classifies such
+/// frames). Other errors use the base classifier.
+/// https://docs.litellm.ai/docs/proxy/error_reference (checked 2026-11-25).
+/// Request defaults, thinking, tools, media, system prompts, token limits, cache usage,
+/// and the full responses-API stream event set require further verification against
+/// the gateway documentation.
+struct LiteLlmAdapter;
+
+impl PlatformAdapter for LiteLlmAdapter {
+    fn classify_error(&self, status: u16, body: &str) -> error::UpstreamErrorClass {
+        if serde_json::from_str::<Value>(body).is_ok_and(|v| {
+            v.pointer("/error/type").and_then(Value::as_str) == Some("budget_exceeded")
+                || v.pointer("/error/litellm_error_type").and_then(Value::as_str)
+                    == Some("budget_exceeded")
+        }) {
+            return error::UpstreamErrorClass::Service;
+        }
+        error::classify_upstream_error(status, body)
+    }
+}
+
+static LITELLM: LiteLlmAdapter = LiteLlmAdapter;
 static GENERIC: GenericAdapter = GenericAdapter;
 
 /// Gemini adapter; official GenerateContent thinking guide checked 2026-11-25:
@@ -2225,7 +2254,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("kimi", &KIMI),
     ("kimi_coding", &KIMI_CODING),
     ("kimi_en", &KIMI),
-    ("litellm", &GENERIC),
+    ("litellm", &LITELLM),
     ("longcat", &GENERIC),
     ("magpie", &GENERIC),
     ("meta", &GENERIC),
