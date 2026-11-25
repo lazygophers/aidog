@@ -9,7 +9,6 @@
 - §3：PR 正文改写后全篇扫过期状态词（draft / incomplete / 未验收…），整段替换不增量补丁。
 - §4：审查 PR 用 `git fetch origin pull/<N>/head:refs/remotes/pr/<N>` 只读 refs，不 checkout；审查结论自动发 PR 评论（用户 2026-11-14 授权）；合并评论必须带三项门禁命令原文 + EXIT + 测试数 + 变异反证。
 - §5：READY 绑定 40 位 head SHA；合并优先 `gh pr merge <PR> --match-head-commit <完整SHA>`；push SSL 失败后 GitHub 合的可能是旧版，合并后 `git diff <本地验证commit>..origin/master` 核差异；多 PR 同动 Cargo.lock / 同 crate → 对合并态全量测试后再清理。
-- §6：对端会话不可达 → 记「待补发」（接收对象、内容、SHA、尝试记录）。
 
 ## B · push 预检与失败处置（先验缺 → 新增/纠偏）
 
