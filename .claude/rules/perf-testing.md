@@ -2,6 +2,12 @@
 
 适用于起 aidog 内核做压测、延迟、CPU / 内存采样的活，含派给后台 agent 的。
 
+## 0. 测试与构建资源上限（强制）
+
+- cargo 构建 / 测试 / clippy 一律最多 1 CPU：`taskpolicy -c utility` + `CARGO_BUILD_JOBS=1`（或 `-j1`），测试执行加 `--test-threads=1`；`--manifest-path` 形式写 `cargo test --manifest-path <路径> ... -- --test-threads=1`。派 agent 时把整条命令格式写进 prompt。
+- 内存无硬上限手段（macOS `ulimit -v` / `ulimit -d` 报 `setrlimit failed: invalid argument`，`taskpolicy -m` 非硬上限）：必须挂进程组看门狗做 RSS 采样软上限，超限按 pid 文件 + 身份核验停整个进程组；记录与回报写「软上限」，禁写成硬限制。
+- 长构建收尾阶段才输出诊断，中途的零计数不作数；看门狗阈值与采样间隔随命令记录。
+
 ## 1. 用户的 AiDog 不能碰
 
 用户 AiDog 常驻 `127.0.0.1:9890`。
