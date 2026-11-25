@@ -976,7 +976,8 @@ export function TrayConfigTab() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, alignItems: "start" }}>
+      {/* 窄窗（<lg）单列堆叠：280px 预览栏会把左侧编辑区挤到逐字换行 */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_280px] lg:gap-4">
         <DndContext sensors={sensors} collisionDetection={collision} onDragEnd={onDragEnd}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
           {/* ── 卡 1：菜单栏预览 + 装载槽 ── */}
