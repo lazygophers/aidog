@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795524336,  "platforms": [
+  "last_updated": 1795574916,  "platforms": [
     {
       "code": "aihubmix",
       "name": "AiHubMix",
@@ -8560,7 +8560,9 @@
       "name": "New API",
       "platform_file": "platforms/newapi/platform.json",
       "models_dir": "platforms/newapi/models",
-      "models": []
+      "models": [
+        "deepseek-v4-1-flash.json"
+      ]
     },
     {
       "code": "novita",

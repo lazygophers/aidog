@@ -5,6 +5,7 @@ use super::outbound_shape::{
     build_field_trace, dropped_media_fields, dropped_server_tools,
     fold_openai_max_completion_tokens, hoist_mid_messages_system, rename_openai_max_tokens_key,
     strip_default_image_detail, strip_redacted_thinking_blocks, strip_thinking_if_unmatched,
+    strip_unsupported_reasoning_effort,
 };
 
 /// 阶段函数的退出契约。阶段只表达“换候选”或“终态响应”，
@@ -289,6 +290,12 @@ async fn forward_attempt_model(
         &actual_model,
     )
     .await;
+    let supported_reasoning_efforts = model_supported_reasoning_efforts(
+        &state.db,
+        &route.platform.platform_type.wire_str(),
+        &actual_model,
+    )
+    .await;
 
     let Prepared { mut req_body, url } = match prepare_outbound(OutboundCtx {
         state,
@@ -302,6 +309,7 @@ async fn forward_attempt_model(
         actual_model: actual_model.clone(),
         model_max,
         model_forces_thinking,
+        supported_reasoning_efforts,
         is_stream,
         lang,
         log_settings,
@@ -684,6 +692,22 @@ async fn model_forces_thinking(db: &aidog_db::Db, platform_code: &str, model_id:
         .is_some_and(|t| !t)
 }
 
+/// registry 条目声明的 `supported_reasoning_efforts`（price_data 里字符串数组；
+/// 未标注 / 条目缺失 / 查询失败 → None = 不拦截，行为同现状）。
+async fn model_supported_reasoning_efforts(
+    db: &aidog_db::Db,
+    platform_code: &str,
+    model_id: &str,
+) -> Option<Vec<String>> {
+    aidog_db::get_model_entry(db, platform_code, model_id)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|e| serde_json::from_str::<Value>(&e.price_data).ok())
+        .and_then(|v| v.get("supported_reasoning_efforts").cloned())
+        .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok())
+}
+
 // ── 阶段函数：select → prepare → send（forward_attempt 只留「选 → 备 → 发 → 收」骨架）──
 // 阶段早退使用 StageExit，由 forward_attempt 转成外层 AttemptOutcome；保留原早退副作用。
 
@@ -949,6 +973,8 @@ struct OutboundCtx<'a> {
     actual_model: String,
     model_max: Option<i64>,
     model_forces_thinking: bool,
+    /// registry 条目 `supported_reasoning_efforts`（None = 未标注不拦截）
+    supported_reasoning_efforts: Option<Vec<String>>,
     is_stream: bool,
     lang: Lang,
     log_settings: &'a ProxyLogSettings,
@@ -973,6 +999,7 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
         actual_model,
         model_max,
         model_forces_thinking,
+        supported_reasoning_efforts,
         is_stream,
         lang,
         log_settings,
@@ -1248,6 +1275,12 @@ async fn prepare_outbound(ctx: OutboundCtx<'_>) -> Result<Prepared, StageExit> {
         target.target_base_url.as_str(),
         forced_thinking,
     );
+
+    // supported_reasoning_efforts 出站闸门（2026-11-25 用户拍板）：registry 条目声明了支持
+    // 档位列表且请求 effort 不在列表内 → 剔除 reasoning_effort / reasoning.effort（newapi
+    // code 3051 实证 400「not supported for this model」）。放在 apply_disable_thinking 之后：
+    // 它写的 "none" 禁思考哨兵在闸门内恒放行，禁用语义不受影响。透传与转换两分支共用本 seam。
+    strip_unsupported_reasoning_effort(&mut req_body, supported_reasoning_efforts.as_deref());
 
     // tool_choice 平台差异调整（issue 76 跟进：Kimi 家族 kimi-k2.6 / kimi-k2.7-code 系
     // 上游对 `tool_choice:"required"` 报错 → 降级为 "auto"；透传与转换两分支共用本 seam）。

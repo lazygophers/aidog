@@ -82,6 +82,41 @@ pub(crate) fn fold_openai_max_completion_tokens(body: &mut Value, wire: &Protoco
     }
 }
 
+/// registry `supported_reasoning_efforts` 出站闸门（透传与转换共用，body 层单点）。
+///
+/// 条目带该字段时：请求 effort **不在**支持列表 → 剔除对应字段（用户口径 2026-11-25
+/// 「如果上游不支持，就不要请求带有这个参数」；newapi code 3051 实证 400）；在列表 → 照发。
+/// 条目**无**该字段（`supported=None`）→ 照发（向后兼容，未标注不拦截）。不做邻档映射。
+///
+/// 两处键都闸：Chat Completions `reasoning_effort`（`to_openai` 写）与 Responses
+/// `reasoning.effort`（`to_responses` 写）。`"none"` 是禁思考哨兵值（`apply_disable_thinking`
+/// 对官方 host 写入），剔除会静默重新开启思考，恒放行、不参与列表判定。
+/// 空列表 = 该模型不接受任何档位 → 除 none 外全剔（lint 禁止落空数组数据，运行时防御）。
+pub(crate) fn strip_unsupported_reasoning_effort(body: &mut Value, supported: Option<&[String]>) {
+    let Some(list) = supported else {
+        return;
+    };
+    let Some(obj) = body.as_object_mut() else {
+        return;
+    };
+    if let Some(e) = obj.get("reasoning_effort").and_then(Value::as_str)
+        && e != "none"
+        && !list.iter().any(|s| s == e)
+    {
+        obj.remove("reasoning_effort");
+    }
+    if let Some(e) = obj
+        .get("reasoning")
+        .and_then(|r| r.get("effort"))
+        .and_then(Value::as_str)
+        && e != "none"
+        && !list.iter().any(|s| s == e)
+        && let Some(r) = obj.get_mut("reasoning").and_then(|r| r.as_object_mut())
+    {
+        r.remove("effort");
+    }
+}
+
 /// 剔除多模态图片块里的默认 `image_url.detail: "auto"`（openai wire 家族，透传与转换共用）。
 ///
 /// `auto` 是 OpenAI 侧默认值，省略与显式写等价（<https://platform.openai.com/docs/guides/images-vision>
@@ -501,5 +536,81 @@ mod test_stream_drop_tokens {
             .is_empty(),
             "普通事件无丢弃"
         );
+    }
+}
+
+#[cfg(test)]
+mod test_strip_unsupported_effort {
+    use super::*;
+
+    fn p687_list() -> Vec<String> {
+        ["none", "low", "high", "xhigh", "max"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    #[test]
+    fn unsupported_effort_stripped_from_chat_body() {
+        let mut body = serde_json::json!({"model":"m","reasoning_effort":"medium"});
+        strip_unsupported_reasoning_effort(&mut body, Some(&p687_list()));
+        assert!(
+            body.get("reasoning_effort").is_none(),
+            "medium 不在支持列表 → 剔除 reasoning_effort，实际 {:?}",
+            body
+        );
+    }
+
+    #[test]
+    fn supported_effort_kept() {
+        let mut body = serde_json::json!({"model":"m","reasoning_effort":"high"});
+        strip_unsupported_reasoning_effort(&mut body, Some(&p687_list()));
+        assert_eq!(
+            body.get("reasoning_effort").and_then(Value::as_str),
+            Some("high"),
+            "high 在支持列表 → 照发"
+        );
+    }
+
+    #[test]
+    fn no_entry_field_keeps_effort() {
+        let mut body = serde_json::json!({"model":"m","reasoning_effort":"medium"});
+        strip_unsupported_reasoning_effort(&mut body, None);
+        assert_eq!(
+            body.get("reasoning_effort").and_then(Value::as_str),
+            Some("medium"),
+            "条目无 supported_reasoning_efforts 字段 → 照发（向后兼容）"
+        );
+    }
+
+    #[test]
+    fn none_sentinel_never_stripped() {
+        // "none" 是禁思考哨兵（apply_disable_thinking 官方 host 写入），剔了会静默重开思考。
+        let list: Vec<String> = vec!["low".to_string()];
+        let mut body = serde_json::json!({"model":"m","reasoning_effort":"none"});
+        strip_unsupported_reasoning_effort(&mut body, Some(&list));
+        assert_eq!(
+            body.get("reasoning_effort").and_then(Value::as_str),
+            Some("none"),
+            "禁思考哨兵 none 恒放行"
+        );
+    }
+
+    #[test]
+    fn responses_reasoning_effort_stripped_nested() {
+        let mut body = serde_json::json!({"model":"m","reasoning":{"effort":"medium"}});
+        strip_unsupported_reasoning_effort(&mut body, Some(&p687_list()));
+        assert!(
+            body.get("reasoning").and_then(|r| r.get("effort")).is_none(),
+            "responses wire 的 reasoning.effort 同口径剔除"
+        );
+    }
+
+    #[test]
+    fn empty_list_strips_everything_but_none() {
+        let list: Vec<String> = vec![];
+        let mut body = serde_json::json!({"model":"m","reasoning_effort":"low"});
+        strip_unsupported_reasoning_effort(&mut body, Some(&list));
+        assert!(body.get("reasoning_effort").is_none(), "空列表 = 不接受任何档位");
     }
 }

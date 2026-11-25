@@ -41,6 +41,9 @@ const PROTOCOL_VOCAB = new Set([
 
 // price.currency 值域（与 model.schema.json price.currency enum 同步，票 17）
 const CURRENCY_VOCAB = new Set(["CNY", "USD", "EUR", "JPY"]);
+// reasoning_effort 档位词表（supported_reasoning_efforts；与 model.schema.json enum 同步）。
+// 现网观测值全集：OpenAI 官方 none/minimal/low/medium/high + 上游声明扩展 xhigh/max。
+const EFFORT_VOCAB = new Set(["none", "minimal", "low", "medium", "high", "xhigh", "max"]);
 
 // rate_limit_error_codes 码义词表（与 platform.schema.json enum 对称）
 const RATE_LIMIT_CODE_VOCAB = new Set(["rate_limit", "overloaded"]);
@@ -97,6 +100,19 @@ function walkModels(dir, baseRel, rel, out, ids) {
           const cur = doc.price?.currency;
           if (cur != null && !CURRENCY_VOCAB.has(cur)) {
             failures.push([relFile, `price.currency 含词表外值: ${cur}`]);
+          }
+          // supported_reasoning_efforts 可选闸门字段（2026-11-25）：缺失不算错，出现时必须是
+          // 非空字符串数组且值在 effort 词表内（与 model.schema.json enum 同步）。
+          const sre = doc.supported_reasoning_efforts;
+          if (sre !== undefined) {
+            if (!Array.isArray(sre) || sre.length === 0) {
+              failures.push([relFile, "supported_reasoning_efforts 出现时必须是非空数组"]);
+            } else {
+              const badSre = sre.filter((v) => !EFFORT_VOCAB.has(v));
+              if (badSre.length) {
+                failures.push([relFile, `supported_reasoning_efforts 含词表外值: ${badSre.join(", ")}`]);
+              }
+            }
           }
           ids.push(doc.model_id);
           modelMeta.push({

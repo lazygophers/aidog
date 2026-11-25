@@ -188,6 +188,24 @@
       "type": "boolean",
       "description": "【可选】thinking 是否可由请求参数开关（如 qwen3 enable_thinking、claude thinking.budget_tokens）。false=强制思考（deepseek-r1 型）。缺省=未标注。"
     },
+    "supported_reasoning_efforts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "none",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      "description": "【可选】该模型在此平台接受的 reasoning_effort 档位（OpenAI 系 wire）。出站闸门：请求档位不在列表内 → 剔除 reasoning_effort / reasoning.effort 字段再上送；在列表内或条目缺省 → 照发（未标注不拦截）。不做邻档映射。数据源：上游 400 报错原文自行声明（如 newapi code 3051），禁推测填值。2026-11-25 用户拍板。"
+    },
     "supported_protocols": {
       "type": "array",
       "minItems": 1,
