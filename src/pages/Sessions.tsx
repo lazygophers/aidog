@@ -294,8 +294,9 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
             </div>
           )}
 
-          <div className="flex items-center gap-2.5" data-testid="sessions-toolbar">
-            <div role="tablist" className="flex items-center gap-1 rounded-lg border border-border bg-card p-1" aria-label={t("sessions.title", "Sessions")}>
+          {/* 窄窗：放不下时回收站 + 搜索框换到第二行；搜索框不超行宽 */}
+          <div className="flex flex-wrap items-center gap-2.5" data-testid="sessions-toolbar">
+            <div role="tablist" className="flex min-w-0 max-w-full flex-wrap items-center gap-1 rounded-lg border border-border bg-card p-1" aria-label={t("sessions.title", "Sessions")}>
               {[{ code: "all", name: t("sessions.tabAll", "All") }, ...SESSION_CLIENTS].map((c) => {
                 const off = c.code !== "all" && !enabled[c.code];
                 const selected = activeTab === c.code;
@@ -307,7 +308,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
                     aria-selected={selected}
                     disabled={off}
                     title={off ? t("sessions.tileOff", "Reading off") : undefined}
-                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm ${selected ? "bg-[var(--accent-subtle)] font-medium text-foreground" : "text-muted-foreground hover:bg-muted"} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
+                    className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm ${selected ? "bg-[var(--accent-subtle)] font-medium text-foreground" : "text-muted-foreground hover:bg-muted"} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}
                     data-testid={`sessions-tab-${c.code}`}
                     onClick={() => setTab(c.code)}
                   >
@@ -326,7 +327,7 @@ export function Sessions({ onNavigate }: { onNavigate?: (id: string) => void } =
               {t("sessions.trash", "Trash")}
             </Button>
             <Input
-              className="w-64"
+              className="w-64 max-w-full"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("sessions.search", "Search title or directory")}

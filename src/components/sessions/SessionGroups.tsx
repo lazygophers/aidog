@@ -16,7 +16,9 @@ import { CopyButton } from "../shared/CopyButton";
 
 // 置顶区迷你走势图放在标题列内、token 列前的空白处（票 14），不占独立列：两区列模板相同，各列对齐。
 // 窄窗（票 20）：标题列至少 8rem 容纳走势图，token 列可收缩并截断；<xl 时项目信息列移到行上方，不与会话行抢宽。
-const ROW_GRID = "grid grid-cols-[20px_minmax(8rem,1fr)_minmax(0,210px)_96px_96px_184px] items-center gap-3";
+// 窄窗（≤880px 视口，内容区约 <620px 宽于宽档行最小 608px 时切换）：token/成本/时间列收缩，
+// 操作列 112px 内图标与「继续」按钮 flex-wrap 换行，保证「继续」不溢出窗口。
+const ROW_GRID = "grid grid-cols-[20px_minmax(8rem,1fr)_minmax(0,210px)_96px_96px_minmax(0,184px)] items-center gap-3 max-[880px]:grid-cols-[20px_minmax(8rem,1fr)_minmax(0,112px)_72px_72px_112px] max-[880px]:gap-2";
 
 function projectName(workdir: string): string {
   return workdir.split(/[\\/]/).filter(Boolean).pop() ?? workdir;
@@ -224,11 +226,12 @@ const SessionRow = memo(function SessionRow({ r, inPinned, isOpen, runState, res
       <div className="text-end font-mono text-sm tabular-nums">
         <SessionCost cost={r.cost} calls={r.calls} unpricedCalls={r.unpricedCalls} testId="sessions-row-cost" />
       </div>
-      <div className="flex items-center justify-end gap-1 text-sm text-muted-foreground" data-testid="sessions-row-last">
-        {formatRelativeTime(r.lastCallMs, i18n.language)}
+      <div className="flex min-w-0 items-center justify-end gap-1 text-sm text-muted-foreground" data-testid="sessions-row-last">
+        <span className="truncate">{formatRelativeTime(r.lastCallMs, i18n.language)}</span>
         <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform motion-reduce:transition-none ${isOpen ? "rotate-180" : ""}`} />
       </div>
-      <div className="flex items-center justify-end gap-1" data-testid="sessions-row-actions">
+      {/* 窄档 112px 列内 flex-wrap：图标一行、继续按钮换到下一行，不溢出列宽 */}
+      <div className="flex flex-wrap items-center justify-end gap-1" data-testid="sessions-row-actions">
         <Button
           size="icon"
           variant="ghost"
