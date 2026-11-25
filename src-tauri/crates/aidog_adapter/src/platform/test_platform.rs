@@ -2300,6 +2300,14 @@ fn mistral_has_dedicated_adapter_registration() {
 }
 
 #[test]
+fn modelscope_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("modelscope"), super::adapter_for("openrouter")),
+        "ModelScope registration must not use the generic adapter"
+    );
+}
+
+#[test]
 fn magpie_has_dedicated_adapter_registration() {
     assert!(
         !std::ptr::eq(super::adapter_for("magpie"), super::adapter_for("openrouter")),

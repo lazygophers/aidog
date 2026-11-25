@@ -2351,6 +2351,20 @@ struct MistralAdapter;
 impl PlatformAdapter for MistralAdapter {}
 static MISTRAL: MistralAdapter = MistralAdapter;
 
+/// ModelScope（魔搭）API-Inference，官方文档核对日期 2026-11-25。
+/// LLM 提供 OpenAI API 兼容接口（`https://api-inference.modelscope.cn/v1`），支持 system
+/// 角色与流式；Anthropic API 兼容接口处于 beta，参数参照 Anthropic 官方文档；reasoning
+/// 模型的调用方式与标准 LLM 有细微差异，官方要求以各模型页面的示例代码为准。
+/// 视觉模型图片支持线上 URL 与 Base64 data URL；音频/视频生成走独立异步任务接口，
+/// 与聊天转发路径无关。
+/// https://www.modelscope.cn/docs/model-service/API-Inference/intro.md
+/// 未证实：usage 与缓存 token 字段、错误体格式、流式事件与结束标记、思考开关/档位/
+/// 预算、max_tokens 上限、工具调用细节；保持协议构件默认行为。官方未列其他 wire 协议
+/// 端点；对用户配置其他协议仅做合成假上游兼容性测试，不表示 ModelScope 官方支持。
+struct ModelscopeAdapter;
+impl PlatformAdapter for ModelscopeAdapter {}
+static MODELSCOPE: ModelscopeAdapter = ModelscopeAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -2392,7 +2406,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("minimax_coding", &MINIMAX_CODING),
     ("minimax_en", &MINIMAX_EN),
     ("mistral", &MISTRAL),
-    ("modelscope", &GENERIC),
+    ("modelscope", &MODELSCOPE),
     ("newapi", &GENERIC),
     ("novita", &GENERIC),
     ("nvidia", &GENERIC),
