@@ -2154,7 +2154,7 @@ static INTERN_INKSTONE: InternInkstoneAdapter = InternInkstoneAdapter;
 /// 逐项核对（核对日期 2026-11-25）：
 /// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
 ///   anthropic `https://api.longcat.chat/anthropic`（出站 `/v1/messages`）、
-///   openai `https://api.longcat.chat/openai`（出站 `/v1/chat/completions`）。
+///   openai `https://api.longcat.chat/openai/v1`（出站 `/chat/completions`）。
 ///   https://longcat.chat/platform/docs/
 /// - 请求字段：双 wire 标准 envelope（model / messages / max_tokens / stream / top_p；
 ///   anthropic wire `temperature` 0~1、system 走顶层参数）。`temperature` 官方固定
@@ -2168,8 +2168,8 @@ static INTERN_INKSTONE: InternInkstoneAdapter = InternInkstoneAdapter;
 ///   协议构件写 `reasoning_effort` 档位，官方文档未列该参数（未证实）→ 保持基座默认，
 ///   上游未证实会拒未知字段。
 ///   https://longcat.chat/platform/docs/api/model-params
-/// - 工具调用与服务端工具：API 文档无工具调用页（导航 Tools 均为客户端集成指南）
-///   → 未证实，基座协议构件默认。
+/// - Responses API 支持 function 和 custom 工具，工具字段位于对象顶层；
+///   服务端工具支持情况未证实。https://longcat.chat/platform/docs/api/responses
 /// - 图片与音视频：另有 Visual Understanding 页（图片/视频理解端点），chat 端点多模态
 ///   形状未在 Chat Completions 文档出现 → 未证实，基座默认。
 ///   https://longcat.chat/platform/docs/image-video-understanding
@@ -2179,15 +2179,18 @@ static INTERN_INKSTONE: InternInkstoneAdapter = InternInkstoneAdapter;
 ///   https://longcat.chat/platform/docs/api/model-params
 /// - usage：openai wire `usage{prompt_tokens,completion_tokens,total_tokens,
 ///   completion_tokens_details.reasoning_tokens}`；anthropic wire
-///   `usage{input_tokens,output_tokens}`。无缓存 token 字段 → 基座 usage 臂。
+///   `usage{input_tokens,output_tokens}`；Responses API 使用
+///   `input_tokens_details.cached_tokens` 和 `output_tokens_details.reasoning_tokens`。
+///   https://longcat.chat/platform/docs/api/responses
 ///   响应侧思考文本：openai `message.reasoning_content`、anthropic 挂在 text 块的
 ///   `thinking` 字段（非标准块型）→ 基座解析按既有 reasoning_content / text 块处理，
 ///   非标字段不参与计费。
 /// - 错误体：标准 OpenAI envelope（`error{message,type,code}`；429 带 `retry_after`，
 ///   400 `invalid_request_error`/`invalid_parameter`）→ 基座按状态码 + 特征分类，
 ///   不覆写。https://longcat.chat/platform/docs/ （Rate Limiting / Range validation 节）
-/// - 流式：双 wire 官方声明支持 SSE；帧级事件形状官方文档未给逐帧示例 → 未证实，
-///   基座协议构件默认。
+/// - 流式：Chat Completions 和 Messages 的逐帧形状未证实；Responses API 文档列出
+///   `response.completed`、`response.incomplete`、`response.failed` 等事件，正常结束
+///   时直接关闭连接，不附加 `[DONE]`。https://longcat.chat/platform/docs/api/responses
 /// - 鉴权：双 wire 均 `Authorization: Bearer`（anthropic SDK 示例也带 Bearer）→
 ///   基座 openai 形鉴权头默认。
 /// - 转发层现状（grep 2026-11-25）：gateway 对 longcat 平台零特判，无 coding_plan

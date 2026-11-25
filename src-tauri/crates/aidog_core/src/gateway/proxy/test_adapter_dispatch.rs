@@ -3905,6 +3905,65 @@ async fn intern_inkstone_openai_responses_endpoint_dispatch() {
     assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
 }
 
+// Synthetic endpoint fixtures exercise user-configurable protocols; they do not assert provider support.
+#[tokio::test]
+async fn longcat_completions_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let request = r#"{"model":"legacy-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
+    let response = r#"{"id":"cmpl-test","object":"text_completion","model":"legacy-test","choices":[{"text":"hello","index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}"#;
+    let stream = "data: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"hello\",\"index\":0}]}\n\ndata: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"\",\"index\":0,\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
+    let (status, body, hits) = glm_member_call(Protocol::Longcat, Protocol::OpenAICompletions, "longcat-completions", "/v1/messages", request, (200, "application/json", response)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(hits[0].0, "/completions");
+    assert!(hits[0].1.contains("hi"), "{}", hits[0].1);
+    assert!(body.contains("hello"), "{body}");
+    assert_eq!(adapter_for("longcat").extract_usage(response).0, 4);
+    let streaming_request = r#"{"model":"legacy-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAICompletions, "longcat-completions-stream", "/v1/messages", streaming_request, (200, "text/event-stream", stream)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("hello"), "{body}");
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAICompletions, "longcat-completions-error", "/v1/messages", request, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("model not found"), "{body}");
+}
+
+#[tokio::test]
+async fn longcat_gemini_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let request = r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, hits) = glm_member_call(Protocol::Longcat, Protocol::Gemini, "longcat-gemini", "/v1/messages", request, (200, "application/json", CRAZYROUTER_GEMINI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(hits[0].0, "/v1beta/models/cr-test:generateContent");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&hits[0].1).unwrap()["contents"][0]["parts"][0]["text"], "hi");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&body).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("longcat").extract_usage(CRAZYROUTER_GEMINI_RESP).0, 6);
+    let stream = r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::Gemini, "longcat-gemini-stream", "/v1/messages", stream, (200, "text/event-stream", CRAZYROUTER_GEMINI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("hi"), "{body}");
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::Gemini, "longcat-gemini-error", "/v1/messages", request, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("model not found"), "{body}");
+}
+
+#[tokio::test]
+async fn longcat_responses_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let request = r#"{"model":"ink-test","messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, hits) = glm_member_call(Protocol::Longcat, Protocol::OpenAIResponses, "longcat-responses", "/chat/completions", request, (200, "application/json", INK_RESPONSES_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(hits[0].0, "/responses");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&body).unwrap()["choices"][0]["message"]["content"], "hi");
+    assert_eq!(adapter_for("longcat").extract_usage(INK_RESPONSES_RESP).2, 4);
+    let stream_request = r#"{"model":"ink-test","stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAIResponses, "longcat-responses-stream", "/chat/completions", stream_request, (200, "text/event-stream", INK_RESPONSES_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("hi") && body.contains("[DONE]"), "{body}");
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAIResponses, "longcat-responses-error", "/chat/completions", request, (400, "application/json", r#"{"error":{"message":"invalid input","type":"invalid_request_error"}}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("invalid input"), "{body}");
+}
+
 /// anthropic 端点：出站打 `/v1/messages`；非流式回 openai 形状；流式透传官方事件集；
 /// usage 缓存读臂。
 #[tokio::test]
