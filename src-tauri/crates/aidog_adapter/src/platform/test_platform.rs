@@ -2308,6 +2308,14 @@ fn modelscope_has_dedicated_adapter_registration() {
 }
 
 #[test]
+fn novita_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("novita"), super::adapter_for("openrouter")),
+        "Novita registration must not use the generic adapter"
+    );
+}
+
+#[test]
 fn magpie_has_dedicated_adapter_registration() {
     assert!(
         !std::ptr::eq(super::adapter_for("magpie"), super::adapter_for("openrouter")),
