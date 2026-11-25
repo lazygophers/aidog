@@ -2283,6 +2283,14 @@ fn intern_inkstone_has_dedicated_adapter_registration() {
     assert_eq!(body, json!({"model":"ink-test"}));
 }
 
+#[test]
+fn magpie_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("magpie"), super::adapter_for("openrouter")),
+        "Magpie registration must not use the generic adapter"
+    );
+}
+
 /// LongCat（issue 99）must own a platform adapter entry.
 #[test]
 fn longcat_has_dedicated_adapter_registration() {

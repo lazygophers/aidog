@@ -3905,6 +3905,38 @@ async fn intern_inkstone_openai_responses_endpoint_dispatch() {
     assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
 }
 
+// Synthetic fixtures test user-configured endpoint protocols, not Magpie's provider support.
+#[tokio::test]
+async fn magpie_configured_endpoint_dispatch() {
+    let completion = r#"{"id":"cmpl-test","object":"text_completion","choices":[{"text":"hi","index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}"#;
+    let completion_stream = "data: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"hi\",\"index\":0}]}\n\ndata: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"\",\"index\":0,\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
+    let cases = [
+        (Protocol::OpenAI, "/chat/completions", CRAZYROUTER_OPENAI_RESP, CRAZYROUTER_OPENAI_SSE, 3),
+        (Protocol::Anthropic, "/v1/messages", CRAZYROUTER_ANTHROPIC_RESP, CRAZYROUTER_ANTHROPIC_SSE, 3),
+        (Protocol::OpenAIResponses, "/responses", INK_RESPONSES_RESP, INK_RESPONSES_SSE, 2),
+        (Protocol::Gemini, "/v1beta/models/cr-test:generateContent", CRAZYROUTER_GEMINI_RESP, CRAZYROUTER_GEMINI_SSE, 3),
+        (Protocol::OpenAICompletions, "/completions", completion, completion_stream, 2),
+    ];
+    let request = r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
+    let streaming_request = r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    for (index, (wire, path, upstream, events, output_tokens)) in cases.iter().enumerate() {
+        let key = format!("magpie-{}", index);
+        let (status, body, hits) = glm_member_call(Protocol::Magpie, wire.clone(), &key, "/v1/messages", request, (200, "application/json", upstream)).await;
+        assert_eq!(status, StatusCode::OK, "{wire:?}: {body}");
+        assert_eq!(hits[0].0, *path);
+        assert!(hits[0].1.contains("hi"), "{wire:?}: {}", hits[0].1);
+        assert!(body.contains("hi"), "{wire:?}: {body}");
+        let response: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(response["usage"]["output_tokens"], *output_tokens, "{wire:?}: {body}");
+        let (status, body, _) = glm_member_call(Protocol::Magpie, wire.clone(), &format!("{key}-stream"), "/v1/messages", streaming_request, (200, "text/event-stream", events)).await;
+        assert_eq!(status, StatusCode::OK, "{wire:?}: {body}");
+        assert!(body.contains("hi"), "{wire:?}: {body}");
+        let (status, body, _) = glm_member_call(Protocol::Magpie, wire.clone(), &format!("{key}-error"), "/v1/messages", request, (400, "application/json", CRAZYROUTER_ERROR)).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{wire:?}: {body}");
+        assert!(body.contains("model not found"), "{wire:?}: {body}");
+    }
+}
+
 // Synthetic endpoint fixtures exercise user-configurable protocols; they do not assert provider support.
 #[tokio::test]
 async fn longcat_completions_endpoint_dispatch() {

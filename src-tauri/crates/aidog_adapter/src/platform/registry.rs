@@ -2297,6 +2297,29 @@ static TENCENT_CODING: TencentFamilyAdapter = TencentFamilyAdapter {
     official_openai_thinking: false,
 };
 
+/// Magpie 网关适配器。官方参考（核对日期 2026-11-25）列出 OpenAI Chat
+/// (`/v1/chat/completions`)、Responses (`/v1/responses`)、Anthropic Messages
+/// (`/v1/messages`) 和 Gemini (`/v1beta/models/{model}:generateContent`) 端点，并称支持
+/// 流式、工具调用和推理内容；本适配器运行时使用用户配置端点。
+/// 官方 Anthropic 请求结构接受 system、max_tokens、thinking.type、thinking.budget_tokens
+/// 和 output_config.effort；Chat 接受 max_tokens、max_completion_tokens 和 reasoning_effort。
+/// Responses 用 instructions、max_output_tokens，usage 包含 input_tokens_details.cached_tokens。
+/// Chat 流输出以 `[DONE]` 结束，Anthropic 流发送 `message_stop`；Responses 发送
+/// `response.completed`、`response.incomplete` 或 `response.failed`。Gemini 支持
+/// `inlineData`、`fileData`，usage 包含 `cachedContentTokenCount`。
+/// https://github.com/yetone/magpie/blob/main/internal/gateway/gemini.go
+/// https://github.com/yetone/magpie/blob/main/internal/gateway/anthropic.go
+/// https://github.com/yetone/magpie/blob/main/internal/gateway/chat.go
+/// https://github.com/yetone/magpie/blob/main/internal/gateway/responses.go
+/// 未证实：请求默认值、各协议思考参数的完整语义、工具及媒体细节、max_tokens 上限、
+/// 错误体和各协议完整流事件；保持协议构件默认行为。
+/// 官方网关端点列表未列 OpenAI Completions；仅按 issue 验收要求，对用户配置该协议做
+/// 合成假上游兼容性测试，不表示 Magpie 官方支持该端点。
+/// https://github.com/yetone/magpie/blob/main/docs/reference.md#connecting-anything-else
+struct MagpieAdapter;
+impl PlatformAdapter for MagpieAdapter {}
+static MAGPIE: MagpieAdapter = MagpieAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -2332,7 +2355,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("kimi_en", &KIMI),
     ("litellm", &LITELLM),
     ("longcat", &LONGCAT),
-    ("magpie", &GENERIC),
+    ("magpie", &MAGPIE),
     ("meta", &GENERIC),
     ("minimax", &MINIMAX),
     ("minimax_coding", &MINIMAX_CODING),
