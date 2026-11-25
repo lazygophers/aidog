@@ -55,6 +55,23 @@ pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Vec<ChatStreamEvent>
             blocks: server.blocks,
         });
     }
+    if *wire_protocol == Protocol::Gemini {
+        let mut without_finish = data.clone();
+        if let Some(candidate) = without_finish
+            .get_mut("candidates")
+            .and_then(Value::as_array_mut)
+            .and_then(|c| c.first_mut())
+            .and_then(Value::as_object_mut)
+            && matches!(
+                candidate.get("finishReason").and_then(Value::as_str),
+                Some("STOP" | "MAX_TOKENS")
+            )
+            && candidate.remove("finishReason").is_some()
+            && let Some(event) = parse_sse_single(&without_finish, wire_protocol)
+        {
+            events.push(event);
+        }
+    }
     if let Some(event) = parse_sse_single(data, wire_protocol) {
         events.push(event);
     }
