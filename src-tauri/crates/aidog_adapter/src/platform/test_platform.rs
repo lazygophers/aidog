@@ -36,6 +36,21 @@ fn atlascloud_has_dedicated_adapter_registration() {
     assert_eq!(body, json!({"model":"atlas-test"}));
 }
 
+/// CrazyRouter（issue 94）must own a platform adapter entry, even when verified
+/// behavior uses protocol defaults (docs mirror official wire shapes).
+#[test]
+fn crazyrouter_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("crazyrouter");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("deepseek")),
+        "CrazyRouter registration must not use generic adapter"
+    );
+    // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
+    let mut body = json!({"model":"cr-test"});
+    adapter.inject_coding_plan(&mut body, &Protocol::CrazyRouter, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"cr-test"}));
+}
+
 #[test]
 fn atlascloud_error_msg_field_classifies_model_errors() {
     assert_eq!(

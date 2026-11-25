@@ -3197,6 +3197,81 @@ async fn cline_family_openai_endpoint_non_stream() {
     assert_eq!(response["usage"]["cost"], 0.00012);
 }
 
+// issue 94：CrazyRouter 三协议都由用户端点配置驱动，经本地假上游覆盖转换、响应、流、错误与 usage。
+const CRAZYROUTER_OPENAI_RESP: &str = r#"{"id":"chatcmpl_cr","object":"chat.completion","model":"cr-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+const CRAZYROUTER_OPENAI_SSE: &str = concat!(
+    "data: {\"id\":\"chatcmpl_cr\",\"object\":\"chat.completion.chunk\",\"model\":\"cr-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+    "data: {\"id\":\"chatcmpl_cr\",\"object\":\"chat.completion.chunk\",\"model\":\"cr-test\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\n",
+    "data: [DONE]\n\n",
+);
+const CRAZYROUTER_ANTHROPIC_RESP: &str = r#"{"id":"msg_cr","type":"message","role":"assistant","model":"cr-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+const CRAZYROUTER_ANTHROPIC_SSE: &str = concat!(
+    "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_cr\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"cr-test\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":2,\"cache_creation_input_tokens\":1}}}\n\n",
+    "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+    "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+    "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n",
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+);
+const CRAZYROUTER_GEMINI_RESP: &str = r#"{"candidates":[{"index":0,"finishReason":"STOP","content":{"role":"model","parts":[{"text":"hi"}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":3,"totalTokenCount":13,"cachedContentTokenCount":4}}"#;
+const CRAZYROUTER_GEMINI_SSE: &str = concat!(
+    "data: {\"candidates\":[{\"index\":0,\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"hi\"}]}}]}\n\n",
+    "data: {\"candidates\":[{\"index\":0,\"finishReason\":\"STOP\",\"content\":{\"role\":\"model\",\"parts\":[]}}],\"usageMetadata\":{\"promptTokenCount\":10,\"candidatesTokenCount\":3,\"totalTokenCount\":13,\"cachedContentTokenCount\":4}}\n\n",
+);
+const CRAZYROUTER_ERROR: &str = r#"{"error":{"message":"model not found","type":"invalid_request_error","code":"model_not_found"}}"#;
+
+#[tokio::test]
+async fn crazyrouter_openai_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::CrazyRouter, Protocol::OpenAI, "gk94oa", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", CRAZYROUTER_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "cr-test");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("crazyrouter").extract_usage(CRAZYROUTER_OPENAI_RESP).0, 6);
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::OpenAI, "gk94oas", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", CRAZYROUTER_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::OpenAI, "gk94oae", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model not found"), "{resp}");
+}
+
+#[tokio::test]
+async fn crazyrouter_anthropic_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::CrazyRouter, Protocol::Anthropic, "gk94an", "/chat/completions", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", CRAZYROUTER_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["choices"][0]["message"]["content"], "hi");
+    assert_eq!(adapter_for("crazyrouter").extract_usage(CRAZYROUTER_ANTHROPIC_RESP).2, 2);
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::Anthropic, "gk94ans", "/chat/completions", r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", CRAZYROUTER_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::Anthropic, "gk94ane", "/chat/completions", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model not found"), "{resp}");
+}
+
+#[tokio::test]
+async fn crazyrouter_gemini_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::CrazyRouter, Protocol::Gemini, "gk94ge", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", CRAZYROUTER_GEMINI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1beta/models/cr-test:generateContent");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["contents"][0]["parts"][0]["text"], "hi");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("crazyrouter").extract_usage(CRAZYROUTER_GEMINI_RESP).0, 6);
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::Gemini, "gk94ges", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", CRAZYROUTER_GEMINI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::Gemini, "gk94gee", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model not found"), "{resp}");
+}
+
 /// issue 86：两成员的 OpenAI SSE 端点都透传标准 chunk、末帧 usage 与 [DONE]。
 #[tokio::test]
 async fn cline_family_openai_endpoint_stream() {
@@ -3466,12 +3541,15 @@ async fn commandcode_typesafe_endpoint_decision_dispatch_usage() {
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["model"], "cc-jev-1", "决策响应透传: {v}");
 
-    let hits = hits.lock().unwrap();
-    assert_eq!(hits.len(), 1, "{hits:?}");
-    assert_eq!(hits[0].0, "/systemone", "URL = 用户 base_url + /systemone (R10)");
-    let sent: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    let hits_snapshot = hits.lock().unwrap().clone();
+    assert_eq!(hits_snapshot.len(), 1, "{hits_snapshot:?}");
+    assert_eq!(
+        hits_snapshot[0].0,
+        "/systemone",
+        "URL = 用户 base_url + /systemone (R10)"
+    );
+    let sent: serde_json::Value = serde_json::from_str(&hits_snapshot[0].1).unwrap();
     assert_eq!(sent["model"], "cc-test", "model 应改写为平台模型链首: {sent}");
-    drop(hits);
     flush_log_queue(&state).await;
     let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     let log = logs.iter().find(|l| l.group_key == "gk93ts").expect("log row missing");
