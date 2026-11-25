@@ -1792,6 +1792,55 @@ pub struct AiHubMixAdapter;
 
 impl PlatformAdapter for AiHubMixAdapter {}
 
+/// CrazyRouter 聚合平台专属适配器（issue 94；单成员，非编码套餐）。
+///
+/// 逐项核对官方文档（核对日期 2026-11-24）：
+/// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
+///   anthropic `https://api.crazyrouter.com`（「Anthropic-native clients use root domain …
+///   do not append `/v1` manually」）、openai `https://api.crazyrouter.com/v1`（「OpenAI-compatible
+///   SDKs use `base_url="https://api.crazyrouter.com/v1"`」）、gemini `https://api.crazyrouter.com`
+///   （「`gemini` maps to `POST /v1beta/models/{model}:generateContent`」，llms.txt）——三者与
+///   registry 内置默认一致。同页另列 openai responses `/v1/responses` 与 legacy `/v1/completions`、
+///   东亚入口 `cn.crazyrouter.com`，registry 未内置，用户可手配。路径重复拼接告警
+///   （`/v1/v1/messages`）印证 anthropic 打根域名 `/v1/messages`。
+///   https://docs.crazyrouter.com/api-endpoint.md https://docs.crazyrouter.com/llms.txt
+/// - 请求字段与默认值：quickstart 示例请求即 `{"model","messages"}`，响应示例为标准
+///   OpenAI Chat Completions 形状（`choices[].message` / `finish_reason`）——镜像官方 wire，
+///   无平台专有字段文档，协议构件默认形状，无需覆写。鉴权统一 `Authorization: Bearer`
+///   （网关注入）。https://docs.crazyrouter.com/quickstart.md https://docs.crazyrouter.com/authentication.md
+/// - 思考参数：官方文档站（quickstart / api-endpoint / error-handling / ai-tools /
+///   authentication 五页 + llms.txt 索引）均未记载思考开关 / 档位 / 预算参数——未证实，
+///   保持基座第三方端点默认（`chat_template_kwargs.enable_thinking=false`）。
+/// - 工具调用与服务端工具：官方仅提示「Claude 原生 `tool_use` … 应优先走 Anthropic
+///   Messages 链路（`POST /v1/messages`）」，属客户端接入建议而非出站差异；无服务端工具
+///   文档——未证实，保持基座默认。https://docs.crazyrouter.com/api-endpoint.md
+/// - 图片与音视频：独立图像 / 视频 / 音频端点（`/v1/images/*`、`/mj/submit/*` 等）单列，
+///   chat 链路多模态未记载——未证实，保持基座默认。https://docs.crazyrouter.com/api-endpoint.md
+/// - system 提示 / max_tokens 上限：文档未记载——未证实，保持基座默认（max_tokens 上限
+///   按 registry 条目 `cap_max_tokens` 裁剪）。
+/// - usage：quickstart 响应示例 `usage.prompt_tokens / completion_tokens / total_tokens`，
+///   与基座 openai 臂一致；缓存 token 字段未记载——未证实，基座构件读不到即缺省 0，
+///   不覆盖。anthropic / gemini 臂未记载，同上。
+///   https://docs.crazyrouter.com/quickstart.md
+/// - 错误体：统一 `{"error":{"message","type","code"}}`（error-handling.md 唯一 JSON 示例），
+///   与基座 `error.message/code/type` 读法一致；状态码表 400 / 401 / 403 / 429 / 500 / 502 /
+///   503（403「Token 无权访问该模型」按状态码归服务类，无模型类业务码契约）——基座
+///   classify_upstream_error 原样适用，不扩展。https://docs.crazyrouter.com/error-handling.md
+/// - 流式事件格式与结束标记：文档未记载 SSE 帧形状 / 终止标记——未证实，保持基座构件
+///   默认（openai wire `data: [DONE]`、anthropic wire `message_stop`、gemini wire 事件流）。
+/// - coding_plan 注入：非编码套餐，基座按平台协议分派对 `Protocol::CrazyRouter` 为 no-op，
+///   行为不变。
+/// - 转发层现状（grep 2026-11-24）：gateway 对 crazyrouter 零特判（仅 `protocol.rs`
+///   serde rename 与 peak 时段数据），无既有差异可迁；行为不变由网关回归测试锁定。
+///
+/// 结论：官方文档只证实端点布局 / 鉴权 / 错误体三件，均与协议构件默认一致；专属适配器
+/// 只承担显式注册语义（与 AiHubMixAdapter / AnthropicFamilyAdapter 同形）。
+/// https://docs.crazyrouter.com/ https://crazyrouter.com/pricing
+pub struct CrazyRouterAdapter;
+
+impl PlatformAdapter for CrazyRouterAdapter {}
+
+static CRAZYROUTER: CrazyRouterAdapter = CrazyRouterAdapter;
 /// Command Code（GOAT/Pro/Max/Provider 套餐 Provider API；api.commandcode.ai）。
 /// 官方文档核对日期 2026-11-24，结论：三 chat 协议 + 决策协议均镜像官方形状，
 /// 无可证实的平台级覆写；专属适配器承担显式注册语义（与 [`AiHubMixAdapter`] 同形）。
@@ -1945,7 +1994,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("commandcode", &COMMAND_CODE),
     ("compshare", &COMPSHARE),
     ("compshare_coding", &COMPSHARE),
-    ("crazyrouter", &GENERIC),
+    ("crazyrouter", &CRAZYROUTER),
     ("deepseek", &GENERIC),
     ("devin", &GENERIC),
     ("doubao", &ARK),
