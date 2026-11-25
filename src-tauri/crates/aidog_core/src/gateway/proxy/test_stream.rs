@@ -13,7 +13,16 @@ fn accumulate_sse_usage_anthropic_and_openai() {
         "type": "message_start",
         "message": { "usage": { "input_tokens": 10, "cache_read_input_tokens": 3 } }
     });
-    accumulate_sse_usage(&anth, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0));
+    accumulate_sse_usage(
+        &anth,
+        &i,
+        &o,
+        &c,
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+    );
     assert_eq!(i.load(Relaxed), 10);
     assert_eq!(c.load(Relaxed), 3);
 
@@ -24,7 +33,16 @@ fn accumulate_sse_usage_anthropic_and_openai() {
     let oai: Value = serde_json::json!({
         "usage": { "prompt_tokens": 20, "completion_tokens": 7 }
     });
-    accumulate_sse_usage(&oai, &oi, &oo, &oc, &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0));
+    accumulate_sse_usage(
+        &oai,
+        &oi,
+        &oo,
+        &oc,
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+    );
     assert_eq!(oi.load(Relaxed), 20);
     assert_eq!(oo.load(Relaxed), 7);
 }
@@ -48,7 +66,16 @@ fn accumulate_sse_usage_anthropic_stream_input_not_clobbered() {
             "output_tokens": 1
         }}
     });
-    accumulate_sse_usage(&start, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0));
+    accumulate_sse_usage(
+        &start,
+        &i,
+        &o,
+        &c,
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+    );
     assert_eq!(i.load(Relaxed), 356);
     assert_eq!(c.load(Relaxed), 50880);
 
@@ -57,7 +84,16 @@ fn accumulate_sse_usage_anthropic_stream_input_not_clobbered() {
         "type": "message_delta",
         "usage": { "input_tokens": 0, "output_tokens": 15 }
     });
-    accumulate_sse_usage(&delta1, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0));
+    accumulate_sse_usage(
+        &delta1,
+        &i,
+        &o,
+        &c,
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+    );
     assert_eq!(i.load(Relaxed), 356, "input 不可被 message_delta 的 0 清零");
     assert_eq!(o.load(Relaxed), 15);
 
@@ -66,7 +102,16 @@ fn accumulate_sse_usage_anthropic_stream_input_not_clobbered() {
         "type": "message_delta",
         "usage": { "input_tokens": 0, "output_tokens": 29 }
     });
-    accumulate_sse_usage(&delta2, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0));
+    accumulate_sse_usage(
+        &delta2,
+        &i,
+        &o,
+        &c,
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+    );
     assert_eq!(i.load(Relaxed), 356, "input 终态保留");
     assert_eq!(c.load(Relaxed), 50880, "cache 终态保留");
     assert_eq!(o.load(Relaxed), 29, "output 取累计终值");
@@ -119,7 +164,16 @@ fn accumulate_sse_usage_openai_stream_final_usage() {
     let mid: Value = serde_json::json!({
         "choices": [{ "delta": { "content": "hi" } }]
     });
-    accumulate_sse_usage(&mid, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0));
+    accumulate_sse_usage(
+        &mid,
+        &i,
+        &o,
+        &c,
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+    );
     assert_eq!(i.load(Relaxed), 0);
     assert_eq!(o.load(Relaxed), 0);
 
@@ -131,7 +185,16 @@ fn accumulate_sse_usage_openai_stream_final_usage() {
             "prompt_tokens_details": { "cached_tokens": 512 }
         }
     });
-    accumulate_sse_usage(&last, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0), &std::sync::atomic::AtomicI32::new(0));
+    accumulate_sse_usage(
+        &last,
+        &i,
+        &o,
+        &c,
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+        &std::sync::atomic::AtomicI32::new(0),
+    );
     // B1：prompt_tokens 含 cached 部分，input 扣减后 1024−512=512。
     assert_eq!(i.load(Relaxed), 512);
     assert_eq!(o.load(Relaxed), 200);
@@ -1022,6 +1085,18 @@ fn feed_sse_usage_without_model_stays_none() {
     );
 }
 
+#[test]
+fn response_header_served_model_overrides_sse_model() {
+    let agg = StreamAggregator::new();
+    agg.set_served_model("magpie-model".to_string());
+    agg.feed_sse_usage(
+        r#"data: {"model":"body-model"}
+
+"#,
+    );
+    assert_eq!(agg.take_served_model().as_deref(), Some("magpie-model"));
+}
+
 // flush 回写：上游自报优先；未自报回退请求模型（不再用路由目标 glm-5）。
 #[tokio::test]
 async fn flush_writes_served_model_as_actual_model() {
@@ -1388,7 +1463,11 @@ fn parse_sse_events_and_usage_single_pass() {
         "data: {\"type\": \"message_delta\", \"delta\": {\"stop_reason\": \"end_turn\"}, \"usage\": {\"input_tokens\": 723, \"output_tokens\": 2922}}\n\n",
         "data: [DONE]\n\n",
     );
-    let events = agg.parse_sse_events_and_usage(text, aidog_adapter::platform::adapter_for("anthropic"), &Protocol::Anthropic);
+    let events = agg.parse_sse_events_and_usage(
+        text,
+        aidog_adapter::platform::adapter_for("anthropic"),
+        &Protocol::Anthropic,
+    );
     // 事件齐全：Usage（issue 71，message_start 帧内 usage 先产出）/ Start（model 已观察）/
     // Delta / Stop（[DONE] 哨兵；message_delta 帧的 Usage 已上提到它前面）
     assert!(matches!(&events[0], ChatStreamEvent::Usage { .. }));
@@ -1407,7 +1486,11 @@ fn parse_sse_events_and_usage_single_pass() {
 fn parse_sse_events_and_usage_skips_non_data_lines_and_bad_json() {
     let agg = StreamAggregator::new();
     let text = "event: ping\ndata: not-json\n: comment\nsome plain line\n";
-    let events = agg.parse_sse_events_and_usage(text, aidog_adapter::platform::adapter_for("anthropic"), &Protocol::Anthropic);
+    let events = agg.parse_sse_events_and_usage(
+        text,
+        aidog_adapter::platform::adapter_for("anthropic"),
+        &Protocol::Anthropic,
+    );
     assert!(events.is_empty());
     assert!(agg.peek_served_model().is_none());
 }

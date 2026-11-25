@@ -15,6 +15,7 @@ pub(crate) const RESP_HEADER_BLACKLIST: &[&str] = &[
     "te",
     "trailer",
     "upgrade",
+    "x-magpie-provider",
 ];
 
 /// 流式（SSE）额外剔除集：这三个头归 SSE 自管，禁用上游值覆盖 SSE 语义。

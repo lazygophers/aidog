@@ -28,11 +28,6 @@ pub const UPDATED_EVENT: &str = "client-usage-updated";
 static PENDING: OnceLock<Mutex<HashMap<String, i64>>> = OnceLock::new();
 /// 当前监听中的根目录。
 static WATCHED: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
-type RootsSnapshot = std::sync::Arc<Vec<(String, PathBuf)>>;
-type RootsCache = tokio::sync::RwLock<Option<RootsSnapshot>>;
-
-/// 同意开关变化时刷新；事件循环每拍只读此内存快照。
-static ROOTS_CACHE: OnceLock<RootsCache> = OnceLock::new();
 /// 全局监听器（首个 sync 时懒创建）。
 static WATCHER: OnceLock<Mutex<Option<notify::RecommendedWatcher>>> = OnceLock::new();
 /// 测试可见的读取次数计数（process_due_paths 内每次 scan_one_file +1）。
@@ -98,37 +93,9 @@ pub(super) fn take_due_paths(now_ms: i64) -> Vec<String> {
     due
 }
 
-fn roots_cache() -> &'static RootsCache {
-    ROOTS_CACHE.get_or_init(|| tokio::sync::RwLock::new(None))
-}
-
-/// 更新监听面缓存并同步 watcher。
-async fn refresh_roots(db: &Db) -> RootsSnapshot {
-    let roots = std::sync::Arc::new(enabled_roots(db).await);
-    *roots_cache().write().await = Some(roots.clone());
-    sync_watchers_with(&roots);
-    roots
-}
-
 /// 同步监听面 = 同意开关开启且有会话根的客户端根目录（生产入口：启动与 consent_set 调用）。
 pub async fn sync_watchers(db: &Db) {
-    refresh_roots(db).await;
-}
-
-/// 缓存不存在时初始化；此后只在 Claude pid 目录状态变化时回源 DB。
-async fn roots_for_tick(db: &Db) -> RootsSnapshot {
-    let cached = roots_cache().read().await.clone();
-    let Some(cached) = cached else {
-        return refresh_roots(db).await;
-    };
-    if cached.iter().any(|(code, _)| code == "claude_code") {
-        let has_pid_root = cached.iter().any(|(code, _)| code == CLAUDE_PID_KEY);
-        let pid_root_exists = super::state::claude_sessions_dir().is_some_and(|p| p.is_dir());
-        if has_pid_root != pid_root_exists {
-            return refresh_roots(db).await;
-        }
-    }
-    cached
+    sync_watchers_with(&enabled_roots(db).await);
 }
 
 /// 当前监听中的根目录快照（测试断言用）。
@@ -276,17 +243,6 @@ pub(super) async fn process_due_paths(
     total
 }
 
-/// 事件循环每拍取监听面：读缓存 + 必要时检查 pid 目录变化。
-#[cfg(test)]
-pub(super) async fn cached_roots(db: &Db) -> std::sync::Arc<Vec<(String, PathBuf)>> {
-    roots_for_tick(db).await
-}
-
-#[cfg(test)]
-pub(super) async fn refresh_roots_cache(db: &Db) -> std::sync::Arc<Vec<(String, PathBuf)>> {
-    refresh_roots(db).await
-}
-
 /// 启用客户端的根目录（监听面与去抖消费面共用）；Claude Code 开启且 pid 文件目录存在时追加该目录。
 async fn enabled_roots(db: &Db) -> Vec<(String, PathBuf)> {
     let consent = super::load_consent(db).await;
@@ -309,7 +265,7 @@ pub fn start_event_loop() {
         let mut tick = tokio::time::interval(std::time::Duration::from_millis(500));
         loop {
             tick.tick().await;
-            let roots = roots_for_tick(aidog_ctx::db()).await;
+            let roots = enabled_roots(aidog_ctx::db()).await;
             if roots.is_empty() {
                 continue;
             }

@@ -28,6 +28,33 @@ async fn spawn_stub_upstream(status: u16, body: &'static str) -> String {
     format!("http://{addr}")
 }
 
+async fn spawn_upstream_with_header(
+    status: u16,
+    content_type: &'static str,
+    body: &'static str,
+) -> String {
+    use axum::routing::any;
+    let app = axum::Router::new().fallback(any(move || async move {
+        let mut response =
+            (axum::http::StatusCode::from_u16(status).unwrap(), body).into_response();
+        response.headers_mut().insert(
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static(content_type),
+        );
+        response.headers_mut().insert(
+            "x-magpie-provider",
+            axum::http::HeaderValue::from_static("magpie-served-model"),
+        );
+        response
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    format!("http://{addr}")
+}
+
 /// 起一个「立即 reset 连接」的上游：accept 后立刻 drop TcpStream，reqwest 收到 connect
 /// 错误 → handle_proxy 映射 502 Bad Gateway。替代原 `http://127.0.0.1:1` 死端口 TCP
 /// （真发起 connect 占用 FD + 依赖宿主网络栈行为）。
@@ -659,6 +686,85 @@ async fn successful_forward_to_stub_upstream() {
     assert!(
         logs.iter()
             .any(|l| l.status_code == 200 && l.group_key == "gk1")
+    );
+}
+
+#[tokio::test]
+async fn magpie_provider_sets_nonstream_actual_model_and_is_not_forwarded() {
+    let upstream = spawn_upstream_with_header(
+        200,
+        "application/json",
+        r#"{"id":"msg_1","type":"message","role":"assistant","model":"body-model","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}"#,
+    )
+    .await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk-magpie-nonstream", &upstream).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gk-magpie-nonstream",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert!(!resp.headers().contains_key("x-magpie-provider"));
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["model"], "claude-3");
+    assert_eq!(
+        last_log_for(&state, "gk-magpie-nonstream")
+            .await
+            .actual_model,
+        "magpie-served-model"
+    );
+}
+
+#[tokio::test]
+async fn magpie_provider_sets_stream_actual_model_and_is_not_forwarded() {
+    let upstream = spawn_upstream_with_header(
+        200,
+        "text/event-stream",
+        r#"event: message_start
+data: {"type":"message_start","message":{"model":"body-model","usage":{"input_tokens":1}}}
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":"hi"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+"#,
+    )
+    .await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk-magpie-stream", &upstream).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gk-magpie-stream",
+            r#"{"model":"claude-3","stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert!(!resp.headers().contains_key("x-magpie-provider"));
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    assert_eq!(
+        last_log_for(&state, "gk-magpie-stream").await.actual_model,
+        "magpie-served-model"
     );
 }
 
@@ -12849,14 +12955,8 @@ async fn compshare_family_members_forward_stream_and_nonstream_on_openai_wire() 
             let upstream = spawn_unified_upstream(200, content_type, body).await;
             let state = make_state(test_db().await).await;
             let gk = format!("gkcompshare{member}{streaming}");
-            setup_compshare_wire_group(
-                &state,
-                &gk,
-                platform.clone(),
-                Protocol::OpenAI,
-                &upstream,
-            )
-            .await;
+            setup_compshare_wire_group(&state, &gk, platform.clone(), Protocol::OpenAI, &upstream)
+                .await;
             let request_body = serde_json::json!({
                 "model": "glm-5.3",
                 "messages": [{"role": "user", "content": "hi"}],
@@ -13015,11 +13115,7 @@ async fn compshare_family_forwards_upstream_errors_to_client() {
             1,
             "{member}: error request must reach fake upstream"
         );
-        assert!(
-            captured[0].0.ends_with("/chat/completions"),
-            "{member}: {}",
-            captured[0].0
-        );
+        assert!(captured[0].0.ends_with("/chat/completions"), "{member}: {}", captured[0].0);
         let error_log = only_log_of(&state, &gk).await;
         assert_eq!(
             error_log.status_code,
@@ -13051,8 +13147,14 @@ async fn compshare_family_disable_thinking_gated_on_official_models_at_gateway()
         let (upstream, requests) = spawn_recording_upstream(CHAT_OK).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gkcompsharegate{}", expect_official as u8);
-        setup_compshare_wire_group(&state, &gk, Protocol::Compshare, Protocol::OpenAI, &upstream)
-            .await;
+        setup_compshare_wire_group(
+            &state,
+            &gk,
+            Protocol::Compshare,
+            Protocol::OpenAI,
+            &upstream,
+        )
+        .await;
         let request_body = serde_json::json!({
             "model": model,
             "messages": [{"role": "user", "content": "gate"}],
@@ -13128,8 +13230,20 @@ async fn setup_family_wire_group(
 #[tokio::test]
 async fn openai_family_sends_upstream_authorization_on_both_wires() {
     for (member, platform, wire, suffix, body) in [
-        ("openai", Protocol::OpenAI, Protocol::OpenAI, "/chat/completions", r#"{"id":"c1","object":"chat.completion","model":"gpt-5.5","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}"#),
-        ("codex", Protocol::Codex, Protocol::OpenAIResponses, "/responses", r#"{"id":"r1","object":"response","model":"gpt-5.5","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}]}"#),
+        (
+            "openai",
+            Protocol::OpenAI,
+            Protocol::OpenAI,
+            "/chat/completions",
+            r#"{"id":"c1","object":"chat.completion","model":"gpt-5.5","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}"#,
+        ),
+        (
+            "codex",
+            Protocol::Codex,
+            Protocol::OpenAIResponses,
+            "/responses",
+            r#"{"id":"r1","object":"response","model":"gpt-5.5","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"ok"}]}]}"#,
+        ),
     ] {
         let (upstream, seen) = spawn_header_recording_upstream(body).await;
         let state = make_state(test_db().await).await;
@@ -13140,7 +13254,9 @@ async fn openai_family_sends_upstream_authorization_on_both_wires() {
             .uri("/v1/chat/completions")
             .header("content-type", "application/json")
             .header("authorization", format!("Bearer {gk}"))
-            .body(Body::from(r#"{"model":"gpt-5.5","messages":[{"role":"user","content":"hi"}]}"#))
+            .body(Body::from(
+                r#"{"model":"gpt-5.5","messages":[{"role":"user","content":"hi"}]}"#,
+            ))
             .unwrap();
         let response = handle_proxy(AxumState(state), request).await;
         assert_eq!(response.status(), StatusCode::OK, "{member}");
@@ -13199,7 +13315,11 @@ async fn openai_family_members_forward_stream_and_nonstream_on_openai_wire() {
         );
         let captured = requests.lock().unwrap().clone();
         assert_eq!(captured.len(), 1, "{member}");
-        assert!(captured[0].0.ends_with("/chat/completions"), "{member}: {}", captured[0].0);
+        assert!(
+            captured[0].0.ends_with("/chat/completions"),
+            "{member}: {}",
+            captured[0].0
+        );
         let sent: serde_json::Value = serde_json::from_str(&captured[0].1).unwrap();
         assert_eq!(sent["model"], "gpt-5.5", "{member}");
         assert!(sent.get("messages").is_some(), "{member}");
@@ -13268,7 +13388,14 @@ async fn openai_family_members_forward_on_openai_responses_wire() {
         let (upstream, requests) = spawn_recording_response_upstream(200, RESPONSES_OK).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gkopenairesp{member}nonstream");
-        setup_family_wire_group(&state, &gk, platform.clone(), Protocol::OpenAIResponses, &upstream).await;
+        setup_family_wire_group(
+            &state,
+            &gk,
+            platform.clone(),
+            Protocol::OpenAIResponses,
+            &upstream,
+        )
+        .await;
         let request_body = serde_json::json!({
             "model": "gpt-5.5",
             "messages": [{"role": "user", "content": "hi"}],
@@ -13311,7 +13438,14 @@ async fn openai_family_members_forward_on_openai_responses_wire() {
         let upstream = spawn_unified_upstream(200, "text/event-stream", RESPONSES_SSE).await;
         let state = make_state(test_db().await).await;
         let gk = format!("gkopenairesp{member}stream");
-        setup_family_wire_group(&state, &gk, platform.clone(), Protocol::OpenAIResponses, &upstream).await;
+        setup_family_wire_group(
+            &state,
+            &gk,
+            platform.clone(),
+            Protocol::OpenAIResponses,
+            &upstream,
+        )
+        .await;
         let request_body = serde_json::json!({
             "model": "gpt-5.5",
             "messages": [{"role": "user", "content": "hi"}],
@@ -13452,7 +13586,10 @@ async fn anthropic_family_forwards_upstream_errors_to_client() {
 async fn spawn_recording_response_upstream(
     status: u16,
     body: &'static str,
-) -> (String, Arc<std::sync::Mutex<Vec<(String, String, axum::http::HeaderMap)>>>) {
+) -> (
+    String,
+    Arc<std::sync::Mutex<Vec<(String, String, axum::http::HeaderMap)>>>,
+) {
     use axum::routing::any;
     let rec = Arc::new(std::sync::Mutex::new(Vec::new()));
     let rec_srv = rec.clone();
@@ -14532,9 +14669,12 @@ async fn chat_routes_to_model_supported_endpoint_protocol() {
     )
     .await
     .unwrap();
-    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gksp", vec![]))
-        .await
-        .unwrap();
+    let group = aidog_db::create_group(
+        &state.db,
+        aidog_db::test_support::sample_group("gksp", vec![]),
+    )
+    .await
+    .unwrap();
     aidog_db::set_group_platforms(
         &state.db,
         group.id,
@@ -14812,10 +14952,7 @@ async fn image_request_end_to_end() {
     assert_eq!(v["data"].as_array().map(Vec::len), Some(2));
 
     let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
-    assert_eq!(
-        path, "/v1/images/generations",
-        "base_url(/v1) + /images/generations"
-    );
+    assert_eq!(path, "/v1/images/generations", "base_url(/v1) + /images/generations");
     let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
     assert_eq!(sent["model"], "img-slot", "客户端模型名被槽位覆盖");
     assert_eq!(sent["prompt"], "a cat");
@@ -14844,7 +14981,13 @@ async fn image_request_end_to_end() {
 #[tokio::test]
 async fn image_cost_units_per_image() {
     let cases: [(&str, &str, &str, &str, f64); 4] = [
-        ("gku1", IMG_REQ, r#"{"unit":"image","unit_price":0.05}"#, IMG_RESPONSE, 0.10),
+        (
+            "gku1",
+            IMG_REQ,
+            r#"{"unit":"image","unit_price":0.05}"#,
+            IMG_RESPONSE,
+            0.10,
+        ),
         (
             "gku2",
             IMG_REQ,
@@ -14853,7 +14996,13 @@ async fn image_cost_units_per_image() {
             0.05,
         ),
         // 响应无 data → 按请求 n=2 推算
-        ("gku3", IMG_REQ, r#"{"unit":"image","unit_price":0.05}"#, r#"{"created":1}"#, 0.10),
+        (
+            "gku3",
+            IMG_REQ,
+            r#"{"unit":"image","unit_price":0.05}"#,
+            r#"{"created":1}"#,
+            0.10,
+        ),
         // 请求无 n、响应无 data → 官方缺省 1 张
         (
             "gku4",
@@ -14901,8 +15050,18 @@ async fn image_route_fail_no_image_platform() {
         &[(&up, PlatformModels::default(), Protocol::OpenAI, "a")],
     )
     .await;
-    setup_aux_group(&state, "gkni2", &[(&up, image_slot("  "), Protocol::OpenAI, "b")]).await;
-    setup_aux_group(&state, "gkni3", &[(&up, image_slot("img"), Protocol::Anthropic, "c")]).await;
+    setup_aux_group(
+        &state,
+        "gkni2",
+        &[(&up, image_slot("  "), Protocol::OpenAI, "b")],
+    )
+    .await;
+    setup_aux_group(
+        &state,
+        "gkni3",
+        &[(&up, image_slot("img"), Protocol::Anthropic, "c")],
+    )
+    .await;
     for gk in ["gkni1", "gkni2", "gkni3"] {
         let resp = handle_proxy(
             AxumState(state.clone()),
@@ -14938,9 +15097,7 @@ async fn passthrough_platform_image_generations_relayed_verbatim() {
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
-        .await
-        .unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(&body).unwrap()["data"][0]["b64_json"],
         "aGk=",
@@ -14979,10 +15136,7 @@ async fn passthrough_platform_image_edits_multipart_relayed_verbatim() {
         .method("POST")
         .uri("/v1/images/edits")
         .header("authorization", "Bearer gkptedit")
-        .header(
-            "content-type",
-            format!("multipart/form-data; boundary={B}"),
-        )
+        .header("content-type", format!("multipart/form-data; boundary={B}"))
         .body(Body::from(form.clone()))
         .unwrap();
     let resp = handle_proxy(AxumState(state.clone()), req).await;
@@ -15000,7 +15154,10 @@ async fn passthrough_platform_image_edits_multipart_relayed_verbatim() {
 async fn mcp_generate_image(state: &Arc<ProxyState>, gk: &str, id: i64) -> serde_json::Value {
     let mut headers = axum::http::HeaderMap::new();
     headers.insert("authorization", format!("Bearer {gk}").parse().unwrap());
-    headers.insert("user-agent", "claude-cli/2.0 (external, cli)".parse().unwrap());
+    headers.insert(
+        "user-agent",
+        "claude-cli/2.0 (external, cli)".parse().unwrap(),
+    );
     let body = serde_json::json!({"jsonrpc":"2.0","id":id,"method":"tools/call","params":{"name":"generate_image","arguments":{"prompt":"a cat","size":"1024x1024"}}});
     let resp = handle_mcp(
         AxumState(state.clone()),
@@ -15039,7 +15196,10 @@ async fn mcp_generate_image_routes_caller_group_image_chain() {
     assert!(v["result"]["isError"].is_null(), "{v}");
 
     let (path, req_body, auth) = hits.lock().unwrap()[0].clone();
-    assert_eq!(path, "/v1/images/generations", "base_url(/v1) + /images/generations");
+    assert_eq!(
+        path, "/v1/images/generations",
+        "base_url(/v1) + /images/generations"
+    );
     let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
     assert_eq!(sent["model"], "img-slot", "槽位链首覆盖 model");
     assert_eq!(sent["prompt"], "a cat");
@@ -15048,9 +15208,14 @@ async fn mcp_generate_image_routes_caller_group_image_chain() {
     assert_eq!(auth, "Bearer sk-a");
 
     // 工具日志照旧写 tool_log：trigger=mcp、调用方分组、成功。
-    let page = aidog_db::list_tool_logs(&state.db, &aidog_db::models::ToolLogFilter::default(), 10, 0)
-        .await
-        .unwrap();
+    let page = aidog_db::list_tool_logs(
+        &state.db,
+        &aidog_db::models::ToolLogFilter::default(),
+        10,
+        0,
+    )
+    .await
+    .unwrap();
     assert_eq!(page.total, 1);
     let row = &page.rows[0];
     assert_eq!(
@@ -15084,9 +15249,14 @@ async fn mcp_generate_image_without_image_platform_is_clear_error() {
     assert!(text.contains("image platform"), "text={text}");
     assert!(hits.lock().unwrap().is_empty(), "不得打到任何上游");
 
-    let page = aidog_db::list_tool_logs(&state.db, &aidog_db::models::ToolLogFilter::default(), 10, 0)
-        .await
-        .unwrap();
+    let page = aidog_db::list_tool_logs(
+        &state.db,
+        &aidog_db::models::ToolLogFilter::default(),
+        10,
+        0,
+    )
+    .await
+    .unwrap();
     assert_eq!(page.total, 1);
     let row = &page.rows[0];
     assert!(!row.success, "{:?}", row);
@@ -15109,7 +15279,13 @@ async fn mcp_generate_image_respects_client_whitelist_with_real_headers() {
     setup_aux_group_extra(
         &state,
         "gkmcpwl",
-        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a", WL_CC_EXTRA)],
+        &[(
+            &up,
+            image_slot("img-slot"),
+            Protocol::OpenAI,
+            "a",
+            WL_CC_EXTRA,
+        )],
     )
     .await;
 
@@ -15134,7 +15310,13 @@ async fn mcp_generate_image_blocked_for_non_whitelisted_client() {
     setup_aux_group_extra(
         &state,
         "gkmcpbl",
-        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a", WL_CC_EXTRA)],
+        &[(
+            &up,
+            image_slot("img-slot"),
+            Protocol::OpenAI,
+            "a",
+            WL_CC_EXTRA,
+        )],
     )
     .await;
 
@@ -15309,7 +15491,12 @@ async fn image_edit_log_switches_hide_image_bytes() {
     )
     .await
     .unwrap();
-    setup_aux_group(&state, "gksw", &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")]).await;
+    setup_aux_group(
+        &state,
+        "gksw",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
     set_log_settings(
         &state,
         ProxyLogSettings { log_user_request: false, log_upstream_request: false, ..Default::default() },
@@ -15479,7 +15666,9 @@ async fn gemini_image_generation_end_to_end() {
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v["model"], "client-img", "响应 model 回写客户端原名");
     assert_eq!(v["data"][0]["b64_json"], "aGk=", "图块 → b64_json");
@@ -15593,7 +15782,11 @@ async fn gemini_stream_explicitly_unsupported() {
     let state = make_state(test_db().await).await;
     aidog_db::upsert_model_entries(
         &state.db,
-        vec![image_entry_named("gemini-img", "gemini", r#"{"input":2e-8,"output":1e-8}"#)],
+        vec![image_entry_named(
+            "gemini-img",
+            "gemini",
+            r#"{"input":2e-8,"output":1e-8}"#,
+        )],
     )
     .await
     .unwrap();
@@ -15629,9 +15822,7 @@ async fn gemini_stream_explicitly_unsupported() {
     assert_eq!(log.status_code, 501);
     assert!(log.done, "终态落库");
     assert!(
-        log.attempts
-            .iter()
-            .any(|a| a.kind.as_deref() == Some("stream_unsupported")),
+        log.attempts.iter().any(|a| a.kind.as_deref() == Some("stream_unsupported")),
         "attempts 留 stream_unsupported 标记"
     );
 }
@@ -15698,7 +15889,11 @@ async fn gemini_non_equivalent_param_terminal_bad_request() {
     let state = make_state(test_db().await).await;
     aidog_db::upsert_model_entries(
         &state.db,
-        vec![image_entry_named("gemini-img", "gemini", r#"{"input":2e-8,"output":1e-8}"#)],
+        vec![image_entry_named(
+            "gemini-img",
+            "gemini",
+            r#"{"input":2e-8,"output":1e-8}"#,
+        )],
     )
     .await
     .unwrap();
@@ -15839,7 +16034,12 @@ async fn image_stream_upstream_unsupported_no_silent_downgrade() {
     )
     .await
     .unwrap();
-    setup_aux_group(&state2, "gk501", &[(&up2, image_slot("img-slot"), Protocol::OpenAI, "a")]).await;
+    setup_aux_group(
+        &state2,
+        "gk501",
+        &[(&up2, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
     let req2 = embedding_request(
         "gk501",
         r#"{"model":"client-img","prompt":"a cat","stream":true}"#,
@@ -15856,7 +16056,9 @@ async fn image_stream_upstream_unsupported_no_silent_downgrade() {
     assert_eq!(log.status_code, 501);
     assert!(log.done);
     assert!(
-        log.attempts.iter().any(|a| a.kind.as_deref() == Some("stream_unsupported")),
+        log.attempts
+            .iter()
+            .any(|a| a.kind.as_deref() == Some("stream_unsupported")),
         "attempts 留痕 stream_unsupported"
     );
 }
@@ -16062,7 +16264,12 @@ async fn image_variations_endpoint_clearly_rejected() {
 async fn image_stream_gif_rejected_before_upstream() {
     let (up, hits) = spawn_embedding_upstream(vec![]).await;
     let state = make_state(test_db().await).await;
-    setup_aux_group(&state, "gkgif", &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")]).await;
+    setup_aux_group(
+        &state,
+        "gkgif",
+        &[(&up, image_slot("img-slot"), Protocol::OpenAI, "a")],
+    )
+    .await;
     let req = embedding_request(
         "gkgif",
         r#"{"model":"client-img","prompt":"a cat","stream":true,"output_format":"gif"}"#,
@@ -16154,11 +16361,20 @@ async fn image_moderation_blocked_switches_model_same_platform() {
     )
     .await
     .unwrap();
-    setup_aux_group(&state, "gkmod", &[(&up, image_chain(&["img-a", "img-b"]), Protocol::OpenAI, "a")]).await;
+    setup_aux_group(
+        &state,
+        "gkmod",
+        &[(&up, image_chain(&["img-a", "img-b"]), Protocol::OpenAI, "a")],
+    )
+    .await;
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        embedding_request("gkmod", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+        embedding_request(
+            "gkmod",
+            r#"{"model":"client-img","prompt":"a cat"}"#,
+            "/v1/images/generations",
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK, "审核拒绝后换同平台下一模型成功");
@@ -16206,11 +16422,20 @@ async fn image_censorship_blocked_shape_is_model_class_not_platform_disable() {
     )
     .await
     .unwrap();
-    setup_aux_group(&state, "gkcen", &[(&up, image_chain(&["img-a", "img-b"]), Protocol::OpenAI, "a")]).await;
+    setup_aux_group(
+        &state,
+        "gkcen",
+        &[(&up, image_chain(&["img-a", "img-b"]), Protocol::OpenAI, "a")],
+    )
+    .await;
 
     let resp = handle_proxy(
         AxumState(state.clone()),
-        embedding_request("gkcen", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+        embedding_request(
+            "gkcen",
+            r#"{"model":"client-img","prompt":"a cat"}"#,
+            "/v1/images/generations",
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::OK, "换同平台下一模型成功");
@@ -16312,7 +16537,11 @@ async fn image_quota_window_count_blocks_second_request() {
         async move {
             handle_proxy(
                 AxumState(state),
-                embedding_request("gkqimg", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+                embedding_request(
+                    "gkqimg",
+                    r#"{"model":"client-img","prompt":"a cat"}"#,
+                    "/v1/images/generations",
+                ),
             )
             .await
         }
@@ -16354,7 +16583,11 @@ async fn image_quota_window_usd_blocks_when_exhausted() {
         .unwrap();
     let resp = handle_proxy(
         AxumState(state.clone()),
-        embedding_request("gkqusd", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+        embedding_request(
+            "gkqusd",
+            r#"{"model":"client-img","prompt":"a cat"}"#,
+            "/v1/images/generations",
+        ),
     )
     .await;
     assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS, "金额窗口耗尽");
@@ -16391,7 +16624,11 @@ async fn image_rate_limit_rpm_blocks_second_request() {
         async move {
             handle_proxy(
                 AxumState(state),
-                embedding_request("gkrlimg", r#"{"model":"client-img","prompt":"a cat"}"#, "/v1/images/generations"),
+                embedding_request(
+                    "gkrlimg",
+                    r#"{"model":"client-img","prompt":"a cat"}"#,
+                    "/v1/images/generations",
+                ),
             )
             .await
         }

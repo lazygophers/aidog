@@ -396,6 +396,15 @@ impl StreamAggregator {
         }
     }
 
+    /// 响应头声明的平台实际模型优先于 SSE 帧模型。
+    pub(crate) fn set_served_model(&self, model: String) {
+        if let Ok(mut slot) = self.served_model.lock()
+            && slot.is_none()
+        {
+            *slot = Some(model);
+        }
+    }
+
     /// 从 SSE 帧记录上游自报模型名（首见定格）。见字段注释。
     fn observe_served_model(&self, json: &Value) {
         if let Ok(mut slot) = self.served_model.lock()

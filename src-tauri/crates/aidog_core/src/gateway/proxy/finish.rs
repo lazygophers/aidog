@@ -77,9 +77,16 @@ pub(crate) async fn finish_nonstream(
     // 必须在下方 replace_model_in_json 把下发 model 改写回请求名之前，从原始上游 body 提取；
     // 转换与同协议透传两分支共用此一处（此处 body 尚未被改写）。预估链路（spawn_estimate /
     // StreamEstCtx）继续用路由目标模型，不受影响。
-    log.actual_model = serde_json::from_slice::<Value>(&body)
-        .ok()
-        .and_then(|body| adapter::response_model(&body))
+    log.actual_model = upstream_resp_headers
+        .get("x-magpie-provider")
+        .and_then(|value| value.to_str().ok())
+        .filter(|model| !model.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            serde_json::from_slice::<Value>(&body)
+                .ok()
+                .and_then(|body| adapter::response_model(&body))
+        })
         .unwrap_or_else(|| requested_model.to_string());
 
     // ── record gate（与 finish_stream :186-187 对称）：上游侧 body 受 log_upstream_request，
@@ -431,6 +438,13 @@ where
     // ── 旁路聚合器：累积 token + 上游 SSE 原文 + 转换后下发客户端的 SSE。
     // 闭包内对其加同步锁是短临界区（push），禁持锁跨 await（闭包本身同步，不 await）。──
     let agg = Arc::new(StreamAggregator::new());
+    if let Some(model) = upstream_resp_headers
+        .get("x-magpie-provider")
+        .and_then(|value| value.to_str().ok())
+        .filter(|model| !model.is_empty())
+    {
+        agg.set_served_model(model.to_string());
+    }
     let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
     // 闭包由 axum 在 req span 外轮询（Response 返回后），故此处捕获当前 req span 链回 trace_id。

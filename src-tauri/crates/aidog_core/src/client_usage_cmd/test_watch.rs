@@ -8,8 +8,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use super::watch::{
-    align_once, cached_roots, process_due_paths, refresh_roots_cache, scan_count,
-    sync_watchers_with, watched_snapshot, CLAUDE_PID_KEY,
+    align_once, process_due_paths, scan_count, sync_watchers_with, watched_snapshot,
 };
 use super::*;
 
@@ -333,56 +332,4 @@ async fn process_due_paths_emits_updated_once_on_new_data() {
     super::watch::note_event_for_test(pf.to_string_lossy().into_owned(), now - 5_000);
     process_due_paths(&db, &roots, now, &emit).await;
     assert_eq!(events.lock().unwrap().len(), 2, "pid 文件变化 emit 一次");
-}
-
-/// 监听面缓存：consent 变更不经刷新不可见（缓存语义），sync_watchers 刷新后可见。
-#[tokio::test]
-async fn roots_cache_consent_invalidation() {
-    let _g = WATCH_LOCK.lock().await;
-    let _home = aidog_db::test_support::HomeGuard::new();
-    let (db, _dir) = aidog_db::test_support::four_file_db().await;
-    // 初始：同意全关 → 缓存为空。
-    assert!(refresh_roots_cache(&db).await.is_empty(), "全关时零监听面");
-    // DB 打开 claude_code 但不刷新 → cached_roots 仍走旧缓存（每拍零 DB 读的语义）。
-    save_consent(&db, &consent_on(&["claude_code"])).await.unwrap();
-    let roots = cached_roots(&db).await;
-    assert!(roots.is_empty(), "缓存未失效时仍返回旧监听面");
-    // sync_watchers（consent_set 生产路径）刷新 → 新监听面可见；sessions 目录不存在则无 pid 根。
-    super::watch::sync_watchers(&db).await;
-    let roots = cached_roots(&db).await;
-    assert_eq!(roots.len(), 1, "刷新后应只有 claude_code 根");
-    assert_eq!(roots[0].0, "claude_code");
-    assert_eq!(roots[0].1, _home.home().join(".claude").join("projects"));
-    assert!(!roots.iter().any(|(c, _)| c == CLAUDE_PID_KEY), "sessions 目录不存在时无 pid 根");
-}
-
-/// 监听面缓存：pid 目录出现/消失由每拍 stat 检测，cached_roots 自动回源刷新。
-#[tokio::test]
-async fn roots_cache_pid_dir_lifecycle() {
-    let _g = WATCH_LOCK.lock().await;
-    let _home = aidog_db::test_support::HomeGuard::new();
-    let (db, _dir) = aidog_db::test_support::four_file_db().await;
-    save_consent(&db, &consent_on(&["claude_code"])).await.unwrap();
-    super::watch::sync_watchers(&db).await;
-    let sessions = _home.home().join(".claude").join("sessions");
-    assert!(
-        !cached_roots(&db).await.iter().any(|(c, _)| c == CLAUDE_PID_KEY),
-        "目录不存在时无 pid 根"
-    );
-
-    // 目录出现 → 缓存存在性标记不符 → 回源刷新，pid 根进入监听面。
-    std::fs::create_dir_all(&sessions).unwrap();
-    let roots = cached_roots(&db).await;
-    assert!(
-        roots.iter().any(|(c, r)| c == CLAUDE_PID_KEY && r == &sessions),
-        "目录出现应刷新缓存纳入 pid 根"
-    );
-
-    // 目录消失 → 同一检测路径回源刷新，pid 根摘除。
-    std::fs::remove_dir(&sessions).unwrap();
-    let roots = cached_roots(&db).await;
-    assert!(
-        !roots.iter().any(|(c, _)| c == CLAUDE_PID_KEY),
-        "目录消失应刷新缓存摘除 pid 根"
-    );
 }
