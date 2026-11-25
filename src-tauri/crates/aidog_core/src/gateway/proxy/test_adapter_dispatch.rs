@@ -3757,3 +3757,33 @@ async fn commandcode_typesafe_endpoint_decision_dispatch_usage() {
     let log = logs.iter().find(|l| l.group_key == "gk93ts").expect("log row missing");
     assert_eq!(log.input_tokens, 84, "typesafe usage.input_tokens 应落库");
 }
+
+// issue 98：LiteLLM Gateway 单 openai 端点协议，经本地假上游覆盖转换、响应、流、错误与 usage。
+// 官方统一接口镜像 OpenAI ChatCompletions 形状（https://docs.litellm.ai/docs/proxy/quick_start）。
+const LITELLM_OPENAI_RESP: &str = r#"{"id":"lt_1","object":"chat.completion","model":"lt-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+const LITELLM_OPENAI_SSE: &str = concat!(
+    "data: {\"id\":\"lt_1\",\"object\":\"chat.completion.chunk\",\"model\":\"lt-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+    "data: {\"id\":\"lt_1\",\"object\":\"chat.completion.chunk\",\"model\":\"lt-test\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\n",
+    "data: [DONE]\n\n",
+);
+const LITELLM_ERROR: &str = r#"{"error":{"message":"Invalid Virtual Key","type":null,"param":null,"code":"401"}}"#;
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic；流式末帧 usage 后 `[DONE]`；
+/// 401 归服务类；usage 缓存扣减（prompt 10 − cached 4 = 6）。
+#[tokio::test]
+async fn litellm_openai_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::LiteLLM, Protocol::OpenAI, "gk98oa", "/v1/messages", r#"{"model":"lt-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", LITELLM_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "lt-test");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("litellm").extract_usage(LITELLM_OPENAI_RESP).0, 6);
+    let (status, resp, _) = glm_member_call(Protocol::LiteLLM, Protocol::OpenAI, "gk98oas", "/v1/messages", r#"{"model":"lt-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", LITELLM_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::LiteLLM, Protocol::OpenAI, "gk98oae", "/v1/messages", r#"{"model":"lt-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", LITELLM_ERROR)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("Invalid Virtual Key"), "{resp}");
+}
