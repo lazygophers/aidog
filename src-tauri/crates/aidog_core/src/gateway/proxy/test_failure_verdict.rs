@@ -341,10 +341,10 @@ async fn lk09_529_rate_limit_cooldown() {
 #[tokio::test]
 async fn lk10_5xx_penalty_only() {
     let (a, state, pid, out) = rate_case(500, r#"{"error":{"message":"boom"}}"#, None).await;
-    assert_attempt(&a, &["penalty_server"], None, "service", "500");
+    assert_attempt(&a, &["penalty_server", "cooldown_rate_limit"], None, "service", "500");
     assert_eq!(out, 500);
     assert_eq!(state.scheduler.breaker_fails(pid), 0, "5xx 不计熔断");
-    assert!(!state.scheduler.rate_limit_cooled(pid, aidog_db::now() + 100));
+    assert!(state.scheduler.rate_limit_cooled(pid, aidog_db::now() + 100), "普通 5xx 并入限频翻倍冷却");
     assert!(!state.scheduler.quota_cooled(pid, aidog_db::now() + 1));
     assert!(!state.scheduler.auth_cooled(pid, aidog_db::now() + 1000));
 }
@@ -521,7 +521,7 @@ async fn lk19_service_error_fails_over_with_exclusion_and_penalty() {
     assert_eq!(resp.status().as_u16(), 200, "服务类失败换平台成功");
     assert_eq!(hit_models(&hits2), ["claude-3"]);
     let log = last_log_for(&state, "gklku").await;
-    assert_attempt(&log.attempts[0], &["penalty_server"], Some("platform"), "service", "failover 500");
+    assert_attempt(&log.attempts[0], &["penalty_server", "cooldown_rate_limit"], Some("platform"), "service", "failover 500");
     let p1 = aidog_db::list_platforms(&state.db).await.unwrap().into_iter().find(|p| p.name.ends_with("p1")).unwrap();
     assert!(!p1.last_error.is_empty(), "服务类失败写平台 last_error");
 }

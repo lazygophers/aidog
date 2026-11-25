@@ -266,12 +266,14 @@ pub(crate) fn judge(f: &Failure, c: &JudgeCtx) -> Verdict {
     if let Some(until) = quota_reset_until {
         effects.push(HealthEffect::CooldownQuota { until_ms: until });
     }
-    if rate_limited_now {
-        // 票 04 补充口径：正文 / Retry-After 明说的等待时长优先，解析不出才默认翻倍。
-        let hint = retry_after
-            .and_then(|v| v.trim().parse::<i64>().ok())
-            .map(|secs| secs * 1000)
-            .or_else(|| parse_rate_limit_retry_ms(body));
+    // 票 04 补充口径：正文 / Retry-After 明说的等待时长优先，解析不出才默认翻倍。
+    let hint = retry_after
+        .and_then(|v| v.trim().parse::<i64>().ok())
+        .map(|secs| secs * 1000)
+        .or_else(|| parse_rate_limit_retry_ms(body));
+    // 普通 5xx 服务类失败并入限频翻倍冷却通道（2026-11-25 拍板，与 529 同桶）；
+    // 模型类 5xx（no_blame）不碰平台健康，不进冷却。
+    if rate_limited_now || (!no_blame && *code >= 500) {
         effects.push(HealthEffect::CooldownRateLimit { hint_ms: hint });
     }
     if *code == 402 {
@@ -527,9 +529,11 @@ mod tests {
             // 529：限频冷却
             ("529", http(529, r#"{"error":{"message":"overloaded"}}"#), ctx(true, false, true, false),
              C::Service, ExcludeScope::Platform, true, &["penalty_server", "cooldown_rate_limit"], N::Return),
-            // 5xx：服务类，只降权
+            // 普通 5xx 服务类：降权 + 并入限频翻倍冷却通道（2026-11-25 拍板，与 529 同桶）
             ("500", http(500, BODY_PLAIN), ctx(true, false, true, false),
-             C::Service, ExcludeScope::Platform, true, &["penalty_server"], N::Return),
+             C::Service, ExcludeScope::Platform, true, &["penalty_server", "cooldown_rate_limit"], N::Return),
+            ("502", http(502, BODY_PLAIN), ctx(true, false, true, false),
+             C::Service, ExcludeScope::Platform, true, &["penalty_server", "cooldown_rate_limit"], N::Return),
             // 区域封锁 401：不熔断不冷却，只降权
             ("region 401", http(401, r#"{"error":{"message":"not available in your country"}}"#), ctx(true, false, true, false),
              C::Service, ExcludeScope::Platform, true, &["penalty_client"], N::Return),

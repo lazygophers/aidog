@@ -9094,7 +9094,7 @@ async fn rc02_error_class_code_meaning_and_effects() {
             r#"{"error":{"message":"service unavailable"}}"#,
             "service",
             None,
-            &["penalty_server"],
+            &["penalty_server", "cooldown_rate_limit"],
         ),
     ];
     for (i, (proto, status, body, class, meaning, effects)) in cases.into_iter().enumerate() {
@@ -9231,7 +9231,8 @@ async fn rc02_model_rate_limit_skip_recorded() {
     assert_eq!(log.attempts[1].model.as_deref(), Some("m-b"));
 }
 
-/// 重排尊重限频：A 的假上游在收到请求时顺手占满 B 的并发位，A 500 后重排挡掉 B（不进 begin 失败）；A 被排除后开新一轮再打 A。
+/// 重排尊重限频：A 的假上游在收到请求时顺手占满 B 的并发位，A 500 后重排挡掉 B（不进 begin 失败）；
+/// A 自己也进限频冷却（普通 5xx 同桶），第二轮无候选 → 429 + Retry-After。
 #[tokio::test]
 async fn rc02_platform_rate_limit_skip_recorded() {
     use axum::routing::any;
@@ -9282,14 +9283,14 @@ async fn rc02_platform_rate_limit_skip_recorded() {
     let resp = chain_send(&state, "gkrc02i", CHAIN_REQ).await;
     assert_eq!(
         resp.status(),
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "尝试轮：A 排除后无可选 → 开第 2 轮再打 A，次数用尽回最后一次的上游错误"
+        StatusCode::TOO_MANY_REQUESTS,
+        "普通 5xx 并入限频冷却（与 529 同桶）：A 首次 500 后冷却，重排被挡候选耗尽 → 429 + Retry-After"
     );
     assert_eq!(held.lock().unwrap().len(), 1, "B 并发位应已被占");
     let log = last_log_for(&state, "gkrc02i").await;
-    // 逐次重算：每次重排 B 都已被并发占满，直接被路由层挡掉（不再进到 begin 失败）；
-    // 只留 A 的两条尝试（两轮各一次）。
-    assert_eq!(log.attempts.len(), 2);
+    // 逐次重算：B 每次重排都被并发占满（路由层挡掉，不进 begin 失败）；
+    // A 首次 500 进限频冷却，第二轮不再打 A，只留一条尝试。
+    assert_eq!(log.attempts.len(), 1);
     assert!(
         log.attempts
             .iter()
@@ -11587,7 +11588,6 @@ async fn ra01_decision_cap_counts_model_switches() {
 // ══ 尝试轮：候选全排除且次数没用完 → 等 1 秒（测试注入 0）清空失败排除从头再来 ══
 
 const E529: &str = r#"{"error":{"message":"overloaded"}}"#;
-const E503_SVC: &str = r#"{"error":{"message":"upstream unavailable"}}"#;
 const E400_PLAIN: &str = r#"{"error":{"message":"bad request"}}"#;
 
 /// 单平台 529 两次后成功：同一平台在用满次数内被反复重试，最终 200；尝试记录 3 条，第 2、3 轮起点记进快照。
@@ -11613,12 +11613,12 @@ async fn round_single_platform_529_then_ok() {
 }
 
 /// 两平台都失败 → 第二轮从头：p1 先被再次选中并成功，p2 只被打一次。
-/// 用 503（Service 类、无调度态冷却）：529 自票 04 起进跨请求限频冷却，尝试轮重启
-/// 不清调度态，529 版本会 503（冷却期间不进候选），不再能护栏「从头重试」机制。
+/// 用空 200（Service 类、无调度态冷却）：529 自票 04、普通 5xx 自 2026-11-25 起都进
+/// 跨请求限频冷却，尝试轮重启不清调度态，冷却期间不进候选，不再能护栏「从头重试」机制。
 #[tokio::test]
 async fn round_two_platforms_fail_then_second_round_from_top() {
-    let (up1, hits1) = spawn_embedding_upstream(vec![(503, E503_SVC), (200, MB_OK)]).await;
-    let (up2, hits2) = spawn_embedding_upstream(vec![(503, E503_SVC)]).await;
+    let (up1, hits1) = spawn_embedding_upstream(vec![(200, ""), (200, MB_OK)]).await;
+    let (up2, hits2) = spawn_embedding_upstream(vec![(200, "")]).await;
     let state = make_state(test_db().await).await;
     setup_aux_group(
         &state,
