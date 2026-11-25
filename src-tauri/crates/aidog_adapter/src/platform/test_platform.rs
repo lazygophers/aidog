@@ -62,6 +62,55 @@ fn atlascloud_error_msg_field_classifies_model_errors() {
     );
 }
 
+/// Command Code（issue 93）must own a platform adapter entry. Provider API 页（核对日期
+/// 2026-11-24）未列平台级覆写：三 chat 协议镜像官方 schema、错误体为标准 OpenAI /
+/// Anthropic envelope、coding_plan 注入保持迁移前 no-op。https://commandcode.ai/docs/provider
+#[test]
+fn commandcode_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("commandcode");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("deepseek")),
+        "Command Code registration must not use generic adapter"
+    );
+    // coding_plan 端点注入 = 迁移前行为 no-op，不注入 prompt_cache_key。
+    let mut body = json!({"model":"cc-test"});
+    adapter.inject_coding_plan(&mut body, &Protocol::CommandCode, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"cc-test"}));
+}
+
+/// 官方错误类别（https://commandcode.ai/docs/provider，核对日期 2026-11-24）对照基座分类：
+/// 429 rate_limit_error / 401 authentication_error / 403 upgrade_required 按状态码归 Service；
+/// 502 upstream_unavailable 归 Service；400 `unsupported_model`（OpenAI code）落 Unknown
+/// （调用方按模型类处理）。
+#[test]
+fn commandcode_documented_error_envelopes_classify_per_base() {
+    let a = super::adapter_for("commandcode");
+    assert_eq!(
+        a.classify_error(429, r#"{"error":{"message":"Rate-limited by the upstream.","type":"rate_limit_error","code":"rate_limit_error"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        a.classify_error(401, r#"{"error":{"message":"Missing or invalid auth","type":"authentication_error"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        a.classify_error(403, r#"{"error":{"message":"You're on the Go plan","type":"permission_error","code":"upgrade_required"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        a.classify_error(502, r#"{"error":{"message":"We couldn't reach the model","type":"server_error","code":"upstream_unavailable"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        a.classify_error(400, r#"{"error":{"message":"Model isn't in the catalog","type":"invalid_request_error","code":"unsupported_model"}}"#),
+        UpstreamErrorClass::Unknown
+    );
+    assert_eq!(
+        a.classify_error(400, r#"{"type":"error","error":{"type":"invalid_request_error","message":"Wrong endpoint for the model"}}"#),
+        UpstreamErrorClass::Unknown
+    );
+}
+
 /// Kimi 家族（issue 76 / 119）：coding_plan 注入按平台协议分派，kimi 与 kimi_coding 注入
 /// prompt_cache_key（chat.md「对于 Kimi Code Plan，此字段为必填」，issue 119 扩入 KimiCoding 臂），
 /// 产出同形状（注入条件同源：端点 coding_plan flag）。
