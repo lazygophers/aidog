@@ -739,6 +739,167 @@ async fn atlascloud_openai_endpoint_proxy_conversion_response_stream_error_and_u
     assert!(resp.contains("model not found"), "{resp}");
 }
 
+// ══ issue 95：DeepSeek（deepseek）逐端点协议护栏（请求转换 / 非流式 / 流式 / 错误 / usage）══
+// 官方出处（核对日期 2026-11-24）：
+// - Chat Completions https://api-docs.deepseek.com/api/create-chat-completion
+//   （`/chat/completions`、usage required 含 prompt_cache_hit_tokens / prompt_cache_miss_tokens、
+//   `data: [DONE]` 结束、末 chunk 搭载 usage、思考增量 delta.reasoning_content）
+// - Anthropic API https://api-docs.deepseek.com/guides/anthropic_api
+//   （base_url `https://api.deepseek.com/anthropic`、标准事件链不发 [DONE]、
+//   usage.server_tool_use {web_search_requests, tool_search}、错误事件
+//   `{"type":"error","error":{"type","message"}}`）
+const DEEPSEEK_OPENAI_RESP: &str = r#"{"id":"ds-1","object":"chat.completion","model":"deepseek-flash","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120,"prompt_cache_hit_tokens":30,"prompt_cache_miss_tokens":70,"prompt_tokens_details":{"cached_tokens":30}}}"#;
+const DEEPSEEK_OPENAI_SSE: &str = r#"data: {"id":"ds-1","object":"chat.completion.chunk","model":"deepseek-flash","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}],"usage":null}
+
+data: {"id":"ds-1","object":"chat.completion.chunk","model":"deepseek-flash","choices":[{"index":0,"delta":{"reasoning_content":"think"},"finish_reason":null}],"usage":null}
+
+data: {"id":"ds-1","object":"chat.completion.chunk","model":"deepseek-flash","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}],"usage":null}
+
+data: {"id":"ds-1","object":"chat.completion.chunk","model":"deepseek-flash","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120,"prompt_cache_hit_tokens":30,"prompt_cache_miss_tokens":70}}
+
+data: [DONE]
+"#;
+const DEEPSEEK_OPENAI_ERROR: &str =
+    r#"{"error":{"message":"Invalid Parameters: deepseek-x is not a valid model name","type":"invalid_request_error"}}"#;
+const DEEPSEEK_ANTHROPIC_RESP: &str = r#"{"id":"msg_ds1","type":"message","role":"assistant","model":"deepseek-flash","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"cache_read_input_tokens":2,"cache_creation_input_tokens":0,"output_tokens":3}}"#;
+const DEEPSEEK_ANTHROPIC_SSE: &str = r#"event: message_start
+data: {"type":"message_start","message":{"id":"msg_ds1","type":"message","role":"assistant","model":"deepseek-flash","content":[],"usage":{"input_tokens":5,"output_tokens":0}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":3,"server_tool_use":{"web_search_requests":1,"tool_search":1}}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+"#;
+const DEEPSEEK_ANTHROPIC_ERROR: &str =
+    r#"{"type":"error","error":{"type":"invalid_request_error","message":"model not found deepseek-x"}}"#;
+
+#[tokio::test]
+async fn deepseek_openai_endpoint_proxy_conversion_response_stream_error_and_usage() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::OpenAI,
+        "gk95oa",
+        "/v1/messages",
+        r#"{"model":"deepseek-flash","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", DEEPSEEK_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["model"], "deepseek-flash", "{request}");
+    assert_eq!(request["messages"][0]["content"], "hi", "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi", "{response}");
+    assert!(response.get("usage").is_some(), "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("deepseek").extract_usage(DEEPSEEK_OPENAI_RESP);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (70, 20, 30, 0, 0)
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::OpenAI,
+        "gk95oas",
+        "/v1/messages",
+        r#"{"model":"deepseek-flash","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", DEEPSEEK_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    assert!(
+        resp.contains("text_delta") && resp.contains("hi"),
+        "{resp}"
+    );
+    assert!(resp.contains("message_stop"), "{resp}");
+    assert!(
+        !resp.contains("[DONE]"),
+        "OpenAI upstream terminator must not leak into Anthropic output: {resp}"
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::OpenAI,
+        "gk95oae",
+        "/v1/messages",
+        r#"{"model":"deepseek-flash","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (422, "application/json", DEEPSEEK_OPENAI_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{resp}");
+    assert!(!hits.is_empty(), "fake upstream must receive request");
+    assert!(resp.contains("not a valid model name"), "{resp}");
+}
+
+#[tokio::test]
+async fn deepseek_anthropic_endpoint_proxy_conversion_response_stream_error_and_usage() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::Anthropic,
+        "gk95an",
+        "/chat/completions",
+        r#"{"model":"deepseek-flash","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", DEEPSEEK_ANTHROPIC_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["max_tokens"], 32, "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(
+        response["choices"][0]["message"]["content"], "hi",
+        "{response}"
+    );
+    assert!(response.get("usage").is_some(), "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, tools) =
+        adapter_for("deepseek").extract_usage(DEEPSEEK_ANTHROPIC_RESP);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (5, 3, 2, 0, 0)
+    );
+    assert!(tools.is_empty(), "non-stream fixture has no server_tool_use");
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::Anthropic,
+        "gk95ans",
+        "/chat/completions",
+        r#"{"model":"deepseek-flash","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", DEEPSEEK_ANTHROPIC_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert!(resp.contains("\"content\":\"hi\""), "{resp}");
+    assert!(resp.contains("[DONE]"), "{resp}");
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::Anthropic,
+        "gk95ane",
+        "/chat/completions",
+        r#"{"model":"deepseek-flash","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", DEEPSEEK_ANTHROPIC_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(!hits.is_empty(), "fake upstream must receive request");
+    assert!(resp.contains("model not found deepseek-x"), "{resp}");
+}
+
 // ══ issue 113：GLM（智谱）成员 `glm` 逐端点协议护栏（请求转换 / 非流式 / 流式 / 错误 / usage）══
 // 官方出处（核对日期 2026-11-16）：
 // - 对话补全 https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E5%AF%B9%E8%AF%9D%E8%A1%A5%E5%85%A8
@@ -817,6 +978,47 @@ async fn glm_member_call(
     flush_log_queue(&state).await;
     let hits = hits.lock().unwrap().clone();
     (status, String::from_utf8_lossy(&bytes).into_owned(), hits)
+}
+
+#[tokio::test]
+async fn gemini_local_upstream_request_and_response() {
+    let response = r#"{"candidates":[{"content":{"role":"model","parts":[{"text":"hi"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":3,"cachedContentTokenCount":4}}"#;
+    let (status, body, hits) = glm_member_call(
+        Protocol::Gemini,
+        Protocol::Gemini,
+        "gk96gem",
+        "/v1/messages",
+        r#"{"model":"gemini-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", response),
+    ).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(hits[0].0.contains(":generateContent"), "{:?}", hits[0].0);
+    let request: Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["contents"][0]["parts"][0]["text"], "hi");
+    let response: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi", "{response}");
+    let usage = aidog_adapter::platform::adapter_for("gemini").extract_usage(
+        r#"{"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":3,"cachedContentTokenCount":4}}"#,
+    );
+    assert_eq!((usage.0, usage.1, usage.2), (6, 3, 4));
+
+    let (status, body, hits) = glm_member_call(
+        Protocol::Gemini, Protocol::Gemini, "gk96stream", "/v1/messages",
+        r#"{"model":"gemini-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", "data: {\"candidates\":[{\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"hi\"}]},\"finishReason\":\"STOP\"}]}\n\n"),
+    ).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(hits[0].0.contains(":streamGenerateContent"), "{:?}", hits[0].0);
+    assert!(body.contains("hi"), "{body}");
+
+    let (status, body, hits) = glm_member_call(
+        Protocol::Gemini, Protocol::Gemini, "gk96error", "/v1/messages",
+        r#"{"model":"gemini-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", r#"{"error":{"code":400,"message":"invalid request","status":"INVALID_ARGUMENT"}}"#),
+    ).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(!hits.is_empty());
+    assert!(body.contains("invalid request"), "{body}");
 }
 
 const GLM_ANTHROPIC_IN: &str =
@@ -3197,6 +3399,81 @@ async fn cline_family_openai_endpoint_non_stream() {
     assert_eq!(response["usage"]["cost"], 0.00012);
 }
 
+// issue 94：CrazyRouter 三协议都由用户端点配置驱动，经本地假上游覆盖转换、响应、流、错误与 usage。
+const CRAZYROUTER_OPENAI_RESP: &str = r#"{"id":"chatcmpl_cr","object":"chat.completion","model":"cr-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+const CRAZYROUTER_OPENAI_SSE: &str = concat!(
+    "data: {\"id\":\"chatcmpl_cr\",\"object\":\"chat.completion.chunk\",\"model\":\"cr-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+    "data: {\"id\":\"chatcmpl_cr\",\"object\":\"chat.completion.chunk\",\"model\":\"cr-test\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\n",
+    "data: [DONE]\n\n",
+);
+const CRAZYROUTER_ANTHROPIC_RESP: &str = r#"{"id":"msg_cr","type":"message","role":"assistant","model":"cr-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+const CRAZYROUTER_ANTHROPIC_SSE: &str = concat!(
+    "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_cr\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"cr-test\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":2,\"cache_creation_input_tokens\":1}}}\n\n",
+    "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+    "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+    "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n",
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+);
+const CRAZYROUTER_GEMINI_RESP: &str = r#"{"candidates":[{"index":0,"finishReason":"STOP","content":{"role":"model","parts":[{"text":"hi"}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":3,"totalTokenCount":13,"cachedContentTokenCount":4}}"#;
+const CRAZYROUTER_GEMINI_SSE: &str = concat!(
+    "data: {\"candidates\":[{\"index\":0,\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"hi\"}]}}]}\n\n",
+    "data: {\"candidates\":[{\"index\":0,\"finishReason\":\"STOP\",\"content\":{\"role\":\"model\",\"parts\":[]}}],\"usageMetadata\":{\"promptTokenCount\":10,\"candidatesTokenCount\":3,\"totalTokenCount\":13,\"cachedContentTokenCount\":4}}\n\n",
+);
+const CRAZYROUTER_ERROR: &str = r#"{"error":{"message":"model not found","type":"invalid_request_error","code":"model_not_found"}}"#;
+
+#[tokio::test]
+async fn crazyrouter_openai_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::CrazyRouter, Protocol::OpenAI, "gk94oa", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", CRAZYROUTER_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "cr-test");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("crazyrouter").extract_usage(CRAZYROUTER_OPENAI_RESP).0, 6);
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::OpenAI, "gk94oas", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", CRAZYROUTER_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::OpenAI, "gk94oae", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model not found"), "{resp}");
+}
+
+#[tokio::test]
+async fn crazyrouter_anthropic_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::CrazyRouter, Protocol::Anthropic, "gk94an", "/chat/completions", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", CRAZYROUTER_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["choices"][0]["message"]["content"], "hi");
+    assert_eq!(adapter_for("crazyrouter").extract_usage(CRAZYROUTER_ANTHROPIC_RESP).2, 2);
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::Anthropic, "gk94ans", "/chat/completions", r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", CRAZYROUTER_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::Anthropic, "gk94ane", "/chat/completions", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model not found"), "{resp}");
+}
+
+#[tokio::test]
+async fn crazyrouter_gemini_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::CrazyRouter, Protocol::Gemini, "gk94ge", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", CRAZYROUTER_GEMINI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1beta/models/cr-test:generateContent");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["contents"][0]["parts"][0]["text"], "hi");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("crazyrouter").extract_usage(CRAZYROUTER_GEMINI_RESP).0, 6);
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::Gemini, "gk94ges", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", CRAZYROUTER_GEMINI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::CrazyRouter, Protocol::Gemini, "gk94gee", "/v1/messages", r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model not found"), "{resp}");
+}
+
 /// issue 86：两成员的 OpenAI SSE 端点都透传标准 chunk、末帧 usage 与 [DONE]。
 #[tokio::test]
 async fn cline_family_openai_endpoint_stream() {
@@ -3216,4 +3493,609 @@ async fn cline_family_openai_endpoint_stream() {
         assert!(resp.contains("data: [DONE]"), "{pt:?}: {resp}");
         assert!(resp.contains("hi"), "{pt:?}: {resp}");
     }
+}
+
+// ══ issue 93：Command Code（commandcode）Provider API 四端点协议 ══
+// Official docs checked 2026-11-24: https://commandcode.ai/docs/provider
+// 三 chat 协议「request and response bodies follow the」官方 schema（基座构件即官方形状）；
+// 「Every endpoint emits token usage at the end of every stream … No opt-in required」；
+// 错误体为标准 OpenAI / Anthropic envelope（400 unsupported_model 仅 OpenAI envelope 有 code）。
+const CC_OPENAI_RESP: &str = r#"{"id":"cc_1","object":"chat.completion","model":"cc-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":6,"completion_tokens":3,"total_tokens":9,"prompt_tokens_details":{"cached_tokens":2}}}"#;
+const CC_OPENAI_SSE: &str = "data: {\"id\":\"cc_1\",\"object\":\"chat.completion.chunk\",\"model\":\"cc-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
+data: {\"id\":\"cc_1\",\"object\":\"chat.completion.chunk\",\"model\":\"cc-test\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":6,\"completion_tokens\":3,\"total_tokens\":9}}\n\n\
+data: [DONE]\n\n";
+const CC_OPENAI_ERROR: &str = r#"{"error":{"message":"Model isn't in the catalog","type":"invalid_request_error","code":"unsupported_model","param":null}}"#;
+const CC_ANTHROPIC_RESP: &str = r#"{"id":"msg_cc","type":"message","role":"assistant","model":"cc-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+const CC_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_cc\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"cc-test\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":2}}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+const CC_ANTHROPIC_ERROR: &str =
+    r#"{"type":"error","error":{"type":"invalid_request_error","message":"Wrong endpoint for the model"}}"#;
+const CC_RESPONSES_RESP: &str = r#"{"id":"resp_cc","object":"response","model":"cc-test","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi","annotations":[]}]}],"usage":{"input_tokens":6,"output_tokens":2,"input_tokens_details":{"cached_tokens":4}}}"#;
+const CC_RESPONSES_SSE: &str = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\n\
+data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_cc\",\"status\":\"completed\",\"usage\":{\"input_tokens\":6,\"output_tokens\":2}}}\n\n";
+const CC_DECISION_RESP: &str = r#"{"model":"cc-jev-1","answers":[{"type":"noul","noul":0.96}],"usage":{"input_tokens":84,"output_tokens":3}}"#;
+
+/// openai 端点：入站 anthropic → 出站 openai 打 `/chat/completions`；非流式回 anthropic、
+/// 流式末帧带 usage 后 `[DONE]`；400 unsupported_model（官方 code）原样回客户端。
+#[tokio::test]
+async fn commandcode_openai_endpoint_request_response_stream_error_usage() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::OpenAI,
+        "gk93oa",
+        "/v1/messages",
+        r#"{"model":"cc-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", CC_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["model"], "cc-test", "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    // 入站 anthropic（/v1/messages）→ 出站 openai 转换、响应按客户端协议回 anthropic 形状。
+    assert_eq!(response["content"][0]["text"], "hi", "{response}");
+    assert!(response.get("usage").is_some(), "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("commandcode").extract_usage(CC_OPENAI_RESP);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (4, 3, 2, 0, 0)
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::OpenAI,
+        "gk93oas",
+        "/v1/messages",
+        r#"{"model":"cc-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", CC_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    // 客户端协议 anthropic：流按 anthropic SSE 输出，message_stop 收官、无 [DONE]。
+    assert!(resp.contains("hi"), "{resp}");
+    assert!(resp.contains("message_stop"), "{resp}");
+    assert!(
+        !resp.contains("[DONE]"),
+        "openai upstream terminator must not leak into Anthropic output: {resp}"
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::OpenAI,
+        "gk93oae",
+        "/v1/messages",
+        r#"{"model":"cc-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", CC_OPENAI_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(!hits.is_empty(), "fake upstream must receive request");
+    assert!(resp.contains("unsupported_model"), "{resp}");
+}
+
+/// anthropic 端点：入站 openai → 出站 anthropic 打 `/v1/messages`；流式 message_delta
+/// 带 usage；anthropic envelope 错误原样回客户端。
+#[tokio::test]
+async fn commandcode_anthropic_endpoint_request_response_stream_error() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::Anthropic,
+        "gk93an",
+        "/chat/completions",
+        r#"{"model":"cc-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", CC_ANTHROPIC_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["max_tokens"], 32, "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi", "{response}");
+    assert!(response.get("usage").is_some(), "{response}");
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::Anthropic,
+        "gk93ans",
+        "/chat/completions",
+        r#"{"model":"cc-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", CC_ANTHROPIC_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert!(resp.contains("hi"), "{resp}");
+    assert!(resp.contains("[DONE]"), "{resp}");
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::Anthropic,
+        "gk93ane",
+        "/chat/completions",
+        r#"{"model":"cc-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", CC_ANTHROPIC_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(!hits.is_empty(), "fake upstream must receive request");
+    assert!(resp.contains("Wrong endpoint for the model"), "{resp}");
+}
+
+/// openai_responses 端点：出站打 `/responses`；流式 `response.completed` 收官；
+/// usage 走 responses 缓存臂（cached_tokens 从 input 扣减）。
+#[tokio::test]
+async fn commandcode_openai_responses_endpoint_request_response_stream_usage() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::OpenAIResponses,
+        "gk93or",
+        "/chat/completions",
+        r#"{"model":"cc-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", CC_RESPONSES_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/responses");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["model"], "cc-test", "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi", "{response}");
+    assert!(response.get("usage").is_some(), "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("commandcode").extract_usage(CC_RESPONSES_RESP);
+    // responses 官方公式：ordinary input = input_tokens − cached。
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (2, 2, 4, 0, 0)
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::CommandCode,
+        Protocol::OpenAIResponses,
+        "gk93ors",
+        "/chat/completions",
+        r#"{"model":"cc-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", CC_RESPONSES_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/responses");
+    assert!(resp.contains("hi"), "{resp}");
+    assert!(resp.contains("[DONE]"), "{resp}");
+}
+
+/// typesafe 端点：决策请求 `/v1/systemone` 打用户 base_url + `/systemone`（R10），
+/// model 改写为 jev 槽位（R8），usage.input_tokens 落 proxy_log。
+#[tokio::test]
+async fn commandcode_typesafe_endpoint_decision_dispatch_usage() {
+    let (base, hits) = spawn_glm_upstream(200, "application/json", CC_DECISION_RESP).await;
+    let state = make_state(test_db().await).await;
+    let pid = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        Protocol::CommandCode,
+        &base,
+        std::slice::from_ref(&Protocol::TypeSafe),
+    )
+    .await;
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id: pid,
+            models: Some(crate::gateway::models::PlatformModels {
+                jev: vec!["cc-test".into()],
+                ..Default::default()
+            }),
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: None,
+            endpoints: None,
+            available_models: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gk93ts", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: pid,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/systemone")
+        .header("authorization", "Bearer gk93ts")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"whatever","usage":{},"answers":[]}"#,
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(v["model"], "cc-jev-1", "决策响应透传: {v}");
+
+    let hits_snapshot = hits.lock().unwrap().clone();
+    assert_eq!(hits_snapshot.len(), 1, "{hits_snapshot:?}");
+    assert_eq!(
+        hits_snapshot[0].0,
+        "/systemone",
+        "URL = 用户 base_url + /systemone (R10)"
+    );
+    let sent: serde_json::Value = serde_json::from_str(&hits_snapshot[0].1).unwrap();
+    assert_eq!(sent["model"], "cc-test", "model 应改写为平台模型链首: {sent}");
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let log = logs.iter().find(|l| l.group_key == "gk93ts").expect("log row missing");
+    assert_eq!(log.input_tokens, 84, "typesafe usage.input_tokens 应落库");
+}
+
+// issue 98：LiteLLM Gateway 单 openai 端点协议，经本地假上游覆盖转换、响应、流、错误与 usage。
+// 官方统一接口镜像 OpenAI ChatCompletions 形状（https://docs.litellm.ai/docs/proxy/quick_start）。
+const LITELLM_OPENAI_RESP: &str = r#"{"id":"lt_1","object":"chat.completion","model":"lt-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+const LITELLM_OPENAI_SSE: &str = concat!(
+    "data: {\"id\":\"lt_1\",\"object\":\"chat.completion.chunk\",\"model\":\"lt-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+    "data: {\"id\":\"lt_1\",\"object\":\"chat.completion.chunk\",\"model\":\"lt-test\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\n",
+    "data: [DONE]\n\n",
+);
+const LITELLM_ERROR: &str = r#"{"error":{"message":"Invalid Virtual Key","type":null,"param":null,"code":"401"}}"#;
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic；流式末帧 usage 后 `[DONE]`；
+/// 401 归服务类；usage 缓存扣减（prompt 10 − cached 4 = 6）。
+#[tokio::test]
+async fn litellm_openai_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::LiteLLM, Protocol::OpenAI, "gk98oa", "/v1/messages", r#"{"model":"lt-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", LITELLM_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "lt-test");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("litellm").extract_usage(LITELLM_OPENAI_RESP).0, 6);
+    let (status, resp, _) = glm_member_call(Protocol::LiteLLM, Protocol::OpenAI, "gk98oas", "/v1/messages", r#"{"model":"lt-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", LITELLM_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::LiteLLM, Protocol::OpenAI, "gk98oae", "/v1/messages", r#"{"model":"lt-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", LITELLM_ERROR)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("Invalid Virtual Key"), "{resp}");
+}
+
+const LITELLM_ANTHROPIC_RESP: &str = r#"{"id":"msg_lt","type":"message","role":"assistant","model":"lt-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+const LITELLM_ANTHROPIC_SSE: &str = concat!(
+    "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_lt\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"lt-test\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":2,\"cache_creation_input_tokens\":1}}}\n\n",
+    "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+    "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+    "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n",
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+);
+// anthropic 路由预算错误：error.type 持 Anthropic 状态类型，网关类型在 error.litellm_error_type
+// （官方错误参考「Errors on the Anthropic Messages routes」节，核对日期 2026-11-25）。
+const LITELLM_ANTHROPIC_BUDGET_ERROR: &str = r#"{"type":"error","error":{"type":"invalid_request_error","message":"Budget has been exceeded! Key=zero-budget Current cost: 0.0, Max budget: 0.0","litellm_error_type":"budget_exceeded"}}"#;
+
+/// anthropic 端点（用户可配，官方 /v1/messages 路由）：出站打 `/v1/messages`；
+/// 流式透传标准事件；预算错误归服务类、末次尝试原样透传。
+#[tokio::test]
+async fn litellm_anthropic_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::LiteLLM, Protocol::Anthropic, "gk98an", "/chat/completions", r#"{"model":"lt-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", LITELLM_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["choices"][0]["message"]["content"], "hi");
+    assert_eq!(adapter_for("litellm").extract_usage(LITELLM_ANTHROPIC_RESP).2, 2);
+    let (status, resp, _) = glm_member_call(Protocol::LiteLLM, Protocol::Anthropic, "gk98ans", "/chat/completions", r#"{"model":"lt-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", LITELLM_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::LiteLLM, Protocol::Anthropic, "gk98ane", "/chat/completions", r#"{"model":"lt-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (422, "application/json", LITELLM_ANTHROPIC_BUDGET_ERROR)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{resp}");
+    assert!(resp.contains("Budget has been exceeded"), "{resp}");
+}
+
+const LITELLM_GEMINI_RESP: &str = r#"{"candidates":[{"index":0,"finishReason":"STOP","content":{"role":"model","parts":[{"text":"hi"}]}}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":3,"totalTokenCount":13,"cachedContentTokenCount":4}}"#;
+const LITELLM_GEMINI_SSE: &str = concat!(
+    "data: {\"candidates\":[{\"index\":0,\"content\":{\"role\":\"model\",\"parts\":[{\"text\":\"hi\"}]}}]}\n\n",
+    "data: {\"candidates\":[{\"index\":0,\"finishReason\":\"STOP\",\"content\":{\"role\":\"model\",\"parts\":[]}}],\"usageMetadata\":{\"promptTokenCount\":10,\"candidatesTokenCount\":3,\"totalTokenCount\":13,\"cachedContentTokenCount\":4}}\n\n",
+);
+
+/// gemini 端点（用户可配）：出站打 `/v1beta/models/<model>:generateContent`；
+/// 非流式与流式照 Gemini wire 转换。
+#[tokio::test]
+async fn litellm_gemini_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::LiteLLM, Protocol::Gemini, "gk98ge", "/v1/messages", r#"{"model":"lt-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", LITELLM_GEMINI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1beta/models/lt-test:generateContent");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["contents"][0]["parts"][0]["text"], "hi");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    let (status, resp, _) = glm_member_call(Protocol::LiteLLM, Protocol::Gemini, "gk98ges", "/v1/messages", r#"{"model":"lt-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", LITELLM_GEMINI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi"), "{resp}");
+}
+
+// issue 97：书生·端砚三协议（openai / openai_responses / anthropic）都由用户端点配置驱动，
+// 经本地假上游覆盖转换、响应、流、错误与 usage。官方无线级文档，形状按协议标准（第三方多源佐证）。
+const INK_OPENAI_RESP: &str = r#"{"id":"ink_1","object":"chat.completion","model":"ink-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+const INK_OPENAI_SSE: &str = concat!(
+    "data: {\"id\":\"ink_1\",\"object\":\"chat.completion.chunk\",\"model\":\"ink-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+    "data: {\"id\":\"ink_1\",\"object\":\"chat.completion.chunk\",\"model\":\"ink-test\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\n",
+    "data: [DONE]\n\n",
+);
+const INK_RESPONSES_RESP: &str = r#"{"id":"resp_ink","object":"response","model":"ink-test","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi","annotations":[]}]}],"usage":{"input_tokens":6,"output_tokens":2,"input_tokens_details":{"cached_tokens":4}}}"#;
+const INK_RESPONSES_SSE: &str = concat!(
+    "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\n",
+    "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_ink\",\"status\":\"completed\",\"usage\":{\"input_tokens\":6,\"output_tokens\":2}}}\n\n",
+);
+const INK_ANTHROPIC_RESP: &str = r#"{"id":"msg_ink","type":"message","role":"assistant","model":"ink-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+const INK_ANTHROPIC_SSE: &str = concat!(
+    "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_ink\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"ink-test\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":2,\"cache_creation_input_tokens\":1}}}\n\n",
+    "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+    "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+    "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n",
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+);
+const INK_ERROR: &str = r#"{"error":{"message":"invalid api key","type":"authentication_error"}}"#;
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic；流式末帧 usage 后 `[DONE]`；
+/// 401 归服务类；usage 缓存扣减（prompt 10 − cached 4 = 6）。
+#[tokio::test]
+async fn intern_inkstone_openai_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::InternInkstone, Protocol::OpenAI, "gk97oa", "/v1/messages", r#"{"model":"ink-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", INK_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "ink-test");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("intern_inkstone").extract_usage(INK_OPENAI_RESP).0, 6);
+    let (status, resp, _) = glm_member_call(Protocol::InternInkstone, Protocol::OpenAI, "gk97oas", "/v1/messages", r#"{"model":"ink-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", INK_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::InternInkstone, Protocol::OpenAI, "gk97oae", "/v1/messages", r#"{"model":"ink-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", INK_ERROR)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("invalid api key"), "{resp}");
+}
+
+/// openai_responses 端点：出站打 `/responses`；流式 `response.completed` 收官；
+/// usage 走 responses 缓存臂（ordinary input = input − cached）。
+#[tokio::test]
+async fn intern_inkstone_openai_responses_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::InternInkstone, Protocol::OpenAIResponses, "gk97or", "/chat/completions", r#"{"model":"ink-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", INK_RESPONSES_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/responses");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "ink-test");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("intern_inkstone").extract_usage(INK_RESPONSES_RESP);
+    assert_eq!((input, output, cache_read, cache_write, cache_write_1h), (2, 2, 4, 0, 0));
+    let (status, resp, _) = glm_member_call(Protocol::InternInkstone, Protocol::OpenAIResponses, "gk97ors", "/chat/completions", r#"{"model":"ink-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", INK_RESPONSES_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/responses");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+}
+
+// Synthetic fixtures test configured endpoints, not each provider's official support.
+#[tokio::test]
+async fn magpie_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::Magpie, "magpie").await;
+}
+
+#[tokio::test]
+async fn meta_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::Meta, "meta").await;
+}
+
+#[tokio::test]
+async fn mistral_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::Mistral, "mistral").await;
+}
+
+#[tokio::test]
+async fn modelscope_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::ModelScope, "modelscope").await;
+}
+
+#[tokio::test]
+async fn novita_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::Novita, "novita").await;
+}
+
+#[tokio::test]
+async fn nvidia_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::Nvidia, "nvidia").await;
+}
+
+async fn configured_endpoint_dispatch(platform: Protocol, name: &str) {
+    let completion = r#"{"id":"cmpl-test","object":"text_completion","choices":[{"text":"hi","index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}"#;
+    let completion_stream = "data: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"hi\",\"index\":0}]}\n\ndata: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"\",\"index\":0,\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
+    let cases = [
+        (Protocol::OpenAI, "/chat/completions", CRAZYROUTER_OPENAI_RESP, CRAZYROUTER_OPENAI_SSE, 3),
+        (Protocol::Anthropic, "/v1/messages", CRAZYROUTER_ANTHROPIC_RESP, CRAZYROUTER_ANTHROPIC_SSE, 3),
+        (Protocol::OpenAIResponses, "/responses", INK_RESPONSES_RESP, INK_RESPONSES_SSE, 2),
+        (Protocol::Gemini, "/v1beta/models/cr-test:generateContent", CRAZYROUTER_GEMINI_RESP, CRAZYROUTER_GEMINI_SSE, 3),
+        (Protocol::OpenAICompletions, "/completions", completion, completion_stream, 2),
+    ];
+    let request = r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
+    let streaming_request = r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    for (index, (wire, path, upstream, events, output_tokens)) in cases.iter().enumerate() {
+        let key = format!("{name}-{index}");
+        let (status, body, hits) = glm_member_call(platform.clone(), wire.clone(), &key, "/v1/messages", request, (200, "application/json", upstream)).await;
+        assert_eq!(status, StatusCode::OK, "{wire:?}: {body}");
+        assert_eq!(hits[0].0, *path);
+        assert!(hits[0].1.contains("hi"), "{wire:?}: {}", hits[0].1);
+        assert!(body.contains("hi"), "{wire:?}: {body}");
+        let response: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(response["usage"]["output_tokens"], *output_tokens, "{wire:?}: {body}");
+        let (status, body, _) = glm_member_call(platform.clone(), wire.clone(), &format!("{key}-stream"), "/v1/messages", streaming_request, (200, "text/event-stream", events)).await;
+        assert_eq!(status, StatusCode::OK, "{wire:?}: {body}");
+        assert!(body.contains("hi"), "{wire:?}: {body}");
+        let (status, body, _) = glm_member_call(platform.clone(), wire.clone(), &format!("{key}-error"), "/v1/messages", request, (400, "application/json", CRAZYROUTER_ERROR)).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{wire:?}: {body}");
+        assert!(body.contains("model not found"), "{wire:?}: {body}");
+    }
+}
+
+// Synthetic endpoint fixtures exercise user-configurable protocols; they do not assert provider support.
+#[tokio::test]
+async fn longcat_completions_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let request = r#"{"model":"legacy-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
+    let response = r#"{"id":"cmpl-test","object":"text_completion","model":"legacy-test","choices":[{"text":"hello","index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}"#;
+    let stream = "data: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"hello\",\"index\":0}]}\n\ndata: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"\",\"index\":0,\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
+    let (status, body, hits) = glm_member_call(Protocol::Longcat, Protocol::OpenAICompletions, "longcat-completions", "/v1/messages", request, (200, "application/json", response)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(hits[0].0, "/completions");
+    assert!(hits[0].1.contains("hi"), "{}", hits[0].1);
+    assert!(body.contains("hello"), "{body}");
+    assert_eq!(adapter_for("longcat").extract_usage(response).0, 4);
+    let streaming_request = r#"{"model":"legacy-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAICompletions, "longcat-completions-stream", "/v1/messages", streaming_request, (200, "text/event-stream", stream)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("hello"), "{body}");
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAICompletions, "longcat-completions-error", "/v1/messages", request, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("model not found"), "{body}");
+}
+
+#[tokio::test]
+async fn longcat_gemini_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let request = r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, hits) = glm_member_call(Protocol::Longcat, Protocol::Gemini, "longcat-gemini", "/v1/messages", request, (200, "application/json", CRAZYROUTER_GEMINI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(hits[0].0, "/v1beta/models/cr-test:generateContent");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&hits[0].1).unwrap()["contents"][0]["parts"][0]["text"], "hi");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&body).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("longcat").extract_usage(CRAZYROUTER_GEMINI_RESP).0, 6);
+    let stream = r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::Gemini, "longcat-gemini-stream", "/v1/messages", stream, (200, "text/event-stream", CRAZYROUTER_GEMINI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("hi"), "{body}");
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::Gemini, "longcat-gemini-error", "/v1/messages", request, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("model not found"), "{body}");
+}
+
+#[tokio::test]
+async fn longcat_responses_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let request = r#"{"model":"ink-test","messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, hits) = glm_member_call(Protocol::Longcat, Protocol::OpenAIResponses, "longcat-responses", "/chat/completions", request, (200, "application/json", INK_RESPONSES_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(hits[0].0, "/responses");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&body).unwrap()["choices"][0]["message"]["content"], "hi");
+    assert_eq!(adapter_for("longcat").extract_usage(INK_RESPONSES_RESP).2, 4);
+    let stream_request = r#"{"model":"ink-test","stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAIResponses, "longcat-responses-stream", "/chat/completions", stream_request, (200, "text/event-stream", INK_RESPONSES_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("hi") && body.contains("[DONE]"), "{body}");
+    let (status, body, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAIResponses, "longcat-responses-error", "/chat/completions", request, (400, "application/json", r#"{"error":{"message":"invalid input","type":"invalid_request_error"}}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("invalid input"), "{body}");
+}
+
+/// anthropic 端点：出站打 `/v1/messages`；非流式回 openai 形状；流式透传官方事件集；
+/// usage 缓存读臂。
+#[tokio::test]
+async fn intern_inkstone_anthropic_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::InternInkstone, Protocol::Anthropic, "gk97an", "/chat/completions", r#"{"model":"ink-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", INK_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["choices"][0]["message"]["content"], "hi");
+    assert_eq!(adapter_for("intern_inkstone").extract_usage(INK_ANTHROPIC_RESP).2, 2);
+    let (status, resp, _) = glm_member_call(Protocol::InternInkstone, Protocol::Anthropic, "gk97ans", "/chat/completions", r#"{"model":"ink-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", INK_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::InternInkstone, Protocol::Anthropic, "gk97ane", "/chat/completions", r#"{"model":"ink-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", INK_ERROR)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("invalid api key"), "{resp}");
+}
+
+// issue 99：LongCat 双协议（registry 内置默认 anthropic / openai）都由用户端点配置驱动，
+// 经本地假上游覆盖转换、响应、流、错误与 usage。
+const LONGCAT_OPENAI_RESP: &str = r#"{"id":"chatcmpl_lc","object":"chat.completion","model":"LongCat-2.5-Preview","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"completion_tokens_details":{"reasoning_tokens":2}}}"#;
+const LONGCAT_OPENAI_SSE: &str = concat!(
+    "data: {\"id\":\"chatcmpl_lc\",\"object\":\"chat.completion.chunk\",\"model\":\"LongCat-2.5-Preview\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+    "data: {\"id\":\"chatcmpl_lc\",\"object\":\"chat.completion.chunk\",\"model\":\"LongCat-2.5-Preview\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13}}\n\n",
+    "data: [DONE]\n\n",
+);
+const LONGCAT_ANTHROPIC_RESP: &str = r#"{"id":"msg_lc","type":"message","role":"assistant","model":"LongCat-2.5-Preview","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3}}"#;
+const LONGCAT_ANTHROPIC_SSE: &str = concat!(
+    "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_lc\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"LongCat-2.5-Preview\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0}}}\n\n",
+    "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+    "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+    "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n",
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+);
+const LONGCAT_ERROR: &str = r#"{"error":{"code":"rate_limit_exceeded","message":"Request rate limit exceeded, please try again later","type":"rate_limit_error","retry_after":60}}"#;
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic；流式末帧 usage 后 `[DONE]`；
+/// 429 限频归服务类、末次尝试原样透传；usage 无缓存字段（prompt 10 全额计 input）。
+#[tokio::test]
+async fn longcat_openai_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::Longcat, Protocol::OpenAI, "gk99oa", "/v1/messages", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", LONGCAT_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "LongCat-2.5-Preview");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("longcat").extract_usage(LONGCAT_OPENAI_RESP).0, 10);
+    let (status, resp, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAI, "gk99oas", "/v1/messages", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", LONGCAT_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAI, "gk99oae", "/v1/messages", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (429, "application/json", LONGCAT_ERROR)).await;
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS, "{resp}");
+    assert!(resp.contains("rate limit exceeded"), "{resp}");
+}
+
+/// anthropic 端点：出站打 `/v1/messages`；非流式回 openai 形状；流式透传标准事件链；
+/// usage 走基座 anthropic 臂（input 6 − cache 0）。
+#[tokio::test]
+async fn longcat_anthropic_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::Longcat, Protocol::Anthropic, "gk99an", "/chat/completions", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", LONGCAT_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["choices"][0]["message"]["content"], "hi");
+    assert_eq!(adapter_for("longcat").extract_usage(LONGCAT_ANTHROPIC_RESP).0, 6);
+    let (status, resp, _) = glm_member_call(Protocol::Longcat, Protocol::Anthropic, "gk99ans", "/chat/completions", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", LONGCAT_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::Longcat, Protocol::Anthropic, "gk99ane", "/chat/completions", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"/top_p: 2 is not less or equal to 1"}}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("top_p"), "{resp}");
 }

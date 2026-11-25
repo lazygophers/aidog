@@ -1792,7 +1792,438 @@ pub struct AiHubMixAdapter;
 
 impl PlatformAdapter for AiHubMixAdapter {}
 
+/// DeepSeek（深度求索）独立平台专属适配器（issue 95；单成员，非编码套餐）。
+///
+/// 官方文档逐项核对（核对日期 2026-11-24）：
+/// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
+///   openai `https://api.deepseek.com/v1`（`POST /chat/completions`）、anthropic
+///   `https://api.deepseek.com/anthropic`（`POST /anthropic/v1/messages`）。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/anthropic_api
+/// - 请求字段与默认值：openai 端点镜像 Chat Completions——`stream` 缺省 false、
+///   `response_format` 缺省 null、`logprobs` 缺省 false、`temperature` 取值 [0, 2]、
+///   `top_p` 取值 (0, 1] 且按模型/模式有固定值（deepseek-flash 思考模式缺省 1.0 低于
+///   0.95 按 0.95、非思考固定 1.0 忽略入参；deepseek-v4-pro 思考模式忽略入参）——
+///   上游自行裁决，不覆写。anthropic 端点：`anthropic-version` / `anthropic-beta`
+///   （除 `files-api-2025-04-14`）忽略；`top_k` / `cache_control` 忽略；`stop_sequences`
+///   ≤16 条、单条 ≤512 字节；`max_tokens` HTTP 请求可选；`container` / `mcp_servers` /
+///   `service_tier` 忽略；`metadata.user_id` 支持。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/anthropic_api
+/// - 思考参数：openai 端点顶层 `thinking: {"type": "enabled" | "disabled"}`（缺省或 null
+///   时跟 `reasoning_effort`；`reasoning_effort` 也缺省时思考**开启**）；`reasoning_effort`
+///   取值 `none` / `low` / `high` / `max`（缺省 high；`minimal`→low、`medium`/`xhigh`→high，
+///   未列值报 400——透传客户端原值，由上游裁决）。无思考预算参数（anthropic 端点
+///   `budget_tokens` 被忽略）。**禁思考覆写**：官方写法 `thinking.type=disabled`（官方示例
+///   `extra_body={"thinking": {"type": "disabled"}}`），基座 openai 第三方端点默认写 vLLM 式
+///   `chat_template_kwargs.enable_thinking=false`，官方文档无此参数 → 覆写为基座 anthropic
+///   臂同形；anthropic wire 官方 enabled/disabled 词表与基座同形，不另覆写。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/thinking_mode
+///   https://api-docs.deepseek.com/guides/anthropic_api
+/// - 工具调用与服务端工具：客户端工具 openai 形 `tools[].function`；anthropic 端点客户端
+///   工具须省略 `type`（传 `type: "custom"` 报 422）。**tool_choice 差异**：思考模式下
+///   openai 端点 `required` 与命名 choice 报 400（声明 web tools 时上游把 required 视为
+///   auto）；anthropic 端点 `any` 在思考模式仅声明服务端工具时按 auto、仅客户端工具时报
+///   400，`tool` 报 400；思考缺省开启，`thinking.type=disabled` / `reasoning_effort="none"`
+///   显式关闭时这些值合法 → [`PlatformAdapter::adjust_tool_choice`] 在思考模式下把
+///   required / 命名 choice / any / tool 降级为 auto，关闭时不降级。服务端工具：anthropic
+///   端点 `web_search_20250305`（name `web_search`）与 `deepseek_web_search` /
+///   `deepseek_read_url`；`usage.server_tool_use` 计数 `{web_search_requests, tool_search}`
+///   → 基座 server_tool_counts 开放键集已覆盖。计费口径（2026-11-18 起模型触发的服务端
+///   搜索/抓取不计费，结果按模型 token 计）不属出站适配范围。
+///   https://api-docs.deepseek.com/guides/tool_calls
+///   https://api-docs.deepseek.com/guides/anthropic_api#server-tool-usage
+///   https://api-docs.deepseek.com/quick_start/pricing
+/// - 图片与音视频：openai 端点 `image_url`（base64 / 外部 URL ≤8192 字符 / Files API
+///   file_id，file 需 anthropic-beta 头）；anthropic 端点 image `source.type` base64 / url /
+///   file。deepseek-v4-pro 不处理图片（替换为 `[Unsupported Image]`）、deepseek-flash 支持
+///   用户与 tool_result 消息图片（assistant 消息图片报 400）——形状与协议构件一致，
+///   模型差异由上游裁决，不覆写。无音视频输入端点文档（未证实项保持框架默认）。
+///   https://api-docs.deepseek.com/guides/vision
+/// - system：anthropic 端点 Fully Supported；openai 端点标准 role:system → 基座默认。
+/// - max_tokens：openai 端点 1..384K（393216），缺省非思考 8K / 思考 64K（effort max
+///   128K）；anthropic 端点可选（Claude Code / OpenCode 主代理请求的服务端兼容处理可抬高
+///   实际上限）。上限经基座 cap_max_tokens 按 registry 条目裁剪，不注入缺省值。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/anthropic_api
+/// - usage：`prompt_tokens` = `prompt_cache_hit_tokens` + `prompt_cache_miss_tokens`
+///   （两字段 required）；`prompt_tokens_details.cached_tokens`（optional）与 hit 同值；
+///   基座 usage_cache_arms 按 anthropic → openai cached_tokens → deepseek
+///   prompt_cache_hit_tokens 顺序命中并扣 input，不覆写。anthropic 端点
+///   `cache_read_input_tokens` 天然不含于 `input_tokens`（总输入 = input + cache_read +
+///   cache_creation，`cache_creation_input_tokens` 当前恒 0）→ 基座 anthropic arm 同形。
+///   服务端工具计数：openai 端点搭载末 chunk usage / 非流式 usage；anthropic 端点在
+///   message_delta.usage（message_start 不含）→ 基座 parse_sse 按帧抽取已覆盖。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/anthropic_api#streaming
+/// - 多轮 reasoning_content（思考模式）：带 tools 的请求官方要求回传前序各轮
+///   reasoning_content（拼入上下文）；不带 tools 的请求回传被忽略。anthropic 端点文档：
+///   思考内容缺失时服务端按 tool-call ID 恢复、恢复失败报 400（「Do not rely on automatic
+///   recovery」）；anthropic 入站的 thinking 块在 to_openai 转换中被跳过 →
+///   [`PlatformAdapter::build_request`] 在 openai wire 从 ChatRequest 的 thinking 块取回文本
+///   写进 assistant tool-call 消息（hooks::carry_history_reasoning，kimi_coding 先例）。
+///   https://api-docs.deepseek.com/guides/thinking_mode#tool-calls
+///   https://api-docs.deepseek.com/guides/anthropic_api
+/// - 错误体：官方错误码表 400 格式错 / 401 鉴权 / 402 余额不足 / 408·413·504 文件类 /
+///   422 参数错 / 429 限频 / 500 / 503 过载；**非流式错误体 JSON schema 官方未给（未证实）**
+///   → 分类不扩展，基座按状态码 + error.message/type 特征判定（401/402/403/429 → 服务类，
+///   其余读特征）。anthropic 端点流式：首帧超时可发无名 `data: {"error":{"message":"..."}}`
+///   帧后断连；生成中错误走 `event: error` + `{"type":"error","error":{"type","message"}}`。
+///   https://api-docs.deepseek.com/quick_start/error_codes
+///   https://api-docs.deepseek.com/guides/anthropic_api#streaming
+/// - 流式事件：openai 端点 chat.completion.chunk + `data: [DONE]`（usage 搭载 [DONE] 前最后
+///   一个内容 chunk，不发独立 usage chunk；`stream_options.include_usage` 使每 chunk 带.usage）；
+///   思考增量 `delta.reasoning_content`。anthropic 端点标准事件链 message_start →
+///   content_block_start/delta/stop → message_delta → message_stop（ping 可现），
+///   **明确不发 `data: [DONE]`** → 基座协议构件同形，不覆写。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/anthropic_api#streaming
+/// - 鉴权头：openai 端点 `Authorization: Bearer`；anthropic 端点 `x-api-key` 或
+///   `Authorization: Bearer` 均可 → 基座 additional_request_headers 默认空即可。
+/// - 转发层现状（grep 2026-11-24）：gateway 对 deepseek 平台零特判（billing tools_pricing /
+///   tokenizer 选择不属出站适配差异，无 coding_plan 注入 / 特殊 UA 可迁）；行为不变由
+///   网关回归测试锁定。
+///
+/// 覆写三处（均官方文档证实）：openai wire 禁思考写 `thinking.type=disabled`；思考模式下
+/// tool_choice 降级；openai wire 多轮工具历史携带 reasoning_content。其余接口继承协议构件
+/// 默认实现。
+pub struct DeepSeekAdapter;
+
+impl PlatformAdapter for DeepSeekAdapter {
+    /// 差异：思考模式 + tools 的多轮工具历史须回传 reasoning_content（官方 400 证据链与
+    /// 调用点见 struct doc「多轮 reasoning_content」节）。无 thinking 历史的请求 no-op，
+    /// openai wire 之外的 wire 不处理。
+    fn build_request(
+        &self,
+        chat_req: &crate::types::ChatRequest,
+        wire: &Protocol,
+        platform: &Protocol,
+    ) -> (Value, String) {
+        let (mut body, path) = converter::convert_request(chat_req, wire, platform);
+        if wire == &Protocol::OpenAI {
+            hooks::carry_history_reasoning(&mut body, chat_req);
+        }
+        (body, path)
+    }
+
+    /// 差异：openai 端点禁思考写官方 `thinking.type=disabled`（官方示例
+    /// `extra_body={"thinking": {"type": "disabled"}}`），不写基座第三方端点的 vLLM 式
+    /// `chat_template_kwargs.enable_thinking`（DeepSeek 文档无此参数）。官方词表与基座
+    /// anthropic 臂同形，按 anthropic 臂执行；其余 wire 与强制思考路径同基座。
+    /// https://api-docs.deepseek.com/api/create-chat-completion
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI | Protocol::OpenAICompletions => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+
+    /// 差异：思考模式下 tool_choice 降级为 auto（官方 400 证据与判定条件见 struct doc
+    /// 「工具调用与服务端工具」节）。思考缺省开启：`thinking.type=disabled` /
+    /// `reasoning_effort="none"` / `reasoning.effort="none"` 显式关闭时保留原值。
+    fn adjust_tool_choice(&self, body: &mut Value, wire: &Protocol, model: &str) {
+        let _ = model;
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        let thinking_disabled = obj
+            .get("thinking")
+            .and_then(|t| t.get("type"))
+            .and_then(Value::as_str)
+            == Some("disabled")
+            || obj.get("reasoning_effort").and_then(Value::as_str) == Some("none")
+            || obj
+                .get("reasoning")
+                .and_then(|r| r.get("effort"))
+                .and_then(Value::as_str)
+                == Some("none");
+        if thinking_disabled {
+            return;
+        }
+        match wire {
+            Protocol::OpenAI | Protocol::OpenAICompletions => {
+                let downgrade = match obj.get("tool_choice") {
+                    Some(Value::String(s)) => s == "required",
+                    Some(Value::Object(m)) => {
+                        m.get("type").and_then(Value::as_str) == Some("function")
+                    }
+                    _ => false,
+                };
+                if downgrade {
+                    obj.insert("tool_choice".to_string(), Value::String("auto".to_string()));
+                }
+            }
+            Protocol::Anthropic => {
+                let downgrade = obj
+                    .get("tool_choice")
+                    .and_then(|t| t.get("type"))
+                    .and_then(Value::as_str)
+                    .is_some_and(|t| t == "any" || t == "tool");
+                if downgrade {
+                    obj.insert(
+                        "tool_choice".to_string(),
+                        serde_json::json!({"type": "auto"}),
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+}
+/// CrazyRouter 聚合平台专属适配器（issue 94；单成员，非编码套餐）。
+///
+/// 逐项核对官方文档（核对日期 2026-11-24）：
+/// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
+///   anthropic `https://api.crazyrouter.com`（「Anthropic-native clients use root domain …
+///   do not append `/v1` manually」）、openai `https://api.crazyrouter.com/v1`（「OpenAI-compatible
+///   SDKs use `base_url="https://api.crazyrouter.com/v1"`」）、gemini `https://api.crazyrouter.com`
+///   （「`gemini` maps to `POST /v1beta/models/{model}:generateContent`」，llms.txt）——三者与
+///   registry 内置默认一致。同页另列 openai responses `/v1/responses` 与 legacy `/v1/completions`、
+///   东亚入口 `cn.crazyrouter.com`，registry 未内置，用户可手配。路径重复拼接告警
+///   （`/v1/v1/messages`）印证 anthropic 打根域名 `/v1/messages`。
+///   https://docs.crazyrouter.com/api-endpoint.md https://docs.crazyrouter.com/llms.txt
+/// - 请求字段与默认值：quickstart 示例请求即 `{"model","messages"}`，响应示例为标准
+///   OpenAI Chat Completions 形状（`choices[].message` / `finish_reason`）——镜像官方 wire，
+///   无平台专有字段文档，协议构件默认形状，无需覆写。鉴权统一 `Authorization: Bearer`
+///   （网关注入）。https://docs.crazyrouter.com/quickstart.md https://docs.crazyrouter.com/authentication.md
+/// - 思考参数：官方文档站（quickstart / api-endpoint / error-handling / ai-tools /
+///   authentication 五页 + llms.txt 索引）均未记载思考开关 / 档位 / 预算参数——未证实，
+///   保持基座第三方端点默认（`chat_template_kwargs.enable_thinking=false`）。
+/// - 工具调用与服务端工具：官方仅提示「Claude 原生 `tool_use` … 应优先走 Anthropic
+///   Messages 链路（`POST /v1/messages`）」，属客户端接入建议而非出站差异；无服务端工具
+///   文档——未证实，保持基座默认。https://docs.crazyrouter.com/api-endpoint.md
+/// - 图片与音视频：独立图像 / 视频 / 音频端点（`/v1/images/*`、`/mj/submit/*` 等）单列，
+///   chat 链路多模态未记载——未证实，保持基座默认。https://docs.crazyrouter.com/api-endpoint.md
+/// - system 提示 / max_tokens 上限：文档未记载——未证实，保持基座默认（max_tokens 上限
+///   按 registry 条目 `cap_max_tokens` 裁剪）。
+/// - usage：quickstart 响应示例 `usage.prompt_tokens / completion_tokens / total_tokens`，
+///   与基座 openai 臂一致；缓存 token 字段未记载——未证实，基座构件读不到即缺省 0，
+///   不覆盖。anthropic / gemini 臂未记载，同上。
+///   https://docs.crazyrouter.com/quickstart.md
+/// - 错误体：统一 `{"error":{"message","type","code"}}`（error-handling.md 唯一 JSON 示例），
+///   与基座 `error.message/code/type` 读法一致；状态码表 400 / 401 / 403 / 429 / 500 / 502 /
+///   503（403「Token 无权访问该模型」按状态码归服务类，无模型类业务码契约）——基座
+///   classify_upstream_error 原样适用，不扩展。https://docs.crazyrouter.com/error-handling.md
+/// - 流式事件格式与结束标记：文档未记载 SSE 帧形状 / 终止标记——未证实，保持基座构件
+///   默认（openai wire `data: [DONE]`、anthropic wire `message_stop`、gemini wire 事件流）。
+/// - coding_plan 注入：非编码套餐，基座按平台协议分派对 `Protocol::CrazyRouter` 为 no-op，
+///   行为不变。
+/// - 转发层现状（grep 2026-11-24）：gateway 对 crazyrouter 零特判（仅 `protocol.rs`
+///   serde rename 与 peak 时段数据），无既有差异可迁；行为不变由网关回归测试锁定。
+///
+/// 结论：官方文档只证实端点布局 / 鉴权 / 错误体三件，均与协议构件默认一致；专属适配器
+/// 只承担显式注册语义（与 AiHubMixAdapter / AnthropicFamilyAdapter 同形）。
+/// https://docs.crazyrouter.com/ https://crazyrouter.com/pricing
+pub struct CrazyRouterAdapter;
+
+impl PlatformAdapter for CrazyRouterAdapter {}
+
+static CRAZYROUTER: CrazyRouterAdapter = CrazyRouterAdapter;
+/// Command Code（GOAT/Pro/Max/Provider 套餐 Provider API；api.commandcode.ai）。
+/// 官方文档核对日期 2026-11-24，结论：三 chat 协议 + 决策协议均镜像官方形状，
+/// 无可证实的平台级覆写；专属适配器承担显式注册语义（与 [`AiHubMixAdapter`] 同形）。
+///
+/// 逐项核对结论（官方 Provider API 页原文，本平台文档即取证所用来源）：
+/// - 端点：`/v1/chat/completions`（OpenAI Chat Completions）、`/v1/responses`（OpenAI Responses，
+///   仅 OpenAI 与开放模型；Claude 模型只在 `/v1/messages`）、`/v1/messages`（Anthropic Messages）、
+///   `GET /v1/models`、`POST /v1/systemone`（typesafe/jev 决策，永不流式）。与 registry 内置默认
+///   端点一致；运行时一律用用户平台配置端点，模型路由由 `/v1/models` 条目 `supported_endpoints`
+///   决定。https://commandcode.ai/docs/provider
+/// - 请求字段与默认值：官方明示「Request and response bodies follow the OpenAI Chat Completions
+///   schema / OpenAI Responses schema / Anthropic Messages schema」——三 chat 协议请求构造与
+///   基座协议构件一致，官方未列平台级新增字段或默认值。
+/// - 思考参数：Provider API 页未列 thinking 档位 / 预算 / 开关差异，保持基座默认（未证实）。
+/// - 工具调用：`function` / `custom` 工具由客户端执行，内置声明（如 `web_search`）原样转发
+///   由上游接受或拒绝；remote `type:"mcp"` 工具上游拒绝（须客户端侧跑 MCP）；`x-cmd-zdr: 1`
+///   请求只收 `function` / `custom` / `local_shell`。该头是客户端自选的 ZDR 开关，aidog 不代加
+///   （`additional_request_headers` 保持默认空）。
+/// - 图片与音视频：Provider API 页未列多模态输入差异（413 上限 32 MiB 与 Anthropic 一致），
+///   保持基座默认（未证实）。
+/// - system 提示 / max_tokens 上限：官方未列平台级差异或统一上限，保持基座默认（未证实）。
+/// - 流式事件：`stream: true`；「Every endpoint emits token usage at the end of every stream …
+///   No opt-in required」——chat 末块 usage、responses `response.completed`、anthropic
+///   `message_delta`，与基座 `wire_usage` 各臂一致，无需覆写。
+/// - usage（含缓存 token）：typesafe 决策响应 `usage: {input_tokens, output_tokens}`，chat 三协议
+///   为官方标准形状，基座 `extract_usage` 已覆盖；缓存 token 字段名官方文档未列（pricing 页有
+///   per-model 缓存价但无 usage 字段证据），保持基座各协议臂（未证实）。
+/// - 错误体：OpenAI envelope `{error:{message,type,code,param}}`、Anthropic envelope
+///   `{type:"error",error:{type,message}}`——基座 `classify_upstream_error` 直接读取。
+///   文档错误类别与基座分类对照：401 authentication_error / 403（upgrade_required、
+///   model_region_unavailable、content_policy_refused、upstream_refused）/ 429 rate_limit_error
+///   按状态码归 Service；502 model_temporarily_unavailable / upstream_unavailable 与 5xx
+///   server_error / api_error 归 Service；400 `unsupported_model`（OpenAI code，Anthropic envelope
+///   用 invalid_request_error）不含基座模型类标记 → Unknown（调用方按模型类处理，等效换模型）；
+///   413 request_too_large → Unknown（框架默认；官方建议勿重试同 body，但分类语义=换模型试
+///   一次，不据此覆写）。https://commandcode.ai/docs/provider#errors
+/// - coding_plan：platform.json `is_coding_plan: true` 且端点带 `coding_plan` flag；迁移自转发层的
+///   既有行为 = 基座 `_` 臂 no-op（不注入 prompt_cache_key），保持不变。
+/// - 未证实（保持基座默认）：max_tokens 上限、thinking 参数、缓存 token usage 字段、音视频输入
+///   边界、流中错误帧形状、responses 流事件全集（官方只点名 `response.completed`）。
+///   https://commandcode.ai/docs/provider https://commandcode.ai/docs/resources/pricing-limits
+struct CommandCodeAdapter;
+
+impl PlatformAdapter for CommandCodeAdapter {}
+
+/// LiteLLM Gateway: the OpenAI-compatible routes use the configured endpoint.
+/// Gateway budget errors carry `budget_exceeded` in `error.type` on OpenAI-shaped
+/// routes and in `error.litellm_error_type` on the Anthropic Messages routes
+/// (where `error.type` holds Anthropic's per-status type). Budget matching is
+/// status-agnostic because `litellm.budget_exceeded_status_code` is configurable
+/// (default 422). Stream failures before the first chunk reuse the non-stream
+/// error body; after streaming begins the gateway emits the same error object as
+/// a final SSE data frame (gateway-side stream peek already classifies such
+/// frames). Other errors use the base classifier.
+/// https://docs.litellm.ai/docs/proxy/error_reference (checked 2026-11-25).
+/// Request defaults, thinking, tools, media, system prompts, token limits, cache usage,
+/// and the full responses-API stream event set require further verification against
+/// the gateway documentation.
+struct LiteLlmAdapter;
+
+impl PlatformAdapter for LiteLlmAdapter {
+    fn classify_error(&self, status: u16, body: &str) -> error::UpstreamErrorClass {
+        if serde_json::from_str::<Value>(body).is_ok_and(|v| {
+            v.pointer("/error/type").and_then(Value::as_str) == Some("budget_exceeded")
+                || v.pointer("/error/litellm_error_type").and_then(Value::as_str)
+                    == Some("budget_exceeded")
+        }) {
+            return error::UpstreamErrorClass::Service;
+        }
+        error::classify_upstream_error(status, body)
+    }
+}
+
+static LITELLM: LiteLlmAdapter = LiteLlmAdapter;
 static GENERIC: GenericAdapter = GenericAdapter;
+
+/// Gemini adapter; official GenerateContent thinking guide checked 2026-11-25:
+/// - `generationConfig.thinkingConfig.thinkingLevel` is used by Gemini 3/4;
+///   Gemini 2.5 uses `thinkingBudget`. Supported values and defaults depend on model.
+/// - Thinking summaries use `includeThoughts`; usage includes `thoughtsTokenCount`.
+/// - Function calls require preserving thought signatures in subsequent requests.
+///   https://ai.google.dev/gemini-api/docs/thinking?generate-content=true
+///
+/// Other request fields, tools, media, system prompts, output limits, usage cache fields,
+/// errors and streaming wire details require further verification.
+struct GeminiAdapter;
+
+impl PlatformAdapter for GeminiAdapter {}
+
+static GEMINI: GeminiAdapter = GeminiAdapter;
+
+/// 书生·端砚 Intern InkStone TokenPlan 专属适配器（issue 97；单成员，非编码套餐）。
+///
+/// 逐项核对（核对日期 2026-11-25）：
+/// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
+///   openai `https://discovery-api.intern-ai.org.cn/v1`、openai_responses
+///   `https://discovery-api.intern-ai.org.cn`、anthropic 同根。与 registry 内置默认一致。
+/// - 官方站 https://discovery.intern-ai.org.cn/token-plan/home 为控制台（API Key 管理、
+///   RPM 默认 500、墨点计价），帮助中心 /docs/userCenter/api-key 仅密钥管理——官方无
+///   线协议级 API 文档页，请求/响应/流式/错误形状无官方原文可核对。
+/// - OpenAI / Anthropic 双标准协议由第三方多源佐证（lininn.cn / say.li / wn12.cn，
+///   2026-11-25 检索，均为教程引述官方地址）；`openai_responses` 为模型条目
+///   `supported_protocols` 登记现状（部分模型三协议、部分仅 openai+anthropic）。
+/// - DSML 文本工具标记（dsv4 系把工具调用以 `<｜DSML｜tool_calls>` 写进 text 块）由
+///   `aidog_adapter::dsml` + 网关 `finish.rs` 对 anthropic wire 客户端通用改写承担，
+///   不经本适配器，行为不变。
+/// - 鉴权：API Key（网关注入 openai 形 `Authorization: Bearer` / anthropic 形
+///   `x-api-key`，基座默认）；限频 RPM 默认 500 由调用方限频承担，出站无差异。
+/// - 未证实（保持基座协议构件默认）：思考参数、工具调用与服务端工具、图片与音视频、
+///   system 提示、max_tokens 上限、usage 缓存 token 字段、错误体格式、SSE 帧格式与
+///   结束标记。
+///
+/// 结论：三协议均按标准协议形状处理（第三方佐证 + 官方无反证）；专属适配器只承担
+/// 显式注册语义（与 CrazyRouterAdapter / CommandCodeAdapter 同形）。
+/// https://discovery.intern-ai.org.cn/token-plan/home
+pub struct InternInkstoneAdapter;
+
+impl PlatformAdapter for InternInkstoneAdapter {}
+
+static INTERN_INKSTONE: InternInkstoneAdapter = InternInkstoneAdapter;
+
+/// LongCat（龙猫）专属适配器（issue 99；单成员，非编码套餐）。
+///
+/// 逐项核对（核对日期 2026-11-25）：
+/// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
+///   anthropic `https://api.longcat.chat/anthropic`（出站 `/v1/messages`）、
+///   openai `https://api.longcat.chat/openai/v1`（出站 `/chat/completions`）。
+///   https://longcat.chat/platform/docs/
+/// - 请求字段：双 wire 标准 envelope（model / messages / max_tokens / stream / top_p；
+///   anthropic wire `temperature` 0~1、system 走顶层参数）。`temperature` 官方固定
+///   （思考开 1.0 / 关 0.7），其他值**被覆写不报错** → 不剥客户端值（与 kimi 报错语义
+///   不同），保持基座透传。
+///   https://longcat.chat/platform/docs/api/chat https://longcat.chat/platform/docs/api/messages
+/// - 思考：双 wire 官方参数 `thinking {"type":"enabled"|"disabled"}`（无 budget_tokens 形；
+///   `thinking_budget` 固定 65536、其他值忽略）。**禁思考覆写**：openai wire 官方参数与
+///   基座 anthropic 臂同词表 → 按 anthropic 臂执行，不写基座第三方端点的 vLLM 式
+///   `chat_template_kwargs.enable_thinking`（官方文档无此参数）。思考开启路径：openai
+///   协议构件写 `reasoning_effort` 档位，官方文档未列该参数（未证实）→ 保持基座默认，
+///   上游未证实会拒未知字段。
+///   https://longcat.chat/platform/docs/api/model-params
+/// - Responses API 支持 function 和 custom 工具，工具字段位于对象顶层；
+///   服务端工具支持情况未证实。https://longcat.chat/platform/docs/api/responses
+/// - 图片与音视频：另有 Visual Understanding 页（图片/视频理解端点），chat 端点多模态
+///   形状未在 Chat Completions 文档出现 → 未证实，基座默认。
+///   https://longcat.chat/platform/docs/image-video-understanding
+/// - system：anthropic wire 顶层参数（标准）；openai wire role:system（标准）→ 基座。
+/// - max_tokens 上限：LongCat-2.5 上下文 1,048,576、max_tokens 262,144（registry 条目
+///   同值，超限 400 invalid_parameter）→ 基座 cap_max_tokens 按 registry 条目裁剪。
+///   https://longcat.chat/platform/docs/api/model-params
+/// - usage：openai wire `usage{prompt_tokens,completion_tokens,total_tokens,
+///   completion_tokens_details.reasoning_tokens}`；anthropic wire
+///   `usage{input_tokens,output_tokens}`；Responses API 使用
+///   `input_tokens_details.cached_tokens` 和 `output_tokens_details.reasoning_tokens`。
+///   https://longcat.chat/platform/docs/api/responses
+///   响应侧思考文本：openai `message.reasoning_content`、anthropic 挂在 text 块的
+///   `thinking` 字段（非标准块型）→ 基座解析按既有 reasoning_content / text 块处理，
+///   非标字段不参与计费。
+/// - 错误体：标准 OpenAI envelope（`error{message,type,code}`；429 带 `retry_after`，
+///   400 `invalid_request_error`/`invalid_parameter`）→ 基座按状态码 + 特征分类，
+///   不覆写。https://longcat.chat/platform/docs/ （Rate Limiting / Range validation 节）
+/// - 流式：Chat Completions 和 Messages 的逐帧形状未证实；Responses API 文档列出
+///   `response.completed`、`response.incomplete`、`response.failed` 等事件，正常结束
+///   时直接关闭连接，不附加 `[DONE]`。https://longcat.chat/platform/docs/api/responses
+/// - 鉴权：双 wire 均 `Authorization: Bearer`（anthropic SDK 示例也带 Bearer）→
+///   基座 openai 形鉴权头默认。
+/// - 转发层现状（grep 2026-11-25）：gateway 对 longcat 平台零特判，无 coding_plan
+///   注入等既有差异可迁；行为不变由网关回归测试锁定。
+///
+/// 结论：唯一覆写 = openai wire 禁思考走官方 `thinking.type=disabled`；其余接口继承
+/// 协议构件默认实现。
+/// https://longcat.chat/platform/docs/api/chat https://longcat.chat/platform/docs/api/messages
+pub struct LongcatAdapter;
+
+impl PlatformAdapter for LongcatAdapter {
+    /// 差异：openai wire 禁思考写官方 `thinking {"type":"disabled"}`（官方参数与基座
+    /// anthropic 臂同词表，DeepSeek 先例同形），不写基座第三方端点的 vLLM 式
+    /// `chat_template_kwargs.enable_thinking`（官方文档无此参数）。其余 wire 与
+    /// 强制思考路径同基座。
+    /// https://longcat.chat/platform/docs/api/model-params
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI | Protocol::OpenAICompletions => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+}
+
+static LONGCAT: LongcatAdapter = LongcatAdapter;
 
 /// SenseNova（商汤日日新）家族基座（issue 81；成员 sensenova / sensenova_en 共用，成员差异见子 issue #131 / #132）。
 ///
@@ -1827,6 +2258,8 @@ static COMPSHARE: CompshareFamilyAdapter = CompshareFamilyAdapter;
 static OPENCODE: OpenCodeFamilyAdapter = OpenCodeFamilyAdapter;
 static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
 static AIHUBMIX: AiHubMixAdapter = AiHubMixAdapter;
+static DEEPSEEK: DeepSeekAdapter = DeepSeekAdapter;
+static COMMAND_CODE: CommandCodeAdapter = CommandCodeAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
     carry_history_reasoning_openai: true,
@@ -1864,6 +2297,109 @@ static TENCENT_CODING: TencentFamilyAdapter = TencentFamilyAdapter {
     official_openai_thinking: false,
 };
 
+/// Magpie 网关适配器。官方参考（核对日期 2026-11-25）列出 OpenAI Chat
+/// (`/v1/chat/completions`)、Responses (`/v1/responses`)、Anthropic Messages
+/// (`/v1/messages`) 和 Gemini (`/v1beta/models/{model}:generateContent`) 端点，并称支持
+/// 流式、工具调用和推理内容；本适配器运行时使用用户配置端点。
+/// 官方 Anthropic 请求结构接受 system、max_tokens、thinking.type、thinking.budget_tokens
+/// 和 output_config.effort；Chat 接受 max_tokens、max_completion_tokens 和 reasoning_effort。
+/// Responses 用 instructions、max_output_tokens，usage 包含 input_tokens_details.cached_tokens。
+/// Chat 流输出以 `[DONE]` 结束，Anthropic 流发送 `message_stop`；Responses 发送
+/// `response.completed`、`response.incomplete` 或 `response.failed`。Gemini 支持
+/// `inlineData`、`fileData`，usage 包含 `cachedContentTokenCount`。
+/// https://github.com/yetone/magpie/blob/main/internal/gateway/gemini.go
+/// https://github.com/yetone/magpie/blob/main/internal/gateway/anthropic.go
+/// https://github.com/yetone/magpie/blob/main/internal/gateway/chat.go
+/// https://github.com/yetone/magpie/blob/main/internal/gateway/responses.go
+/// 未证实：请求默认值、各协议思考参数的完整语义、工具及媒体细节、max_tokens 上限、
+/// 错误体和各协议完整流事件；保持协议构件默认行为。
+/// 官方网关端点列表未列 OpenAI Completions；仅按 issue 验收要求，对用户配置该协议做
+/// 合成假上游兼容性测试，不表示 Magpie 官方支持该端点。
+/// https://github.com/yetone/magpie/blob/main/docs/reference.md#connecting-anything-else
+struct MagpieAdapter;
+impl PlatformAdapter for MagpieAdapter {}
+static MAGPIE: MagpieAdapter = MagpieAdapter;
+
+/// Meta Model API，官方文档核对日期 2026-11-25。
+/// Chat 支持 system/developer、工具调用及 SSE `[DONE]`，默认 temperature 和 top_p 为 1；
+/// max_completion_tokens 是输出上限，max_tokens 为兼容别名，模型不接受 reasoning_effort=none。
+/// Messages 要求 max_tokens，支持 system 文本、图片、视频和工具；推理模型不接受 disabled，
+/// enabled 的 budget_tokens 至少 1024 且小于 max_tokens，流以 message_stop 结束。
+/// usage 可包含 cache_read_input_tokens；错误采用 Anthropic error 封装。
+/// https://dev.meta.ai/docs/protocols/chat-completions
+/// https://dev.meta.ai/docs/protocols/messages
+/// 未证实：各模型的输出上限、所有工具和媒体细节、各协议完整错误体及流事件；保持默认行为。
+struct MetaAdapter;
+impl PlatformAdapter for MetaAdapter {}
+static META: MetaAdapter = MetaAdapter;
+
+/// Mistral API，官方文档核对日期 2026-11-25（Chat Completions `POST /v1/chat/completions`）。
+/// 请求字段：messages、model、max_tokens、temperature（默认随模型）、top_p、stop、stream
+/// （默认 false，SSE 以 `data: [DONE]` 结束）、n、parallel_tool_calls（默认 true）、
+/// random_seed、safe_prompt（默认 false）、response_format（text/json_object/json_schema，
+/// strict 默认 false）、reasoning_effort、prompt_mode、prompt_cache_key、tool_choice
+/// （none/auto/any/required/具名）。消息内容块：TextChunk、ThinkChunk（type=thinking，含
+/// closed 与跨轮 replay 的 signature）、ImageURLChunk（image_url + detail）、DocumentURLChunk。
+/// 响应 usage（UsageInfo）：prompt_tokens、completion_tokens、total_tokens、
+/// prompt_tokens_details.cached_tokens、prompt_audio_seconds、service_tier；choices 带
+/// finish_reason。system 经 SystemMessage 支持。
+/// https://docs.mistral.ai/llms/api/endpoint/chat/llms.txt
+/// 未证实：错误体格式、reasoning_effort 的取值词表、max_tokens 各模型上限、工具与音频细节；
+/// 保持协议构件默认行为。官方未列其他 wire 协议端点；对用户配置其他协议仅做合成假上游
+/// 兼容性测试，不表示 Mistral 官方支持。
+struct MistralAdapter;
+impl PlatformAdapter for MistralAdapter {}
+static MISTRAL: MistralAdapter = MistralAdapter;
+
+/// ModelScope（魔搭）API-Inference，官方文档核对日期 2026-11-25。
+/// LLM 提供 OpenAI API 兼容接口（`https://api-inference.modelscope.cn/v1`），支持 system
+/// 角色与流式；Anthropic API 兼容接口处于 beta，参数参照 Anthropic 官方文档；reasoning
+/// 模型的调用方式与标准 LLM 有细微差异，官方要求以各模型页面的示例代码为准。
+/// 视觉模型图片支持线上 URL 与 Base64 data URL；音频/视频生成走独立异步任务接口，
+/// 与聊天转发路径无关。
+/// https://www.modelscope.cn/docs/model-service/API-Inference/intro.md
+/// 未证实：usage 与缓存 token 字段、错误体格式、流式事件与结束标记、思考开关/档位/
+/// 预算、max_tokens 上限、工具调用细节；保持协议构件默认行为。官方未列其他 wire 协议
+/// 端点；对用户配置其他协议仅做合成假上游兼容性测试，不表示 ModelScope 官方支持。
+struct ModelscopeAdapter;
+impl PlatformAdapter for ModelscopeAdapter {}
+static MODELSCOPE: ModelscopeAdapter = ModelscopeAdapter;
+
+/// Novita AI，官方文档核对日期 2026-11-25。
+/// OpenAI 兼容接口（官方 llms.txt 写 `https://api.novita.ai/openai`；registry 内置默认
+/// `https://api.novita.ai/v3/openai` 仅用于预填表单）与 Anthropic 兼容接口
+/// （`https://api.novita.ai/anthropic`，仅部分模型）。Chat：消息角色 system/user/assistant；
+/// 内容块支持 image_url（URL 或 base64）；max_tokens 超上下文默认自动下调而非报错
+/// （context_length_exceeded_behavior）；stream 默认 false，`stream_options.include_usage`
+/// 会在 `data: [DONE]` 前追加一个整段 usage 块；工具仅支持 functions；strict 开启
+/// Structured Outputs；separate_reasoning（默认 false）把思考链放 reasoning_content；
+/// enable_thinking（默认 true）只作用于支持关闭思考的混合推理模型，常开推理模型忽略。
+/// usage 含 prompt_tokens、completion_tokens、total_tokens（文档未列缓存 token 字段）。
+/// https://docs.novita.ai/api-reference/model-apis-llm-create-chat-completion.md
+/// https://docs.novita.ai/guides/llm-anthropic-compatibility.md
+/// 未证实：错误体格式、usage 缓存字段、思考档位/预算参数、工具与媒体细节全貌；保持协议
+/// 构件默认行为。官方未列其他 wire 协议端点；对用户配置其他协议仅做合成假上游兼容性
+/// 测试，不表示 Novita 官方支持。
+struct NovitaAdapter;
+impl PlatformAdapter for NovitaAdapter {}
+static NOVITA: NovitaAdapter = NovitaAdapter;
+
+/// NVIDIA NIM 托管 API，官方资料核对日期 2026-11-25。
+/// 托管端点 base `https://integrate.api.nvidia.com/v1`（OpenAI 兼容 `/v1/chat/completions`，
+/// 官方文档站 docs.api.nvidia.com 各路径探测返回 404/429，未能取得页面原文）。
+/// NVIDIA 官方仓库证实（第 2 类来源）：请求可带顶层 `nvext` 扩展对象（NVIDIA/TensorRT-LLM
+/// `tensorrt_llm/serve/render/serving.py` 的 DYNAMO_ONLY_FIELDS；NVIDIA/NeMo-Agent-Toolkit
+/// `packages/nvidia_nat_core/src/nat/llm/dynamo_llm.py` 的 `nvext.agent_hints` 输出长度提示
+/// LOW/MEDIUM/HIGH 对应 128/512/2048 token）；思考开关经 `chat_template_kwargs` 的 thinking
+/// 字段进入 reasoning 解析器（serving.py 的 `reasoning_ended = not thinking`）。
+/// https://docs.api.nvidia.com/
+/// 未证实：请求字段默认值、usage 与缓存 token 字段、错误体格式、流式事件与结束标记、
+/// max_tokens 上限、工具/图片/system 细节；保持协议构件默认行为。官方未列其他 wire 协议
+/// 端点；对用户配置其他协议仅做合成假上游兼容性测试，不表示 NVIDIA 官方支持。
+struct NvidiaAdapter;
+impl PlatformAdapter for NvidiaAdapter {}
+static NVIDIA: NvidiaAdapter = NvidiaAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -1881,34 +2417,34 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("cline", &CLINE),
     ("cline_pass", &CLINE),
     ("codex", &OPENAI),
-    ("commandcode", &GENERIC),
+    ("commandcode", &COMMAND_CODE),
     ("compshare", &COMPSHARE),
     ("compshare_coding", &COMPSHARE),
-    ("crazyrouter", &GENERIC),
-    ("deepseek", &GENERIC),
+    ("crazyrouter", &CRAZYROUTER),
+    ("deepseek", &DEEPSEEK),
     ("devin", &GENERIC),
     ("doubao", &ARK),
-    ("gemini", &GENERIC),
+    ("gemini", &GEMINI),
     ("glm", &GLM),
     ("glm_coding", &GLM),
     ("glm_coding_en", &GLM),
     ("glm_en", &GLM),
-    ("intern_inkstone", &GENERIC),
+    ("intern_inkstone", &INTERN_INKSTONE),
     ("kimi", &KIMI),
     ("kimi_coding", &KIMI_CODING),
     ("kimi_en", &KIMI),
-    ("litellm", &GENERIC),
-    ("longcat", &GENERIC),
-    ("magpie", &GENERIC),
-    ("meta", &GENERIC),
+    ("litellm", &LITELLM),
+    ("longcat", &LONGCAT),
+    ("magpie", &MAGPIE),
+    ("meta", &META),
     ("minimax", &MINIMAX),
     ("minimax_coding", &MINIMAX_CODING),
     ("minimax_en", &MINIMAX_EN),
-    ("mistral", &GENERIC),
-    ("modelscope", &GENERIC),
+    ("mistral", &MISTRAL),
+    ("modelscope", &MODELSCOPE),
     ("newapi", &GENERIC),
-    ("novita", &GENERIC),
-    ("nvidia", &GENERIC),
+    ("novita", &NOVITA),
+    ("nvidia", &NVIDIA),
     ("openai", &OPENAI),
     ("opencode", &OPENCODE),
     ("opencode_zen", &OPENCODE),
@@ -2105,8 +2641,9 @@ mod sensenova_family_tests {
 
         assert!(std::ptr::eq(cn, en));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        assert!(!std::ptr::eq(cn, adapter_for("deepseek")));
-        assert!(!std::ptr::eq(en, adapter_for("deepseek")));
+        // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
+        assert!(!std::ptr::eq(cn, adapter_for("openrouter")));
+        assert!(!std::ptr::eq(en, adapter_for("openrouter")));
         assert!(!std::ptr::eq(cn, adapter_for("openai")));
     }
 }
@@ -2135,8 +2672,9 @@ mod openai_family_tests {
         let codex = lookup("codex").expect("Codex adapter must be registered");
         assert!(std::ptr::eq(openai, codex));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        assert!(!std::ptr::eq(openai, adapter_for("deepseek")));
-        assert!(!std::ptr::eq(codex, adapter_for("deepseek")));
+        // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
+        assert!(!std::ptr::eq(openai, adapter_for("openrouter")));
+        assert!(!std::ptr::eq(codex, adapter_for("openrouter")));
         assert!(!std::ptr::eq(openai, adapter_for("anthropic")));
     }
 }
@@ -2179,10 +2717,11 @@ mod aihubmix_tests {
     use super::*;
 
     /// issue 91：aihubmix 必须走专属适配器（显式注册），不再回落通用适配。
+    /// 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
     #[test]
     fn aihubmix_uses_registered_adapter() {
         let a = adapter_for("aihubmix");
-        assert!(!std::ptr::eq(a, adapter_for("deepseek")));
+        assert!(!std::ptr::eq(a, adapter_for("openrouter")));
     }
 
     /// 官方把错误体 response ID 改为 tid（traceId）；分类仍读 error.message/type，
@@ -2215,6 +2754,177 @@ mod aihubmix_tests {
         assert_eq!(
             a.extract_usage(gemini),
             (5, 2, 0, 0, 0, Vec::<(String, i64)>::new())
+        );
+    }
+}
+
+#[cfg(test)]
+mod deepseek_tests {
+    use super::*;
+
+    /// issue 95：deepseek 必须走专属适配器（显式注册），不再回落通用适配。
+    #[test]
+    fn deepseek_uses_dedicated_adapter() {
+        let a = adapter_for("deepseek");
+        assert!(!std::ptr::eq(a, lookup("openrouter").unwrap()));
+    }
+
+    /// 官方禁思考写法是顶层 `thinking: {"type": "disabled"}`（思考开关缺省 = 开启，
+    /// https://api-docs.deepseek.com/api/create-chat-completion 的 thinking 参数、
+    /// https://api-docs.deepseek.com/guides/thinking_mode ）；openai wire 不写基座第三方
+    /// vLLM 式 `chat_template_kwargs.enable_thinking`。anthropic wire 官方同词表，
+    /// 走基座 anthropic 臂；强制思考路径只剥不写（基座）。
+    #[test]
+    fn deepseek_openai_disable_thinking_writes_thinking_disabled() {
+        let pa = adapter_for("deepseek");
+        let mut body = serde_json::json!({
+            "model": "deepseek-flash",
+            "enable_thinking": true,
+            "thinking": {"type": "enabled"},
+            "reasoning_effort": "high",
+            "chat_template_kwargs": {"enable_thinking": true},
+        });
+        pa.apply_disable_thinking(
+            &mut body,
+            true,
+            &Protocol::OpenAI,
+            "https://api.deepseek.com/v1",
+            false,
+        );
+        assert_eq!(body["thinking"], serde_json::json!({"type": "disabled"}), "{body}");
+        assert!(body.get("reasoning_effort").is_none(), "{body}");
+        assert!(
+            body.get("chat_template_kwargs")
+                .and_then(|c| c.get("enable_thinking"))
+                .is_none(),
+            "{body}"
+        );
+        // anthropic wire：官方 enabled/disabled 词表同基座 anthropic 臂。
+        let mut anth = serde_json::json!({"model": "deepseek-flash"});
+        pa.apply_disable_thinking(
+            &mut anth,
+            true,
+            &Protocol::Anthropic,
+            "https://api.deepseek.com/anthropic",
+            false,
+        );
+        assert_eq!(anth["thinking"]["type"], "disabled", "{anth}");
+        // 强制思考：只剥禁用形参数、不写任何禁用参数（基座）。
+        let mut forced = serde_json::json!({"model": "deepseek-flash", "thinking": {"type": "disabled"}});
+        pa.apply_disable_thinking(&mut forced, true, &Protocol::OpenAI, "https://stub", true);
+        assert!(forced.get("thinking").is_none(), "{forced}");
+    }
+
+    /// tool_choice：思考模式下 openai 端点 `required` 与命名 choice 报 400、anthropic 端点
+    /// `any`（仅客户端工具时）/ `tool` 报 400（https://api-docs.deepseek.com/api/create-chat-completion
+    /// tool_choice 参数、https://api-docs.deepseek.com/guides/anthropic_api Tool Fields 节）。
+    /// 思考缺省开启：无任何思考键即视为思考模式；`thinking.type=disabled` /
+    /// `reasoning_effort="none"` 显式关闭时不降级（思考关闭时这些值官方合法）。
+    #[test]
+    fn deepseek_tool_choice_downgrades_in_thinking_mode() {
+        let pa = adapter_for("deepseek");
+        // 默认思考开启（无任何思考键）→ 降级。
+        let mut body = serde_json::json!({"model": "deepseek-flash", "tool_choice": "required"});
+        pa.adjust_tool_choice(&mut body, &Protocol::OpenAI, "deepseek-flash");
+        assert_eq!(body["tool_choice"], "auto", "{body}");
+        // 命名 choice 同样降级。
+        let mut body = serde_json::json!({"model": "m", "tool_choice": {"type": "function", "function": {"name": "f"}}});
+        pa.adjust_tool_choice(&mut body, &Protocol::OpenAI, "m");
+        assert_eq!(body["tool_choice"], "auto", "{body}");
+        // 显式禁思考 → 官方合法，保留。
+        for mut body in [
+            serde_json::json!({"model": "m", "tool_choice": "required", "thinking": {"type": "disabled"}}),
+            serde_json::json!({"model": "m", "tool_choice": "required", "reasoning_effort": "none"}),
+        ] {
+            pa.adjust_tool_choice(&mut body, &Protocol::OpenAI, "m");
+            assert_eq!(body["tool_choice"], "required", "{body}");
+        }
+        // anthropic wire：思考模式 any / tool → auto。
+        let mut body = serde_json::json!({"model": "m", "tool_choice": {"type": "any"}});
+        pa.adjust_tool_choice(&mut body, &Protocol::Anthropic, "m");
+        assert_eq!(body["tool_choice"]["type"], "auto", "{body}");
+        let mut body = serde_json::json!({"model": "m", "tool_choice": {"type": "tool", "name": "f"}});
+        pa.adjust_tool_choice(&mut body, &Protocol::Anthropic, "m");
+        assert_eq!(body["tool_choice"]["type"], "auto", "{body}");
+        // 禁思考时 anthropic wire 不降级。
+        let mut body = serde_json::json!({"model": "m", "tool_choice": {"type": "any"}, "thinking": {"type": "disabled"}});
+        pa.adjust_tool_choice(&mut body, &Protocol::Anthropic, "m");
+        assert_eq!(body["tool_choice"]["type"], "any", "{body}");
+        // auto / none / 无 tool_choice 不动。
+        let mut body = serde_json::json!({"model": "m", "tool_choice": "auto"});
+        pa.adjust_tool_choice(&mut body, &Protocol::OpenAI, "m");
+        assert_eq!(body["tool_choice"], "auto", "{body}");
+        let mut body = serde_json::json!({"model": "m"});
+        pa.adjust_tool_choice(&mut body, &Protocol::OpenAI, "m");
+        assert!(body.get("tool_choice").is_none(), "{body}");
+    }
+
+    /// 思考模式 + tools 的多轮工具历史须回传 reasoning_content（thinking_mode 工具调用节
+    /// 「带 tools 时前序各轮 reasoning_content 应回传并拼入上下文」；anthropic 官方文档：
+    /// 缺失时服务端按 tool-call ID 恢复，恢复失败即 400，「Do not rely on automatic
+    /// recovery」）。anthropic 入站的 thinking 块在 to_openai 转换中被跳过 → openai wire
+    /// 从 ChatRequest 的 thinking 块取回文本（与 hooks::carry_history_reasoning 同形）。
+    #[test]
+    fn deepseek_openai_tool_history_carries_reasoning_content() {
+        let chat_req: crate::types::ChatRequest = serde_json::from_value(serde_json::json!({
+            "model": "deepseek-v4-pro",
+            "max_tokens": 64,
+            "messages": [
+                {"role": "user", "content": "北京天气?"},
+                {"role": "assistant", "content": [
+                    {"type": "thinking", "thinking": "需要调用天气工具", "signature": "sig"},
+                    {"type": "tool_use", "id": "tu1", "name": "get_weather", "input": {"city": "北京"}}
+                ]},
+                {"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": "tu1", "content": "晴"}
+                ]}
+            ]
+        }))
+        .unwrap();
+        let (body, _) = adapter_for("deepseek").build_request(
+            &chat_req,
+            &Protocol::OpenAI,
+            &Protocol::DeepSeek,
+        );
+        let asst = body["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["role"] == "assistant" && m.get("tool_calls").is_some_and(|v| !v.is_null()))
+            .expect("转换应产出 assistant tool-call 消息");
+        assert_eq!(asst["reasoning_content"], "需要调用天气工具", "{asst}");
+    }
+
+    /// usage：DeepSeek 缓存计数 `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`
+    /// 与 `prompt_tokens_details.cached_tokens` 同源（create-chat-completion CompletionUsage
+    /// required 字段集），基座 arm 已扣 input（回归护栏，旧码已绿）。
+    #[test]
+    fn deepseek_usage_cache_arms_follow_base() {
+        let body = r#"{"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120,"prompt_cache_hit_tokens":30,"prompt_cache_miss_tokens":70,"prompt_tokens_details":{"cached_tokens":30}}}"#;
+        assert_eq!(
+            adapter_for("deepseek").extract_usage(body),
+            (70, 20, 30, 0, 0, Vec::<(String, i64)>::new())
+        );
+    }
+
+    /// 错误分类：官方错误码表（https://api-docs.deepseek.com/quick_start/error_codes）
+    /// 401 鉴权 / 402 余额 / 429 限频按状态码归服务类；400 格式错 / 422 参数错的模型类
+    /// 语义由 message 特征判定；非流式错误体 JSON schema 官方未给 → 基座分类不扩展
+    /// （回归护栏，旧码已绿）。
+    #[test]
+    fn deepseek_error_classification_tracks_base() {
+        let pa = adapter_for("deepseek");
+        assert_eq!(
+            pa.classify_error(402, r#"{"error":{"message":"Insufficient Balance"}}"#),
+            error::UpstreamErrorClass::Service
+        );
+        assert_eq!(
+            pa.classify_error(422, r#"{"error":{"message":"model not found: deepseek-x"}}"#),
+            error::UpstreamErrorClass::Model
+        );
+        assert_eq!(
+            pa.classify_error(429, r#"{"error":{"message":"rate limit"}}"#),
+            error::UpstreamErrorClass::Service
         );
     }
 }

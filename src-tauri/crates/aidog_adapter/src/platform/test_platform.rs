@@ -23,17 +23,40 @@ fn every_registry_platform_has_adapter_registration() {
     );
 }
 
+#[test]
+fn gemini_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("gemini"), super::adapter_for("deepseek")),
+        "Gemini registration must not use generic adapter"
+    );
+}
+
 /// AtlasCloud must own a platform adapter entry, even when verified behavior uses protocol defaults.
 #[test]
 fn atlascloud_has_dedicated_adapter_registration() {
     let adapter = super::adapter_for("atlascloud");
     assert!(
-        !std::ptr::eq(adapter, super::adapter_for("deepseek")),
+        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
         "AtlasCloud registration must not use generic adapter"
     );
     let mut body = json!({"model":"atlas-test"});
     adapter.inject_coding_plan(&mut body, &Protocol::AtlasCloud, &Protocol::OpenAI);
     assert_eq!(body, json!({"model":"atlas-test"}));
+}
+
+/// CrazyRouter（issue 94）must own a platform adapter entry, even when verified
+/// behavior uses protocol defaults (docs mirror official wire shapes).
+#[test]
+fn crazyrouter_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("crazyrouter");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("deepseek")),
+        "CrazyRouter registration must not use generic adapter"
+    );
+    // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
+    let mut body = json!({"model":"cr-test"});
+    adapter.inject_coding_plan(&mut body, &Protocol::CrazyRouter, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"cr-test"}));
 }
 
 #[test]
@@ -44,6 +67,55 @@ fn atlascloud_error_msg_field_classifies_model_errors() {
             r#"{"code":422,"msg":"model not found","request_id":"req-test","data":null}"#,
         ),
         UpstreamErrorClass::Model
+    );
+}
+
+/// Command Code（issue 93）must own a platform adapter entry. Provider API 页（核对日期
+/// 2026-11-24）未列平台级覆写：三 chat 协议镜像官方 schema、错误体为标准 OpenAI /
+/// Anthropic envelope、coding_plan 注入保持迁移前 no-op。https://commandcode.ai/docs/provider
+#[test]
+fn commandcode_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("commandcode");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("deepseek")),
+        "Command Code registration must not use generic adapter"
+    );
+    // coding_plan 端点注入 = 迁移前行为 no-op，不注入 prompt_cache_key。
+    let mut body = json!({"model":"cc-test"});
+    adapter.inject_coding_plan(&mut body, &Protocol::CommandCode, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"cc-test"}));
+}
+
+/// 官方错误类别（https://commandcode.ai/docs/provider，核对日期 2026-11-24）对照基座分类：
+/// 429 rate_limit_error / 401 authentication_error / 403 upgrade_required 按状态码归 Service；
+/// 502 upstream_unavailable 归 Service；400 `unsupported_model`（OpenAI code）落 Unknown
+/// （调用方按模型类处理）。
+#[test]
+fn commandcode_documented_error_envelopes_classify_per_base() {
+    let a = super::adapter_for("commandcode");
+    assert_eq!(
+        a.classify_error(429, r#"{"error":{"message":"Rate-limited by the upstream.","type":"rate_limit_error","code":"rate_limit_error"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        a.classify_error(401, r#"{"error":{"message":"Missing or invalid auth","type":"authentication_error"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        a.classify_error(403, r#"{"error":{"message":"You're on the Go plan","type":"permission_error","code":"upgrade_required"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        a.classify_error(502, r#"{"error":{"message":"We couldn't reach the model","type":"server_error","code":"upstream_unavailable"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        a.classify_error(400, r#"{"error":{"message":"Model isn't in the catalog","type":"invalid_request_error","code":"unsupported_model"}}"#),
+        UpstreamErrorClass::Unknown
+    );
+    assert_eq!(
+        a.classify_error(400, r#"{"type":"error","error":{"type":"invalid_request_error","message":"Wrong endpoint for the model"}}"#),
+        UpstreamErrorClass::Unknown
     );
 }
 
@@ -187,7 +259,8 @@ fn kimi_coding_openai_tool_history_carries_reasoning_content() {
 /// 基座默认实现与协议构件逐字节等价（issue 68：初始映射与现状等价的单元面）。
 #[test]
 fn generic_adapter_delegates_to_protocol_components() {
-    let pa = super::adapter_for("deepseek");
+    // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
+    let pa = super::adapter_for("openrouter");
     let chat_req: ChatRequest = serde_json::from_value(json!({
         "model": "deepseek-v4",
         "max_tokens": 64,
@@ -302,7 +375,7 @@ fn minimax_synthetic_base_resp_stays_unclassified() {
     );
     assert_eq!(
         adapter.classify_error(400, body),
-        super::adapter_for("deepseek").classify_error(400, body)
+        super::adapter_for("openrouter").classify_error(400, body)
     );
 }
 
@@ -315,7 +388,7 @@ fn minimax_family_preserves_generic_protocol_behavior() {
         "messages": [{ "role": "user", "content": "hello" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     let completion = json!({
         "id": "cmpl-1", "model": "MiniMax-M3",
         "choices": [{ "index": 0, "message": { "role": "assistant", "content": "hi" }, "finish_reason": "stop" }]
@@ -457,8 +530,11 @@ fn glm_family_forced_thinking_and_non_glm_unchanged() {
         super::adapter_for(code).apply_disable_thinking(&mut body, true, &Protocol::OpenAI, url, true);
         assert_eq!(body, json!({}), "{code} 强制思考应只剥禁用参数: {body}");
     }
+    // 非家族成员对照：GENERIC 注册项 openrouter 仍写基座第三方 vLLM 式参数
+    // （deepseek 自 issue 95 起为专属适配器，openai wire 写官方 thinking.type=disabled，
+    // 见 registry.rs deepseek_tests）。
     let mut body = json!({ "disable_thinking": true });
-    super::adapter_for("deepseek").apply_disable_thinking(
+    super::adapter_for("openrouter").apply_disable_thinking(
         &mut body,
         true,
         &Protocol::OpenAI,
@@ -827,7 +903,7 @@ fn byteplus_full_pipeline_matches_family_base() {
     }))
     .unwrap();
     let adapter = super::adapter_for("byteplus");
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     let platform = Protocol::BytePlus;
 
     // ① 请求构造：三协议路径与 body 同基座构件（本地假上游 URL 不参与转换）。
@@ -1139,7 +1215,7 @@ fn siliconflow_family_preserves_generic_protocol_behavior() {
         "messages": [{ "role": "user", "content": "hi" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     let completion = json!({
         "id": "cmpl-1", "model": "deepseek-ai/DeepSeek-V3.2",
         "choices": [{ "index": 0, "message": { "role": "assistant", "content": "ok" }, "finish_reason": "stop" }],
@@ -1321,7 +1397,7 @@ fn stepfun_family_preserves_generic_protocol_behavior() {
         "messages": [{ "role": "user", "content": "hi" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     let completion = json!({
         "id": "cmpl-1", "model": "step-5-preview",
         "choices": [{ "index": 0, "message": { "role": "assistant", "content": "ok" }, "finish_reason": "stop" }],
@@ -1554,7 +1630,7 @@ async fn tencent_family_protocols_use_local_upstream_and_extract_usage() {
         "messages": [{ "role": "user", "content": "hello" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     for code in ["tencent_coding", "tencent_tokenhub", "tencent_tokenhub_intl"] {
         let adapter = super::adapter_for(code);
         assert!(super::lookup(code).is_some(), "{code} registration");
@@ -1827,7 +1903,7 @@ async fn mimo_family_protocols_use_local_upstream_and_extract_usage() {
         "messages": [{ "role": "user", "content": "hello" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     for code in ["xiaomi_mimo", "xiaomi_mimo_coding", "xiaomi_mimo_coding_en"] {
         let adapter = super::adapter_for(code);
         assert!(super::lookup(code).is_some(), "{code} registration");
@@ -2126,4 +2202,174 @@ fn mimo_error_classification_status_code_only() {
         super::error::classify_upstream_error(400, r#"{"error":{"message":"bad request"}}"#),
         "400 未证实文案不扩展特征，同基座"
     );
+}
+
+/// LiteLLM Gateway（issue 98）must own a platform adapter entry, even when verified
+/// behavior uses protocol defaults (docs mirror official OpenAI wire shapes).
+#[test]
+fn litellm_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("litellm");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
+        "LiteLLM registration must not use generic adapter"
+    );
+    // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
+    let mut body = json!({"model":"lt-test"});
+    adapter.inject_coding_plan(&mut body, &Protocol::LiteLLM, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"lt-test"}));
+}
+
+/// 官方错误参考（https://docs.litellm.ai/docs/proxy/error_reference，核对日期 2026-11-25）：
+/// 401 / 429 基座已按状态码归 Service；422 BudgetExceededError 为网关预算拒绝（不点名
+/// provider、`litellm_error_type: budget_exceeded`），语义 = 整个平台 key 无可用余额 →
+/// Service（基座 422 落 Unknown，本平台唯一覆写）；400 BadRequestError 不扩展模型类
+/// 特征，同基座。
+#[test]
+fn litellm_error_envelopes_classify_per_base() {
+    let adapter = super::adapter_for("litellm");
+    assert_eq!(
+        adapter.classify_error(401, r#"{"error":{"message":"Invalid Virtual Key","type":null,"param":null,"code":"401"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        adapter.classify_error(429, r#"{"error":{"message":"Rate limit exceeded","type":"rate_limit_error","code":"429"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        adapter.classify_error(422, r#"{"error":{"message":"Budget has been exceeded!","type":"budget_exceeded","code":"422"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        adapter.classify_error(422, r#"{"error":{"message":"invalid input","type":"invalid_request_error"}}"#),
+        UpstreamErrorClass::Unknown
+    );
+    assert_eq!(
+        adapter.classify_error(400, r#"{"error":{"message":"litellm.BadRequestError: llm provider error","type":null,"code":"400"}}"#),
+        super::error::classify_upstream_error(400, r#"{"error":{"message":"litellm.BadRequestError: llm provider error","type":null,"code":"400"}}"#),
+        "400 未证实模型类特征不扩展，同基座"
+    );
+}
+
+/// 官方错误参考「Errors on the Anthropic Messages routes」节（核对日期 2026-11-25）：
+/// anthropic 路由上 `error.type` 持 Anthropic 的状态类型（如 invalid_request_error），
+/// 网关错误类型移到 `error.litellm_error_type`（budget_exceeded / team_model_access_denied /
+/// token_not_found_in_db）；预算拒绝同样可能带非默认状态码（`litellm.budget_exceeded_status_code`
+/// 可配置），故按类型匹配不限状态码。
+#[test]
+fn litellm_anthropic_route_budget_error_classifies_service() {
+    let adapter = super::adapter_for("litellm");
+    assert_eq!(
+        adapter.classify_error(
+            422,
+            r#"{"type":"error","error":{"type":"invalid_request_error","message":"Budget has been exceeded! Key=zero-budget Current cost: 0.0, Max budget: 0.0","litellm_error_type":"budget_exceeded"}}"#,
+        ),
+        UpstreamErrorClass::Service,
+        "anthropic 路由预算错误经 error.litellm_error_type 识别"
+    );
+}
+
+/// 书生·端砚（issue 97）must own a platform adapter entry, even when verified
+/// behavior uses protocol defaults (official site publishes no wire-level API doc).
+#[test]
+fn intern_inkstone_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("intern_inkstone");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
+        "InternInkstone registration must not use generic adapter"
+    );
+    // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
+    let mut body = json!({"model":"ink-test"});
+    adapter.inject_coding_plan(&mut body, &Protocol::InternInkstone, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"ink-test"}));
+}
+
+#[test]
+fn meta_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("meta"), super::adapter_for("openrouter")),
+        "Meta registration must not use the generic adapter"
+    );
+}
+
+#[test]
+fn mistral_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("mistral"), super::adapter_for("openrouter")),
+        "Mistral registration must not use the generic adapter"
+    );
+}
+
+#[test]
+fn modelscope_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("modelscope"), super::adapter_for("openrouter")),
+        "ModelScope registration must not use the generic adapter"
+    );
+}
+
+#[test]
+fn novita_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("novita"), super::adapter_for("openrouter")),
+        "Novita registration must not use the generic adapter"
+    );
+}
+
+#[test]
+fn nvidia_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("nvidia"), super::adapter_for("openrouter")),
+        "NVIDIA registration must not use the generic adapter"
+    );
+}
+
+#[test]
+fn magpie_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("magpie"), super::adapter_for("openrouter")),
+        "Magpie registration must not use the generic adapter"
+    );
+}
+
+/// LongCat（issue 99）must own a platform adapter entry.
+#[test]
+fn longcat_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("longcat");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
+        "LongCat registration must not use generic adapter"
+    );
+    // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
+    let mut body = json!({"model":"LongCat-2.5-Preview"});
+    adapter.inject_coding_plan(&mut body, &Protocol::Longcat, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"LongCat-2.5-Preview"}));
+}
+
+/// 官方 Model Parameters（https://longcat.chat/platform/docs/api/model-params，核对日期
+/// 2026-11-25）：思考开关 `thinking {"type":"enabled"|"disabled"}`，与基座 anthropic 臂
+/// 同词表；openai wire 禁思考写官方参数，不写基座第三方端点的 vLLM 式
+/// `chat_template_kwargs.enable_thinking`（官方文档无此参数）。
+#[test]
+fn longcat_disable_thinking_openai_writes_official_thinking_param() {
+    let adapter = super::adapter_for("longcat");
+    let mut body = json!({"model":"LongCat-2.5-Preview","temperature":0.9,"thinking":{"type":"enabled"}});
+    adapter.apply_disable_thinking(
+        &mut body,
+        true,
+        &Protocol::OpenAI,
+        "https://api.longcat.chat/openai/v1",
+        false,
+    );
+    assert_eq!(body["thinking"], json!({"type":"disabled"}), "{body}");
+    assert!(body.get("chat_template_kwargs").is_none(), "{body}");
+    // anthropic wire 照基座：官方参数同形。
+    let mut an = json!({"model":"LongCat-2.5-Preview","thinking":{"type":"enabled"}});
+    adapter.apply_disable_thinking(
+        &mut an,
+        true,
+        &Protocol::Anthropic,
+        "https://api.longcat.chat/anthropic",
+        false,
+    );
+    assert_eq!(an["thinking"], json!({"type":"disabled"}), "{an}");
 }
