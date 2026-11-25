@@ -3541,12 +3541,15 @@ async fn commandcode_typesafe_endpoint_decision_dispatch_usage() {
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["model"], "cc-jev-1", "决策响应透传: {v}");
 
-    let hits = hits.lock().unwrap();
-    assert_eq!(hits.len(), 1, "{hits:?}");
-    assert_eq!(hits[0].0, "/systemone", "URL = 用户 base_url + /systemone (R10)");
-    let sent: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    let hits_snapshot = hits.lock().unwrap().clone();
+    assert_eq!(hits_snapshot.len(), 1, "{hits_snapshot:?}");
+    assert_eq!(
+        hits_snapshot[0].0,
+        "/systemone",
+        "URL = 用户 base_url + /systemone (R10)"
+    );
+    let sent: serde_json::Value = serde_json::from_str(&hits_snapshot[0].1).unwrap();
     assert_eq!(sent["model"], "cc-test", "model 应改写为平台模型链首: {sent}");
-    drop(hits);
     flush_log_queue(&state).await;
     let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     let log = logs.iter().find(|l| l.group_key == "gk93ts").expect("log row missing");
