@@ -17,6 +17,7 @@ fn rev_step(fields: &[&str]) -> aidog_db::models::ActionStep {
 }
 
 fn run(e: &MiddlewareEngine, sys: &str, msg: &str) -> (InboundTexts<'static>, Result<placeholder::ScrubMap, String>) {
+    let _g = crate::reversible::TEST_SER.lock().unwrap_or_else(|e| e.into_inner());
     let mut t = InboundTexts::new("test-model");
     t.system.push(sys.to_string());
     t.messages.push(msg.to_string());
@@ -108,6 +109,7 @@ fn fixed_mask_unchanged_by_reversible_pass() {
 
 #[test]
 fn force_fail_only_when_reversible_rule_in_scope() {
+    let _g = crate::reversible::TEST_SER.lock().unwrap_or_else(|e| e.into_inner());
     let e = MiddlewareEngine::new();
     let mut scoped = mk_rule(1, "r", leaf(Target::RequestBody, "secret"), vec![rev_step(&[])]);
     scoped.applies_to.groups = vec!["g1".into()];
@@ -124,6 +126,7 @@ fn force_fail_only_when_reversible_rule_in_scope() {
 
 #[test]
 fn all_scope_applies_to_all_slot_not_only_system_messages() {
+    let _g = crate::reversible::TEST_SER.lock().unwrap_or_else(|e| e.into_inner());
     let e = MiddlewareEngine::new();
     e.rebuild_from_rules(vec![mk_rule(1, "r", leaf(Target::RequestBody, "secret"), vec![rev_step(&["all"])])]);
     assert!(e.reversible_wants_all(&settings_on(), None, 1, "test-model"));
@@ -137,6 +140,7 @@ fn all_scope_applies_to_all_slot_not_only_system_messages() {
 
 #[test]
 fn non_all_rule_does_not_want_all() {
+    let _g = crate::reversible::TEST_SER.lock().unwrap_or_else(|e| e.into_inner());
     let e = MiddlewareEngine::new();
     e.rebuild_from_rules(vec![mk_rule(1, "r", leaf(Target::RequestBody, "secret"), vec![rev_step(&["messages"])])]);
     assert!(!e.reversible_wants_all(&settings_on(), None, 1, "test-model"));
@@ -146,8 +150,94 @@ fn non_all_rule_does_not_want_all() {
     assert_eq!(t.all[0], "tool secret out", "非 all 步骤不碰 all 槽");
 }
 
+#[test]
+fn all_only_rule_not_evaluated_when_all_slot_empty() {
+    use std::sync::atomic::Ordering;
+    let _g = crate::reversible::TEST_SER.lock().unwrap_or_else(|e| e.into_inner());
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(1, "r", leaf(Target::RequestBody, "secret"), vec![rev_step(&["all"])])]);
+    crate::reversible::RULE_EVALS.store(0, Ordering::SeqCst);
+    // 透传第一趟形态：只填 system/messages，all 槽为空 → all-only 规则不求值、不替换。
+    let mut t = InboundTexts::new("test-model");
+    t.messages.push("m secret".into());
+    let map = e.apply_reversible_texts(&settings_on(), &mut t, None, 1, None).unwrap();
+    assert_eq!(crate::reversible::RULE_EVALS.load(Ordering::SeqCst), 0, "all-only 规则在 all 槽为空时不求值");
+    assert!(map.is_empty());
+    assert_eq!(t.messages[0], "m secret", "第一趟不改 system/messages");
+    // 第二趟形态：all 槽有内容 → 照常求值并替换。
+    t.all.push("tool secret out".into());
+    let map = e.apply_reversible_texts(&settings_on(), &mut t, None, 1, None).unwrap();
+    assert_eq!(crate::reversible::RULE_EVALS.load(Ordering::SeqCst), 1, "all 槽非空时照常求值");
+    assert!(!t.all[0].contains("secret"), "{:?}", t.all);
+    assert_eq!(restore(&t.all[0], &map), "tool secret out");
+}
+
+#[test]
+fn mixed_fields_rule_still_evaluated_when_all_slot_empty() {
+    use std::sync::atomic::Ordering;
+    let _g = crate::reversible::TEST_SER.lock().unwrap_or_else(|e| e.into_inner());
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(
+        1,
+        "r",
+        leaf(Target::RequestBody, "secret"),
+        vec![rev_step(&["all"]), rev_step(&["messages"])],
+    )]);
+    crate::reversible::RULE_EVALS.store(0, Ordering::SeqCst);
+    let mut t = InboundTexts::new("test-model");
+    t.messages.push("m secret".into());
+    let map = e.apply_reversible_texts(&settings_on(), &mut t, None, 1, None).unwrap();
+    assert_eq!(crate::reversible::RULE_EVALS.load(Ordering::SeqCst), 1, "含非 all 步骤的规则第一趟照常求值");
+    assert!(PLACEHOLDER_RE.is_match(&t.messages[0]));
+    assert_eq!(restore(&t.messages[0], &map), "m secret");
+}
+
+#[test]
+fn aggregate_reused_across_non_matching_rules() {
+    use std::sync::atomic::Ordering;
+    let _g = crate::reversible::TEST_SER.lock().unwrap_or_else(|e| e.into_inner());
+    let e = MiddlewareEngine::new();
+    let mut r1 = mk_rule(1, "a", leaf(Target::RequestBody, "nope-a"), vec![rev_step(&[])]);
+    let mut r2 = mk_rule(2, "b", leaf(Target::RequestBody, "nope-b"), vec![rev_step(&[])]);
+    r1.priority = 1;
+    r2.priority = 2;
+    e.rebuild_from_rules(vec![r1, r2]);
+    let mut t = InboundTexts::new("test-model");
+    t.messages.push("plain text".into());
+    crate::reversible::RULE_EVALS.store(0, Ordering::SeqCst);
+    crate::reversible::AGG_COUNT.store(0, Ordering::SeqCst);
+    let map = e.apply_reversible_texts(&settings_on(), &mut t, None, 1, None).unwrap();
+    assert_eq!(crate::reversible::RULE_EVALS.load(Ordering::SeqCst), 2, "两条规则都求值");
+    assert_eq!(crate::reversible::AGG_COUNT.load(Ordering::SeqCst), 1, "无命中时 aggregate 趟级一次");
+    assert!(map.is_empty());
+    assert_eq!(t.messages[0], "plain text", "无命中不改写");
+}
+
+#[test]
+fn aggregate_rebuilt_after_hit_for_following_rules() {
+    use std::sync::atomic::Ordering;
+    let _g = crate::reversible::TEST_SER.lock().unwrap_or_else(|e| e.into_inner());
+    let e = MiddlewareEngine::new();
+    let mut r1 = mk_rule(1, "first", leaf(Target::RequestBody, "secret"), vec![rev_step(&[])]);
+    // r2 条件匹配 "secret"：命中改写后 aggregate（占位符替换掉 secret）不应再匹配。
+    let mut r2 = mk_rule(2, "second", leaf(Target::RequestBody, "secret"), vec![rev_step(&[])]);
+    r1.priority = 1;
+    r2.priority = 2;
+    e.rebuild_from_rules(vec![r1, r2]);
+    let mut t = InboundTexts::new("test-model");
+    t.messages.push("x secret y".into());
+    crate::reversible::RULE_EVALS.store(0, Ordering::SeqCst);
+    crate::reversible::AGG_COUNT.store(0, Ordering::SeqCst);
+    let map = e.apply_reversible_texts(&settings_on(), &mut t, None, 1, None).unwrap();
+    assert_eq!(crate::reversible::RULE_EVALS.load(Ordering::SeqCst), 2, "两条规则都求值");
+    assert_eq!(crate::reversible::AGG_COUNT.load(Ordering::SeqCst), 2, "命中后按改写后文本重建，第二条独立 aggregate");
+    assert_eq!(map.len(), 1, "第二条不得在改写后文本上再次命中: {map:?}");
+    assert_eq!(restore(&t.messages[0], &map), "x secret y");
+}
+
 /// 用真实内置规则（spec 的 conditions/actions JSON）跑一遍 `all` 槽，返回 (改写后文本, 映射表)。
 fn run_builtin(name: &str, text: &str) -> (String, placeholder::ScrubMap) {
+    let _g = crate::reversible::TEST_SER.lock().unwrap_or_else(|e| e.into_inner());
     let spec = aidog_db::builtin_rule_specs().iter().find(|s| s.name == name).unwrap_or_else(|| panic!("缺内置规则 {name}"));
     let conditions: ConditionNode = serde_json::from_str(spec.conditions).unwrap();
     let actions: Vec<ActionStep> = serde_json::from_str(spec.actions).unwrap();

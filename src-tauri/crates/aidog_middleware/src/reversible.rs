@@ -17,6 +17,18 @@ use aidog_db::models::MatchType;
 
 static FORCE_FAIL: AtomicBool = AtomicBool::new(false);
 
+/// 测试缝：规则条件求值次数（all-only 跳过优化的红绿证据）。
+#[cfg(test)]
+pub(crate) static RULE_EVALS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// 测试缝：aggregate_visible 调用次数（趟级复用优化的红绿证据）。
+#[cfg(test)]
+pub(crate) static AGG_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// 测试缝：串行化涉及 FORCE_FAIL / RULE_EVALS 全局态的测试（并行互踩防护）。
+#[cfg(test)]
+pub(crate) static TEST_SER: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// 测试缝：置位后，作用域内存在可还原规则的请求应用时报错（fail-closed 路径）。
 pub fn set_reversible_force_fail(on: bool) {
     FORCE_FAIL.store(on, Ordering::SeqCst);
@@ -85,6 +97,8 @@ fn replace_segment(leaf: &RewriteLeaf, ty: &str, seg: &str, map: &mut ScrubMap) 
 }
 
 fn aggregate_visible(texts: &InboundTexts<'_>) -> String {
+    #[cfg(test)]
+    AGG_COUNT.fetch_add(1, Ordering::SeqCst);
     let mut buf = String::new();
     for t in texts.system.iter().chain(texts.messages.iter()).chain(texts.all.iter()) {
         buf.push_str(&PLACEHOLDER_RE.replace_all(t, ""));
@@ -143,16 +157,36 @@ impl MiddlewareEngine {
         if FORCE_FAIL.load(Ordering::SeqCst) {
             return Err("reversible mask forced failure".into());
         }
+        // 性能：aggregate 趟级一次。texts 只在本函数命中分支里被改写，故只要前面没有
+        // 规则命中，缓存对后续规则仍然有效；一旦命中即弃，后续规则按改写后文本重建
+        // （保持候选 1 的逐规则 aggregate 语义，输出逐字节一致）。
+        let mut agg_cache: Option<String> = None;
         for cr in rules {
-            let matched = {
-                let view = EvalView {
-                    req_text: aggregate_visible(texts),
-                    req_headers,
-                    model: texts.model,
-                    ..Default::default()
-                };
-                cr.conditions.eval(&view)
+            // 性能：`fields` 仅含 `all` 的规则只作用于 all 槽；该槽为空（透传第一趟只填
+            // system/messages）时求值与 aggregate 纯浪费——空槽上不可能命中或登记映射，
+            // 跳过不改变任何输出与 fail-open/fail-closed 语义。
+            let all_only = cr
+                .rule
+                .actions
+                .iter()
+                .filter(|s| is_reversible_step(s))
+                .all(|s| s.params.fields.iter().any(|f| f == "all"));
+            if all_only && texts.all.is_empty() {
+                continue;
+            }
+            #[cfg(test)]
+            RULE_EVALS.fetch_add(1, Ordering::SeqCst);
+            let view = EvalView {
+                req_text: match agg_cache.take() {
+                    Some(s) => s,
+                    None => aggregate_visible(texts),
+                },
+                req_headers,
+                model: texts.model,
+                ..Default::default()
             };
+            let matched = cr.conditions.eval(&view);
+            agg_cache = if matched { None } else { Some(view.req_text) };
             if !matched {
                 continue;
             }
