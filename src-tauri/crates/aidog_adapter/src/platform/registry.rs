@@ -2073,6 +2073,25 @@ struct CommandCodeAdapter;
 
 impl PlatformAdapter for CommandCodeAdapter {}
 
+/// LiteLLM Gateway: the OpenAI-compatible routes use the configured endpoint.
+/// Gateway budget errors use `budget_exceeded`; other errors use the base classifier.
+/// https://docs.litellm.ai/docs/proxy/error_reference (checked 2026-11-25).
+/// Request defaults, thinking, tools, media, system prompts, token limits, cache usage,
+/// and stream termination require further verification against the gateway documentation.
+struct LiteLlmAdapter;
+
+impl PlatformAdapter for LiteLlmAdapter {
+    fn classify_error(&self, status: u16, body: &str) -> error::UpstreamErrorClass {
+        if serde_json::from_str::<Value>(body).is_ok_and(|v| {
+            v.pointer("/error/type").and_then(Value::as_str) == Some("budget_exceeded")
+        }) {
+            return error::UpstreamErrorClass::Service;
+        }
+        error::classify_upstream_error(status, body)
+    }
+}
+
+static LITELLM: LiteLlmAdapter = LiteLlmAdapter;
 static GENERIC: GenericAdapter = GenericAdapter;
 
 /// Gemini adapter; official GenerateContent thinking guide checked 2026-11-25:
@@ -2195,7 +2214,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("kimi", &KIMI),
     ("kimi_coding", &KIMI_CODING),
     ("kimi_en", &KIMI),
-    ("litellm", &GENERIC),
+    ("litellm", &LITELLM),
     ("longcat", &GENERIC),
     ("magpie", &GENERIC),
     ("meta", &GENERIC),

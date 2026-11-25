@@ -2203,3 +2203,50 @@ fn mimo_error_classification_status_code_only() {
         "400 未证实文案不扩展特征，同基座"
     );
 }
+
+/// LiteLLM Gateway（issue 98）must own a platform adapter entry, even when verified
+/// behavior uses protocol defaults (docs mirror official OpenAI wire shapes).
+#[test]
+fn litellm_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("litellm");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("longcat")),
+        "LiteLLM registration must not use generic adapter"
+    );
+    // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
+    let mut body = json!({"model":"lt-test"});
+    adapter.inject_coding_plan(&mut body, &Protocol::LiteLLM, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"lt-test"}));
+}
+
+/// 官方错误参考（https://docs.litellm.ai/docs/proxy/error_reference，核对日期 2026-11-25）
+/// 官方错误参考（https://docs.litellm.ai/docs/proxy/error_reference，核对日期 2026-11-25）：
+/// 401 / 429 基座已按状态码归 Service；422 BudgetExceededError 为网关预算拒绝（不点名
+/// provider、`litellm_error_type: budget_exceeded`），语义 = 整个平台 key 无可用余额 →
+/// Service（基座 422 落 Unknown，本平台唯一覆写）；400 BadRequestError 不扩展模型类
+/// 特征，同基座。
+#[test]
+fn litellm_error_envelopes_classify_per_base() {
+    let adapter = super::adapter_for("litellm");
+    assert_eq!(
+        adapter.classify_error(401, r#"{"error":{"message":"Invalid Virtual Key","type":null,"param":null,"code":"401"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        adapter.classify_error(429, r#"{"error":{"message":"Rate limit exceeded","type":"rate_limit_error","code":"429"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        adapter.classify_error(422, r#"{"error":{"message":"Budget has been exceeded!","type":"budget_exceeded","code":"422"}}"#),
+        UpstreamErrorClass::Service
+    );
+    assert_eq!(
+        adapter.classify_error(422, r#"{"error":{"message":"invalid input","type":"invalid_request_error"}}"#),
+        UpstreamErrorClass::Unknown
+    );
+    assert_eq!(
+        adapter.classify_error(400, r#"{"error":{"message":"litellm.BadRequestError: llm provider error","type":null,"code":"400"}}"#),
+        super::error::classify_upstream_error(400, r#"{"error":{"message":"litellm.BadRequestError: llm provider error","type":null,"code":"400"}}"#),
+        "400 未证实模型类特征不扩展，同基座"
+    );
+}
