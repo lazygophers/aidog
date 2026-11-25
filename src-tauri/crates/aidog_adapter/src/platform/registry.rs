@@ -2333,6 +2333,24 @@ struct MetaAdapter;
 impl PlatformAdapter for MetaAdapter {}
 static META: MetaAdapter = MetaAdapter;
 
+/// Mistral API，官方文档核对日期 2026-11-25（Chat Completions `POST /v1/chat/completions`）。
+/// 请求字段：messages、model、max_tokens、temperature（默认随模型）、top_p、stop、stream
+/// （默认 false，SSE 以 `data: [DONE]` 结束）、n、parallel_tool_calls（默认 true）、
+/// random_seed、safe_prompt（默认 false）、response_format（text/json_object/json_schema，
+/// strict 默认 false）、reasoning_effort、prompt_mode、prompt_cache_key、tool_choice
+/// （none/auto/any/required/具名）。消息内容块：TextChunk、ThinkChunk（type=thinking，含
+/// closed 与跨轮 replay 的 signature）、ImageURLChunk（image_url + detail）、DocumentURLChunk。
+/// 响应 usage（UsageInfo）：prompt_tokens、completion_tokens、total_tokens、
+/// prompt_tokens_details.cached_tokens、prompt_audio_seconds、service_tier；choices 带
+/// finish_reason。system 经 SystemMessage 支持。
+/// https://docs.mistral.ai/llms/api/endpoint/chat/llms.txt
+/// 未证实：错误体格式、reasoning_effort 的取值词表、max_tokens 各模型上限、工具与音频细节；
+/// 保持协议构件默认行为。官方未列其他 wire 协议端点；对用户配置其他协议仅做合成假上游
+/// 兼容性测试，不表示 Mistral 官方支持。
+struct MistralAdapter;
+impl PlatformAdapter for MistralAdapter {}
+static MISTRAL: MistralAdapter = MistralAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -2373,7 +2391,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("minimax", &MINIMAX),
     ("minimax_coding", &MINIMAX_CODING),
     ("minimax_en", &MINIMAX_EN),
-    ("mistral", &GENERIC),
+    ("mistral", &MISTRAL),
     ("modelscope", &GENERIC),
     ("newapi", &GENERIC),
     ("novita", &GENERIC),
