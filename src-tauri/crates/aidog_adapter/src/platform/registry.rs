@@ -2384,6 +2384,22 @@ struct NovitaAdapter;
 impl PlatformAdapter for NovitaAdapter {}
 static NOVITA: NovitaAdapter = NovitaAdapter;
 
+/// NVIDIA NIM 托管 API，官方资料核对日期 2026-11-25。
+/// 托管端点 base `https://integrate.api.nvidia.com/v1`（OpenAI 兼容 `/v1/chat/completions`，
+/// 官方文档站 docs.api.nvidia.com 各路径探测返回 404/429，未能取得页面原文）。
+/// NVIDIA 官方仓库证实（第 2 类来源）：请求可带顶层 `nvext` 扩展对象（NVIDIA/TensorRT-LLM
+/// `tensorrt_llm/serve/render/serving.py` 的 DYNAMO_ONLY_FIELDS；NVIDIA/NeMo-Agent-Toolkit
+/// `packages/nvidia_nat_core/src/nat/llm/dynamo_llm.py` 的 `nvext.agent_hints` 输出长度提示
+/// LOW/MEDIUM/HIGH 对应 128/512/2048 token）；思考开关经 `chat_template_kwargs` 的 thinking
+/// 字段进入 reasoning 解析器（serving.py 的 `reasoning_ended = not thinking`）。
+/// https://docs.api.nvidia.com/
+/// 未证实：请求字段默认值、usage 与缓存 token 字段、错误体格式、流式事件与结束标记、
+/// max_tokens 上限、工具/图片/system 细节；保持协议构件默认行为。官方未列其他 wire 协议
+/// 端点；对用户配置其他协议仅做合成假上游兼容性测试，不表示 NVIDIA 官方支持。
+struct NvidiaAdapter;
+impl PlatformAdapter for NvidiaAdapter {}
+static NVIDIA: NvidiaAdapter = NvidiaAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -2428,7 +2444,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("modelscope", &MODELSCOPE),
     ("newapi", &GENERIC),
     ("novita", &NOVITA),
-    ("nvidia", &GENERIC),
+    ("nvidia", &NVIDIA),
     ("openai", &OPENAI),
     ("opencode", &OPENCODE),
     ("opencode_zen", &OPENCODE),
