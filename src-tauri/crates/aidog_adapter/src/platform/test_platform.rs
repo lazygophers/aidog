@@ -28,7 +28,7 @@ fn every_registry_platform_has_adapter_registration() {
 fn atlascloud_has_dedicated_adapter_registration() {
     let adapter = super::adapter_for("atlascloud");
     assert!(
-        !std::ptr::eq(adapter, super::adapter_for("deepseek")),
+        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
         "AtlasCloud registration must not use generic adapter"
     );
     let mut body = json!({"model":"atlas-test"});
@@ -251,7 +251,8 @@ fn kimi_coding_openai_tool_history_carries_reasoning_content() {
 /// 基座默认实现与协议构件逐字节等价（issue 68：初始映射与现状等价的单元面）。
 #[test]
 fn generic_adapter_delegates_to_protocol_components() {
-    let pa = super::adapter_for("deepseek");
+    // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
+    let pa = super::adapter_for("openrouter");
     let chat_req: ChatRequest = serde_json::from_value(json!({
         "model": "deepseek-v4",
         "max_tokens": 64,
@@ -366,7 +367,7 @@ fn minimax_synthetic_base_resp_stays_unclassified() {
     );
     assert_eq!(
         adapter.classify_error(400, body),
-        super::adapter_for("deepseek").classify_error(400, body)
+        super::adapter_for("openrouter").classify_error(400, body)
     );
 }
 
@@ -379,7 +380,7 @@ fn minimax_family_preserves_generic_protocol_behavior() {
         "messages": [{ "role": "user", "content": "hello" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     let completion = json!({
         "id": "cmpl-1", "model": "MiniMax-M3",
         "choices": [{ "index": 0, "message": { "role": "assistant", "content": "hi" }, "finish_reason": "stop" }]
@@ -521,8 +522,11 @@ fn glm_family_forced_thinking_and_non_glm_unchanged() {
         super::adapter_for(code).apply_disable_thinking(&mut body, true, &Protocol::OpenAI, url, true);
         assert_eq!(body, json!({}), "{code} 强制思考应只剥禁用参数: {body}");
     }
+    // 非家族成员对照：GENERIC 注册项 openrouter 仍写基座第三方 vLLM 式参数
+    // （deepseek 自 issue 95 起为专属适配器，openai wire 写官方 thinking.type=disabled，
+    // 见 registry.rs deepseek_tests）。
     let mut body = json!({ "disable_thinking": true });
-    super::adapter_for("deepseek").apply_disable_thinking(
+    super::adapter_for("openrouter").apply_disable_thinking(
         &mut body,
         true,
         &Protocol::OpenAI,
@@ -891,7 +895,7 @@ fn byteplus_full_pipeline_matches_family_base() {
     }))
     .unwrap();
     let adapter = super::adapter_for("byteplus");
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     let platform = Protocol::BytePlus;
 
     // ① 请求构造：三协议路径与 body 同基座构件（本地假上游 URL 不参与转换）。
@@ -1203,7 +1207,7 @@ fn siliconflow_family_preserves_generic_protocol_behavior() {
         "messages": [{ "role": "user", "content": "hi" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     let completion = json!({
         "id": "cmpl-1", "model": "deepseek-ai/DeepSeek-V3.2",
         "choices": [{ "index": 0, "message": { "role": "assistant", "content": "ok" }, "finish_reason": "stop" }],
@@ -1385,7 +1389,7 @@ fn stepfun_family_preserves_generic_protocol_behavior() {
         "messages": [{ "role": "user", "content": "hi" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     let completion = json!({
         "id": "cmpl-1", "model": "step-5-preview",
         "choices": [{ "index": 0, "message": { "role": "assistant", "content": "ok" }, "finish_reason": "stop" }],
@@ -1618,7 +1622,7 @@ async fn tencent_family_protocols_use_local_upstream_and_extract_usage() {
         "messages": [{ "role": "user", "content": "hello" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     for code in ["tencent_coding", "tencent_tokenhub", "tencent_tokenhub_intl"] {
         let adapter = super::adapter_for(code);
         assert!(super::lookup(code).is_some(), "{code} registration");
@@ -1891,7 +1895,7 @@ async fn mimo_family_protocols_use_local_upstream_and_extract_usage() {
         "messages": [{ "role": "user", "content": "hello" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("deepseek");
+    let generic = super::adapter_for("openrouter");
     for code in ["xiaomi_mimo", "xiaomi_mimo_coding", "xiaomi_mimo_coding_en"] {
         let adapter = super::adapter_for(code);
         assert!(super::lookup(code).is_some(), "{code} registration");

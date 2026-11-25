@@ -739,6 +739,167 @@ async fn atlascloud_openai_endpoint_proxy_conversion_response_stream_error_and_u
     assert!(resp.contains("model not found"), "{resp}");
 }
 
+// ══ issue 95：DeepSeek（deepseek）逐端点协议护栏（请求转换 / 非流式 / 流式 / 错误 / usage）══
+// 官方出处（核对日期 2026-11-24）：
+// - Chat Completions https://api-docs.deepseek.com/api/create-chat-completion
+//   （`/chat/completions`、usage required 含 prompt_cache_hit_tokens / prompt_cache_miss_tokens、
+//   `data: [DONE]` 结束、末 chunk 搭载 usage、思考增量 delta.reasoning_content）
+// - Anthropic API https://api-docs.deepseek.com/guides/anthropic_api
+//   （base_url `https://api.deepseek.com/anthropic`、标准事件链不发 [DONE]、
+//   usage.server_tool_use {web_search_requests, tool_search}、错误事件
+//   `{"type":"error","error":{"type","message"}}`）
+const DEEPSEEK_OPENAI_RESP: &str = r#"{"id":"ds-1","object":"chat.completion","model":"deepseek-flash","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120,"prompt_cache_hit_tokens":30,"prompt_cache_miss_tokens":70,"prompt_tokens_details":{"cached_tokens":30}}}"#;
+const DEEPSEEK_OPENAI_SSE: &str = r#"data: {"id":"ds-1","object":"chat.completion.chunk","model":"deepseek-flash","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}],"usage":null}
+
+data: {"id":"ds-1","object":"chat.completion.chunk","model":"deepseek-flash","choices":[{"index":0,"delta":{"reasoning_content":"think"},"finish_reason":null}],"usage":null}
+
+data: {"id":"ds-1","object":"chat.completion.chunk","model":"deepseek-flash","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}],"usage":null}
+
+data: {"id":"ds-1","object":"chat.completion.chunk","model":"deepseek-flash","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120,"prompt_cache_hit_tokens":30,"prompt_cache_miss_tokens":70}}
+
+data: [DONE]
+"#;
+const DEEPSEEK_OPENAI_ERROR: &str =
+    r#"{"error":{"message":"Invalid Parameters: deepseek-x is not a valid model name","type":"invalid_request_error"}}"#;
+const DEEPSEEK_ANTHROPIC_RESP: &str = r#"{"id":"msg_ds1","type":"message","role":"assistant","model":"deepseek-flash","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"cache_read_input_tokens":2,"cache_creation_input_tokens":0,"output_tokens":3}}"#;
+const DEEPSEEK_ANTHROPIC_SSE: &str = r#"event: message_start
+data: {"type":"message_start","message":{"id":"msg_ds1","type":"message","role":"assistant","model":"deepseek-flash","content":[],"usage":{"input_tokens":5,"output_tokens":0}}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":3,"server_tool_use":{"web_search_requests":1,"tool_search":1}}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+"#;
+const DEEPSEEK_ANTHROPIC_ERROR: &str =
+    r#"{"type":"error","error":{"type":"invalid_request_error","message":"model not found deepseek-x"}}"#;
+
+#[tokio::test]
+async fn deepseek_openai_endpoint_proxy_conversion_response_stream_error_and_usage() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::OpenAI,
+        "gk95oa",
+        "/v1/messages",
+        r#"{"model":"deepseek-flash","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", DEEPSEEK_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["model"], "deepseek-flash", "{request}");
+    assert_eq!(request["messages"][0]["content"], "hi", "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi", "{response}");
+    assert!(response.get("usage").is_some(), "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("deepseek").extract_usage(DEEPSEEK_OPENAI_RESP);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (70, 20, 30, 0, 0)
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::OpenAI,
+        "gk95oas",
+        "/v1/messages",
+        r#"{"model":"deepseek-flash","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", DEEPSEEK_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    assert!(
+        resp.contains("text_delta") && resp.contains("hi"),
+        "{resp}"
+    );
+    assert!(resp.contains("message_stop"), "{resp}");
+    assert!(
+        !resp.contains("[DONE]"),
+        "OpenAI upstream terminator must not leak into Anthropic output: {resp}"
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::OpenAI,
+        "gk95oae",
+        "/v1/messages",
+        r#"{"model":"deepseek-flash","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (422, "application/json", DEEPSEEK_OPENAI_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{resp}");
+    assert!(!hits.is_empty(), "fake upstream must receive request");
+    assert!(resp.contains("not a valid model name"), "{resp}");
+}
+
+#[tokio::test]
+async fn deepseek_anthropic_endpoint_proxy_conversion_response_stream_error_and_usage() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::Anthropic,
+        "gk95an",
+        "/chat/completions",
+        r#"{"model":"deepseek-flash","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", DEEPSEEK_ANTHROPIC_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["max_tokens"], 32, "{request}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(
+        response["choices"][0]["message"]["content"], "hi",
+        "{response}"
+    );
+    assert!(response.get("usage").is_some(), "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, tools) =
+        adapter_for("deepseek").extract_usage(DEEPSEEK_ANTHROPIC_RESP);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (5, 3, 2, 0, 0)
+    );
+    assert!(tools.is_empty(), "non-stream fixture has no server_tool_use");
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::Anthropic,
+        "gk95ans",
+        "/chat/completions",
+        r#"{"model":"deepseek-flash","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", DEEPSEEK_ANTHROPIC_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert!(resp.contains("\"content\":\"hi\""), "{resp}");
+    assert!(resp.contains("[DONE]"), "{resp}");
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::DeepSeek,
+        Protocol::Anthropic,
+        "gk95ane",
+        "/chat/completions",
+        r#"{"model":"deepseek-flash","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", DEEPSEEK_ANTHROPIC_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(!hits.is_empty(), "fake upstream must receive request");
+    assert!(resp.contains("model not found deepseek-x"), "{resp}");
+}
+
 // ══ issue 113：GLM（智谱）成员 `glm` 逐端点协议护栏（请求转换 / 非流式 / 流式 / 错误 / usage）══
 // 官方出处（核对日期 2026-11-16）：
 // - 对话补全 https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E5%AF%B9%E8%AF%9D%E8%A1%A5%E5%85%A8

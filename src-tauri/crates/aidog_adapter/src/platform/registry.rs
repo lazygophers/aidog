@@ -1792,6 +1792,193 @@ pub struct AiHubMixAdapter;
 
 impl PlatformAdapter for AiHubMixAdapter {}
 
+/// DeepSeek（深度求索）独立平台专属适配器（issue 95；单成员，非编码套餐）。
+///
+/// 官方文档逐项核对（核对日期 2026-11-24）：
+/// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
+///   openai `https://api.deepseek.com/v1`（`POST /chat/completions`）、anthropic
+///   `https://api.deepseek.com/anthropic`（`POST /anthropic/v1/messages`）。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/anthropic_api
+/// - 请求字段与默认值：openai 端点镜像 Chat Completions——`stream` 缺省 false、
+///   `response_format` 缺省 null、`logprobs` 缺省 false、`temperature` 取值 [0, 2]、
+///   `top_p` 取值 (0, 1] 且按模型/模式有固定值（deepseek-flash 思考模式缺省 1.0 低于
+///   0.95 按 0.95、非思考固定 1.0 忽略入参；deepseek-v4-pro 思考模式忽略入参）——
+///   上游自行裁决，不覆写。anthropic 端点：`anthropic-version` / `anthropic-beta`
+///   （除 `files-api-2025-04-14`）忽略；`top_k` / `cache_control` 忽略；`stop_sequences`
+///   ≤16 条、单条 ≤512 字节；`max_tokens` HTTP 请求可选；`container` / `mcp_servers` /
+///   `service_tier` 忽略；`metadata.user_id` 支持。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/anthropic_api
+/// - 思考参数：openai 端点顶层 `thinking: {"type": "enabled" | "disabled"}`（缺省或 null
+///   时跟 `reasoning_effort`；`reasoning_effort` 也缺省时思考**开启**）；`reasoning_effort`
+///   取值 `none` / `low` / `high` / `max`（缺省 high；`minimal`→low、`medium`/`xhigh`→high，
+///   未列值报 400——透传客户端原值，由上游裁决）。无思考预算参数（anthropic 端点
+///   `budget_tokens` 被忽略）。**禁思考覆写**：官方写法 `thinking.type=disabled`（官方示例
+///   `extra_body={"thinking": {"type": "disabled"}}`），基座 openai 第三方端点默认写 vLLM 式
+///   `chat_template_kwargs.enable_thinking=false`，官方文档无此参数 → 覆写为基座 anthropic
+///   臂同形；anthropic wire 官方 enabled/disabled 词表与基座同形，不另覆写。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/thinking_mode
+///   https://api-docs.deepseek.com/guides/anthropic_api
+/// - 工具调用与服务端工具：客户端工具 openai 形 `tools[].function`；anthropic 端点客户端
+///   工具须省略 `type`（传 `type: "custom"` 报 422）。**tool_choice 差异**：思考模式下
+///   openai 端点 `required` 与命名 choice 报 400（声明 web tools 时上游把 required 视为
+///   auto）；anthropic 端点 `any` 在思考模式仅声明服务端工具时按 auto、仅客户端工具时报
+///   400，`tool` 报 400；思考缺省开启，`thinking.type=disabled` / `reasoning_effort="none"`
+///   显式关闭时这些值合法 → [`PlatformAdapter::adjust_tool_choice`] 在思考模式下把
+///   required / 命名 choice / any / tool 降级为 auto，关闭时不降级。服务端工具：anthropic
+///   端点 `web_search_20250305`（name `web_search`）与 `deepseek_web_search` /
+///   `deepseek_read_url`；`usage.server_tool_use` 计数 `{web_search_requests, tool_search}`
+///   → 基座 server_tool_counts 开放键集已覆盖。计费口径（2026-11-18 起模型触发的服务端
+///   搜索/抓取不计费，结果按模型 token 计）不属出站适配范围。
+///   https://api-docs.deepseek.com/guides/tool_calls
+///   https://api-docs.deepseek.com/guides/anthropic_api#server-tool-usage
+///   https://api-docs.deepseek.com/quick_start/pricing
+/// - 图片与音视频：openai 端点 `image_url`（base64 / 外部 URL ≤8192 字符 / Files API
+///   file_id，file 需 anthropic-beta 头）；anthropic 端点 image `source.type` base64 / url /
+///   file。deepseek-v4-pro 不处理图片（替换为 `[Unsupported Image]`）、deepseek-flash 支持
+///   用户与 tool_result 消息图片（assistant 消息图片报 400）——形状与协议构件一致，
+///   模型差异由上游裁决，不覆写。无音视频输入端点文档（未证实项保持框架默认）。
+///   https://api-docs.deepseek.com/guides/vision
+/// - system：anthropic 端点 Fully Supported；openai 端点标准 role:system → 基座默认。
+/// - max_tokens：openai 端点 1..384K（393216），缺省非思考 8K / 思考 64K（effort max
+///   128K）；anthropic 端点可选（Claude Code / OpenCode 主代理请求的服务端兼容处理可抬高
+///   实际上限）。上限经基座 cap_max_tokens 按 registry 条目裁剪，不注入缺省值。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/anthropic_api
+/// - usage：`prompt_tokens` = `prompt_cache_hit_tokens` + `prompt_cache_miss_tokens`
+///   （两字段 required）；`prompt_tokens_details.cached_tokens`（optional）与 hit 同值；
+///   基座 usage_cache_arms 按 anthropic → openai cached_tokens → deepseek
+///   prompt_cache_hit_tokens 顺序命中并扣 input，不覆写。anthropic 端点
+///   `cache_read_input_tokens` 天然不含于 `input_tokens`（总输入 = input + cache_read +
+///   cache_creation，`cache_creation_input_tokens` 当前恒 0）→ 基座 anthropic arm 同形。
+///   服务端工具计数：openai 端点搭载末 chunk usage / 非流式 usage；anthropic 端点在
+///   message_delta.usage（message_start 不含）→ 基座 parse_sse 按帧抽取已覆盖。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/anthropic_api#streaming
+/// - 多轮 reasoning_content（思考模式）：带 tools 的请求官方要求回传前序各轮
+///   reasoning_content（拼入上下文）；不带 tools 的请求回传被忽略。anthropic 端点文档：
+///   思考内容缺失时服务端按 tool-call ID 恢复、恢复失败报 400（「Do not rely on automatic
+///   recovery」）；anthropic 入站的 thinking 块在 to_openai 转换中被跳过 →
+///   [`PlatformAdapter::build_request`] 在 openai wire 从 ChatRequest 的 thinking 块取回文本
+///   写进 assistant tool-call 消息（hooks::carry_history_reasoning，kimi_coding 先例）。
+///   https://api-docs.deepseek.com/guides/thinking_mode#tool-calls
+///   https://api-docs.deepseek.com/guides/anthropic_api
+/// - 错误体：官方错误码表 400 格式错 / 401 鉴权 / 402 余额不足 / 408·413·504 文件类 /
+///   422 参数错 / 429 限频 / 500 / 503 过载；**非流式错误体 JSON schema 官方未给（未证实）**
+///   → 分类不扩展，基座按状态码 + error.message/type 特征判定（401/402/403/429 → 服务类，
+///   其余读特征）。anthropic 端点流式：首帧超时可发无名 `data: {"error":{"message":"..."}}`
+///   帧后断连；生成中错误走 `event: error` + `{"type":"error","error":{"type","message"}}`。
+///   https://api-docs.deepseek.com/quick_start/error_codes
+///   https://api-docs.deepseek.com/guides/anthropic_api#streaming
+/// - 流式事件：openai 端点 chat.completion.chunk + `data: [DONE]`（usage 搭载 [DONE] 前最后
+///   一个内容 chunk，不发独立 usage chunk；`stream_options.include_usage` 使每 chunk 带.usage）；
+///   思考增量 `delta.reasoning_content`。anthropic 端点标准事件链 message_start →
+///   content_block_start/delta/stop → message_delta → message_stop（ping 可现），
+///   **明确不发 `data: [DONE]`** → 基座协议构件同形，不覆写。
+///   https://api-docs.deepseek.com/api/create-chat-completion
+///   https://api-docs.deepseek.com/guides/anthropic_api#streaming
+/// - 鉴权头：openai 端点 `Authorization: Bearer`；anthropic 端点 `x-api-key` 或
+///   `Authorization: Bearer` 均可 → 基座 additional_request_headers 默认空即可。
+/// - 转发层现状（grep 2026-11-24）：gateway 对 deepseek 平台零特判（billing tools_pricing /
+///   tokenizer 选择不属出站适配差异，无 coding_plan 注入 / 特殊 UA 可迁）；行为不变由
+///   网关回归测试锁定。
+///
+/// 覆写三处（均官方文档证实）：openai wire 禁思考写 `thinking.type=disabled`；思考模式下
+/// tool_choice 降级；openai wire 多轮工具历史携带 reasoning_content。其余接口继承协议构件
+/// 默认实现。
+pub struct DeepSeekAdapter;
+
+impl PlatformAdapter for DeepSeekAdapter {
+    /// 差异：思考模式 + tools 的多轮工具历史须回传 reasoning_content（官方 400 证据链与
+    /// 调用点见 struct doc「多轮 reasoning_content」节）。无 thinking 历史的请求 no-op，
+    /// openai wire 之外的 wire 不处理。
+    fn build_request(
+        &self,
+        chat_req: &crate::types::ChatRequest,
+        wire: &Protocol,
+        platform: &Protocol,
+    ) -> (Value, String) {
+        let (mut body, path) = converter::convert_request(chat_req, wire, platform);
+        if wire == &Protocol::OpenAI {
+            hooks::carry_history_reasoning(&mut body, chat_req);
+        }
+        (body, path)
+    }
+
+    /// 差异：openai 端点禁思考写官方 `thinking.type=disabled`（官方示例
+    /// `extra_body={"thinking": {"type": "disabled"}}`），不写基座第三方端点的 vLLM 式
+    /// `chat_template_kwargs.enable_thinking`（DeepSeek 文档无此参数）。官方词表与基座
+    /// anthropic 臂同形，按 anthropic 臂执行；其余 wire 与强制思考路径同基座。
+    /// https://api-docs.deepseek.com/api/create-chat-completion
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI | Protocol::OpenAICompletions => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+
+    /// 差异：思考模式下 tool_choice 降级为 auto（官方 400 证据与判定条件见 struct doc
+    /// 「工具调用与服务端工具」节）。思考缺省开启：`thinking.type=disabled` /
+    /// `reasoning_effort="none"` / `reasoning.effort="none"` 显式关闭时保留原值。
+    fn adjust_tool_choice(&self, body: &mut Value, wire: &Protocol, model: &str) {
+        let _ = model;
+        let Some(obj) = body.as_object_mut() else {
+            return;
+        };
+        let thinking_disabled = obj
+            .get("thinking")
+            .and_then(|t| t.get("type"))
+            .and_then(Value::as_str)
+            == Some("disabled")
+            || obj.get("reasoning_effort").and_then(Value::as_str) == Some("none")
+            || obj
+                .get("reasoning")
+                .and_then(|r| r.get("effort"))
+                .and_then(Value::as_str)
+                == Some("none");
+        if thinking_disabled {
+            return;
+        }
+        match wire {
+            Protocol::OpenAI | Protocol::OpenAICompletions => {
+                let downgrade = match obj.get("tool_choice") {
+                    Some(Value::String(s)) => s == "required",
+                    Some(Value::Object(m)) => {
+                        m.get("type").and_then(Value::as_str) == Some("function")
+                    }
+                    _ => false,
+                };
+                if downgrade {
+                    obj.insert("tool_choice".to_string(), Value::String("auto".to_string()));
+                }
+            }
+            Protocol::Anthropic => {
+                let downgrade = obj
+                    .get("tool_choice")
+                    .and_then(|t| t.get("type"))
+                    .and_then(Value::as_str)
+                    .is_some_and(|t| t == "any" || t == "tool");
+                if downgrade {
+                    obj.insert(
+                        "tool_choice".to_string(),
+                        serde_json::json!({"type": "auto"}),
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+}
 /// CrazyRouter 聚合平台专属适配器（issue 94；单成员，非编码套餐）。
 ///
 /// 逐项核对官方文档（核对日期 2026-11-24）：
@@ -1921,6 +2108,7 @@ static COMPSHARE: CompshareFamilyAdapter = CompshareFamilyAdapter;
 static OPENCODE: OpenCodeFamilyAdapter = OpenCodeFamilyAdapter;
 static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
 static AIHUBMIX: AiHubMixAdapter = AiHubMixAdapter;
+static DEEPSEEK: DeepSeekAdapter = DeepSeekAdapter;
 static COMMAND_CODE: CommandCodeAdapter = CommandCodeAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
@@ -1980,7 +2168,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("compshare", &COMPSHARE),
     ("compshare_coding", &COMPSHARE),
     ("crazyrouter", &CRAZYROUTER),
-    ("deepseek", &GENERIC),
+    ("deepseek", &DEEPSEEK),
     ("devin", &GENERIC),
     ("doubao", &ARK),
     ("gemini", &GENERIC),
@@ -2200,8 +2388,9 @@ mod sensenova_family_tests {
 
         assert!(std::ptr::eq(cn, en));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        assert!(!std::ptr::eq(cn, adapter_for("deepseek")));
-        assert!(!std::ptr::eq(en, adapter_for("deepseek")));
+        // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
+        assert!(!std::ptr::eq(cn, adapter_for("openrouter")));
+        assert!(!std::ptr::eq(en, adapter_for("openrouter")));
         assert!(!std::ptr::eq(cn, adapter_for("openai")));
     }
 }
@@ -2230,8 +2419,9 @@ mod openai_family_tests {
         let codex = lookup("codex").expect("Codex adapter must be registered");
         assert!(std::ptr::eq(openai, codex));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        assert!(!std::ptr::eq(openai, adapter_for("deepseek")));
-        assert!(!std::ptr::eq(codex, adapter_for("deepseek")));
+        // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
+        assert!(!std::ptr::eq(openai, adapter_for("openrouter")));
+        assert!(!std::ptr::eq(codex, adapter_for("openrouter")));
         assert!(!std::ptr::eq(openai, adapter_for("anthropic")));
     }
 }
@@ -2274,10 +2464,11 @@ mod aihubmix_tests {
     use super::*;
 
     /// issue 91：aihubmix 必须走专属适配器（显式注册），不再回落通用适配。
+    /// 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
     #[test]
     fn aihubmix_uses_registered_adapter() {
         let a = adapter_for("aihubmix");
-        assert!(!std::ptr::eq(a, adapter_for("deepseek")));
+        assert!(!std::ptr::eq(a, adapter_for("openrouter")));
     }
 
     /// 官方把错误体 response ID 改为 tid（traceId）；分类仍读 error.message/type，
@@ -2310,6 +2501,177 @@ mod aihubmix_tests {
         assert_eq!(
             a.extract_usage(gemini),
             (5, 2, 0, 0, 0, Vec::<(String, i64)>::new())
+        );
+    }
+}
+
+#[cfg(test)]
+mod deepseek_tests {
+    use super::*;
+
+    /// issue 95：deepseek 必须走专属适配器（显式注册），不再回落通用适配。
+    #[test]
+    fn deepseek_uses_dedicated_adapter() {
+        let a = adapter_for("deepseek");
+        assert!(!std::ptr::eq(a, lookup("openrouter").unwrap()));
+    }
+
+    /// 官方禁思考写法是顶层 `thinking: {"type": "disabled"}`（思考开关缺省 = 开启，
+    /// https://api-docs.deepseek.com/api/create-chat-completion 的 thinking 参数、
+    /// https://api-docs.deepseek.com/guides/thinking_mode ）；openai wire 不写基座第三方
+    /// vLLM 式 `chat_template_kwargs.enable_thinking`。anthropic wire 官方同词表，
+    /// 走基座 anthropic 臂；强制思考路径只剥不写（基座）。
+    #[test]
+    fn deepseek_openai_disable_thinking_writes_thinking_disabled() {
+        let pa = adapter_for("deepseek");
+        let mut body = serde_json::json!({
+            "model": "deepseek-flash",
+            "enable_thinking": true,
+            "thinking": {"type": "enabled"},
+            "reasoning_effort": "high",
+            "chat_template_kwargs": {"enable_thinking": true},
+        });
+        pa.apply_disable_thinking(
+            &mut body,
+            true,
+            &Protocol::OpenAI,
+            "https://api.deepseek.com/v1",
+            false,
+        );
+        assert_eq!(body["thinking"], serde_json::json!({"type": "disabled"}), "{body}");
+        assert!(body.get("reasoning_effort").is_none(), "{body}");
+        assert!(
+            body.get("chat_template_kwargs")
+                .and_then(|c| c.get("enable_thinking"))
+                .is_none(),
+            "{body}"
+        );
+        // anthropic wire：官方 enabled/disabled 词表同基座 anthropic 臂。
+        let mut anth = serde_json::json!({"model": "deepseek-flash"});
+        pa.apply_disable_thinking(
+            &mut anth,
+            true,
+            &Protocol::Anthropic,
+            "https://api.deepseek.com/anthropic",
+            false,
+        );
+        assert_eq!(anth["thinking"]["type"], "disabled", "{anth}");
+        // 强制思考：只剥禁用形参数、不写任何禁用参数（基座）。
+        let mut forced = serde_json::json!({"model": "deepseek-flash", "thinking": {"type": "disabled"}});
+        pa.apply_disable_thinking(&mut forced, true, &Protocol::OpenAI, "https://stub", true);
+        assert!(forced.get("thinking").is_none(), "{forced}");
+    }
+
+    /// tool_choice：思考模式下 openai 端点 `required` 与命名 choice 报 400、anthropic 端点
+    /// `any`（仅客户端工具时）/ `tool` 报 400（https://api-docs.deepseek.com/api/create-chat-completion
+    /// tool_choice 参数、https://api-docs.deepseek.com/guides/anthropic_api Tool Fields 节）。
+    /// 思考缺省开启：无任何思考键即视为思考模式；`thinking.type=disabled` /
+    /// `reasoning_effort="none"` 显式关闭时不降级（思考关闭时这些值官方合法）。
+    #[test]
+    fn deepseek_tool_choice_downgrades_in_thinking_mode() {
+        let pa = adapter_for("deepseek");
+        // 默认思考开启（无任何思考键）→ 降级。
+        let mut body = serde_json::json!({"model": "deepseek-flash", "tool_choice": "required"});
+        pa.adjust_tool_choice(&mut body, &Protocol::OpenAI, "deepseek-flash");
+        assert_eq!(body["tool_choice"], "auto", "{body}");
+        // 命名 choice 同样降级。
+        let mut body = serde_json::json!({"model": "m", "tool_choice": {"type": "function", "function": {"name": "f"}}});
+        pa.adjust_tool_choice(&mut body, &Protocol::OpenAI, "m");
+        assert_eq!(body["tool_choice"], "auto", "{body}");
+        // 显式禁思考 → 官方合法，保留。
+        for mut body in [
+            serde_json::json!({"model": "m", "tool_choice": "required", "thinking": {"type": "disabled"}}),
+            serde_json::json!({"model": "m", "tool_choice": "required", "reasoning_effort": "none"}),
+        ] {
+            pa.adjust_tool_choice(&mut body, &Protocol::OpenAI, "m");
+            assert_eq!(body["tool_choice"], "required", "{body}");
+        }
+        // anthropic wire：思考模式 any / tool → auto。
+        let mut body = serde_json::json!({"model": "m", "tool_choice": {"type": "any"}});
+        pa.adjust_tool_choice(&mut body, &Protocol::Anthropic, "m");
+        assert_eq!(body["tool_choice"]["type"], "auto", "{body}");
+        let mut body = serde_json::json!({"model": "m", "tool_choice": {"type": "tool", "name": "f"}});
+        pa.adjust_tool_choice(&mut body, &Protocol::Anthropic, "m");
+        assert_eq!(body["tool_choice"]["type"], "auto", "{body}");
+        // 禁思考时 anthropic wire 不降级。
+        let mut body = serde_json::json!({"model": "m", "tool_choice": {"type": "any"}, "thinking": {"type": "disabled"}});
+        pa.adjust_tool_choice(&mut body, &Protocol::Anthropic, "m");
+        assert_eq!(body["tool_choice"]["type"], "any", "{body}");
+        // auto / none / 无 tool_choice 不动。
+        let mut body = serde_json::json!({"model": "m", "tool_choice": "auto"});
+        pa.adjust_tool_choice(&mut body, &Protocol::OpenAI, "m");
+        assert_eq!(body["tool_choice"], "auto", "{body}");
+        let mut body = serde_json::json!({"model": "m"});
+        pa.adjust_tool_choice(&mut body, &Protocol::OpenAI, "m");
+        assert!(body.get("tool_choice").is_none(), "{body}");
+    }
+
+    /// 思考模式 + tools 的多轮工具历史须回传 reasoning_content（thinking_mode 工具调用节
+    /// 「带 tools 时前序各轮 reasoning_content 应回传并拼入上下文」；anthropic 官方文档：
+    /// 缺失时服务端按 tool-call ID 恢复，恢复失败即 400，「Do not rely on automatic
+    /// recovery」）。anthropic 入站的 thinking 块在 to_openai 转换中被跳过 → openai wire
+    /// 从 ChatRequest 的 thinking 块取回文本（与 hooks::carry_history_reasoning 同形）。
+    #[test]
+    fn deepseek_openai_tool_history_carries_reasoning_content() {
+        let chat_req: crate::types::ChatRequest = serde_json::from_value(serde_json::json!({
+            "model": "deepseek-v4-pro",
+            "max_tokens": 64,
+            "messages": [
+                {"role": "user", "content": "北京天气?"},
+                {"role": "assistant", "content": [
+                    {"type": "thinking", "thinking": "需要调用天气工具", "signature": "sig"},
+                    {"type": "tool_use", "id": "tu1", "name": "get_weather", "input": {"city": "北京"}}
+                ]},
+                {"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": "tu1", "content": "晴"}
+                ]}
+            ]
+        }))
+        .unwrap();
+        let (body, _) = adapter_for("deepseek").build_request(
+            &chat_req,
+            &Protocol::OpenAI,
+            &Protocol::DeepSeek,
+        );
+        let asst = body["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["role"] == "assistant" && m.get("tool_calls").is_some_and(|v| !v.is_null()))
+            .expect("转换应产出 assistant tool-call 消息");
+        assert_eq!(asst["reasoning_content"], "需要调用天气工具", "{asst}");
+    }
+
+    /// usage：DeepSeek 缓存计数 `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`
+    /// 与 `prompt_tokens_details.cached_tokens` 同源（create-chat-completion CompletionUsage
+    /// required 字段集），基座 arm 已扣 input（回归护栏，旧码已绿）。
+    #[test]
+    fn deepseek_usage_cache_arms_follow_base() {
+        let body = r#"{"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120,"prompt_cache_hit_tokens":30,"prompt_cache_miss_tokens":70,"prompt_tokens_details":{"cached_tokens":30}}}"#;
+        assert_eq!(
+            adapter_for("deepseek").extract_usage(body),
+            (70, 20, 30, 0, 0, Vec::<(String, i64)>::new())
+        );
+    }
+
+    /// 错误分类：官方错误码表（https://api-docs.deepseek.com/quick_start/error_codes）
+    /// 401 鉴权 / 402 余额 / 429 限频按状态码归服务类；400 格式错 / 422 参数错的模型类
+    /// 语义由 message 特征判定；非流式错误体 JSON schema 官方未给 → 基座分类不扩展
+    /// （回归护栏，旧码已绿）。
+    #[test]
+    fn deepseek_error_classification_tracks_base() {
+        let pa = adapter_for("deepseek");
+        assert_eq!(
+            pa.classify_error(402, r#"{"error":{"message":"Insufficient Balance"}}"#),
+            error::UpstreamErrorClass::Service
+        );
+        assert_eq!(
+            pa.classify_error(422, r#"{"error":{"message":"model not found: deepseek-x"}}"#),
+            error::UpstreamErrorClass::Model
+        );
+        assert_eq!(
+            pa.classify_error(429, r#"{"error":{"message":"rate limit"}}"#),
+            error::UpstreamErrorClass::Service
         );
     }
 }
