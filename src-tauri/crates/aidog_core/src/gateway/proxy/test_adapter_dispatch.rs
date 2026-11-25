@@ -3922,3 +3922,60 @@ async fn intern_inkstone_anthropic_endpoint_dispatch() {
     assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
     assert!(resp.contains("invalid api key"), "{resp}");
 }
+
+// issue 99：LongCat 双协议（registry 内置默认 anthropic / openai）都由用户端点配置驱动，
+// 经本地假上游覆盖转换、响应、流、错误与 usage。
+const LONGCAT_OPENAI_RESP: &str = r#"{"id":"chatcmpl_lc","object":"chat.completion","model":"LongCat-2.5-Preview","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"completion_tokens_details":{"reasoning_tokens":2}}}"#;
+const LONGCAT_OPENAI_SSE: &str = concat!(
+    "data: {\"id\":\"chatcmpl_lc\",\"object\":\"chat.completion.chunk\",\"model\":\"LongCat-2.5-Preview\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+    "data: {\"id\":\"chatcmpl_lc\",\"object\":\"chat.completion.chunk\",\"model\":\"LongCat-2.5-Preview\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13}}\n\n",
+    "data: [DONE]\n\n",
+);
+const LONGCAT_ANTHROPIC_RESP: &str = r#"{"id":"msg_lc","type":"message","role":"assistant","model":"LongCat-2.5-Preview","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3}}"#;
+const LONGCAT_ANTHROPIC_SSE: &str = concat!(
+    "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_lc\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"LongCat-2.5-Preview\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0}}}\n\n",
+    "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+    "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+    "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n",
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+);
+const LONGCAT_ERROR: &str = r#"{"error":{"code":"rate_limit_exceeded","message":"Request rate limit exceeded, please try again later","type":"rate_limit_error","retry_after":60}}"#;
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic；流式末帧 usage 后 `[DONE]`；
+/// 429 限频归服务类、末次尝试原样透传；usage 无缓存字段（prompt 10 全额计 input）。
+#[tokio::test]
+async fn longcat_openai_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::Longcat, Protocol::OpenAI, "gk99oa", "/v1/messages", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", LONGCAT_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "LongCat-2.5-Preview");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("longcat").extract_usage(LONGCAT_OPENAI_RESP).0, 10);
+    let (status, resp, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAI, "gk99oas", "/v1/messages", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", LONGCAT_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::Longcat, Protocol::OpenAI, "gk99oae", "/v1/messages", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (429, "application/json", LONGCAT_ERROR)).await;
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS, "{resp}");
+    assert!(resp.contains("rate limit exceeded"), "{resp}");
+}
+
+/// anthropic 端点：出站打 `/v1/messages`；非流式回 openai 形状；流式透传标准事件链；
+/// usage 走基座 anthropic 臂（input 6 − cache 0）。
+#[tokio::test]
+async fn longcat_anthropic_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::Longcat, Protocol::Anthropic, "gk99an", "/chat/completions", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", LONGCAT_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["choices"][0]["message"]["content"], "hi");
+    assert_eq!(adapter_for("longcat").extract_usage(LONGCAT_ANTHROPIC_RESP).0, 6);
+    let (status, resp, _) = glm_member_call(Protocol::Longcat, Protocol::Anthropic, "gk99ans", "/chat/completions", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", LONGCAT_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::Longcat, Protocol::Anthropic, "gk99ane", "/chat/completions", r#"{"model":"LongCat-2.5-Preview","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"/top_p: 2 is not less or equal to 1"}}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("top_p"), "{resp}");
+}

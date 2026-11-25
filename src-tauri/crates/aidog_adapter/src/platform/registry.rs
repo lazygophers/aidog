@@ -2149,6 +2149,79 @@ impl PlatformAdapter for InternInkstoneAdapter {}
 
 static INTERN_INKSTONE: InternInkstoneAdapter = InternInkstoneAdapter;
 
+/// LongCat（龙猫）专属适配器（issue 99；单成员，非编码套餐）。
+///
+/// 逐项核对（核对日期 2026-11-25）：
+/// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
+///   anthropic `https://api.longcat.chat/anthropic`（出站 `/v1/messages`）、
+///   openai `https://api.longcat.chat/openai`（出站 `/v1/chat/completions`）。
+///   https://longcat.chat/platform/docs/
+/// - 请求字段：双 wire 标准 envelope（model / messages / max_tokens / stream / top_p；
+///   anthropic wire `temperature` 0~1、system 走顶层参数）。`temperature` 官方固定
+///   （思考开 1.0 / 关 0.7），其他值**被覆写不报错** → 不剥客户端值（与 kimi 报错语义
+///   不同），保持基座透传。
+///   https://longcat.chat/platform/docs/api/chat https://longcat.chat/platform/docs/api/messages
+/// - 思考：双 wire 官方参数 `thinking {"type":"enabled"|"disabled"}`（无 budget_tokens 形；
+///   `thinking_budget` 固定 65536、其他值忽略）。**禁思考覆写**：openai wire 官方参数与
+///   基座 anthropic 臂同词表 → 按 anthropic 臂执行，不写基座第三方端点的 vLLM 式
+///   `chat_template_kwargs.enable_thinking`（官方文档无此参数）。思考开启路径：openai
+///   协议构件写 `reasoning_effort` 档位，官方文档未列该参数（未证实）→ 保持基座默认，
+///   上游未证实会拒未知字段。
+///   https://longcat.chat/platform/docs/api/model-params
+/// - 工具调用与服务端工具：API 文档无工具调用页（导航 Tools 均为客户端集成指南）
+///   → 未证实，基座协议构件默认。
+/// - 图片与音视频：另有 Visual Understanding 页（图片/视频理解端点），chat 端点多模态
+///   形状未在 Chat Completions 文档出现 → 未证实，基座默认。
+///   https://longcat.chat/platform/docs/image-video-understanding
+/// - system：anthropic wire 顶层参数（标准）；openai wire role:system（标准）→ 基座。
+/// - max_tokens 上限：LongCat-2.5 上下文 1,048,576、max_tokens 262,144（registry 条目
+///   同值，超限 400 invalid_parameter）→ 基座 cap_max_tokens 按 registry 条目裁剪。
+///   https://longcat.chat/platform/docs/api/model-params
+/// - usage：openai wire `usage{prompt_tokens,completion_tokens,total_tokens,
+///   completion_tokens_details.reasoning_tokens}`；anthropic wire
+///   `usage{input_tokens,output_tokens}`。无缓存 token 字段 → 基座 usage 臂。
+///   响应侧思考文本：openai `message.reasoning_content`、anthropic 挂在 text 块的
+///   `thinking` 字段（非标准块型）→ 基座解析按既有 reasoning_content / text 块处理，
+///   非标字段不参与计费。
+/// - 错误体：标准 OpenAI envelope（`error{message,type,code}`；429 带 `retry_after`，
+///   400 `invalid_request_error`/`invalid_parameter`）→ 基座按状态码 + 特征分类，
+///   不覆写。https://longcat.chat/platform/docs/ （Rate Limiting / Range validation 节）
+/// - 流式：双 wire 官方声明支持 SSE；帧级事件形状官方文档未给逐帧示例 → 未证实，
+///   基座协议构件默认。
+/// - 鉴权：双 wire 均 `Authorization: Bearer`（anthropic SDK 示例也带 Bearer）→
+///   基座 openai 形鉴权头默认。
+/// - 转发层现状（grep 2026-11-25）：gateway 对 longcat 平台零特判，无 coding_plan
+///   注入等既有差异可迁；行为不变由网关回归测试锁定。
+///
+/// 结论：唯一覆写 = openai wire 禁思考走官方 `thinking.type=disabled`；其余接口继承
+/// 协议构件默认实现。
+/// https://longcat.chat/platform/docs/api/chat https://longcat.chat/platform/docs/api/messages
+pub struct LongcatAdapter;
+
+impl PlatformAdapter for LongcatAdapter {
+    /// 差异：openai wire 禁思考写官方 `thinking {"type":"disabled"}`（官方参数与基座
+    /// anthropic 臂同词表，DeepSeek 先例同形），不写基座第三方端点的 vLLM 式
+    /// `chat_template_kwargs.enable_thinking`（官方文档无此参数）。其余 wire 与
+    /// 强制思考路径同基座。
+    /// https://longcat.chat/platform/docs/api/model-params
+    fn apply_disable_thinking(
+        &self,
+        body: &mut Value,
+        disable: bool,
+        wire: &Protocol,
+        upstream_url: &str,
+        forced_thinking: bool,
+    ) {
+        let wire = match wire {
+            Protocol::OpenAI | Protocol::OpenAICompletions => &Protocol::Anthropic,
+            w => w,
+        };
+        hooks::apply_disable_thinking(body, disable, wire, upstream_url, forced_thinking)
+    }
+}
+
+static LONGCAT: LongcatAdapter = LongcatAdapter;
+
 /// SenseNova（商汤日日新）家族基座（issue 81；成员 sensenova / sensenova_en 共用，成员差异见子 issue #131 / #132）。
 ///
 /// 家族共性取证（核对日期 2026-11-24）：
@@ -2255,7 +2328,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("kimi_coding", &KIMI_CODING),
     ("kimi_en", &KIMI),
     ("litellm", &LITELLM),
-    ("longcat", &GENERIC),
+    ("longcat", &LONGCAT),
     ("magpie", &GENERIC),
     ("meta", &GENERIC),
     ("minimax", &MINIMAX),

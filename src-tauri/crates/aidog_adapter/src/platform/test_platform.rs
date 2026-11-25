@@ -2210,7 +2210,7 @@ fn mimo_error_classification_status_code_only() {
 fn litellm_has_dedicated_adapter_registration() {
     let adapter = super::adapter_for("litellm");
     assert!(
-        !std::ptr::eq(adapter, super::adapter_for("longcat")),
+        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
         "LiteLLM registration must not use generic adapter"
     );
     // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
@@ -2274,11 +2274,54 @@ fn litellm_anthropic_route_budget_error_classifies_service() {
 fn intern_inkstone_has_dedicated_adapter_registration() {
     let adapter = super::adapter_for("intern_inkstone");
     assert!(
-        !std::ptr::eq(adapter, super::adapter_for("longcat")),
+        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
         "InternInkstone registration must not use generic adapter"
     );
     // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
     let mut body = json!({"model":"ink-test"});
     adapter.inject_coding_plan(&mut body, &Protocol::InternInkstone, &Protocol::OpenAI);
     assert_eq!(body, json!({"model":"ink-test"}));
+}
+
+/// LongCat（issue 99）must own a platform adapter entry.
+#[test]
+fn longcat_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("longcat");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
+        "LongCat registration must not use generic adapter"
+    );
+    // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
+    let mut body = json!({"model":"LongCat-2.5-Preview"});
+    adapter.inject_coding_plan(&mut body, &Protocol::Longcat, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"LongCat-2.5-Preview"}));
+}
+
+/// 官方 Model Parameters（https://longcat.chat/platform/docs/api/model-params，核对日期
+/// 2026-11-25）：思考开关 `thinking {"type":"enabled"|"disabled"}`，与基座 anthropic 臂
+/// 同词表；openai wire 禁思考写官方参数，不写基座第三方端点的 vLLM 式
+/// `chat_template_kwargs.enable_thinking`（官方文档无此参数）。
+#[test]
+fn longcat_disable_thinking_openai_writes_official_thinking_param() {
+    let adapter = super::adapter_for("longcat");
+    let mut body = json!({"model":"LongCat-2.5-Preview","temperature":0.9,"thinking":{"type":"enabled"}});
+    adapter.apply_disable_thinking(
+        &mut body,
+        true,
+        &Protocol::OpenAI,
+        "https://api.longcat.chat/openai/v1",
+        false,
+    );
+    assert_eq!(body["thinking"], json!({"type":"disabled"}), "{body}");
+    assert!(body.get("chat_template_kwargs").is_none(), "{body}");
+    // anthropic wire 照基座：官方参数同形。
+    let mut an = json!({"model":"LongCat-2.5-Preview","thinking":{"type":"enabled"}});
+    adapter.apply_disable_thinking(
+        &mut an,
+        true,
+        &Protocol::Anthropic,
+        "https://api.longcat.chat/anthropic",
+        false,
+    );
+    assert_eq!(an["thinking"], json!({"type":"disabled"}), "{an}");
 }
