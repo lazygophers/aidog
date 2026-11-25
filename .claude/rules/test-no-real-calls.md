@@ -24,6 +24,8 @@
 
 全部已知写入者用 `aidog_db/src/test_support.rs` 的 `HomeGuard` 隔离，但无全局拦截，未来新测试漏用会静默写真实 HOME（真实用户的 `~/.aidog`）。
 
+- **触碰 HOME / CODEX_HOME / 配置点目录的测试一律 `HomeGuard::new()`**（tempdir 唯一 HOME + ENV_LOCK 与其它 HomeGuard 测试串行）；测试内拉子进程时单独 `env("HOME", 独立 tempdir)`。cargo test 默认并行，共用进程级 HOME env 的两个测试互相污染，症状是间歇红、单跑绿——单跑绿不构成修复证据，验证加 `--test-threads=4` 多轮复跑。
+
 - **何时跑**：改动 `test_support.rs` / `HomeGuard`、新增触碰 FS 的测试、或怀疑有测试写真实 HOME 时手动跑；不挂 `make lint` 常规链（全量一轮太重），可选定期执行。
 - **怎么跑**：
   ```sh
