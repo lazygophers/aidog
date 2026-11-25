@@ -2436,6 +2436,23 @@ struct TherouterAdapter;
 impl PlatformAdapter for TherouterAdapter {}
 static THEROUTER: TherouterAdapter = TherouterAdapter;
 
+/// 基元律动 TokenRhythm，官方文档核对日期 2026-11-25（https://tokenrhythm.studio/docs/api-integration ）。
+/// 端点：GET /v1/models、POST /v1/chat/completions（OpenAI）、POST /v1/messages（Anthropic）、
+/// POST /v1/embeddings；JEV 决策与 Wan 视频为独立接口，不经聊天转发。统一 base
+/// `https://tokenrhythm.studio/v1`，Bearer 鉴权。Anthropic：anthropic-version 未传或为空
+/// 时默认按 2023-06-01 处理，显式传入不校验白名单、向上游透传；max_tokens 必填。
+/// 流式：OpenAI 传 stream:true 后按 SSE 返回，增量在 choices[0].delta.content；Anthropic
+/// 按原生 Messages 流式事件返回，两种协议解析器不混用。工具：支持 OpenAI tools、
+/// tool_choice、tool_calls；DeepSeek 的 tool_choice 只收 none/auto/required，不收对象形式。
+/// 错误体统一 {code, message, traceId}；401 密钥无效、403 未获灰度权限、413 请求体超限、
+/// 422 参数或上游输入限制、429 容量限流、502/503/504 上游故障。
+/// 未证实：usage 缓存 token 字段、思考开关/档位、max_tokens 上限、图片与音视频细节；
+/// 保持协议构件默认行为。官方未列其他 wire 协议端点；对用户配置其他协议仅做合成假上游
+/// 兼容性测试，不表示 TokenRhythm 官方支持。
+struct TokenrhythmAdapter;
+impl PlatformAdapter for TokenrhythmAdapter {}
+static TOKENRHYTHM: TokenrhythmAdapter = TokenrhythmAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -2500,7 +2517,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("tencent_tokenhub", &TENCENT),
     ("tencent_tokenhub_intl", &TENCENT),
     ("therouter", &THEROUTER),
-    ("tokenrhythm", &GENERIC),
+    ("tokenrhythm", &TOKENRHYTHM),
     ("typesafe", &GENERIC),
     ("xai", &GENERIC),
     ("xiaomi_mimo", &MIMO),

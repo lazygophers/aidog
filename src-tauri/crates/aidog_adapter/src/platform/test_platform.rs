@@ -2292,6 +2292,14 @@ fn therouter_has_dedicated_adapter_registration() {
 }
 
 #[test]
+fn tokenrhythm_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("tokenrhythm"), super::adapter_for("devin")),
+        "TokenRhythm registration must not use the generic adapter"
+    );
+}
+
+#[test]
 fn meta_has_dedicated_adapter_registration() {
     assert!(
         !std::ptr::eq(super::adapter_for("meta"), super::adapter_for("devin")),
