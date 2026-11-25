@@ -3757,3 +3757,86 @@ async fn commandcode_typesafe_endpoint_decision_dispatch_usage() {
     let log = logs.iter().find(|l| l.group_key == "gk93ts").expect("log row missing");
     assert_eq!(log.input_tokens, 84, "typesafe usage.input_tokens 应落库");
 }
+
+// issue 97：书生·端砚三协议（openai / openai_responses / anthropic）都由用户端点配置驱动，
+// 经本地假上游覆盖转换、响应、流、错误与 usage。官方无线级文档，形状按协议标准（第三方多源佐证）。
+const INK_OPENAI_RESP: &str = r#"{"id":"ink_1","object":"chat.completion","model":"ink-test","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":4}}}"#;
+const INK_OPENAI_SSE: &str = concat!(
+    "data: {\"id\":\"ink_1\",\"object\":\"chat.completion.chunk\",\"model\":\"ink-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+    "data: {\"id\":\"ink_1\",\"object\":\"chat.completion.chunk\",\"model\":\"ink-test\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":4}}}\n\n",
+    "data: [DONE]\n\n",
+);
+const INK_RESPONSES_RESP: &str = r#"{"id":"resp_ink","object":"response","model":"ink-test","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"hi","annotations":[]}]}],"usage":{"input_tokens":6,"output_tokens":2,"input_tokens_details":{"cached_tokens":4}}}"#;
+const INK_RESPONSES_SSE: &str = concat!(
+    "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\n",
+    "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_ink\",\"status\":\"completed\",\"usage\":{\"input_tokens\":6,\"output_tokens\":2}}}\n\n",
+);
+const INK_ANTHROPIC_RESP: &str = r#"{"id":"msg_ink","type":"message","role":"assistant","model":"ink-test","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":1}}"#;
+const INK_ANTHROPIC_SSE: &str = concat!(
+    "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_ink\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"ink-test\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":2,\"cache_creation_input_tokens\":1}}}\n\n",
+    "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+    "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+    "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n",
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+);
+const INK_ERROR: &str = r#"{"error":{"message":"invalid api key","type":"authentication_error"}}"#;
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic；流式末帧 usage 后 `[DONE]`；
+/// 401 归服务类；usage 缓存扣减（prompt 10 − cached 4 = 6）。
+#[tokio::test]
+async fn intern_inkstone_openai_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::InternInkstone, Protocol::OpenAI, "gk97oa", "/v1/messages", r#"{"model":"ink-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", INK_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "ink-test");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["content"][0]["text"], "hi");
+    assert_eq!(adapter_for("intern_inkstone").extract_usage(INK_OPENAI_RESP).0, 6);
+    let (status, resp, _) = glm_member_call(Protocol::InternInkstone, Protocol::OpenAI, "gk97oas", "/v1/messages", r#"{"model":"ink-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", INK_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::InternInkstone, Protocol::OpenAI, "gk97oae", "/v1/messages", r#"{"model":"ink-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", INK_ERROR)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("invalid api key"), "{resp}");
+}
+
+/// openai_responses 端点：出站打 `/responses`；流式 `response.completed` 收官；
+/// usage 走 responses 缓存臂（ordinary input = input − cached）。
+#[tokio::test]
+async fn intern_inkstone_openai_responses_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::InternInkstone, Protocol::OpenAIResponses, "gk97or", "/chat/completions", r#"{"model":"ink-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", INK_RESPONSES_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/responses");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "ink-test");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("intern_inkstone").extract_usage(INK_RESPONSES_RESP);
+    assert_eq!((input, output, cache_read, cache_write, cache_write_1h), (2, 2, 4, 0, 0));
+    let (status, resp, _) = glm_member_call(Protocol::InternInkstone, Protocol::OpenAIResponses, "gk97ors", "/chat/completions", r#"{"model":"ink-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", INK_RESPONSES_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/responses");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+}
+
+/// anthropic 端点：出站打 `/v1/messages`；非流式回 openai 形状；流式透传官方事件集；
+/// usage 缓存读臂。
+#[tokio::test]
+async fn intern_inkstone_anthropic_endpoint_dispatch() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(Protocol::InternInkstone, Protocol::Anthropic, "gk97an", "/chat/completions", r#"{"model":"ink-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", INK_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&resp).unwrap()["choices"][0]["message"]["content"], "hi");
+    assert_eq!(adapter_for("intern_inkstone").extract_usage(INK_ANTHROPIC_RESP).2, 2);
+    let (status, resp, _) = glm_member_call(Protocol::InternInkstone, Protocol::Anthropic, "gk97ans", "/chat/completions", r#"{"model":"ink-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", INK_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::InternInkstone, Protocol::Anthropic, "gk97ane", "/chat/completions", r#"{"model":"ink-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", INK_ERROR)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("invalid api key"), "{resp}");
+}
