@@ -427,7 +427,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
         <div
           ref={revealSearch.ref}
           className={`reveal${revealSearch.shown ? " in" : ""}`}
-          style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${P.line}` }}
+          style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${P.line}`, flexWrap: "wrap" }}
         >
           <span
             style={{
@@ -478,7 +478,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
         <div
           ref={revealFlow.ref}
           className={`reveal${revealFlow.shown ? " in" : ""}`}
-          style={{ padding: "14px 16px", borderBottom: `1px solid ${P.line}` }}
+          style={{ padding: "14px 16px", borderBottom: `1px solid ${P.line}`, overflowX: "auto" }}
         >
           <HomeFlowCard rows={flowRows} platforms={platforms} ungroupedLabel={ungroupedLabel} loading={loading} />
         </div>
@@ -616,7 +616,8 @@ function DimPanel({
         </span>
       </div>
       {rows.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        // 窄窗口横向滚动（行内定宽指标列 ~486px），不挤压裁切
+        <div style={{ display: "flex", flexDirection: "column", overflowX: "auto" }}>
           {rows.map((r, i) => {
             const proto = r.other ? undefined : logoOf?.(r.name);
             return (
