@@ -2267,3 +2267,18 @@ fn litellm_anthropic_route_budget_error_classifies_service() {
         "anthropic 路由预算错误经 error.litellm_error_type 识别"
     );
 }
+
+/// 书生·端砚（issue 97）must own a platform adapter entry, even when verified
+/// behavior uses protocol defaults (official site publishes no wire-level API doc).
+#[test]
+fn intern_inkstone_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("intern_inkstone");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("longcat")),
+        "InternInkstone registration must not use generic adapter"
+    );
+    // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
+    let mut body = json!({"model":"ink-test"});
+    adapter.inject_coding_plan(&mut body, &Protocol::InternInkstone, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"ink-test"}));
+}

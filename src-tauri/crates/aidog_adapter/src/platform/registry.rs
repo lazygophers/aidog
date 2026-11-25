@@ -2119,6 +2119,36 @@ impl PlatformAdapter for GeminiAdapter {}
 
 static GEMINI: GeminiAdapter = GeminiAdapter;
 
+/// 书生·端砚 Intern InkStone TokenPlan 专属适配器（issue 97；单成员，非编码套餐）。
+///
+/// 逐项核对（核对日期 2026-11-25）：
+/// - 端点（registry 内置默认，只用于新建表单预填；运行时一律用用户配置端点）：
+///   openai `https://discovery-api.intern-ai.org.cn/v1`、openai_responses
+///   `https://discovery-api.intern-ai.org.cn`、anthropic 同根。与 registry 内置默认一致。
+/// - 官方站 https://discovery.intern-ai.org.cn/token-plan/home 为控制台（API Key 管理、
+///   RPM 默认 500、墨点计价），帮助中心 /docs/userCenter/api-key 仅密钥管理——官方无
+///   线协议级 API 文档页，请求/响应/流式/错误形状无官方原文可核对。
+/// - OpenAI / Anthropic 双标准协议由第三方多源佐证（lininn.cn / say.li / wn12.cn，
+///   2026-11-25 检索，均为教程引述官方地址）；`openai_responses` 为模型条目
+///   `supported_protocols` 登记现状（部分模型三协议、部分仅 openai+anthropic）。
+/// - DSML 文本工具标记（dsv4 系把工具调用以 `<｜DSML｜tool_calls>` 写进 text 块）由
+///   `aidog_adapter::dsml` + 网关 `finish.rs` 对 anthropic wire 客户端通用改写承担，
+///   不经本适配器，行为不变。
+/// - 鉴权：API Key（网关注入 openai 形 `Authorization: Bearer` / anthropic 形
+///   `x-api-key`，基座默认）；限频 RPM 默认 500 由调用方限频承担，出站无差异。
+/// - 未证实（保持基座协议构件默认）：思考参数、工具调用与服务端工具、图片与音视频、
+///   system 提示、max_tokens 上限、usage 缓存 token 字段、错误体格式、SSE 帧格式与
+///   结束标记。
+///
+/// 结论：三协议均按标准协议形状处理（第三方佐证 + 官方无反证）；专属适配器只承担
+/// 显式注册语义（与 CrazyRouterAdapter / CommandCodeAdapter 同形）。
+/// https://discovery.intern-ai.org.cn/token-plan/home
+pub struct InternInkstoneAdapter;
+
+impl PlatformAdapter for InternInkstoneAdapter {}
+
+static INTERN_INKSTONE: InternInkstoneAdapter = InternInkstoneAdapter;
+
 /// SenseNova（商汤日日新）家族基座（issue 81；成员 sensenova / sensenova_en 共用，成员差异见子 issue #131 / #132）。
 ///
 /// 家族共性取证（核对日期 2026-11-24）：
@@ -2220,7 +2250,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("glm_coding", &GLM),
     ("glm_coding_en", &GLM),
     ("glm_en", &GLM),
-    ("intern_inkstone", &GENERIC),
+    ("intern_inkstone", &INTERN_INKSTONE),
     ("kimi", &KIMI),
     ("kimi_coding", &KIMI_CODING),
     ("kimi_en", &KIMI),
