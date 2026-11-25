@@ -3905,9 +3905,18 @@ async fn intern_inkstone_openai_responses_endpoint_dispatch() {
     assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
 }
 
-// Synthetic fixtures test user-configured endpoint protocols, not Magpie's provider support.
+// Synthetic fixtures test configured endpoints, not each provider's official support.
 #[tokio::test]
 async fn magpie_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::Magpie, "magpie").await;
+}
+
+#[tokio::test]
+async fn meta_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::Meta, "meta").await;
+}
+
+async fn configured_endpoint_dispatch(platform: Protocol, name: &str) {
     let completion = r#"{"id":"cmpl-test","object":"text_completion","choices":[{"text":"hi","index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}"#;
     let completion_stream = "data: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"hi\",\"index\":0}]}\n\ndata: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"\",\"index\":0,\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
     let cases = [
@@ -3920,18 +3929,18 @@ async fn magpie_configured_endpoint_dispatch() {
     let request = r#"{"model":"cr-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
     let streaming_request = r#"{"model":"cr-test","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
     for (index, (wire, path, upstream, events, output_tokens)) in cases.iter().enumerate() {
-        let key = format!("magpie-{}", index);
-        let (status, body, hits) = glm_member_call(Protocol::Magpie, wire.clone(), &key, "/v1/messages", request, (200, "application/json", upstream)).await;
+        let key = format!("{name}-{index}");
+        let (status, body, hits) = glm_member_call(platform.clone(), wire.clone(), &key, "/v1/messages", request, (200, "application/json", upstream)).await;
         assert_eq!(status, StatusCode::OK, "{wire:?}: {body}");
         assert_eq!(hits[0].0, *path);
         assert!(hits[0].1.contains("hi"), "{wire:?}: {}", hits[0].1);
         assert!(body.contains("hi"), "{wire:?}: {body}");
         let response: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(response["usage"]["output_tokens"], *output_tokens, "{wire:?}: {body}");
-        let (status, body, _) = glm_member_call(Protocol::Magpie, wire.clone(), &format!("{key}-stream"), "/v1/messages", streaming_request, (200, "text/event-stream", events)).await;
+        let (status, body, _) = glm_member_call(platform.clone(), wire.clone(), &format!("{key}-stream"), "/v1/messages", streaming_request, (200, "text/event-stream", events)).await;
         assert_eq!(status, StatusCode::OK, "{wire:?}: {body}");
         assert!(body.contains("hi"), "{wire:?}: {body}");
-        let (status, body, _) = glm_member_call(Protocol::Magpie, wire.clone(), &format!("{key}-error"), "/v1/messages", request, (400, "application/json", CRAZYROUTER_ERROR)).await;
+        let (status, body, _) = glm_member_call(platform.clone(), wire.clone(), &format!("{key}-error"), "/v1/messages", request, (400, "application/json", CRAZYROUTER_ERROR)).await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "{wire:?}: {body}");
         assert!(body.contains("model not found"), "{wire:?}: {body}");
     }

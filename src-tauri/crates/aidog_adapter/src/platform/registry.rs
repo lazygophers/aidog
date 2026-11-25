@@ -2320,6 +2320,19 @@ struct MagpieAdapter;
 impl PlatformAdapter for MagpieAdapter {}
 static MAGPIE: MagpieAdapter = MagpieAdapter;
 
+/// Meta Model API，官方文档核对日期 2026-11-25。
+/// Chat 支持 system/developer、工具调用及 SSE `[DONE]`，默认 temperature 和 top_p 为 1；
+/// max_completion_tokens 是输出上限，max_tokens 为兼容别名，模型不接受 reasoning_effort=none。
+/// Messages 要求 max_tokens，支持 system 文本、图片、视频和工具；推理模型不接受 disabled，
+/// enabled 的 budget_tokens 至少 1024 且小于 max_tokens，流以 message_stop 结束。
+/// usage 可包含 cache_read_input_tokens；错误采用 Anthropic error 封装。
+/// https://dev.meta.ai/docs/protocols/chat-completions
+/// https://dev.meta.ai/docs/protocols/messages
+/// 未证实：各模型的输出上限、所有工具和媒体细节、各协议完整错误体及流事件；保持默认行为。
+struct MetaAdapter;
+impl PlatformAdapter for MetaAdapter {}
+static META: MetaAdapter = MetaAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -2356,7 +2369,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("litellm", &LITELLM),
     ("longcat", &LONGCAT),
     ("magpie", &MAGPIE),
-    ("meta", &GENERIC),
+    ("meta", &META),
     ("minimax", &MINIMAX),
     ("minimax_coding", &MINIMAX_CODING),
     ("minimax_en", &MINIMAX_EN),
