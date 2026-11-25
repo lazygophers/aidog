@@ -2365,6 +2365,25 @@ struct ModelscopeAdapter;
 impl PlatformAdapter for ModelscopeAdapter {}
 static MODELSCOPE: ModelscopeAdapter = ModelscopeAdapter;
 
+/// Novita AI，官方文档核对日期 2026-11-25。
+/// OpenAI 兼容接口（官方 llms.txt 写 `https://api.novita.ai/openai`；registry 内置默认
+/// `https://api.novita.ai/v3/openai` 仅用于预填表单）与 Anthropic 兼容接口
+/// （`https://api.novita.ai/anthropic`，仅部分模型）。Chat：消息角色 system/user/assistant；
+/// 内容块支持 image_url（URL 或 base64）；max_tokens 超上下文默认自动下调而非报错
+/// （context_length_exceeded_behavior）；stream 默认 false，`stream_options.include_usage`
+/// 会在 `data: [DONE]` 前追加一个整段 usage 块；工具仅支持 functions；strict 开启
+/// Structured Outputs；separate_reasoning（默认 false）把思考链放 reasoning_content；
+/// enable_thinking（默认 true）只作用于支持关闭思考的混合推理模型，常开推理模型忽略。
+/// usage 含 prompt_tokens、completion_tokens、total_tokens（文档未列缓存 token 字段）。
+/// https://docs.novita.ai/api-reference/model-apis-llm-create-chat-completion.md
+/// https://docs.novita.ai/guides/llm-anthropic-compatibility.md
+/// 未证实：错误体格式、usage 缓存字段、思考档位/预算参数、工具与媒体细节全貌；保持协议
+/// 构件默认行为。官方未列其他 wire 协议端点；对用户配置其他协议仅做合成假上游兼容性
+/// 测试，不表示 Novita 官方支持。
+struct NovitaAdapter;
+impl PlatformAdapter for NovitaAdapter {}
+static NOVITA: NovitaAdapter = NovitaAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -2408,7 +2427,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("mistral", &MISTRAL),
     ("modelscope", &MODELSCOPE),
     ("newapi", &GENERIC),
-    ("novita", &GENERIC),
+    ("novita", &NOVITA),
     ("nvidia", &GENERIC),
     ("openai", &OPENAI),
     ("opencode", &OPENCODE),
