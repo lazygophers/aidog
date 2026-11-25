@@ -1792,6 +1792,51 @@ pub struct AiHubMixAdapter;
 
 impl PlatformAdapter for AiHubMixAdapter {}
 
+/// Command Code（GOAT/Pro/Max/Provider 套餐 Provider API；api.commandcode.ai）。
+/// 官方文档核对日期 2026-11-24，结论：三 chat 协议 + 决策协议均镜像官方形状，
+/// 无可证实的平台级覆写；专属适配器承担显式注册语义（与 [`AiHubMixAdapter`] 同形）。
+///
+/// 逐项核对结论（官方 Provider API 页原文，本平台文档即取证所用来源）：
+/// - 端点：`/v1/chat/completions`（OpenAI Chat Completions）、`/v1/responses`（OpenAI Responses，
+///   仅 OpenAI 与开放模型；Claude 模型只在 `/v1/messages`）、`/v1/messages`（Anthropic Messages）、
+///   `GET /v1/models`、`POST /v1/systemone`（typesafe/jev 决策，永不流式）。与 registry 内置默认
+///   端点一致；运行时一律用用户平台配置端点，模型路由由 `/v1/models` 条目 `supported_endpoints`
+///   决定。https://commandcode.ai/docs/provider
+/// - 请求字段与默认值：官方明示「Request and response bodies follow the OpenAI Chat Completions
+///   schema / OpenAI Responses schema / Anthropic Messages schema」——三 chat 协议请求构造与
+///   基座协议构件一致，官方未列平台级新增字段或默认值。
+/// - 思考参数：Provider API 页未列 thinking 档位 / 预算 / 开关差异，保持基座默认（未证实）。
+/// - 工具调用：`function` / `custom` 工具由客户端执行，内置声明（如 `web_search`）原样转发
+///   由上游接受或拒绝；remote `type:"mcp"` 工具上游拒绝（须客户端侧跑 MCP）；`x-cmd-zdr: 1`
+///   请求只收 `function` / `custom` / `local_shell`。该头是客户端自选的 ZDR 开关，aidog 不代加
+///   （`additional_request_headers` 保持默认空）。
+/// - 图片与音视频：Provider API 页未列多模态输入差异（413 上限 32 MiB 与 Anthropic 一致），
+///   保持基座默认（未证实）。
+/// - system 提示 / max_tokens 上限：官方未列平台级差异或统一上限，保持基座默认（未证实）。
+/// - 流式事件：`stream: true`；「Every endpoint emits token usage at the end of every stream …
+///   No opt-in required」——chat 末块 usage、responses `response.completed`、anthropic
+///   `message_delta`，与基座 `wire_usage` 各臂一致，无需覆写。
+/// - usage（含缓存 token）：typesafe 决策响应 `usage: {input_tokens, output_tokens}`，chat 三协议
+///   为官方标准形状，基座 `extract_usage` 已覆盖；缓存 token 字段名官方文档未列（pricing 页有
+///   per-model 缓存价但无 usage 字段证据），保持基座各协议臂（未证实）。
+/// - 错误体：OpenAI envelope `{error:{message,type,code,param}}`、Anthropic envelope
+///   `{type:"error",error:{type,message}}`——基座 `classify_upstream_error` 直接读取。
+///   文档错误类别与基座分类对照：401 authentication_error / 403（upgrade_required、
+///   model_region_unavailable、content_policy_refused、upstream_refused）/ 429 rate_limit_error
+///   按状态码归 Service；502 model_temporarily_unavailable / upstream_unavailable 与 5xx
+///   server_error / api_error 归 Service；400 `unsupported_model`（OpenAI code，Anthropic envelope
+///   用 invalid_request_error）不含基座模型类标记 → Unknown（调用方按模型类处理，等效换模型）；
+///   413 request_too_large → Unknown（框架默认；官方建议勿重试同 body，但分类语义=换模型试
+///   一次，不据此覆写）。https://commandcode.ai/docs/provider#errors
+/// - coding_plan：platform.json `is_coding_plan: true` 且端点带 `coding_plan` flag；迁移自转发层的
+///   既有行为 = 基座 `_` 臂 no-op（不注入 prompt_cache_key），保持不变。
+/// - 未证实（保持基座默认）：max_tokens 上限、thinking 参数、缓存 token usage 字段、音视频输入
+///   边界、流中错误帧形状、responses 流事件全集（官方只点名 `response.completed`）。
+///   https://commandcode.ai/docs/provider https://commandcode.ai/docs/resources/pricing-limits
+struct CommandCodeAdapter;
+
+impl PlatformAdapter for CommandCodeAdapter {}
+
 static GENERIC: GenericAdapter = GenericAdapter;
 
 /// SenseNova（商汤日日新）家族基座（issue 81；成员 sensenova / sensenova_en 共用，成员差异见子 issue #131 / #132）。
@@ -1827,6 +1872,7 @@ static COMPSHARE: CompshareFamilyAdapter = CompshareFamilyAdapter;
 static OPENCODE: OpenCodeFamilyAdapter = OpenCodeFamilyAdapter;
 static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
 static AIHUBMIX: AiHubMixAdapter = AiHubMixAdapter;
+static COMMAND_CODE: CommandCodeAdapter = CommandCodeAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
     carry_history_reasoning_openai: true,
@@ -1881,7 +1927,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("cline", &CLINE),
     ("cline_pass", &CLINE),
     ("codex", &OPENAI),
-    ("commandcode", &GENERIC),
+    ("commandcode", &COMMAND_CODE),
     ("compshare", &COMPSHARE),
     ("compshare_coding", &COMPSHARE),
     ("crazyrouter", &GENERIC),
