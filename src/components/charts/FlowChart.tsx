@@ -3,7 +3,7 @@
 // 行是扁平记录：columns[i].key 取节点 id，row[metric] 取数值。
 // 动效：入场左→右依次展开、度量切换平滑过渡（JS 补间，WebKit 不支持 CSS `d` 过渡）、hover 高亮整条链路 + 数值 tooltip；
 // prefers-reduced-motion 下去掉补间/位移/回弹，改纯淡入 + 更慢更淡的流光。
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { formatMoney, formatNumber } from "../../utils/formatters";
@@ -27,12 +27,13 @@ export interface FlowChartProps {
 
 const TOP_N = 6;
 const OTHER = "__other__";
-const COL_GAP = 190; // 相邻列节点左缘间距
+const GAP_MIN = 170; // 相邻列节点左缘最小间距（窄容器；再窄出横向滚动）
+const GAP_MAX = 340; // 宽容器最大间距：随容器宽度在 MIN~MAX 间自适应，避免超宽下标签压进相邻列
 const NODE_W = 10;
-const LABEL_W = 200; // 末列标签留白
+const LABEL_W = 300; // 末列标签留白（容纳长模型名 + 数值）
 const TOP = 22; // 列标题高度
 const INNER_H = 260; // 最高一列的绘图高度
-const NODE_GAP = 10;
+const NODE_GAP = 18; // 节点间距 ≥ 一行标签高：相邻小节点的标签不纵向互碰
 const MIN_H = 3;
 const DUR = 450;
 const STAGGER = 140;
@@ -43,6 +44,19 @@ const OTHER_COLOR = "var(--text-tertiary)";
 export function formatPct(p: number): string {
   return p > 0 && p < 0.1 ? "<0.1%" : `${p.toFixed(1)}%`;
 }
+
+// 标签宽度估算（mono 14px ≈ 0.6em/字符，CJK ≈ 1em）与按预算截断（带省略号）——
+// 标签只能占本列与相邻列之间的间隙，超预算截断，不压绸带不压下一列。
+const charW = (ch: string) => (ch.charCodeAt(0) > 0x2e7f ? 14 : 8.4);
+const textW = (s: string) => [...s].reduce((w, ch) => w + charW(ch), 0);
+const ELL = 8.4; // 「…」宽
+const fit = (s: string, budget: number) => {
+  if (textW(s) <= budget) return s;
+  const cs = [...s];
+  let n = cs.length;
+  while (n > 0 && textW(cs.slice(0, n).join("")) + ELL > budget) n--;
+  return n > 0 ? cs.slice(0, n).join("") + "…" : "…";
+};
 
 /** 带状路径：上下两条三次贝塞尔边（控制点取水平间距 50%）+ 首尾闭合；入口/出口与节点条边缘对齐。 */
 const ribbon = (x1: number, x2: number, ya: number, yb: number, w: number) => {
@@ -255,10 +269,23 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
   const [pt, setPt] = useState({ x: 0, y: 0 });
 
   const reduced = prefersReduced();
+  const [cw, setCw] = useState(0);
+  // callback ref：空数据时早退渲染的占位 div 没有 ref，不能用 useEffect([]) 挂观察器
+  const roRef = useRef<ResizeObserver | null>(null);
+  const attachBox = useCallback((el: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    if (el && typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(es => setCw(es[0].contentRect.width));
+      ro.observe(el);
+      roRef.current = ro;
+    }
+  }, []);
   const nw = columns.length;
-  const W = (nw - 1) * COL_GAP + NODE_W + LABEL_W;
+  // 列间距随容器宽度自适应：宽窗拉开间距给标签留位，窄窗收到下限出横向滚动
+  const gap = Math.min(GAP_MAX, Math.max(GAP_MIN, (cw - NODE_W - LABEL_W) / Math.max(1, nw - 1)));
+  const W = (nw - 1) * gap + NODE_W + LABEL_W;
   const H = TOP + Math.max(0, ...nodes.map(n => n.y + n.h - TOP)) + 8;
-  const nx = (ci: number) => 4 + ci * COL_GAP;
+  const nx = (ci: number) => 4 + ci * gap;
   const label = (ci: number, id: string) =>
     id === OTHER ? t("group.flow.other", "Other") : (columns[ci].labelOf?.(id) ?? (id === "" ? t("flow.model.none", "Unspecified") : id));
 
@@ -295,7 +322,7 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
   if (nodes.length === 0) return <div data-testid="flow-chart" />;
 
   return (
-    <div data-testid="flow-chart" data-motion={reduced ? "reduced" : "full"} style={{ overflowX: "auto" }}>
+    <div ref={attachBox} data-testid="flow-chart" data-motion={reduced ? "reduced" : "full"} style={{ overflowX: "auto" }}>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ direction: "ltr", minWidth: W, fontFamily: "var(--font-mono, monospace)" }} role="img"
         onMouseLeave={() => setHov(null)}>
         {columns.map((c, ci) => (
@@ -345,7 +372,10 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
           const p = pct(ci, n.v);
           const on = lit ? lit.nodes.has(n.key) : null;
           const cy = a[0] + a[1] / 2;
-          const two = n.h >= 26;
+          const two = n.h >= 20; // 两行标签（名 + 值）约 24px 高，节点条 ≥20 放得下；更矮的节点一行式并按预算截名
+          const avail = (ci === columns.length - 1 ? LABEL_W : gap) - NODE_W - 14; // 本列标签可用宽（间隙）
+          const vpW = textW(fmtValue(metric, n.v)) + textW(formatPct(p)) + 12; // 一行式尾部 value+pct（含 dx 间距）
+          const nameText = two ? fit(label(ci, n.id), avail) : fit(label(ci, n.id), Math.max(24, avail - vpW));
           const grow = Math.min(1, Math.max(0, a[1] / n.h)); // 标签随节点条生长淡入
           return (
             <g key={n.key} data-testid={`flow-node-${columns[ci].key}-${n.id}`} data-value={n.v} data-height={n.h}
@@ -356,7 +386,7 @@ export function FlowChart({ columns, rows, metric, surface = "var(--card)" }: Fl
               <rect x={nx(ci)} y={a[0]} width={NODE_W} height={a[1]} rx={2} fill={n.color} />
               <text x={nx(ci) + NODE_W + 6} y={two ? cy - 2 : cy + 3.5} fontSize={14} fill="var(--foreground)" opacity={grow}
                 stroke={surface} strokeWidth={4} strokeLinejoin="round" paintOrder="stroke">
-                {label(ci, n.id).slice(0, 22)}<title>{label(ci, n.id)}</title>
+                {nameText}<title>{label(ci, n.id)}</title>
                 {!two && <tspan fill="var(--text-tertiary)" dx={6} fontSize={14}>{fmtValue(metric, n.v)}<tspan data-testid="flow-pct" data-value={p} dx={6}>{formatPct(p)}</tspan></tspan>}
               </text>
               {two && (
