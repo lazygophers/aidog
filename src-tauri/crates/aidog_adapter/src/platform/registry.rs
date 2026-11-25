@@ -2260,6 +2260,45 @@ static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
 static AIHUBMIX: AiHubMixAdapter = AiHubMixAdapter;
 static DEEPSEEK: DeepSeekAdapter = DeepSeekAdapter;
 static COMMAND_CODE: CommandCodeAdapter = CommandCodeAdapter;
+/// TypeSafe（System One 决策平台；api.typesafe.ai）专属适配器（issue 111；单成员，非编码套餐）。
+///
+/// 逐项核对（官方文档核对日期 2026-11-26；Mintlify 站，raw `.md` 与 OpenAPI 均可抓取）：
+/// - 端点：决策 `POST base_url + /systemone`（registry 内置默认 base_url `https://api.typesafe.ai/v1`
+///   已含版本前缀；决策 URL = base_url + `/systemone`，与 `decision_api_path()` 现状一致）；
+///   模型列表 `GET /v1/models`（SDK `models.list()`，平台拉模型列表走通用逻辑）。
+///   运行时一律用用户平台配置端点。https://docs.typesafe.ai/api/system-one https://docs.typesafe.ai/api/list-models
+/// - 鉴权：`Authorization: Bearer <API_KEY>`；网关决策路径现状注入同形，行为不变。
+/// - 请求字段与默认值：`SystemOneRequest {state, model, questions}`（questions 为具名问题对象，
+///   type = choice / score / noul / box）；决策 body 由客户端透传、网关仅改写 `model`（R8），
+///   无平台级新增字段。https://docs.typesafe.ai/api/system-one
+/// - 思考参数 / 工具调用 / system 提示 / max_tokens 上限：决策 API 无这些概念，文档无对应参数
+///   （不适用）；400 `max_tokens_exceeded` 仅指请求超模型上下文长度。
+/// - 图片与音视频：图片走 multipart 变体（request JSON part + image parts）或
+///   `TypeSafe-Danger-Zone-Images: true` 头 + box 问题，官方标注「dreamer-ready only」实验特性
+///   （2026-11-14 起）；音视频未支持。网关决策路径只发 JSON body，multipart / danger-zone 头
+///   不由 aidog 代加（客户端自选开关）。https://docs.typesafe.ai/api/system-one https://docs.typesafe.ai/images
+/// - 流式：决策 API 无流式（文档无 stream 参数，响应整体 JSON），网关决策路径现状不发流式，
+///   行为不变。
+/// - usage：响应 `usage: {input_tokens, output_tokens}`；缓存 token 字段文档未记载——未证实，
+///   不覆盖。官方示例无 `usage.cost`；网关 R14 在存在时读 `usage.cost`、不存在回落 registry 价，
+///   行为不变。https://docs.typesafe.ai/introduction/quickstart
+/// - 错误体：400（请求规则违规或 `max_tokens_exceeded`）、401（鉴权）、413（body > 32 MiB）、
+///   415（不支持的压缩编码）、422 `{detail:[{loc,msg,type}]}`（校验失败）、429（限频）、
+///   529（过载）。400 信封 HTTPBadRequestError 的字段细节未逐字取证——未证实。
+///   429 / 529 由框架按状态码归服务类，不扩展错误分类。https://docs.typesafe.ai/api/errors
+/// - coding_plan 注入：非编码套餐，基座按平台协议分派对 `Protocol::TypeSafe` 为 no-op，行为不变。
+/// - 转发层现状（grep 2026-11-26）：决策链路 `decision.rs` 直构请求（`decision_api_path()`），
+///   不经 chat 转换器；gateway 对 typesafe 无其他特判，无既有差异可迁；行为不变由
+///   `decision_request_end_to_end` 等决策回归测试锁定。
+///
+/// 结论：typesafe 是决策专属 wire 协议（非 openai / anthropic 系），chat 协议构件不适用；
+/// 专属适配器只承担显式注册语义（与 [`AiHubMixAdapter`] 同形），决策行为全部在网关决策链路，
+/// 原样保持。
+pub struct TypeSafeAdapter;
+
+impl PlatformAdapter for TypeSafeAdapter {}
+
+static TYPESAFE: TypeSafeAdapter = TypeSafeAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
     carry_history_reasoning_openai: true,
@@ -2518,7 +2557,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("tencent_tokenhub_intl", &TENCENT),
     ("therouter", &THEROUTER),
     ("tokenrhythm", &TOKENRHYTHM),
-    ("typesafe", &GENERIC),
+    ("typesafe", &TYPESAFE),
     ("xai", &GENERIC),
     ("xiaomi_mimo", &MIMO),
     ("xiaomi_mimo_coding", &MIMO_CODING),

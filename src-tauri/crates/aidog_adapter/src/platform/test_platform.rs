@@ -60,6 +60,19 @@ fn crazyrouter_has_dedicated_adapter_registration() {
 }
 
 #[test]
+fn typesafe_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("typesafe");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("devin")),
+        "TypeSafe registration must not use the generic adapter"
+    );
+    // 决策专属协议：非编码套餐，coding_plan 注入 no-op。
+    let mut body = json!({"model":"jev-latest"});
+    adapter.inject_coding_plan(&mut body, &Protocol::TypeSafe, &Protocol::TypeSafe);
+    assert_eq!(body, json!({"model":"jev-latest"}));
+}
+
+#[test]
 fn atlascloud_error_msg_field_classifies_model_errors() {
     assert_eq!(
         super::adapter_for("atlascloud").classify_error(
