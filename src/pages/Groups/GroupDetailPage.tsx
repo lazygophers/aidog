@@ -382,13 +382,13 @@ export function GroupDetailPage(props: {
   return (
     <div data-testid="group-detail-page" style={{ display: "flex", flexDirection: "column", width: "100%", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--card)", boxShadow: "0 1px 3px rgba(28,36,48,.05)" }}>
       {/* pgtop */}
-      <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "12px 16px", borderBottom: "1px solid var(--border)", background: "var(--secondary, #FAFBFC)" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "12px 16px", borderBottom: "1px solid var(--border)", background: "var(--secondary, #FAFBFC)" }}>
         <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={props.onClose} title={t("action.back", "Back")} data-testid="detail-back">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
         </Button>
         <h1 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{t("nav.groups", "Groups")}</h1>
         {/* 当前组名必须上屏：详情页全页无组名时无法辨认展示的是哪个组 */}
-        <span style={{ fontSize: 14, fontWeight: 600 }}>{group.name}</span>
+        <span style={{ fontSize: 14, fontWeight: 600, minWidth: 0, overflowWrap: "anywhere" }}>{group.name}</span>
         {/* 计数只显当前组自己的成员数；details.length/全量关联和是别的分组的信息，禁入详情页（2026-10-27 用户报） */}
         <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>{detail.platforms.length} {t("group.platforms", "Platforms")}</span>
         <div style={{ flex: 1 }} />
@@ -398,10 +398,10 @@ export function GroupDetailPage(props: {
         />
       </div>
       {/* pgbody：1fr / 264px */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 264px", gap: 14, padding: "14px 16px", background: "linear-gradient(180deg, var(--secondary, #FBFBFD), transparent)", alignItems: "start" }}>
+      <div className="grid min-w-0 grid-cols-1 items-start gap-3 p-3 sm:p-4 2xl:grid-cols-[minmax(0,1fr)_264px]" style={{ background: "linear-gradient(180deg, var(--secondary, #FBFBFD), transparent)" }}>
         {/* 中央：统计带 + flow + 成员表 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }} data-testid="detail-stats">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] gap-2.5" data-testid="detail-stats">
             <StatCard big={formatNumber(u?.today_tokens ?? 0)} label={t("group.detail.todayTokens", "Today's tokens")} />
             <StatCard big={formatMoney(u?.today_cost ?? 0)} label={t("group.stats.todayCost", "Today cost")} />
             <StatCard big={<>{u && u.total_requests > 0 ? formatPercent(sRate, 1) : "—"}{u && u.total_requests > 0 ? <em style={{ fontStyle: "normal", fontSize: 14, color: "var(--text-tertiary)", fontWeight: 400 }}>%</em> : null}</>}
@@ -433,7 +433,7 @@ export function GroupDetailPage(props: {
               <div style={{ fontSize: 14, color: "var(--text-tertiary)", marginTop: 7 }}>{routingModeLabel(t, group.routing_mode)}</div>
             </div>
           </div>
-          <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)" }} data-testid="detail-flow">
+          <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", minWidth: 0, overflowX: "auto" }} data-testid="detail-flow">
             <GroupFlowPanel groupKey={group.group_key} gps={gps} />
           </div>
           <MembersCard

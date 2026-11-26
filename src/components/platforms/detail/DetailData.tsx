@@ -105,7 +105,7 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
 
   return (
     <div data-testid="detail-t3-mount" className="contents">
-      <div className="min-w-0 border-r border-[var(--border)] max-xl:border-r-0">
+      <div className="min-w-0 border-r border-[var(--border)] max-2xl:border-r-0">
         {/* C：使用统计（四档窗口） */}
         <Blk testid="detail-t3-stats" title={t("platform.detail.stats", "Usage Stats")}>
           <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
@@ -168,7 +168,7 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
           )}
         </Blk>
       </div>
-      <div className="min-w-0 border-r border-[var(--border)] max-xl:border-r-0">
+      <div className="min-w-0 border-r border-[var(--border)] max-2xl:border-r-0">
         {/* B / B'：曲线 或 按量柱线图 */}
       <Blk
         testid="detail-t3-usage"
