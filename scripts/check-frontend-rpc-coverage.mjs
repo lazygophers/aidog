@@ -44,6 +44,19 @@ for (const dir of SRC_DIRS) {
 const ALLOW = new Map([
   // 弹宿主机 osascript 管理员窗 + 把 SQLCipher 主密钥作为 HTTP 响应体回传：无头内核/LAN 暴露风险
   ["db_master_key_reveal", "显示主密钥：仅桌面 IPC，禁经 HTTP 暴露"],
+  // 内核更新路由（magpie 票 07）：只在 aidog_kernel 的管理 router 上（update.rs::install_routes），
+  // 不是 tauri 命令、不在 aidog_rpc 命令表；桌面 IPC 无此命令（桌面自身更新走 tauri updater），
+  // 浏览器形态（内核 --ui 托管）同源命中。票 07 静态豁免，非安全放宽（闸门仍是 ADR 0010 本机+凭据）。
+  ["kernel_update_status", "内核专属路由，仅内核进程实现（票 07）"],
+  ["kernel_update_check", "内核专属路由，仅内核进程实现（票 07）"],
+  ["kernel_update_download", "内核专属路由，仅内核进程实现（票 07）"],
+  ["kernel_update_install", "内核专属路由，仅内核进程实现（票 07）"],
+  ["kernel_update_confirm", "内核专属路由，仅内核进程实现（票 07）"],
+  // 桌面更新收尾（magpie 票 04）：排空的是桌面壳进程内的本地网关、重启走 AppHandle::restart，
+  // 仅桌面壳实现（src-tauri/src/update_relaunch.rs），无法有 HTTP 形态；浏览器形态不发起桌面更新。
+  ["update_begin_drain", "桌面更新收尾：排空桌面本地网关，仅桌面 IPC（票 04）"],
+  ["update_abort_drain", "桌面更新收尾：解除排空态（安装失败/取消后恢复服务），仅桌面 IPC（票 04）"],
+  ["update_relaunch_when_drained", "桌面更新收尾：等在途清零后重启，需 AppHandle，仅桌面 IPC（票 04）"],
 ]);
 
 const missing = [...feNames].filter(([name]) => !rpcNames.has(name) && !ALLOW.has(name));
