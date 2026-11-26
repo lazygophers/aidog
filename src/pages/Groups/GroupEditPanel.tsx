@@ -39,8 +39,17 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
   const labelMap = useProtocolLabelMap(i18n.language);
   // pi 线路协议存 group.extra，不在 UpdateGroup 字段集里 → 本地态 + 选中即写。
   const [piApi, setPiApi] = useState<PiApi>(() => parseGroupPiApi(editTarget?.group.extra ?? ""));
-  // 模型映射目标模型 select 的价格表（一次 snapshot；逐行目标平台不同故取全平台嵌套表）
-  const allPrices = useAllModelPrices();
+  const priceModels: Record<string, string[]> = {};
+  for (const mapping of editMappings) {
+    const platform = platforms.find(p => p.id === mapping.target_platform_id);
+    if (!platform) continue;
+    priceModels[platform.platform_type] = Array.from(new Set([
+      ...(priceModels[platform.platform_type] ?? []),
+      ...allConfiguredModelValues(platform),
+      ...(mapping.target_model ? [mapping.target_model] : []),
+    ]));
+  }
+  const allPrices = useAllModelPrices(priceModels);
   const editGroupId = editTarget?.group.id;
   // ── 高级 tab：模型映射 / 连接 ──
   const [advTab, setAdvTab] = useState("mappings");

@@ -24,7 +24,7 @@ export function ModelChainEditor({
   t: TFunction;
 }) {
   const [draft, setDraft] = useState("");
-  const priceMap = useModelPrices(protocol);
+  const priceMap = useModelPrices(protocol, value);
   const add = (v: string) => {
     setDraft("");
     const next = slotList([...value, v]);
@@ -72,7 +72,8 @@ export function ModelChainEditor({
             >
               ⠿
             </span>
-            <span style={{ minWidth: 0, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{id}</span>
+            {/* 模型名完整可见：去省略号，长 id 可断行（chip 容器横排 wrap，不溢出） */}
+            <span style={{ minWidth: 0, overflowWrap: "anywhere", textAlign: "left" }}>{id}</span>
             <ModelPriceTag info={priceMap.get(id)} compact />
             <button
               type="button"

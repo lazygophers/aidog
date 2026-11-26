@@ -2061,6 +2061,24 @@
       "returns": "gateway::models::ModelInfoSnapshot"
     },
     {
+      "name": "model_prices_resolve",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformCode",
+          "type": "String"
+        },
+        {
+          "name": "modelIds",
+          "type": "Vec<String>"
+        }
+      ],
+      "returns": "Vec<Option<gateway::models::ModelEntry>>"
+    },
+    {
       "name": "model_test",
       "category": "ai_tools",
       "kind": "mutating",

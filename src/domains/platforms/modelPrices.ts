@@ -5,7 +5,6 @@
 import { useEffect, useState } from "react";
 import { useDisplayCurrency } from "../../utils/displayCurrency";
 import { modelInfoApi, onRegistryUpdated } from "../../services/api/pricing";
-import type { ModelEntryGroup, ModelInfoSnapshot } from "../../services/api";
 import {
   parsePriceData,
   effectiveUnitPrice,
@@ -30,33 +29,6 @@ export interface ModelPriceInfo {
   unitLabel?: string;
   /** Cross-platform canonical fallback source, shown beside the price. */
   sourcePlatform?: string;
-}
-
-/** Canonical representative prices fill missing platform entries; platform prices take precedence. */
-export function buildPlatformModelPrices(
-  groups: ModelEntryGroup[],
-  platformCode: string,
-): PriceMap {
-  const prices = new Map<string, ModelPriceInfo>();
-  for (const group of groups) {
-    const primary =
-      group.entries.find((entry) => entry.platform_code === group.primary_platform && entry.model_id === group.canonical_model) ??
-      group.entries.find((entry) => entry.platform_code === group.primary_platform && entry.official) ??
-      group.entries.find((entry) => entry.platform_code === group.primary_platform);
-    const fallback = primary && parseModelPrice(primary.price_data);
-    if (fallback) {
-      const representative = group.primary_platform === platformCode
-        ? fallback
-        : { ...fallback, sourcePlatform: group.primary_platform };
-      for (const entry of group.entries) prices.set(entry.model_id, representative);
-    }
-    for (const entry of group.entries) {
-      if (entry.platform_code !== platformCode) continue;
-      const ownPrice = parseModelPrice(entry.price_data);
-      if (ownPrice) prices.set(entry.model_id, ownPrice);
-    }
-  }
-  return prices;
 }
 
 /** `price` 子树 → 展示形状；无任何可展示价格返回 null（调用方留空渲染）。 */
@@ -134,75 +106,68 @@ export function fullPriceLines(info: ModelPriceInfo, peakWord: string): string[]
 // 同 defaults.ts docPromise idiom：模块级单次 promise 缓存，registry-updated 时整表失效。
 
 type PriceMap = ReadonlyMap<string, ModelPriceInfo>;
-type PriceSnapshot = { byPlatform: ReadonlyMap<string, PriceMap>; groups: ModelEntryGroup[] };
-const cache = new Map<string, Promise<unknown>>();
 const EMPTY_MAP: PriceMap = new Map();
 const EMPTY_ALL_MAP: ReadonlyMap<string, PriceMap> = new Map();
 
-function fetchAll(): Promise<PriceSnapshot> {
-  const key = "snapshot";
-  let p = cache.get(key) as Promise<PriceSnapshot> | undefined;
-  if (!p) {
-    p = modelInfoApi.snapshot().then((snap: ModelInfoSnapshot) => {
-      const byPlatform = new Map<string, Map<string, ModelPriceInfo>>();
-      for (const g of snap.groups) {
-        for (const e of g.entries) {
-          const info = parseModelPrice(e.price_data);
-          if (!info) continue;
-          let m = byPlatform.get(e.platform_code);
-          if (!m) byPlatform.set(e.platform_code, (m = new Map()));
-          m.set(e.model_id, info);
-        }
-      }
-      return { byPlatform, groups: snap.groups };
-    });
-    p.catch(() => cache.delete(key));
-    cache.set(key, p);
-  }
-  return p;
-}
-
 /** 单平台价格表：model_id → 价格。用于平台编辑页（矩阵 + 时段档共用一个下拉）。 */
-export function useModelPrices(platformCode?: string | null): PriceMap {
-  useDisplayCurrency(); // 价格标签随显示币种换算，订阅以重渲染
+export function useModelPrices(platformCode?: string | null, modelIds: string[] = []): PriceMap {
+  useDisplayCurrency();
   const [map, setMap] = useState<PriceMap>(EMPTY_MAP);
+  const idsKey = JSON.stringify(modelIds);
   useEffect(() => {
-    if (!platformCode) return;
     let alive = true;
+    let generation = 0;
+    const ids: string[] = JSON.parse(idsKey);
+    setMap(EMPTY_MAP);
+    if (!platformCode || !ids.length) return () => { alive = false; };
     const run = () => {
-      fetchAll().then(
-        ({ groups }) => { if (alive) setMap(buildPlatformModelPrices(groups, platformCode)); },
-        () => { /* 失败静默：价格展示缺席，不阻塞编辑页 */ },
-      );
+      const current = ++generation;
+      modelInfoApi.resolvePrices(platformCode, ids).then((entries) => {
+        if (!alive || current !== generation) return;
+        const prices = new Map<string, ModelPriceInfo>();
+        entries.forEach((entry, index) => {
+          if (!entry) return;
+          const info = parseModelPrice(entry.price_data);
+          if (info) prices.set(ids[index], entry.platform_code === platformCode ? info : { ...info, sourcePlatform: entry.platform_code });
+        });
+        setMap(prices);
+      }, () => { /* 价格展示缺席不阻塞编辑页。 */ });
     };
     run();
-    const off = onRegistryUpdated(() => {
-      cache.clear();
-      run();
-    });
+    const off = onRegistryUpdated(run);
     return () => { alive = false; off(); };
-  }, [platformCode]);
+  }, [platformCode, idsKey]);
   return map;
 }
 
-/** 全平台价格表：platform_code → (model_id → 价格)。用于分组映射（逐行目标平台不同）。 */
-export function useAllModelPrices(): ReadonlyMap<string, PriceMap> {
-  useDisplayCurrency(); // 价格标签随显示币种换算，订阅以重渲染
+/** 按目标平台和完整模型 ID 查询分组映射价格。 */
+export function useAllModelPrices(models: Record<string, string[]>): ReadonlyMap<string, PriceMap> {
+  useDisplayCurrency();
   const [map, setMap] = useState<ReadonlyMap<string, PriceMap>>(EMPTY_ALL_MAP);
+  const modelsKey = JSON.stringify(models);
   useEffect(() => {
     let alive = true;
+    let generation = 0;
+    const requests: [string, string[]][] = Object.entries(JSON.parse(modelsKey));
+    setMap(EMPTY_ALL_MAP);
     const run = () => {
-      fetchAll().then(
-        ({ byPlatform }) => { if (alive) setMap(byPlatform); },
-        () => { /* 失败静默 */ },
-      );
+      const current = ++generation;
+      Promise.all(requests.map(async ([platform, ids]) => {
+        const entries = await modelInfoApi.resolvePrices(platform, ids);
+        const prices = new Map<string, ModelPriceInfo>();
+        entries.forEach((entry, index) => {
+          if (!entry) return;
+          const info = parseModelPrice(entry.price_data);
+          if (info) prices.set(ids[index], entry.platform_code === platform ? info : { ...info, sourcePlatform: entry.platform_code });
+        });
+        return [platform, prices] as const;
+      })).then((prices) => {
+        if (alive && current === generation) setMap(new Map(prices));
+      }, () => { /* 价格展示缺席不阻塞编辑页。 */ });
     };
     run();
-    const off = onRegistryUpdated(() => {
-      cache.clear();
-      run();
-    });
+    const off = onRegistryUpdated(run);
     return () => { alive = false; off(); };
-  }, []);
+  }, [modelsKey]);
   return map;
 }

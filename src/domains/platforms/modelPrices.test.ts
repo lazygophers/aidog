@@ -1,7 +1,19 @@
 // modelPrices.ts 纯函数层：条目归一 + 标签拼接（grill-select-price spec 三轮拍板格式）。
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { modelInfoApi } from "../../services/api/pricing";
+import { useAllModelPrices } from "./modelPrices";
+
+const registry = vi.hoisted(() => ({ callback: () => {} }));
+vi.mock("../../services/api/pricing", () => ({
+  modelInfoApi: { resolvePrices: vi.fn() },
+  onRegistryUpdated: (callback: () => void) => { registry.callback = callback; return () => {}; },
+}));
+vi.mock("../../utils/displayCurrency", async (original) => ({
+  ...await original<typeof import("../../utils/displayCurrency")>(),
+  useDisplayCurrency: () => {},
+}));
 import {
-  buildPlatformModelPrices,
   compactPriceLabel,
   fullPriceLines,
   toModelPriceInfo,
@@ -12,37 +24,24 @@ import {
   type ModelPriceData,
 } from "../../pages/ModelInfo/priceData";
 
+it("分组查完整模型 ID，旧 registry 响应不能覆盖新价格", async () => {
+  let oldResponse!: (value: never[]) => void;
+  let newResponse!: (value: never[]) => void;
+  vi.mocked(modelInfoApi.resolvePrices)
+    .mockImplementationOnce(() => new Promise(resolve => { oldResponse = resolve; }))
+    .mockImplementationOnce(() => new Promise(resolve => { newResponse = resolve; }));
+  const id = "provider/dynamic-model";
+  const { result } = renderHook(() => useAllModelPrices({ magpie: [id] }));
+  expect(modelInfoApi.resolvePrices).toHaveBeenCalledWith("magpie", [id]);
+  act(() => registry.callback());
+  await act(async () => newResponse([{ platform_code: "openai", price_data: JSON.stringify({ price: { input: 2e-6 } }) } as never]));
+  await waitFor(() => expect(result.current.get("magpie")?.get(id)?.input).toBe(2e-6));
+  await act(async () => oldResponse([{ platform_code: "magpie", price_data: JSON.stringify({ price: { input: 1e-6 } }) } as never]));
+  expect(result.current.get("magpie")?.get(id)).toMatchObject({ input: 2e-6, sourcePlatform: "openai" });
+});
+
 // registry price 子树原单位 $/token；fullPriceLines 输出 $/M（perMillion 换算）。
 const TIER = (v: number) => ({ input: v / 1_000_000, output: v * 5 / 1_000_000 });
-
-describe("buildPlatformModelPrices", () => {
-  it("Codex 缺少本平台条目时，按 canonical 代表价展示模型价格", () => {
-    const groups = [{
-      canonical_model: "gpt-6-luna",
-      display_name: "GPT-6 Luna",
-      primary_platform: "openai",
-      entries: [{
-        platform_code: "openai",
-        model_id: "gpt-6-luna",
-        price_data: JSON.stringify({ price: { input: 1e-7, output: 5e-7 } }),
-      }],
-    }] as unknown as import("../../services/api/types/generated/ModelEntryGroup").ModelEntryGroup[];
-    expect(buildPlatformModelPrices(groups, "codex").get("gpt-6-luna")?.input).toBe(1e-7);
-  });
-
-  it("平台有自身价格时优先于 canonical 代表价", () => {
-    const groups = [{
-      canonical_model: "shared-model",
-      display_name: "Shared model",
-      primary_platform: "openai",
-      entries: [
-        { platform_code: "openai", model_id: "shared-model", price_data: JSON.stringify({ price: { input: 1e-7 } }) },
-        { platform_code: "codex", model_id: "shared-model", price_data: JSON.stringify({ price: { input: 2e-7 } }) },
-      ],
-    }] as unknown as import("../../services/api/types/generated/ModelEntryGroup").ModelEntryGroup[];
-    expect(buildPlatformModelPrices(groups, "codex").get("shared-model")?.input).toBe(2e-7);
-  });
-});
 
 describe("toModelPriceInfo", () => {
   it("空对象无任何可展示价 → null", () => {

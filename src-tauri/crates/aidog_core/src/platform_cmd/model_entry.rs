@@ -23,6 +23,22 @@ pub async fn model_entry_get( platform_code: String, model_id: String) -> Result
 }
 
 crate::tauri_command! {
+pub async fn model_prices_resolve(platform_code: String, model_ids: Vec<String>) -> Result<Vec<Option<gateway::models::ModelEntry>>, String> {
+    let db = aidog_ctx::db();
+    let mut results = Vec::with_capacity(model_ids.len());
+    for model_id in model_ids {
+        let found = aidog_db::model_entry_for_price(db, &platform_code, &model_id).await?;
+        results.push(found.map(|found| {
+            let mut entry = found.entry.clone();
+            entry.price_data = found.price_data.to_string();
+            entry
+        }));
+    }
+    Ok(results)
+}
+}
+
+crate::tauri_command! {
 pub async fn model_info_snapshot() -> Result<gateway::models::ModelInfoSnapshot, String> {
     let db = aidog_ctx::db();
     aidog_db::model_info_snapshot(db).await

@@ -408,6 +408,24 @@ fn time_tier_unit_price_overrides_unit_tiers_default() {
 // ── DB 路径 ──
 
 #[tokio::test]
+async fn price_selection_prefers_platform_then_official() {
+    let db = test_db().await;
+    let priced = serde_json::json!({"price": {"input": 0.000002}});
+    let empty = serde_json::json!({"price": {"input": 0, "output": 0}});
+    let free = serde_json::json!({"price": {"free": true}});
+    put_entry(&db, "official-test", "price-test-model", &priced, None).await;
+    put_entry(&db, "magpie", "provider/price-test-model", &empty, None).await;
+    let r = resolve_price(&db, "magpie", "provider/price-test-model", 3.0, 3.0, 0, 0, false).await.unwrap();
+    assert_eq!(r.price.input_cost_per_token, 0.000002);
+    assert_eq!(r.price.source, "official_entry");
+    put_entry(&db, "magpie", "provider/price-test-model", &free, None).await;
+    let r = resolve_price(&db, "magpie", "provider/price-test-model", 3.0, 3.0, 0, 0, false).await.unwrap();
+    assert_eq!(r.price.source, "model_entry+free");
+    let r = resolve_price(&db, "magpie", "group/price-test-model", 3.0, 3.0, 0, 0, false).await.unwrap();
+    assert_eq!(r.price.source, "fallback");
+}
+
+#[tokio::test]
 async fn resolve_price_reads_platform_scoped_entry() {
     let db = test_db().await;
     let cheap = serde_json::json!({"input_cost_per_token": 1e-6, "output_cost_per_token": 2e-6});

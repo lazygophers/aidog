@@ -450,7 +450,7 @@ pub async fn resolve_price(
     now_ms: i64,
     is_peak: bool,
 ) -> Result<PriceResolution, String> {
-    let found = crate::model_entry_for_billing(db, platform_code, model_id).await?;
+    let found = crate::model_entry_for_price(db, platform_code, model_id).await?;
     let cross_platform = found.as_ref().is_some_and(|x| x.cross_platform);
     // parse + 旧形状归一化已在缓存填充时完成（命中路径直接用预解析产物，零 parse）
     let pd: Option<&Value> = found.as_ref().map(|x| &x.price_data);

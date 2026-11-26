@@ -49,7 +49,7 @@ export function ModelCombobox({
   const [innerOpen, setInnerOpen] = useState(false);
   const active = openProp ?? innerOpen;
   const setActive = onOpenChange ?? setInnerOpen;
-  const priceMap = useModelPrices(protocol);
+  const priceMap = useModelPrices(protocol, source);
   const candidates = exclude ? source.filter((m) => !exclude.includes(m)) : source;
   const hasDropdown = candidates.length > 0;
   const query = value.trim().toLowerCase();
@@ -62,8 +62,9 @@ export function ModelCombobox({
   return (
     <Popover open={open} onOpenChange={(o) => { if (!o) setActive(false); }}>
       <PopoverAnchor asChild>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, width: "100%" }}>
-          <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+        {/* 窄位时紧凑价整块换行到输入框下方（可增高），输入框保底 120px 不被价格挤没 */}
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 4, width: "100%" }}>
+          <div style={{ position: "relative", flex: 1, minWidth: 120 }}>
             <Input
               className="input"
               style={{ width: "100%", fontSize: 14, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined, ...inputStyle }}
@@ -104,7 +105,7 @@ export function ModelCombobox({
       <PopoverContent
         align="start"
         className="glass-elevated"
-        style={{ width: "var(--radix-popover-trigger-width)", maxHeight: 200, overflowY: "auto", padding: 4 }}
+        style={{ width: "max(var(--radix-popover-trigger-width), 320px)", maxWidth: "var(--radix-popover-content-available-width)", maxHeight: 200, overflowY: "auto", padding: 4 }}
         // 焦点留在 input 内以继续输入过滤（下拉在 portal，不抢焦点）。
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
@@ -116,7 +117,10 @@ export function ModelCombobox({
             {...(selected && { "data-state": selected.includes(m) ? "checked" : "unchecked", "aria-selected": selected.includes(m) })}
             style={{
               width: "100%",
+              height: "auto",
+              whiteSpace: "normal",
               justifyContent: "flex-start",
+              flexDirection: "column",
               gap: 8,
               padding: "6px 12px",
               fontSize: 14,
@@ -131,11 +135,14 @@ export function ModelCombobox({
               if (!selected) setActive(false);
             }}
           >
-            {selected && (
-              <span aria-hidden style={{ width: 12, color: "var(--primary)" }}>{selected.includes(m) ? "✓" : ""}</span>
-            )}
-            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{m}</span>
-            <ModelPriceTag info={priceMap.get(m)} />
+            <span style={{ display: "flex", alignItems: "flex-start", gap: 8, width: "100%" }}>
+              {selected && (
+                <span aria-hidden style={{ width: 12, color: "var(--primary)" }}>{selected.includes(m) ? "✓" : ""}</span>
+              )}
+              {/* 模型名完整可见：可断行不省略；价格整块另起一行（flex-end 右对齐） */}
+              <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere", textAlign: "left" }}>{m}</span>
+            </span>
+            <ModelPriceTag info={priceMap.get(m)} style={{ alignSelf: "flex-end", maxWidth: "100%", whiteSpace: "normal", overflowWrap: "anywhere" }} />
           </Button>
         ))}
       </PopoverContent>

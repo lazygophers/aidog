@@ -20,6 +20,8 @@ export const modelInfoApi = {
     invoke<ModelEntry[]>("model_entry_list", { platformCode: platformCode ?? null }),
   get: (platformCode: string, modelId: string) =>
     invoke<ModelEntry | null>("model_entry_get", { platformCode, modelId }),
+  resolvePrices: (platformCode: string, modelIds: string[]) =>
+    invoke<Array<ModelEntry | null>>("model_prices_resolve", { platformCode, modelIds }),
   /** 模型维度 + 平台预设一次性快照。 */
   snapshot: () => invoke<ModelInfoSnapshot>("model_info_snapshot"),
 };

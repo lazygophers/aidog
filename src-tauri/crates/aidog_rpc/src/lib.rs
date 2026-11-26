@@ -360,6 +360,7 @@ rpc_routes! {
     readonly aidog_core::platform_cmd::model_entry::model_entry_list,
     readonly aidog_core::platform_cmd::model_entry::model_entry_get,
     readonly aidog_core::platform_cmd::model_entry::model_info_snapshot,
+    readonly aidog_core::platform_cmd::model_entry::model_prices_resolve,
     readonly aidog_core::system_cmd::about::about_info,
     readonly aidog_core::cli_env::cli_check_versions,
     mutating aidog_core::cli_env::cli_install,

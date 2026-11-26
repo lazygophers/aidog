@@ -670,6 +670,47 @@ pub async fn model_entry_for_billing(
     Ok(result)
 }
 
+/// 选择用于计费和展示的价格条目；无官方有效价时保留原有回退。
+pub async fn model_entry_for_price(
+    db: &Db,
+    platform_code: &str,
+    model_id: &str,
+) -> Result<Option<std::sync::Arc<BillingEntry>>, String> {
+    let original = model_entry_for_billing(db, platform_code, model_id).await?;
+    let valid = |pd: &serde_json::Value| {
+        crate::price_resolve::resolve_price_from(Some(pd), false, 0.0, 0.0, 0, 0)
+            .price.source != "fallback"
+    };
+    if original
+        .as_ref()
+        .is_some_and(|entry| !entry.cross_platform && valid(&entry.price_data))
+    {
+        return Ok(original);
+    }
+    let lookup = if platform_code == "magpie" {
+        match model_id.split_once('/') {
+            Some(("group", _)) => return Ok(original),
+            Some((_, model)) => model,
+            None => model_id,
+        }
+    } else {
+        model_id
+    };
+    if let Some(mut entry) = list_model_entries(db, None).await?.into_iter().find(|entry| {
+        entry.official && entry.model_id == lookup
+            && valid(&crate::price_resolve::parse_price_data(&entry.price_data))
+    }) {
+        let price_data = crate::price_resolve::parse_price_data(&entry.price_data);
+        entry.price_data.clear();
+        return Ok(Some(std::sync::Arc::new(BillingEntry {
+            price_data,
+            cross_platform: true,
+            entry,
+        })));
+    }
+    Ok(original)
+}
+
 /// 删除当前 registry 清单已不再包含的模型镜像行。
 /// 只在同步完整成功后调用；部分文件失败时必须保留旧行，等待下一轮补齐。
 #[track_caller]
