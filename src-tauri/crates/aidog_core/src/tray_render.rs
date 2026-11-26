@@ -54,7 +54,8 @@ pub struct TrayColumn {
 impl TrayColumn {
     /// 渲染用的有效颜色：`auto` 按 level 落成 preset（red / orange / green），无 level -> follow（labelColor）；
     /// 其它 mode 原样。level -> 色名的唯一映射点；要改「绿也用 labelColor」只改 `auto_preset`。
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    // 调用方（set_tray_attributed_title）在 cfg(macos + menubar) 块内；kernel/macOS 无 menubar 构建下暂无调用方，保留待复用。
+    #[cfg_attr(not(all(target_os = "macos", feature = "menubar")), allow(dead_code))]
     pub(crate) fn render_color(&self) -> TrayColor {
         if self.color.mode != "auto" {
             return self.color.clone();
@@ -69,7 +70,8 @@ impl TrayColumn {
     }
 }
 
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+// 调用方仅 render_color（其自身在 kernel/macOS 无 menubar 构建下 dead），随其一并保留。
+#[cfg_attr(not(all(target_os = "macos", feature = "menubar")), allow(dead_code))]
 fn auto_preset(level: Option<&str>) -> Option<&'static str> {
     match level {
         Some("red") => Some("red"),
@@ -81,7 +83,8 @@ fn auto_preset(level: Option<&str>) -> Option<&'static str> {
 
 /// 托盘 preset 色（浅色菜单栏 hex, 深色菜单栏 hex）。前端 globals.css `--mb-green/orange/red` 同值。
 /// 非 red/green/orange（含 follow 用的未知名）→ None，调用方回落 labelColor。
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+// 调用方（resolve_tray_color）在 cfg(macos + menubar) 块内；kernel/macOS 无 menubar 构建下暂无调用方，保留待复用。
+#[cfg_attr(not(all(target_os = "macos", feature = "menubar")), allow(dead_code))]
 pub(crate) fn preset_hex(name: &str) -> Option<(&'static str, &'static str)> {
     match name {
         "green" => Some(("197A34", "3FB950")),
