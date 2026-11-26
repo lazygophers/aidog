@@ -2299,6 +2299,53 @@ pub struct TypeSafeAdapter;
 impl PlatformAdapter for TypeSafeAdapter {}
 
 static TYPESAFE: TypeSafeAdapter = TypeSafeAdapter;
+/// xAI Grok API（api.x.ai）专属适配器（issue 112；单成员，非编码套餐）。
+///
+/// 逐项核对（官方文档核对日期 2026-11-26；Mintlify 站）：
+/// - 端点：OpenAI 兼容，base_url `https://api.x.ai/v1`（与 registry 内置默认一致，仅预填用；
+///   运行时一律用用户配置端点）；Chat Completions `POST /v1/chat/completions`（官方标 legacy，
+///   仍支持）+ Responses API `POST /v1/responses`；`Authorization: Bearer <XAI_API_KEY>`。
+///   https://docs.x.ai/developers/model-capabilities/legacy/chat-completions
+/// - 请求字段与默认值：Chat Completions 为标准 OpenAI 形状（`messages` 数组、system / user /
+///   assistant 角色、content 支持文本分段数组），官方示例用 OpenAI SDK 指向 base_url 调用——
+///   与基座 openai 协议构件一致，无平台级新增字段。官方推荐 Responses API（aidog 用户可配
+///   `openai_responses` 端点协议，同走基座构件）。
+/// - 思考参数：`reasoning_effort`（Chat Completions）/ `reasoning.effort`（Responses），
+///   `grok-4.7` / `grok-4.6`：low / medium / high（默认）/ xhigh；`grok-4.5`：low / medium /
+///   high（不支持 xhigh，请求按 high 处理）；**不可关闭**（cannot be disabled）。框架
+///   reasoning efforts 闸门按 registry `model_entry` 数据驱动（`forward.rs` 按条目查询），
+///   适配器无平台级覆写；强制思考路径不适用（无关闭开关）。
+///   https://docs.x.ai/developers/model-capabilities/text/reasoning
+/// - 工具调用与服务端工具：Function Calling（客户端执行）+ 服务端工具（web search / x search /
+///   code execution / remote MCP，Responses API）；具体 wire 形状逐字例未核对——未证实，
+///   保持基座构件默认。
+/// - 图片与音视频：Image Understanding / Audio Understanding（多模态输入）存在，OpenAI 形状；
+///   具体字段未逐字核对——未证实，保持基座构件默认。
+/// - system 提示 / max_tokens 上限：system 走 messages 标准角色；统一 max_tokens 上限官方
+///   未列（per-model 上下文在 models 页）——上限按 registry 条目 `cap_max_tokens` 裁剪（现状）。
+/// - usage（含缓存 token）：响应示例 `usage.prompt_tokens / completion_tokens / total_tokens`
+///   + `prompt_tokens_details {text_tokens, audio_tokens, image_tokens, cached_tokens}`——
+///   基座 `usage.rs` 已读 `prompt_tokens_details.cached_tokens`（`usage.rs:64`），无需覆写。
+///   https://docs.x.ai/developers/model-capabilities/legacy/chat-completions
+/// - 错误体：状态码表 400（含「不正确的 API key」）、401、403、404（含「模型不存在」）、
+///   405、415、422、429（限频）；错误 JSON 信封官方只说「error message self-explanatory」，
+///   未给原文示例——信封细节未证实，基座 `classify_upstream_error` 读
+///   error.message/code/type + 状态码（429 → 服务类）照常适用，不扩展。
+///   https://docs.x.ai/developers/debugging
+/// - 流式事件格式与结束标记：Chat Completions 流式官方转引 Streaming 页，SSE `data:` 帧形状
+///   未逐字取证——未证实，保持基座 openai 臂默认（`data: [DONE]` 终止）。
+///   https://docs.x.ai/developers/model-capabilities/text/streaming
+/// - coding_plan 注入：非编码套餐，基座按平台协议分派对 `Protocol::Xai` 为 no-op，行为不变。
+/// - 转发层现状（grep 2026-11-26）：gateway 对 xai 零特判（仅 `protocol.rs` serde rename），
+///   无既有差异可迁；行为不变由基座分派回归测试锁定。
+///
+/// 结论：官方只证实「OpenAI 兼容 + 端点/鉴权 + usage 缓存字段 + 思考档位」四件，均与协议
+/// 构件/registry 数据链路现状一致；专属适配器只承担显式注册语义（与 [`AiHubMixAdapter`] 同形）。
+pub struct XaiAdapter;
+
+impl PlatformAdapter for XaiAdapter {}
+
+static XAI: XaiAdapter = XaiAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
     carry_history_reasoning_openai: true,
@@ -2558,7 +2605,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("therouter", &THEROUTER),
     ("tokenrhythm", &TOKENRHYTHM),
     ("typesafe", &TYPESAFE),
-    ("xai", &GENERIC),
+    ("xai", &XAI),
     ("xiaomi_mimo", &MIMO),
     ("xiaomi_mimo_coding", &MIMO_CODING),
     ("xiaomi_mimo_coding_en", &MIMO_CODING),
