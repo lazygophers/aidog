@@ -8,6 +8,7 @@
 
 - `command_macro.rs` 的 `tauri_command!` 宏双展开：feature `desktop` 出 `#[tauri::command]`，feature `http` 出 `<命令名>::http` 的 axum handler（两者默认都开）。**用本宏定义命令的 crate 必须自己声明这两个 feature 并转发给 aidog_core**（cfg 在展开处求值）：现有 aidog_backup 已声明。
 - `http_command.rs`：参数按 camelCase→snake_case 取（对齐 Tauri v2 与前端实际发的键）、返回值序列化、Err → 非 2xx + 同样的 JSON body。
+- **带 `AppHandle` 参数的命令不能走 `tauri_command!` 宏**（宏会展开 http handler，AppHandle 无 HTTP 形态）：写原生 `#[tauri::command]`，前端 invoke 名照常进 `startup.rs` 注册表，但要在 `scripts/check-frontend-rpc-coverage.mjs` 的 `ALLOW` 白名单登记（每项带原因；仅限桌面 IPC 专属命令）。先例：`src-tauri/src/update_relaunch.rs`（update_begin_drain / update_abort_drain / update_relaunch_when_drained）。同理，只在内核进程实现的管理路由（如 `aidog_kernel/src/update.rs::install_routes` 的 kernel_update_* 五条）不是 tauri 命令，同样走 ALLOW 豁免。
 - `aidog_ctx` 的 `AppCtx` trait（进程级 OnceLock 单例）必须**零 tauri 依赖**：命令拿 db / middleware / proxy handle / emit 一律走它，`aidog_core/src/tauri_ctx.rs` 是唯一接 `AppHandle` 的地方，无头内核（票 08）实现同一 trait。
 - `src/services/api/` 是目录不是单文件；`src/pages/Settings.tsx` 是编排容器，子组件在 `src/components/settings/`。
 
@@ -47,6 +48,11 @@
 - 自检：`GITHUB_ACTIONS=true cargo test --workspace` 后对测试二进制 `strings | grep -c lazygophers/ccplugin`（非 oss 独有标记）应为 0，不设变量应 >0。
 - 风险：非 `oss` 预设（如 `lazygophers.json`）是个人配置且进公开 git，禁放密钥 / token / 内网地址，提交前过凭据扫描。
 - 改 `src-tauri/defaults/settings/lazygophers.json` 的任何键后跑 `yarn sync:preset-min-version`（从官方文档取各键所需 CLI 版本的最大值写入顶层 `minimumVersion`）并一并提交；`yarn sync:preset-min-version` 不带 `--write` 即校验，仅覆盖该预设，其它预设无此键。
+
+### 应用更新（内核自主更新 + 桌面收尾）
+- **内核自主更新**（`aidog_kernel/src/update.rs`，magpie 参照）：签名复用桌面 Tauri updater 的 Ed25519 密钥与 latest.json 清单（单一发布渠道单一密钥）；二进制装到服务用户可写目录（`~/.local/bin`，systemd 样例同步），自替换无需提权；失败保留/恢复旧版并提示。release.yml 有内核构建/签名/清单合并 job（2026-11-26 补，真实验证在下次发版）。
+- **排空闸门**（`gateway/proxy/drain.rs`）：更新确认后停止接新请求、排空在途请求再重启。**超时桌面 120 秒 / 内核 30 秒是有意不一致**（用户拍板 2026-11-26：桌面聊天请求更长），到点未排完也重启进新版——审查勿当 bug 报。
+- **桌面收尾三命令**（update_begin_drain / update_abort_drain / update_relaunch_when_drained）仅桌面壳实现（`src-tauri/src/update_relaunch.rs`），走原生 `#[tauri::command]` + rpc-coverage 白名单（见「项目结构要点」）。
 
 ### URL 构造
 - `base_url` 含版本前缀（如 `/v1`、`/api/paas/v4`）
