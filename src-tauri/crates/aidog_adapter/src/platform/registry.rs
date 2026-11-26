@@ -1091,6 +1091,20 @@ impl PlatformAdapter for ArkFamilyAdapter {
 /// openai `https://qianfan.baidubce.com/v2/coding` + anthropic
 /// `https://qianfan.baidubce.com/anthropic/coding`，`coding_plan: true`）与官方一致，
 /// 运行时只用用户平台配置的端点。成员级差异由各成员 issue 取证后覆盖。
+///
+/// 成员 `qianfan` 核对补充（2026-11-26）：
+/// - 文本生成 Chat API https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb
+///   （`thinking.type` 默认 `disabled`；`stream` 默认 false、SSE 以 `data: [DONE]` 结束；
+///   流式默认不带 usage，`stream_options.include_usage=true` 时末帧携带；
+///   `usage.prompt_tokens_details.cached_tokens` 命中缓存 token 数、`search_tokens` 检索膨胀 token）。
+/// - 错误码 https://cloud.baidu.com/doc/qianfan-api/s/Om9b4yj3w
+///   （错误体 `{"error":{"code","message","type"},"id"}`；401 `invalid_model`
+///   「The model does not exist or you do not have access to it.」）。
+/// - Anthropic API 公告 https://cloud.baidu.com/doc/qianfan/s/empm33i0q
+///   （`input_tokens = prompt_tokens - cache_read_input_tokens`，与 Anthropic 定义一致）。
+/// - 未证实（保持基座默认）：流式帧内错误体形态、anthropic 端点 SSE 结束标记（测试按
+///   Anthropic 标准事件链构造，无 [DONE]）、`thinking`/`enable_thinking` 逐模型支持清单、
+///   max_tokens 统一上限、图片/音视频块在该文本生成端点的认受性（官方图片理解是独立端点）。
 pub struct QianfanFamilyAdapter;
 
 impl PlatformAdapter for QianfanFamilyAdapter {
