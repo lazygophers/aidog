@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  aidog 无界面内核的 macOS launchd 用户级样例（票 06，与 aidog-kernel.service 的 systemd
+  样例同构；更新链路本体见 src/update.rs 注释，两平台只在「重启由谁拉起」这一层不同）。
+
+  安装（LaunchAgent，登录后常驻；把两个 /Users/you 换成实际家目录）：
+    mkdir -p ~/.local/bin
+    cp <构建产物 aidog-kernel> ~/.local/bin/aidog-kernel && chmod +x ~/.local/bin/aidog-kernel
+    cp aidog-kernel.launchd.plist ~/Library/LaunchAgents/dev.aidog.kernel.plist
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.aidog.kernel.plist
+    launchctl print gui/$(id -u)/dev.aidog.kernel        # 状态
+    tail -f ~/.aidog/logs/aidog-kernel.launchd.out.log   # 标准输出的日志（文件日志同前）
+
+  二进制装在 ~/.local/bin（用户家目录内、服务用户自己可写）是有意的（票 magpie-05/06 拍板）：
+  内核更新确认后由服务进程自己替换这个文件并退出，launchd 拉起新版 —— 全程无需提权 helper。
+  别把二进制挪到 /usr/local/bin 这类管理员目录：服务账户写不动它，更新会以
+  「no write permission」失败（update.rs::install_inner 的写权限预检）。
+
+  重启语义与 systemd 的对应：
+    systemd Restart=on-failure  ↔  launchd KeepAlive { SuccessfulExit = false }
+  两者都是「退出码非 0 才拉起」：更新确认后的 exit(75)（update.rs 的 EX_TEMPFAIL）会触发
+  重启跑新版；SIGTERM 正常退出（main.rs 的 wait_for_shutdown，退出码 0）不会 —— 手动
+  `launchctl kill SIGTERM gui/$(id -u)/dev.aidog.kernel` 停服务后不会被拉回，与
+  `systemctl stop` 等价。ThrottleInterval=5 对应 systemd RestartSec=5（launchd 默认 10）。
+
+  默认这份是**纯内核**：只转发代理，不开任何 HTTP 管理面。要 Web 界面，把
+  ProgramArguments 第二个元素换成
+    --ui --ui-dir <家目录>/ui
+  （管理面永远只监听 127.0.0.1；端口来自数据库里的内核设置，默认 9891，不是命令行参数）。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>dev.aidog.kernel</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- plist 不展开变量；用 sh -c 让 HOME 在运行时展开到 ~/.local/bin。 -->
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>exec "$HOME/.local/bin/aidog-kernel"</string>
+    </array>
+
+    <!-- 数据目录是 $HOME/.aidog（数据库、日志、脚本都在里面）。LaunchAgent 由 launchd
+         以登录用户身份启动，HOME 已指向用户家目录；与 systemd 样例不同，无需手工注入。 -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>RUST_LOG</key>
+        <string>info</string>
+    </dict>
+
+    <!-- 更新自重启的触发点：exit(75) 非零 → 拉起；SIGTERM 退出码 0 → 不拉起。 -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>5</integer>
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/you/.aidog/logs/aidog-kernel.launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/you/.aidog/logs/aidog-kernel.launchd.err.log</string>
+</dict>
+</plist>
