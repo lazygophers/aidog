@@ -209,3 +209,123 @@ jobs:
         with:
           path: .yarn/cache
           key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+
+  # 内核发行（票 magpie-05 遗留补齐）：无头内核二进制，追加进与桌面共用的 latest.json
+  # （平台键 OS-ARCH-kernel，桌面 updater 忽略多出的键）。契约见
+  # src-tauri/crates/aidog_kernel/src/update.rs 顶部注释：复用桌面 Ed25519 密钥与清单，
+  # pubkey 经 include_str! 编译期内嵌（tauri.conf.json），CI 不经手公钥。
+  # 桌面签名在 tauri-action 内部完成，内核二进制不经 tauri-action → 用 CLI 手签：
+  # `tauri signer sign --app-version` 把 version: 写进 trusted comment（内核验签强制要求
+  # 该字段 == 清单 version，防「旧包配新版本号」降级），密钥走与桌面相同的两个 secrets。
+  # CLI 版本跟随 package.json devDependencies 的 @tauri-apps/cli（本地 npx 实测 2.12.4 支持）。
+  kernel-release:
+    needs: [gates]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 内核主打 systemd(Linux) + launchd(macOS) 宿主；桌面矩阵无 Linux job，内核补上。
+          # macOS 照桌面惯例分架构（不出 universal）。
+          - platform: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            exe: ""
+          - platform: macos-latest # Apple Silicon
+            target: aarch64-apple-darwin
+            exe: ""
+          - platform: macos-latest # Intel（交叉编译）
+            target: x86_64-apple-darwin
+            exe: ""
+          - platform: windows-latest # x64
+            target: x86_64-pc-windows-msvc
+            exe: ".exe"
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+          shared-key: kernel
+          cache-on-failure: true
+      # 内核全依赖 default-features=false features=["http"]，不拉 tauri/-sys 系 → 裸 runner 可编译，
+      # 无需 gates job 那套 Linux 系统库（aidog_kernel/Cargo.toml 顶注）。
+      - name: Build kernel (release)
+        run: cargo build --release --manifest-path src-tauri/Cargo.toml -p aidog_kernel --target ${{ matrix.target }}
+      - name: Read version (.version 单一源)
+        id: v
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < .version)" >> "$GITHUB_OUTPUT"
+      - name: Sign kernel binary (trusted comment 绑定 version)
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          BIN="src-tauri/target/${{ matrix.target }}/release/aidog-kernel${{ matrix.exe }}"
+          npx --yes @tauri-apps/cli@2.12.4 signer sign --app-version "${{ steps.v.outputs.version }}" "$BIN"
+      - name: Rename kernel assets with target suffix
+        shell: bash
+        run: |
+          mkdir -p kernel-dist
+          cp "src-tauri/target/${{ matrix.target }}/release/aidog-kernel${{ matrix.exe }}" "kernel-dist/aidog-kernel-${{ matrix.target }}${{ matrix.exe }}"
+          cp "src-tauri/target/${{ matrix.target }}/release/aidog-kernel${{ matrix.exe }}.sig" "kernel-dist/aidog-kernel-${{ matrix.target }}${{ matrix.exe }}.sig"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernel-${{ matrix.target }}
+          path: kernel-dist/*
+          if-no-files-found: error
+
+  # 收口：等桌面 release（latest.json 与 tag 已存在）后，把内核平台键追加进 latest.json，
+  # 连同二进制与 .sig 一起传到同一 Release。version / notes 沿用桌面清单原文（只加平台键）。
+  kernel-manifest:
+    needs: [release, kernel-release]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Read version (.version 单一源)
+        id: v
+        run: echo "version=$(tr -d '[:space:]' < .version)" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: kernel-*
+          merge-multiple: true
+          path: kernel-dist
+      - name: Download desktop latest.json
+        run: gh release download "v${{ steps.v.outputs.version }}" --repo "$GITHUB_REPOSITORY" --pattern latest.json --dir .
+      - name: Merge kernel platforms into latest.json
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          node <<'EOF'
+          const fs = require("fs");
+          const repo = process.env.GITHUB_REPOSITORY;
+          const v = process.env.VERSION;
+          const manifest = JSON.parse(fs.readFileSync("latest.json", "utf8"));
+          if (manifest.version !== v) {
+            throw new Error(`latest.json version ${manifest.version} != .version ${v}`);
+          }
+          const targets = [
+            ["aarch64-apple-darwin", "darwin-aarch64-kernel", false],
+            ["x86_64-apple-darwin", "darwin-x86_64-kernel", false],
+            ["x86_64-unknown-linux-gnu", "linux-x86_64-kernel", false],
+            ["x86_64-pc-windows-msvc", "windows-x86_64-kernel", true],
+          ];
+          for (const [t, key, isWin] of targets) {
+            const ext = isWin ? ".exe" : "";
+            const signature = fs
+              .readFileSync(`kernel-dist/aidog-kernel-${t}${ext}.sig`, "utf8")
+              .trim();
+            manifest.platforms[key] = {
+              signature,
+              url: `https://github.com/${repo}/releases/download/v${v}/aidog-kernel-${t}${ext}`,
+            };
+          }
+          fs.writeFileSync("latest.json", JSON.stringify(manifest, null, 2) + "\n");
+          EOF
+      - name: Upload kernel assets + updated latest.json
+        run: |
+          gh release upload "v${{ steps.v.outputs.version }}" kernel-dist/* latest.json --clobber --repo "$GITHUB_REPOSITORY"
