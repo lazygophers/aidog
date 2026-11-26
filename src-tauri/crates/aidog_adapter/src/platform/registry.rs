@@ -2299,6 +2299,113 @@ pub struct TypeSafeAdapter;
 impl PlatformAdapter for TypeSafeAdapter {}
 
 static TYPESAFE: TypeSafeAdapter = TypeSafeAdapter;
+/// xAI Grok API（api.x.ai）专属适配器（issue 112；单成员，非编码套餐）。
+///
+/// 逐项核对（官方文档核对日期 2026-11-26；Mintlify 站）：
+/// - 端点：OpenAI 兼容，base_url `https://api.x.ai/v1`（与 registry 内置默认一致，仅预填用；
+///   运行时一律用用户配置端点）；Chat Completions `POST /v1/chat/completions`（官方标 legacy，
+///   仍支持）+ Responses API `POST /v1/responses`；`Authorization: Bearer <XAI_API_KEY>`。
+///   https://docs.x.ai/developers/model-capabilities/legacy/chat-completions
+/// - 请求字段与默认值：Chat Completions 为标准 OpenAI 形状（`messages` 数组、system / user /
+///   assistant 角色、content 支持文本分段数组），官方示例用 OpenAI SDK 指向 base_url 调用——
+///   与基座 openai 协议构件一致，无平台级新增字段。官方推荐 Responses API（aidog 用户可配
+///   `openai_responses` 端点协议，同走基座构件）。
+/// - 思考参数：`reasoning_effort`（Chat Completions）/ `reasoning.effort`（Responses），
+///   `grok-4.7` / `grok-4.6`：low / medium / high（默认）/ xhigh；`grok-4.5`：low / medium /
+///   high（不支持 xhigh，请求按 high 处理）；**不可关闭**（cannot be disabled）。框架
+///   reasoning efforts 闸门按 registry `model_entry` 数据驱动（`forward.rs` 按条目查询），
+///   适配器无平台级覆写；强制思考路径不适用（无关闭开关）。
+///   https://docs.x.ai/developers/model-capabilities/text/reasoning
+/// - 工具调用与服务端工具：Function Calling（客户端执行）+ 服务端工具（web search / x search /
+///   code execution / remote MCP，Responses API）；具体 wire 形状逐字例未核对——未证实，
+///   保持基座构件默认。
+/// - 图片与音视频：Image Understanding / Audio Understanding（多模态输入）存在，OpenAI 形状；
+///   具体字段未逐字核对——未证实，保持基座构件默认。
+/// - system 提示 / max_tokens 上限：system 走 messages 标准角色；统一 max_tokens 上限官方
+///   未列（per-model 上下文在 models 页）——上限按 registry 条目 `cap_max_tokens` 裁剪（现状）。
+/// - usage（含缓存 token）：响应示例 `usage.prompt_tokens / completion_tokens / total_tokens`
+///   及 `prompt_tokens_details {text_tokens, audio_tokens, image_tokens, cached_tokens}`——
+///   基座 `usage.rs` 已读 `prompt_tokens_details.cached_tokens`（`usage.rs:64`），无需覆写。
+///   https://docs.x.ai/developers/model-capabilities/legacy/chat-completions
+/// - 错误体：状态码表 400（含「不正确的 API key」）、401、403、404（含「模型不存在」）、
+///   405、415、422、429（限频）；错误 JSON 信封官方只说「error message self-explanatory」，
+///   未给原文示例——信封细节未证实，基座 `classify_upstream_error` 读
+///   error.message/code/type + 状态码（429 → 服务类）照常适用，不扩展。
+///   https://docs.x.ai/developers/debugging
+/// - 流式事件格式与结束标记：Chat Completions 流式官方转引 Streaming 页，SSE `data:` 帧形状
+///   未逐字取证——未证实，保持基座 openai 臂默认（`data: [DONE]` 终止）。
+///   https://docs.x.ai/developers/model-capabilities/text/streaming
+/// - coding_plan 注入：非编码套餐，基座按平台协议分派对 `Protocol::Xai` 为 no-op，行为不变。
+/// - 转发层现状（grep 2026-11-26）：gateway 对 xai 零特判（仅 `protocol.rs` serde rename），
+///   无既有差异可迁；行为不变由基座分派回归测试锁定。
+///
+/// 结论：官方只证实「OpenAI 兼容 + 端点/鉴权 + usage 缓存字段 + 思考档位」四件，均与协议
+/// 构件/registry 数据链路现状一致；专属适配器只承担显式注册语义（与 [`AiHubMixAdapter`] 同形）。
+pub struct XaiAdapter;
+
+impl PlatformAdapter for XaiAdapter {}
+
+static XAI: XaiAdapter = XaiAdapter;
+/// PipeLLM Relay（Auto Router；api.pipellm.ai / cc-api.pipellm.ai）专属适配器
+/// （issue 107；单成员，非编码套餐）。
+///
+/// 逐项核对（官方文档核对日期 2026-11-26；Mintlify 站，raw `.md` 可抓取）：
+/// - 端点（registry 内置默认仅预填用；运行时一律用用户配置端点）：官方 Relay 公开两类路由——
+///   native（`/v1/chat/completions`、`/v1/responses`、`/v1/messages`、
+///   `/v1beta/models/{model}:generateContent` 等挂 `https://api.pipellm.ai`）与 converter 前缀
+///   路由（`/openai/v1`、`/responses/v1`、`/anthropic`、`/gemini`）。registry 内置默认
+///   openai = `https://api.pipellm.ai/openai/v1`、gemini = `https://api.pipellm.ai/gemini`
+///   （converter 路线）；anthropic = `https://cc-api.pipellm.ai`（票面登记值；官方
+///   authentication 页 native anthropic base URL 为 `https://api.pipellm.ai`，两处不一致
+///   属 registry 数据现状，行为不受影响——出站只读用户配置）。
+///   https://docs.pipellm.ai/guides/routing-protocols https://docs.pipellm.ai/api-reference/authentication
+/// - 鉴权：openai wire `Authorization: Bearer`、anthropic wire `x-api-key`、gemini wire
+///   `x-goog-api-key`，Relay 侧统一 API key（禁发 provider key）——基座各协议臂默认注入同形。
+///   https://docs.pipellm.ai/api-reference/authentication
+/// - 请求字段与默认值：三协议均为官方标准形状（openai `messages` / anthropic Messages /
+///   gemini GenerateContent），Relay 只做路由与策略，无平台级新增字段。native 路由有协议
+///   守卫（openai 形只路由 OpenAI 兼容平台等）；converter 前缀路由不受守卫限制——均为
+///   服务端路由行为，不影响 aidog 出站构造，基座构件原样适用。
+/// - 思考参数 / 工具调用 / system / max_tokens 上限：官方 API 参考未列平台级差异——未证实，
+///   保持基座构件默认（上限按 registry 条目 `cap_max_tokens` 裁剪）。
+/// - 图片与音视频：官方另有图像生成 / 视频（`/v2/videos` 异步任务）与 `/v1/systemone`
+///   决策（jev）端点；chat 链路多模态未记载——未证实，保持基座构件默认。
+/// - usage（含缓存 token）：prompt caching 文档响应示例为 anthropic 形
+///   `usage.cache_creation_input_tokens / cache_read_input_tokens`——基座 `usage_cache_arms`
+///   anthropic 臂已读（`usage.rs:43`）；openai / responses 形由基座对应臂覆盖。无平台级覆写。
+///   https://docs.pipellm.ai/guides/prompt-caching
+/// - 错误体：统一 `{"error":{"type","code","message"}}`，状态码表 400 invalid_request_error /
+///   401 authentication_error / 402 insufficient_balance / 403 permission_error /
+///   404 not_found_error / 405 invalid_request_error / 429 rate_limit_error / 500+ api_error /
+///   529 overloaded_error——基座 `classify_upstream_error` 读 error.message/code/type + 状态码
+///   照常适用，不扩展。https://docs.pipellm.ai/api-reference/errors
+/// - 流式事件格式与结束标记：Chat Completions `stream: true` 走 SSE（openai 臂默认）；
+///   官方明示「cross-protocol streaming output in Gemini format is not implemented」——
+///   gemini converter 路线不支持流式出站，用户配 gemini 协议端点时流式请求行为按基座现状
+///   （不发流式保障，属服务端限制，如实透传）。https://docs.pipellm.ai/api-reference/streaming
+/// - coding_plan 注入：非编码套餐，基座按平台协议分派对 `Protocol::PipeLlm` 为 no-op，行为不变。
+/// - 转发层现状（grep 2026-11-26）：gateway 对 pipellm 零特判（仅 `protocol.rs` serde
+///   rename 与 registry 数据），无既有差异可迁；行为不变由基座分派回归测试锁定。
+///
+/// 结论：官方证实端点布局 / 鉴权 / 错误体 / usage 缓存字段 / gemini 流式限制五件，均与
+/// 协议构件现状一致；专属适配器只承担显式注册语义（与 [`AiHubMixAdapter`] 同形）。
+pub struct PipeLlmAdapter;
+
+impl PlatformAdapter for PipeLlmAdapter {}
+
+static PIPELLM: PipeLlmAdapter = PipeLlmAdapter;
+
+/// 胜算云出站适配器（issue 108）。
+///
+/// 官方文档 https://docs.router.shengsuanyun.com 于 2026-11-26 核对时证书域名不匹配，
+/// 无法核实请求默认值、思考参数、工具、多模态、system、max_tokens、缓存 usage、错误体及
+/// 流式事件与结束标记；这些行为暂时沿用协议构件默认值，不推断平台特性。
+/// 运行时使用用户配置的协议和端点；非编码套餐，coding_plan 注入沿用基座。
+pub struct ShengSuanYunAdapter;
+
+impl PlatformAdapter for ShengSuanYunAdapter {}
+
+static SHENGSUANYUN: ShengSuanYunAdapter = ShengSuanYunAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
     carry_history_reasoning_openai: true,
@@ -2542,12 +2649,12 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("opencode_zen", &OPENCODE),
     ("openrouter", &OPENROUTER),
     ("passthrough", &GENERIC),
-    ("pipellm", &GENERIC),
+    ("pipellm", &PIPELLM),
     ("qianfan", &QIANFAN),
     ("qianfan_coding", &QIANFAN),
     ("sensenova", &SENSENOVA),
     ("sensenova_en", &SENSENOVA),
-    ("shengsuanyun", &GENERIC),
+    ("shengsuanyun", &SHENGSUANYUN),
     ("siliconflow", &SILICONFLOW),
     ("siliconflow_en", &SILICONFLOW),
     ("stepfun", &STEPFUN),
@@ -2558,7 +2665,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("therouter", &THEROUTER),
     ("tokenrhythm", &TOKENRHYTHM),
     ("typesafe", &TYPESAFE),
-    ("xai", &GENERIC),
+    ("xai", &XAI),
     ("xiaomi_mimo", &MIMO),
     ("xiaomi_mimo_coding", &MIMO_CODING),
     ("xiaomi_mimo_coding_en", &MIMO_CODING),
