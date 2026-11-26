@@ -87,6 +87,24 @@ fn xai_has_dedicated_adapter_registration() {
 }
 
 #[test]
+fn pipe_adapter_registration_and_cache_usage() {
+    let adapter = super::adapter_for("pipellm");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("devin")),
+        "PipeLLM registration must not use the generic adapter"
+    );
+    // usage 缓存 token：官方 prompt caching 文档 anthropic 形字段，基座 anthropic 臂已读；
+    // anthropic input 天然不含缓存，不扣减。
+    let resp = r#"{"usage":{"input_tokens":12,"output_tokens":4,"cache_creation_input_tokens":12043,"cache_read_input_tokens":0}}"#;
+    let (input, output, cache_read, cache_write, _, _) = adapter.extract_usage(resp);
+    assert_eq!((input, output, cache_read, cache_write), (12, 4, 0, 12043));
+    // 非编码套餐：coding_plan 注入 no-op。
+    let mut body = json!({"model":"gpt-5"});
+    adapter.inject_coding_plan(&mut body, &Protocol::PipeLlm, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"gpt-5"}));
+}
+
+#[test]
 fn atlascloud_error_msg_field_classifies_model_errors() {
     assert_eq!(
         super::adapter_for("atlascloud").classify_error(
