@@ -36,6 +36,14 @@ async function renderLib(source?: { id?: string; at?: number }) {
 }
 
 describe("RateLimitPolicyLibrary", () => {
+  it("空策略点击导入时给出可见反馈且不覆盖已有配置", async () => {
+    const { onImport } = await renderLib();
+    fireEvent.click(byId("rl-policy-import-skel")!);
+    expect(byId("rl-policy-empty-feedback")?.textContent).toContain("importing adds no limits");
+    expect(onImport).not.toHaveBeenCalled();
+    expect(byId("rl-import-confirm")).toBeNull();
+  });
+
   it("导入：确认后覆盖写入，规则原样拷贝（不转换），带 source_policy_id / source_last_updated", async () => {
     const { onImport } = await renderLib();
     fireEvent.click(byId("rl-policy-import-v0")!);
@@ -52,7 +60,7 @@ describe("RateLimitPolicyLibrary", () => {
 
   it("取消确认 → 不导入", async () => {
     const { onImport } = await renderLib();
-    fireEvent.click(byId("rl-policy-import-skel")!);
+    fireEvent.click(byId("rl-policy-import-mw")!);
     await waitFor(() => expect(byId("rl-import-confirm-cancel")).not.toBeNull());
     fireEvent.click(byId("rl-import-confirm-cancel")!);
     expect(onImport).not.toHaveBeenCalled();

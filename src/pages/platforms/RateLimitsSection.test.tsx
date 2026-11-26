@@ -1,6 +1,8 @@
 // RateLimitsSection：载入含 rules 的平台后保存不丢 rules；策略库导入后列表显示同一份 rules。
 import { describe, it, expect, vi } from "vitest";
-import { render, fireEvent } from "../../test/render";
+import { useState } from "react";
+import { render, fireEvent, waitFor } from "../../test/render";
+import { getDefaultRateLimitPolicies } from "../../domains/platforms";
 
 vi.mock("../../domains/platforms/modelPrices", () => ({ useModelPrices: () => new Map() }));
 vi.mock("../../domains/platforms", async (orig) => ({
@@ -14,6 +16,22 @@ const t = ((key: string, fallback?: string) => fallback ?? key) as never;
 const RULES = [{ models: ["glm-4"], rpm: 10 }, { start_hour: 14, end_hour: 18, rpm: 5 }];
 
 describe("RateLimitsSection rules", () => {
+  it("从右上角导入有效策略后，规则出现在可编辑列表", async () => {
+    vi.mocked(getDefaultRateLimitPolicies).mockResolvedValueOnce({ policies: [{ id: "test", label: "Test", source_url: "https://example.com", rules: [{ models: ["test-model"], rpm: 12 }] }], lastUpdated: 1 })
+      .mockResolvedValueOnce({ policies: [{ id: "test", label: "Test", source_url: "https://example.com", rules: [{ models: ["test-model"], rpm: 12 }] }], lastUpdated: 1 });
+    function Example() {
+      const [bundle, setBundle] = useState<RateLimitsBundle>({});
+      return <RateLimitsSection bundle={bundle} setBundle={setBundle} protocol={"glm" as never} modelOptions={[]} t={t} />;
+    }
+    const r = render(<Example />);
+    await waitFor(() => expect(document.getElementById("rl-policy-header")).not.toBeNull());
+    fireEvent.click(document.querySelector("#rl-policy-header button")!);
+    await waitFor(() => expect(document.getElementById("rl-policy-import-test")).not.toBeNull());
+    fireEvent.click(document.getElementById("rl-policy-import-test")!);
+    fireEvent.click(document.getElementById("rl-import-confirm-ok")!);
+    await waitFor(() => expect((r.container.querySelector('[data-testid="rl-rule-0-rpm"]') as HTMLInputElement)?.value).toBe("12"));
+  });
+
   it("改平台级 RPM 后 setBundle 带回原 rules", () => {
     const setBundle = vi.fn();
     const { container } = render(<RateLimitsSection bundle={{ rate_limits: { rpm: 5, rules: RULES } }} setBundle={setBundle} protocol={"glm" as never} modelOptions={[]} t={t} />);

@@ -198,6 +198,8 @@ describe("RateLimitsSection — 并发 / 时段窗口 / 策略库", () => {
 
   it("策略库导入：覆盖 rate_limits、保留 quota_windows、记来源", async () => {
     const { setBundle } = renderRateLimits({ rate_limits: { rpm: 1 }, quota_windows: [{ window: 18000, budget_tokens: 5 }] });
+    await waitFor(() => expect(byId("rl-policy-header")).not.toBeNull());
+    fireEvent.click(byId("rl-policy-header").querySelector("button")!);
     await waitFor(() => expect(byId("rl-policy-import-v1")).not.toBeNull());
     fireEvent.click(byId("rl-policy-import-v1"));
     await waitFor(() => expect(byId("rl-import-confirm-ok")).not.toBeNull());
@@ -217,8 +219,8 @@ describe("RateLimitsSection — 并发 / 时段窗口 / 策略库", () => {
 
   it("已导入且内置更新（500 > 100）→ 提示 stale", async () => {
     renderRateLimits({ rate_limits: { rpm: 1, source_policy_id: "v1", source_last_updated: 100 } });
-    await waitFor(() => expect(byId("rl-policy-library")).not.toBeNull());
-    expect(byId("rl-policy-library").getAttribute("data-state")).toBe("stale");
+    await waitFor(() => expect(byId("rl-policy-header")).not.toBeNull());
+    expect(byId("rl-policy-header").getAttribute("data-state")).toBe("stale");
   });
 });
 
