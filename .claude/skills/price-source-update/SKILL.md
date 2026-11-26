@@ -1,13 +1,13 @@
 ---
 name: price-source-update
 description: |
-  更新 aidog 模型定价信源（registry 人工维护 + app 远端拉取）。固化 aidog_db::resolve_price 回退链（ADR 0006，禁自查表硬编码默认价）、context_tiers 数据驱动选档、price_sync::sync_registry 拉取链路（jsDelivr 主源 + raw 兜底 + index 驱动）、registry 数据三件套（platform.json + models/*.json + index.json）、bump-registry-last-updated 盖戳与 check-registry.mjs 门禁。触发词：更新价格、定价信源、加模型定价、context_tiers、阶梯计费、price_sync、模型价格月级腐化、新平台定价、registry 同步、max_input_tokens、max_output_tokens、context_window。
-when_to_use: registry 模型价/参数过期需刷新；加新平台/新模型需接定价；改 context_tiers 阶梯计费；price_sync 拉取链路出问题；resolve_price 回退不到价
+  更新 aidog 模型定价信源（registry 只读内置 + 启动灌种入库）。固化 aidog_db::resolve_price 回退链（ADR 0006，禁自查表硬编码默认价）、计费与展示共用查价入口（model_entry_for_price + model_prices_resolve RPC）、context_tiers 数据驱动选档、seed_registry_from_bundled 灌种链路、registry 数据三件套（platform.json + models/*.json + index.json）、bump-registry-last-updated 盖戳与 check-registry.mjs 门禁。触发词：更新价格、定价信源、加模型定价、context_tiers、阶梯计费、价格不生效、模型价格月级腐化、新平台定价、registry 同步、max_input_tokens、max_output_tokens、context_window。
+when_to_use: registry 模型价/参数过期需刷新；加新平台/新模型需接定价；改 context_tiers 阶梯计费；价格展示与计费不一致；resolve_price 回退不到价
 ---
 
 # aidog 定价信源更新
 
-更新 aidog 模型定价 + max_tokens/context_window + capabilities + family/version 等必补字段。本 skill 覆盖**信源维护 / 阶梯计费 / 拉取链路 / resolve_price 回退**全流程，把架构铁律（resolve_price 不改、信源单一）前置。
+更新 aidog 模型定价 + max_tokens/context_window + capabilities + family/version 等必补字段。本 skill 覆盖**信源维护 / 阶梯计费 / 灌种链路 / resolve_price 回退**全流程，把架构铁律（resolve_price 不改、信源单一、展示计费共入口）前置。
 
 > 行号漂移，定位以**文件名 / 符号名**为准。
 
@@ -17,9 +17,11 @@ when_to_use: registry 模型价/参数过期需刷新；加新平台/新模型�
 
 1. **est_cost 必走 `aidog_db::resolve_price` 回退链，禁自查表绕过默认价。** 所有成本估算经 `resolve_price`（位于 `src-tauri/crates/aidog_db/src/registry.rs`，ADR 0006），回退顺序固定不可换：① 命中 preset `peak` 窗口且条目 `price.peak` 存在 → 用模型 **peak 绝对价**（`PriceResolution::peak_applied=true`，调用方**不得再乘平台倍率**）→ ② 否则条目默认价 × 平台 `peak` 倍率 → ③ 条目缺失 → `PriceSyncSettings` 的 fallback 单价（默认 3.0 $/M，不返 0）。加价/改价走 registry 同步进 `model_entry` 表，**别在估算代码里自查表硬编码默认价**。
 
-2. **信源 = `src-tauri/defaults/registry/`（人工维护，push GitHub master）+ app 远端拉取。** 真值源是 registry 目录三件套：`index.json`（平台清单 + 全局 `last_updated`）/ `platforms/<code>/platform.json`（端点 + 模型清单 + peak + key_prefixes）/ `platforms/<code>/models/<model>.json`（per-platform 模型条目，含 `price` 子树与 `max_input_tokens`/`max_output_tokens`/`context_window`）。开发者手编 push master，app 运行期 `gateway/price_sync.rs::sync_registry` 定时从 jsDelivr 主源 + raw.githubusercontent 兜底，**index 驱动 + best-effort 逐文件**（单文件两源全败 → 记进 `failures` 清单并**保留 DB 旧行**）。
+2. **信源 = `src-tauri/defaults/registry/`（只读内置，无远程同步）。** 真值源是 registry 目录三件套：`index.json`（平台清单 + 全局 `last_updated`）/ `platforms/<code>/platform.json`（端点 + 模型清单 + peak + key_prefixes）/ `platforms/<code>/models/<model>.json`（per-platform 模型条目，含 `price` 子树与 `max_input_tokens`/`max_output_tokens`/`context_window`）。改 JSON 后重启 app，`gateway/price_sync.rs::seed_registry_from_bundled` 启动灌种幂等 upsert 进 `model_entry` 表（内容变才写；内置清单即全量，清单外旧行 prune）。
 
-3. **模型名月级腐化必靠 fetchModels 兜底，改默认价须 WebSearch 核官方。** 平台默认模型 `getDefaultModels`（前端 `Platforms.tsx`）是前端预设，模型名月级腐化，运行期靠 `fetchModels` 兜底。改某模型默认价/型号前 **WebSearch 核官方当前页**，禁凭记忆。
+3. **模型名月级腐化必靠 fetchModels 兜底，改默认价须 WebSearch 核官方。** 平台默认模型 `getDefaultModels`（前端 `Platforms.tsx`）是前端预设，模型名月级腐化，运行期靠 `fetchModels` 兜底。改某模型默认价/型号前 **WebSearch 核官方当前页**，禁凭记忆；改价票派发前先取**上游一手数据链**（上游源码 / 官方 API 原始响应），内置 registry 快照不当比对真值（registry-data-edit.md「修数据票先核对上游一手数据链」）。
+
+4. **展示与计费共用同一查价入口，禁另写一份回落逻辑。** 前端展示价、折算等一切价格读取走后端 `aidog_db::model_entry_for_price` + `model_prices_resolve` RPC 单一 seam（commit 70fd32373）；前端禁独立实现剥前缀 / 查表 / 兜底价——两份回落链必然漂移（先例：首版前端独立剥前缀回退与计费路径不一致，整版撤回返工）。新回落需求先看 `resolve_price` 回退链能否直接复用。
 
 ---
 
@@ -27,17 +29,17 @@ when_to_use: registry 模型价/参数过期需刷新；加新平台/新模型�
 
 ### 任务 A：刷新过期价（最常见）
 
-模型价格月级腐化 → 手编 registry JSON 后 push master，app 下次同步拉取，不手改 DB 单值。
+模型价格月级腐化 → 手编 registry JSON 后重启 app（启动灌种入库），不手改 DB 单值。
 
 1. 定位目标文件：`src-tauri/defaults/registry/platforms/<code>/models/<model>.json`。
 2. 编辑 `price` 子树（数值字段 `$/token`，禁字符串表达式）：
    - `input` 必填 + `output` 必填 + `cache_read` / `cache_write` 可选 + `peak` 绝对价可选 + `free` 显式免费标记（仅官方来源才标 `true`）+ `context_tiers` / `time_tiers` 可选。
 3. 同步 `max_input_tokens` / `max_output_tokens` / `context_window`（同源官方页）。
 4. **不重写其它平台同名条目的价**（同一 `canonical_model` 跨平台聚合，每平台独立定价）。
-5. push master（jsDelivr / raw CDN 会同步）。
+5. 重启 app：启动灌种 `seed_registry_from_bundled` 幂等 upsert 入库（内容变才写）。
 6. 跑盖戳脚本：`node scripts/bump-registry-last-updated.mjs`（无参=只盖 git 变更文件）。
 7. 跑门禁：`node scripts/check-registry.mjs`（schema 校验 + 覆盖率统计 + 数值漂移）。
-8. 验证：app 内「立即同步」触发 `sync_registry`；DB `model_entry` 表最新 `last_updated` 已更新。
+8. 验证：重启 app 触发 `seed_registry_from_bundled`；DB `model_entry` 表该条目 `updated_at` 已更新。
 
 🔴 **CHECKPOINT**：未跑 `check-registry.mjs` 绿之前不 commit。
 
@@ -83,16 +85,14 @@ when_to_use: registry 模型价/参数过期需刷新；加新平台/新模型�
 
 ---
 
-## 2. 拉取链路（price_sync::sync_registry）
+## 2. 灌种链路（registry → model_entry）
 
-- `src-tauri/src/gateway/price_sync.rs::sync_registry`（command 名仍是 `model_price_sync`，理由见该文件顶部注释）：app 定时拉取信源更新 `model_entry` 表。
-- **jsDelivr 主源 + raw.githubusercontent 兜底**，**index 驱动**（先拉 `index.json`，失败即整轮放弃）+ **best-effort 逐文件**（单文件两源全败 → 记进 `failures` 清单并**保留 DB 旧行**，不清空不部分覆盖），16 路并发。
-- 拉取出站 HTTP **落 proxy_log** 排除项：price_sync 是唯一不出站落 proxy_log 的对平台 HTTP（memory `platform-egress-http-logging`）。
-- 拉取失败 → resolve_price 回退到库里上次成功值，不炸。
+- registry **只读内置，无远程同步**（远程同步已删）：`src-tauri/crates/aidog_core/src/gateway/price_sync.rs::seed_registry_from_bundled` 在内核/桌面启动时把编译期内置 registry 灌种 upsert 进镜像表（幂等 diff，内容变才写；内置清单即全量，清单外旧行 prune；有变更 emit "registry-updated"）。bundled include 仅在 DB 整表空时兜底。
+- `PriceSyncSettings` 只剩兜底单价与诊断戳 `registry_last_updated`（setting key 仍叫 `price_sync`，持久化兼容）。
 
-调试拉取链路：看 price_sync 日志 + `model_entry` 表最新 `updated_at`。
+调试灌种链路：`model_entry` 表最新 `updated_at` + 启动日志 "registry-updated"。
 
-🛑 **STOP**：手动改 DB `model_entry` 单行价格 = 绕开拉取链路，下次同步会被覆盖。改价走 registry JSON 路径。
+🛑 **STOP**：手动改 DB `model_entry` 单行价格 = 绕开灌种链路，下次启动灌种按内容比较覆盖回内置值。改价走 registry JSON 路径。
 
 ---
 
@@ -124,7 +124,7 @@ cd src-tauri && cargo test --package aidog_db
 - [ ] 没在估算代码里硬编码默认价（走 `aidog_db::resolve_price`）。
 - [ ] 模型名经 WebSearch 核官方，非凭记忆。
 - [ ] context_tiers 改的是数据，没动 `resolve_price` 选档逻辑。
-- [ ] registry JSON push master 后 `sync_registry` 成功（看 `model_entry.updated_at`）。
+- [ ] registry JSON 改动重启 app 后已入库（`model_entry.updated_at` 更新，价变才写）。
 - [ ] `check-registry.mjs` 绿且覆盖率 ≥ 门禁。
 - [ ] commit 走 `git commit -- <明确路径>`（不 `-a`，共享 checkout 防误扫，shared-worktree.md）。
 
@@ -137,23 +137,25 @@ cd src-tauri && cargo test --package aidog_db
 3. ❌ 改 `aidog_db::resolve_price` 函数体选档逻辑 —— 只改 `price.context_tiers` 数据。
 4. ❌ 把 `price_sync` 出站落 `proxy_log` —— 它是唯一排除项。
 5. ❌ 改价后不跑 `check-registry.mjs` 与 `cargo test` —— 门禁可能断。
-6. ❌ 手动改 DB `model_entry` 单行价 —— 会被下次 `sync_registry` 覆盖。
+6. ❌ 手动改 DB `model_entry` 单行价 —— 会被下次启动灌种覆盖回内置值。
 7. ❌ 跨平台合并改价 —— 同一 `canonical_model` 跨平台聚合，每平台独立定价。
 8. ❌ `git commit -a` / 不带路径 commit —— 共享 checkout 误扫他人改动（shared-worktree.md 硬规则 1）。
 9. ❌ 重写已有字段值（即使觉得错也只标「存疑：当前 X，建议 Y」，主会话复核）—— 取证型 agent 不写数据（shared-worktree r102 教训）。
 10. ❌ 编辑 registry JSON 时用 round-trip JSON.stringify —— 科学计数法漂移（check-registry.mjs 数值指纹检测会判失败）。文本级插入/替换。
+11. ❌ 前端独立实现剥前缀 / 查表 / 兜底价回落 —— 与 `resolve_price` 计费链漂移；展示走 `model_prices_resolve` RPC 同一入口（铁律 4）。
+12. ❌ 拿内置 registry 快照当上游真值比对 —— 快照会过期；修价票先取上游源码 / 官方 API 原始响应（registry-data-edit.md「修数据票先核对上游一手数据链」）。
 
 ---
 
 ## 相关
 
 - 架构 ADR：`docs/adr/0005-registry-as-db-mirror.md`、`docs/adr/0006-resolve-price-fallback.md`
-- 单源约定：memory `pricing-github-single-source`、`pricing-resolve-single-source`
-- 出站日志例外：memory `platform-egress-http-logging`
+- 单源约定：memory `pricing-resolve-single-source`
 - 默认模型腐化：memory `platform-default-model`
 - 持久化：memory `est-cost-persistence`
 - 阶梯计费：memory `openai-pricing-scraper-tiered`
-- 拉取链路：`src-tauri/src/gateway/price_sync.rs`（command `model_price_sync`）
+- 灌种链路：`src-tauri/crates/aidog_core/src/gateway/price_sync.rs`（`seed_registry_from_bundled`）
+- 展示查价 RPC：`aidog_db::model_entry_for_price` + `model_prices_resolve`（commit 70fd32373）
 - 回退链：`src-tauri/crates/aidog_db/src/registry.rs`（`resolve_price`）
 - 平台新增：skill `aidog-add-platform`（含 Protocol 枚举 Rust↔TS 双写）
 - 门禁与盖戳：`scripts/check-registry.mjs`、`scripts/bump-registry-last-updated.mjs`

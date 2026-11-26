@@ -9,6 +9,8 @@
 - 长构建收尾阶段才输出诊断，中途的零计数不作数；看门狗阈值与采样间隔随命令记录。
 - 包装链（看门狗 → taskpolicy → 沙箱 → cargo）的退出码以最外层 wrapper 记录为准；wrapper 中途限流或身份核对 REFUSED 提前退出时，内部命令的真实退出码丢失——「编译 Finished + 零 warning 行」不作通过证据，按「做了没验证（缺 EXIT）」记，磁盘 / 资源恢复后重跑取真实 EXIT。
 - 看门狗限流触发时的身份核对锚点用「record 命令的 basename 出现在 live argv 最后一个路径元素」后逐项子串比对：exec 包装链上 launcher 内部参数消失属预期，逐字比对会安全侧 REFUSED 误判。
+- **watcher pid 文件禁通配清理**：`resource-watch.mjs` 的 pid 文件带 watch 进程 pid 后缀（`resource-watch-<pid>.pid.json`），多 watcher 并存是常态；wrapper 收尾 `rm -f resource-watch-*.pid.json` 会毁掉他 watcher 的身份核对依据（先例：run-db-test.sh 通配 rm 误删其他 watcher 的 pid 文件，verify agent 报出）。清理只删自己那份：起跑前快照现存清单、收尾只删新增；根因修法 = watch 脚本 exit 时 unlink 自己的 pid 文件。
+- RSS / 磁盘阈值只覆盖资源超限，不覆盖挂死：子进程基准父子互等 EOF（父进程写 stdin 后未 drop、子进程 `read_to_string` 等不到管道关闭）挂死 39 分钟，阈值全程未触发。任何基准 / 长任务的看门狗带墙钟 deadline，超限按 pid 核对命令行后终止进程组；harness 里父进程写完子进程 stdin 立即 drop。
 
 ## 1. 用户的 AiDog 不能碰
 
