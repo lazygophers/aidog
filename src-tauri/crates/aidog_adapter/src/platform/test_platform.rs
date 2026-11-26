@@ -73,6 +73,20 @@ fn typesafe_has_dedicated_adapter_registration() {
 }
 
 #[test]
+fn xai_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("xai");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("devin")),
+        "xAI registration must not use the generic adapter"
+    );
+    // usage 缓存 token：官方 prompt_tokens_details.cached_tokens，基座 openai 臂已读；
+    // input 按 usage_cache_arms 约定扣掉缓存量（避免双重计价），10 - 7 = 3。
+    let resp = r#"{"usage":{"prompt_tokens":10,"completion_tokens":5,"prompt_tokens_details":{"cached_tokens":7}}}"#;
+    let (input, output, cache_read, _, _, _) = adapter.extract_usage(resp);
+    assert_eq!((input, output, cache_read), (3, 5, 7));
+}
+
+#[test]
 fn atlascloud_error_msg_field_classifies_model_errors() {
     assert_eq!(
         super::adapter_for("atlascloud").classify_error(

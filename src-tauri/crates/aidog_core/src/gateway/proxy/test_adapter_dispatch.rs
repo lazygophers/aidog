@@ -3951,6 +3951,11 @@ async fn tokenrhythm_configured_endpoint_dispatch() {
     configured_endpoint_dispatch(Protocol::TokenRhythm, "tokenrhythm").await;
 }
 
+#[tokio::test]
+async fn xai_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::XAI, "xai").await;
+}
+
 async fn configured_endpoint_dispatch(platform: Protocol, name: &str) {
     let completion = r#"{"id":"cmpl-test","object":"text_completion","choices":[{"text":"hi","index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}"#;
     let completion_stream = "data: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"hi\",\"index\":0}]}\n\ndata: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"\",\"index\":0,\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";
