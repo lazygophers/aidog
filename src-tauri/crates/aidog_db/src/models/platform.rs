@@ -115,6 +115,9 @@ pub struct PlatformModels {
     pub opus: Vec<String>,
     #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
     #[ts(optional, as = "Option<Vec<String>>")]
+    pub fable: Vec<String>,
+    #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<String>>")]
     pub haiku: Vec<String>,
     #[serde(default, deserialize_with = "de_model_list", skip_serializing_if = "Vec::is_empty")]
     #[ts(optional, as = "Option<Vec<String>>")]
@@ -147,6 +150,7 @@ impl PlatformModels {
             &self.default,
             &self.sonnet,
             &self.opus,
+            &self.fable,
             &self.haiku,
             &self.gpt,
             &self.jev,
@@ -166,7 +170,7 @@ impl PlatformModels {
     /// 二者都不承接长上下文，不该参与上下文窗口的约束计算。
     pub fn main_loop_values(&self) -> Vec<String> {
         let mut v = Vec::new();
-        for s in [&self.default, &self.sonnet, &self.opus]
+        for s in [&self.default, &self.sonnet, &self.opus, &self.fable]
             .into_iter()
             .flat_map(|l| slot_chain(l))
         {
@@ -189,7 +193,7 @@ impl PlatformModels {
 
     /// 5 个聊天槽是否至少一个已配置（`Some("")` / 纯空白不算：批量覆盖会持久化空串槽）。
     fn has_chat_slot(&self) -> bool {
-        [&self.default, &self.sonnet, &self.opus, &self.haiku, &self.gpt]
+        [&self.default, &self.sonnet, &self.opus, &self.fable, &self.haiku, &self.gpt]
             .into_iter()
             .any(|s| slot_filled(s).is_some())
     }

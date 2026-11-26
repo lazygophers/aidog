@@ -36,7 +36,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
   // jev / embedding / rerank / image 槽位是专用模型（jev-decision-proxy §3.6.2；向量化 / 重排序 / 生图），不进聊天测试列表
   const allModels = (platform.available_models.length > 0
     ? platform.available_models
-    : [platform.models.default, platform.models.sonnet, platform.models.opus, platform.models.haiku, platform.models.gpt].map(slotPrimary).filter(Boolean)
+    : [platform.models.default, platform.models.sonnet, platform.models.opus, platform.models.fable, platform.models.haiku, platform.models.gpt].map(slotPrimary).filter(Boolean)
   ).filter(m => m !== slotPrimary(platform.models.jev) && m !== slotPrimary(platform.models.embedding) && m !== slotPrimary(platform.models.rerank) && m !== slotPrimary(platform.models.image));
 
   const defaultModel = slotPrimary(platform.models.default) || allModels[0] || "";

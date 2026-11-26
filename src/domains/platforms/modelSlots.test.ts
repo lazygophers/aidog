@@ -32,6 +32,14 @@ describe("embedding / rerank model slots", () => {
   });
 });
 
+describe("fable model slot", () => {
+  it("categorizes Fable and includes it in configured models", () => {
+    expect(MODEL_SLOTS.find(s => s.key === "fable")?.labelKey).toBe("platform.modelFable");
+    expect(autoCategorize(["Claude-FABLE-5"]).fable).toBe("Claude-FABLE-5");
+    expect(allModelValues({ fable: ["a", "b"] })).toEqual(["a", "b"]);
+  });
+});
+
 describe("allConfiguredModelValues", () => {
   it("默认模型配置 ∪ 各时段档，展平去重保序", () => {
     const extra = JSON.stringify({ time_windows: [

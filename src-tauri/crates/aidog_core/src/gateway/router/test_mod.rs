@@ -390,6 +390,19 @@ mod custom_slots {
     }
 
     #[test]
+    fn fable_slot_matches_and_falls_back() {
+        let mut models = PlatformModels { fable: v(&["first", "second"]), ..Default::default() };
+        assert_eq!(hit(&models, &[], "CLAUDE-FABLE[1m]"), (v(&["first", "second"]), ModelVia::SlotFable));
+        assert_eq!(models.main_loop_values(), v(&["first", "second"]));
+        assert!(!models.is_empty());
+        assert_eq!(serde_json::to_string(&ModelVia::SlotFable).unwrap(), "\"slot-fable\"");
+        assert_eq!(serde_json::from_str::<ModelVia>("\"slot-fable\"").unwrap(), ModelVia::SlotFable);
+        models.fable.clear();
+        models.default = v(&["fallback"]);
+        assert_eq!(hit(&models, &[], "claude-fable").0, v(&["fallback"]));
+    }
+
+    #[test]
     fn exact_beats_contains_even_when_defined_later() {
         let defs = [d("fast", false), d("claude-fast", true)];
         let e = entries(&defs, json!({"fast": ["c"], "claude-fast": ["x"]}));

@@ -57,6 +57,7 @@ const VIA_KEY: Record<Exclude<ModelVia, `slot-custom:${string}`>, string> = {
   "time-window": "logs.routing.via.time-window",
   "preset-peak": "logs.routing.via.preset-peak",
   "slot-opus": "logs.routing.via.slot-opus",
+  "slot-fable": "logs.routing.via.slot-fable",
   "slot-sonnet": "logs.routing.via.slot-sonnet",
   "slot-haiku": "logs.routing.via.slot-haiku",
   "slot-gpt": "logs.routing.via.slot-gpt",

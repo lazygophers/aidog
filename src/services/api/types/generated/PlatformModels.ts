@@ -7,7 +7,7 @@
  * embedding / rerank 路由读 `effective_models`（`candidates.rs` 现行为）；time_windows 档与 preset
  * `models.peak` 档各自带完整 `PlatformModels`，两槽随命中的档整支替换。
  */
-export type PlatformModels = { default?: Array<string>, sonnet?: Array<string>, opus?: Array<string>, haiku?: Array<string>, gpt?: Array<string>, 
+export type PlatformModels = { default?: Array<string>, sonnet?: Array<string>, opus?: Array<string>, fable?: Array<string>, haiku?: Array<string>, gpt?: Array<string>, 
 /**
  * 决策模型槽（/v1/systemone 决策请求上游固定用此模型，jev-decision-proxy R8）
  */

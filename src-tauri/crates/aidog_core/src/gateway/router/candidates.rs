@@ -2122,7 +2122,7 @@ fn build_route_results(
 }
 
 /// 内置模型槽位名（时段档开关集合只收这些；自定义槽开关始终只存平台级）。
-const BUILTIN_SLOTS: [&str; 9] = ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank", "image"];
+const BUILTIN_SLOTS: [&str; 10] = ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank", "image", "fable"];
 
 /// 本次请求在该平台命中的槽位是否被关闭，是则返回排除原因；请求名所属档位族
 /// （opus/sonnet/haiku/gpt）的槽位被关闭同样算——后者与该槽是否留空、实际落到哪个槽 / 透传无关。
@@ -2157,6 +2157,7 @@ fn disabled_slot_reason(
             let eff = resolve_effective_models(platform, &cache.time_windows, now_ms, source_model);
             match resolve_model_chain_with_custom(&eff, &cache.custom, model_name).1 {
                 ModelVia::SlotOpus => Some("opus".into()),
+                ModelVia::SlotFable => Some("fable".into()),
                 ModelVia::SlotSonnet => Some("sonnet".into()),
                 ModelVia::SlotHaiku => Some("haiku".into()),
                 ModelVia::SlotGpt => Some("gpt".into()),

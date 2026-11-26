@@ -62,6 +62,7 @@ export const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [
   { key: "default", labelKey: "platform.modelDefault" },
   { key: "sonnet", labelKey: "platform.modelSonnet" },
   { key: "opus", labelKey: "platform.modelOpus" },
+  { key: "fable", labelKey: "platform.modelFable" },
   { key: "haiku", labelKey: "platform.modelHaiku" },
   { key: "gpt", labelKey: "platform.modelGpt" },
   { key: "jev", labelKey: "platform.modelJev" },

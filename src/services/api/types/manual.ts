@@ -510,7 +510,7 @@ export interface CachedSkills {
 
 export type ClientType = string;
 
-export type ModelSlot = "default" | "sonnet" | "opus" | "haiku" | "gpt" | "jev" | "embedding" | "rerank" | "image";
+export type ModelSlot = "default" | "sonnet" | "opus" | "fable" | "haiku" | "gpt" | "jev" | "embedding" | "rerank" | "image";
 
 /** 时段模型规则：按时段窗口切换主力模型档（time_windows） */
 export interface TimeModelRule {

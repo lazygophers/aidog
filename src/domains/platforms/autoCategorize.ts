@@ -74,13 +74,14 @@ export function rateLimitRatio(rl: RateLimitSnapshot): number | null {
 /** 根据模型名模式自动分配到槽位 */
 export function autoCategorize(modelIds: string[]): Record<ModelSlot, string> {
   const result: Record<ModelSlot, string> = {
-    default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "", image: "",
+    default: "", sonnet: "", opus: "", fable: "", haiku: "", gpt: "", jev: "", embedding: "", rerank: "", image: "",
   };
   const patterns: { slot: ModelSlot; test: (id: string) => boolean }[] = [
     { slot: "opus", test: (id) => /opus/i.test(id) },
     { slot: "sonnet", test: (id) => /sonnet/i.test(id) },
     { slot: "haiku", test: (id) => /haiku/i.test(id) },
     { slot: "gpt", test: (id) => /gpt/i.test(id) && !/mini/i.test(id) },
+    { slot: "fable", test: (id) => /fable/i.test(id) },
   ];
   const assigned = new Set<string>();
   for (const { slot, test } of patterns) {

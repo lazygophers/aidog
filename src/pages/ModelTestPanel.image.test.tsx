@@ -51,6 +51,13 @@ describe("ModelTestPanel image mode", () => {
     expect(screen.getByText("test.results")).toBeTruthy();
   });
 
+  it("quick mode uses the Fable slot when it is the only configured model", async () => {
+    render(<ModelTestPanel platform={{ ...platform, models: { fable: ["fable-model"] }, available_models: [] }} onClose={() => {}} />);
+    fireEvent.click(screen.getByText("test.run"));
+    await vi.waitFor(() => expect(calls.test).toHaveLength(1));
+    expect((calls.test[0] as { model: string }).model).toBe("fable-model");
+  });
+
   it("quick mode still uses chat model_test", async () => {
     render(<ModelTestPanel platform={platform} onClose={() => {}} />);
     fireEvent.click(screen.getByText("test.run"));

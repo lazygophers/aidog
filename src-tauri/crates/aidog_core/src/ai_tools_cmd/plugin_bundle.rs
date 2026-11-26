@@ -1294,7 +1294,10 @@ async fn list_impl_in_project(
     let mut plugins: Vec<PluginView> = load(db).await.iter().map(view).collect();
     let (native, warnings) = match native_views(mode, project).await {
         Ok(plugins) => (plugins, Vec::new()),
-        Err(error) => (Vec::new(), vec![note("native_list_unavailable", &[("error", &error)])]),
+        Err(error) => (
+            Vec::new(),
+            vec![note("native_list_unavailable", &[("error", &error)])],
+        ),
     };
     plugins.extend(native);
     Ok(PluginViewList { plugins, warnings })
@@ -1326,7 +1329,10 @@ struct NativePlugin {
     can_operate: bool,
 }
 
-fn parse_native_plugins(stdout: &str, current_project: Option<&Path>) -> Result<Vec<NativePlugin>, String> {
+fn parse_native_plugins(
+    stdout: &str,
+    current_project: Option<&Path>,
+) -> Result<Vec<NativePlugin>, String> {
     let start = stdout
         .find('[')
         .ok_or_else(|| "claude plugin list: no JSON array in output".to_string())?;
@@ -1353,10 +1359,8 @@ fn parse_native_plugins(stdout: &str, current_project: Option<&Path>) -> Result<
         {
             continue;
         }
-        let can_operate = scope == "user"
-            || project_path
-                .as_deref()
-                .is_some_and(|path| path.is_dir());
+        let can_operate =
+            scope == "user" || project_path.as_deref().is_some_and(|path| path.is_dir());
         out.push(NativePlugin {
             id: id.to_string(),
             install_path: row
@@ -1370,9 +1374,7 @@ fn parse_native_plugins(stdout: &str, current_project: Option<&Path>) -> Result<
             can_operate,
         });
     }
-    out.sort_by(|a, b| {
-        (&a.id, &a.scope, &a.project_path).cmp(&(&b.id, &b.scope, &b.project_path))
-    });
+    out.sort_by(|a, b| (&a.id, &a.scope, &a.project_path).cmp(&(&b.id, &b.scope, &b.project_path)));
     Ok(out)
 }
 
@@ -1403,7 +1405,9 @@ async fn native_views(
             name: p.id,
             source: p.install_path,
             scope: Some(p.scope),
-            project_path: p.project_path.map(|path| path.to_string_lossy().into_owned()),
+            project_path: p
+                .project_path
+                .map(|path| path.to_string_lossy().into_owned()),
             can_operate: p.can_operate,
             operation_error: (!p.can_operate)
                 .then(|| "plugins.nativeProjectUnavailable".to_string()),

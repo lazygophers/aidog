@@ -371,6 +371,7 @@ pub fn run() {
             aidog_core::platform_cmd::model_entry::model_entry_list,
             aidog_core::platform_cmd::model_entry::model_entry_get,
             aidog_core::platform_cmd::model_entry::model_info_snapshot,
+            aidog_core::platform_cmd::model_entry::model_prices_resolve,
             // About
             aidog_core::system_cmd::about::about_info,
             aidog_core::system_cmd::about::db_master_key_reveal,

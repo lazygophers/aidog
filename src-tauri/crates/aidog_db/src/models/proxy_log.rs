@@ -331,7 +331,7 @@ pub struct SingleShortcut {
 #[ts(
     export,
     export_to = "../../../../src/services/api/types/generated/",
-    type = r#""mapped" | "time-window" | "preset-peak" | "slot-opus" | "slot-sonnet" | "slot-haiku" | "slot-gpt" | "slot-default" | "dedicated-slot" | "passthrough" | `slot-custom:${string}`"#
+    type = r#""mapped" | "time-window" | "preset-peak" | "slot-opus" | "slot-fable" | "slot-sonnet" | "slot-haiku" | "slot-gpt" | "slot-default" | "dedicated-slot" | "passthrough" | `slot-custom:${string}`"#
 )]
 pub enum ModelVia {
     /// 分组 model_mappings 先把请求模型名改成映射目标名
@@ -342,6 +342,8 @@ pub enum ModelVia {
     PresetPeak,
     /// 命中平台 opus 槽位
     SlotOpus,
+    /// 命中平台 fable 槽位
+    SlotFable,
     /// 命中平台 sonnet 槽位
     SlotSonnet,
     /// 命中平台 haiku 槽位
@@ -368,6 +370,7 @@ impl ModelVia {
             Self::TimeWindow => Borrowed("time-window"),
             Self::PresetPeak => Borrowed("preset-peak"),
             Self::SlotOpus => Borrowed("slot-opus"),
+            Self::SlotFable => Borrowed("slot-fable"),
             Self::SlotSonnet => Borrowed("slot-sonnet"),
             Self::SlotHaiku => Borrowed("slot-haiku"),
             Self::SlotGpt => Borrowed("slot-gpt"),
@@ -393,6 +396,7 @@ impl<'de> Deserialize<'de> for ModelVia {
             "time-window" => Self::TimeWindow,
             "preset-peak" => Self::PresetPeak,
             "slot-opus" => Self::SlotOpus,
+            "slot-fable" => Self::SlotFable,
             "slot-sonnet" => Self::SlotSonnet,
             "slot-haiku" => Self::SlotHaiku,
             "slot-gpt" => Self::SlotGpt,

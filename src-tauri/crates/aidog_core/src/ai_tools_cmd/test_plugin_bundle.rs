@@ -641,7 +641,9 @@ fn record(args: &[&str], project_cwd: Option<&Path>) {
     CLI_CALLS.lock().unwrap().push(format!(
         "{} [cwd {}]",
         args.join(" "),
-        project_cwd.map(|p| p.display().to_string()).unwrap_or_default()
+        project_cwd
+            .map(|p| p.display().to_string())
+            .unwrap_or_default()
     ));
 }
 
@@ -673,25 +675,46 @@ async fn native_plugin_enable_update_run_cli_with_scope() {
     let db = aidog_db::test_support::test_db().await;
     CLI_CALLS.lock().unwrap().clear();
 
-    native_set_impl(&db, &CliMode::Fake(fake_cli_recorder), "a@m", true, Some(&project))
-        .await
-        .unwrap();
-    native_update_impl(&db, &CliMode::Fake(fake_cli_recorder), "a@m", Some(&project))
-        .await
-        .unwrap();
+    native_set_impl(
+        &db,
+        &CliMode::Fake(fake_cli_recorder),
+        "a@m",
+        true,
+        Some(&project),
+    )
+    .await
+    .unwrap();
+    native_update_impl(
+        &db,
+        &CliMode::Fake(fake_cli_recorder),
+        "a@m",
+        Some(&project),
+    )
+    .await
+    .unwrap();
     let calls = CLI_CALLS.lock().unwrap().clone();
     assert!(
-        calls.iter().any(|c| c.contains("plugin enable a@m --scope user")),
+        calls
+            .iter()
+            .any(|c| c.contains("plugin enable a@m --scope user")),
         "calls: {calls:?}"
     );
     assert!(
-        calls.iter().any(|c| c.contains("plugin update a@m --scope user")),
+        calls
+            .iter()
+            .any(|c| c.contains("plugin update a@m --scope user")),
         "calls: {calls:?}"
     );
 
-    let err = native_set_impl(&db, &CliMode::Fake(fake_cli_recorder), "gone@m", true, Some(&project))
-        .await
-        .unwrap_err();
+    let err = native_set_impl(
+        &db,
+        &CliMode::Fake(fake_cli_recorder),
+        "gone@m",
+        true,
+        Some(&project),
+    )
+    .await
+    .unwrap_err();
     assert!(err.contains("no plugin called gone@m"), "err: {err}");
 }
 
@@ -709,13 +732,20 @@ async fn native_plugin_disable_project_scope_runs_cli_in_project() {
     std::fs::write(
         project.join(".claude/settings.json"),
         json!({"enabledPlugins":{"p@m":true}}).to_string(),
-    ).unwrap();
+    )
+    .unwrap();
     let db = aidog_db::test_support::test_db().await;
     CLI_CALLS.lock().unwrap().clear();
 
-    let list = native_set_impl(&db, &CliMode::Fake(fake_cli_recorder), "p@m", false, Some(&project))
-        .await
-        .unwrap();
+    let list = native_set_impl(
+        &db,
+        &CliMode::Fake(fake_cli_recorder),
+        "p@m",
+        false,
+        Some(&project),
+    )
+    .await
+    .unwrap();
     let calls = CLI_CALLS.lock().unwrap().clone();
     assert!(
         calls.iter().any(|c| {

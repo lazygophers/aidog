@@ -27,8 +27,8 @@ pub(crate) struct CustomSlotEntry {
 }
 
 /// 内置槽名（与前端 `BUILTIN_SLOT_NAMES` / `ModelSlot` 一致），自定义槽不得重名。
-const BUILTIN_SLOT_NAMES: [&str; 9] =
-    ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank", "image"];
+const BUILTIN_SLOT_NAMES: [&str; 10] =
+    ["default", "opus", "sonnet", "haiku", "gpt", "jev", "embedding", "rerank", "image", "fable"];
 
 fn valid_slot_name(n: &str) -> bool {
     (1..=24).contains(&n.len()) && n.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
@@ -91,7 +91,7 @@ pub(crate) fn match_custom<'a>(
 }
 
 /// 内置档位族（槽位名 = 请求名子串）。
-pub(crate) const TIER_FAMILIES: [&str; 4] = ["opus", "sonnet", "haiku", "gpt"];
+pub(crate) const TIER_FAMILIES: [&str; 5] = ["opus", "sonnet", "haiku", "gpt", "fable"];
 
 /// 去掉 Claude Code budget 后缀（如 `[1m]`、`[128k]`）。
 fn base_model_of(source_model: &str) -> &str {
@@ -128,11 +128,12 @@ pub(crate) fn resolve_model_chain_with_custom(
     if let Some(e) = match_custom(custom, &lower) {
         return (e.chain.clone(), ModelVia::SlotCustom(e.name.clone()));
     }
-    let slots: [(&str, &Vec<String>, ModelVia); 4] = [
+    let slots: [(&str, &Vec<String>, ModelVia); 5] = [
         (TIER_FAMILIES[0], &models.opus, ModelVia::SlotOpus),
         (TIER_FAMILIES[1], &models.sonnet, ModelVia::SlotSonnet),
         (TIER_FAMILIES[2], &models.haiku, ModelVia::SlotHaiku),
         (TIER_FAMILIES[3], &models.gpt, ModelVia::SlotGpt),
+        (TIER_FAMILIES[4], &models.fable, ModelVia::SlotFable),
     ];
     for (slot_name, slot_value, via) in &slots {
         if lower.contains(slot_name)
