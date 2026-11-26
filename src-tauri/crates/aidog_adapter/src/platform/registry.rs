@@ -766,6 +766,28 @@ impl PlatformAdapter for MiniMaxCodingAdapter {
 /// - 未证实项沿用家族行为：国际站各地域的服务端工具与联网搜索支持范围、统一错误
 ///   信封、`max_tokens` 统一上限。国际版沿用家族错误分类、usage 抽取和 coding_plan
 ///   分派（`BailianEn` 协议非编码套餐，分派 no-op）。
+///
+/// `bailian_coding` 百炼编程核对（2026-11-26）：
+///
+/// - 编码套餐独立协议 `BailianCoding`，registry 预填与官方编码套餐文档一致：
+///   OpenAI 兼容 `https://coding.dashscope.aliyuncs.com/v1`、Anthropic 兼容
+///   `https://coding.dashscope.aliyuncs.com/apps/anthropic`。
+///   https://help.aliyun.com/zh/model-studio/coding-plan-overview
+/// - Claude Code 接入：`ANTHROPIC_BASE_URL` 指向 `coding.dashscope.aliyuncs.com/apps/anthropic`
+///   或业务空间专属 `token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic`；该
+///   Anthropic 兼容端点仅提供 `/v1/messages`，不提供模型列表端点（`/v1/models`
+///   探测 404 属预期）。
+///   https://help.aliyun.com/zh/model-studio/claude-code
+///   https://www.alibabacloud.com/help/en/model-studio/claude-code
+/// - Qwen Code 接入：`baseUrl` 为 `coding.dashscope.aliyuncs.com/v1`（或
+///   `token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`），环境键
+///   `BAILIAN_CODING_PLAN_API_KEY`。
+///   https://help.aliyun.com/zh/model-studio/qwen-code
+/// - 协议形状沿用家族基座与 `bailian` 普通版核对结论；coding_plan 注入按基座分派对
+///   `BailianCoding` 协议为 no-op（官方接入文档只要求换 base_url 与 API Key，无额外
+///   出站字段）。registry 端点 `coding_plan: true` 仅参与路由与徽标展示。
+/// - 未证实项沿用家族行为：编码套餐的错误信封、`max_tokens` 上限、流式结束细节在
+///   套餐文档未单列。百炼编程沿用家族错误分类与 usage 抽取。
 pub struct BailianFamilyAdapter;
 
 impl PlatformAdapter for BailianFamilyAdapter {
