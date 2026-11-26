@@ -10,5 +10,6 @@ mod deep_link;
 mod popover_window;
 mod startup;
 mod ui_window;
+mod update_relaunch;
 
 pub use startup::run;

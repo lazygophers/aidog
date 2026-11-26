@@ -4,10 +4,12 @@
 //
 // 策略：
 //   - checkForUpdateManual()         — 手动按钮，忽略节流，区分「已是最新」/失败。
-//   - runUpdate(update)              — 下载安装并重启。
+//   - downloadUpdate(update)         — 下载并验签，回传进度。
+//   - installUpdate(update)          — 安装（包已验签）。
+//   - beginDrain() / relaunchWhenDrained() — 确认重启后拒新请求、等在途清零再重启。
 
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { invoke } from "@tauri-apps/api/core";
 
 /**
  * 手动检查 (About 页按钮)，忽略节流强制 check。
@@ -20,19 +22,19 @@ export async function checkForUpdateManual(): Promise<Update | null> {
 }
 
 /**
- * 下载并安装更新，成功后重启应用。
+ * 下载并验签；成功后保留已下载包，等待调用方确认安装。
  * 失败抛错由调用方提示。
  *
  * @param update check() 返回的 Update 对象。
  * @param onProgress 可选下载进度回调 (downloaded/contentLength 字节)。
  */
-export async function runUpdate(
+export async function downloadUpdate(
   update: Update,
   onProgress?: (downloaded: number, contentLength: number | undefined) => void,
 ): Promise<void> {
   let downloaded = 0;
   let contentLength: number | undefined;
-  await update.downloadAndInstall((event) => {
+  await update.download((event) => {
     switch (event.event) {
       case "Started":
         contentLength = event.data.contentLength;
@@ -45,5 +47,24 @@ export async function runUpdate(
     }
     onProgress?.(downloaded, contentLength);
   });
-  await relaunch();
+}
+
+/** 安装；只能在 downloadUpdate() 成功返回后调用（下载已通过签名校验）。 */
+export async function installUpdate(update: Update): Promise<void> {
+  await update.install();
+}
+
+/** 置内核排空态：代理拒收新请求（503 updating）；返回 false 表示已在排空中。 */
+export async function beginDrain(): Promise<boolean> {
+  return await invoke<boolean>("update_begin_drain");
+}
+
+/** 解除排空态：安装失败或取消更新后恢复代理正常服务；返回 false 表示本就不在排空中。 */
+export async function abortDrain(): Promise<boolean> {
+  return await invoke<boolean>("update_abort_drain");
+}
+
+/** 在途请求清零后由内核侧重启进新版；应用会退出，无返回路径。 */
+export async function relaunchWhenDrained(): Promise<void> {
+  await invoke("update_relaunch_when_drained");
 }

@@ -281,6 +281,10 @@ pub fn run() {
             // Auto-update toggle (gates startup daily check; manual button unaffected)
             aidog_core::system_cmd::auto_update::get_auto_update_enabled,
             aidog_core::system_cmd::auto_update::set_auto_update_enabled,
+            // 更新收尾（票 04）：确认重启后置排空态、等在途清零再重启进新版
+            crate::update_relaunch::update_begin_drain,
+            crate::update_relaunch::update_abort_drain,
+            crate::update_relaunch::update_relaunch_when_drained,
             // CC / Codex integration toggles
             aidog_core::ai_tools_cmd::coding_tools::coding_tools_settings_get,
             aidog_core::ai_tools_cmd::coding_tools::coding_tools_settings_set,

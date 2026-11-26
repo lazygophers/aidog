@@ -158,6 +158,8 @@ tauri-build = { workspace = true }
 # 构造 App + manage(Db) → app.state::<Db>() 获取 State，覆盖 commands/ 层转发路径。
 # 不进生产构建（dev-dependencies 作用域），features 与主 tauri 依赖合并。
 tauri = { workspace = true, features = ["test"] }
+# 排空超时单测用 start_paused 拨快 tokio 时钟（test-util 含 time），不真等 120 秒。
+tokio = { workspace = true, features = ["test-util"] }
 
 [dependencies]
 # C2 core-extract：gateway/shared/sync/hooks/tray_render/logging 全部下沉 aidog_core。
