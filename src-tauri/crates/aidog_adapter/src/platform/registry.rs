@@ -2394,6 +2394,18 @@ pub struct PipeLlmAdapter;
 impl PlatformAdapter for PipeLlmAdapter {}
 
 static PIPELLM: PipeLlmAdapter = PipeLlmAdapter;
+
+/// 胜算云出站适配器（issue 108）。
+///
+/// 官方文档 https://docs.router.shengsuanyun.com 于 2026-11-26 核对时证书域名不匹配，
+/// 无法核实请求默认值、思考参数、工具、多模态、system、max_tokens、缓存 usage、错误体及
+/// 流式事件与结束标记；这些行为暂时沿用协议构件默认值，不推断平台特性。
+/// 运行时使用用户配置的协议和端点；非编码套餐，coding_plan 注入沿用基座。
+pub struct ShengSuanYunAdapter;
+
+impl PlatformAdapter for ShengSuanYunAdapter {}
+
+static SHENGSUANYUN: ShengSuanYunAdapter = ShengSuanYunAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
     carry_history_reasoning_openai: true,
@@ -2642,7 +2654,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("qianfan_coding", &QIANFAN),
     ("sensenova", &SENSENOVA),
     ("sensenova_en", &SENSENOVA),
-    ("shengsuanyun", &GENERIC),
+    ("shengsuanyun", &SHENGSUANYUN),
     ("siliconflow", &SILICONFLOW),
     ("siliconflow_en", &SILICONFLOW),
     ("stepfun", &STEPFUN),

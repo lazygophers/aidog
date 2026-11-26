@@ -105,6 +105,15 @@ fn pipe_adapter_registration_and_cache_usage() {
 }
 
 #[test]
+fn shengsuanyun_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("shengsuanyun");
+    assert!(!std::ptr::eq(adapter, super::adapter_for("devin")));
+    let mut body = json!({"model":"test"});
+    adapter.inject_coding_plan(&mut body, &Protocol::ShengSuanYun, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"test"}));
+}
+
+#[test]
 fn atlascloud_error_msg_field_classifies_model_errors() {
     assert_eq!(
         super::adapter_for("atlascloud").classify_error(
