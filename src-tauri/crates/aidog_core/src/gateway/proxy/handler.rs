@@ -2,6 +2,20 @@ use super::*;
 
 /// 主代理处理函数 — 渐进式日志：每个阶段即时 upsert，用 request_id 串联
 pub async fn handle_proxy(state: AxumState<Arc<ProxyState>>, req: Request) -> Response {
+    // 更新排空（票 magpie-05）：确认安装后拒新请求；管理接口 / 健康端点不经此处不受影响。
+    // CONNECT 升级握手不包流式 guard（见 drain::track_response 注释）。
+    let guard = match admit() {
+        Some(g) => g,
+        None => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "error": { "type": "updating", "message": "kernel is updating, retry after restart" }
+                })),
+            )
+                .into_response();
+        }
+    };
     // 每请求生成 trace id（复用为 ProxyLog 主键）, 建 span → 该请求生命周期内所有日志
     // 自动携带 req{id=xxxxxxxx} 前缀（含 mock/passthrough 子调用, fmt 默认渲染当前 span）。
     let request_id = uuid::Uuid::new_v4().simple().to_string();
@@ -10,9 +24,10 @@ pub async fn handle_proxy(state: AxumState<Arc<ProxyState>>, req: Request) -> Re
     // 该请求生命周期内所有子 tracing 行自动携带两者。
     let trace_id = crate::logging::trace_id_from_request_id(&request_id);
     let span = tracing::info_span!("req", trace_id = %trace_id, request_id = %request_id);
-    handle_proxy_inner(state, req, request_id)
+    let response = handle_proxy_inner(state, req, request_id)
         .instrument(span)
-        .await
+        .await;
+    track_response(response, guard)
 }
 
 /// 请求级中断兜底 guard：客户端断连 / 请求 future 被 axum drop（任一 .await 未完成返回）时，

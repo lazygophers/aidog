@@ -73,6 +73,7 @@ mod ws;
 mod tokenizer;
 
 mod call_scope;
+mod drain;
 mod outbound_shape;
 
 #[cfg(test)]
@@ -99,6 +100,9 @@ mod test_mcp_http;
 mod test_mitm_bypass;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
+pub use drain::{abort_drain, admit, begin_drain, inflight, wait_empty, InflightGuard};
+// crate 内消费（handler.rs 的响应包装），不进对外 API。
+pub(crate) use drain::track_response;
 pub use endpoint::{is_opencode_zen, opencode_zen_fallback, resolve_opencode_zen_key};
 pub use handler::handle_proxy;
 pub use management::{
