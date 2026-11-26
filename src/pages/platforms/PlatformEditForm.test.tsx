@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { PlatformsState } from "./usePlatformsState";
 import { PlatformEditForm } from "./PlatformEditForm";
 
@@ -23,7 +23,7 @@ vi.mock("./formSections", () => ({
   PassthroughConfigSection: () => null,
   PassThroughSection: () => null,
   EndpointsSection: () => null,
-  BreakerSection: () => null,
+  BreakerSection: () => <div data-testid="breaker-section" />,
   PeakSection: () => null,
   RateLimitsSection: () => null,
   GroupAssignSection: () => null,
@@ -111,11 +111,15 @@ describe("PlatformEditForm advanced tabs (8-tab split)", () => {
 describe("PlatformEditForm advanced tabs visibility matrix (spec)", () => {
   const labels = () => screen.getAllByRole("tab").map(b => b.textContent);
 
-  it("create state (editing=null) shows only the 5 non-editing tabs", () => {
+  it("create state matches edit tabs and can open their sections", () => {
     const s = state("openai");
     (s.form as { editing: unknown }).editing = null;
     render(<PlatformEditForm s={s} />);
-    expect(labels()).toEqual(["Quota Query", "Time-based models", "Client allowlist", "Expires at", "Group Assignment"]);
+    expect(labels()).toEqual([
+      "Quota Query", "Time-based models", "Peak hours multiplier", "Direct models", "Rate Limits", "Circuit breaker", "Client allowlist", "Expires at", "Group Assignment",
+    ]);
+    fireEvent.click(screen.getByRole("tab", { name: "Circuit breaker" }));
+    expect(screen.getByTestId("breaker-section")).toBeInTheDocument();
   });
 
   it("mock platform hides quota/timemodels/peak, keeps ratelimits/breaker/expiry/group", () => {

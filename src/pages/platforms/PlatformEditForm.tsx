@@ -76,11 +76,11 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   const advTabs = [
     ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "quota", label: t("platform.tabQuota", "Quota Query") }] : []),
     ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "timemodels", label: t("platform.tabTimemodels", "Time-based models") }] : []),
-    ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "peak", label: t("platform.tabPeak", "Peak hours multiplier") }] : []),
-    ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "direct", label: t("platform.tabDirect", "Direct models") }] : []),
-    ...(editing && protocol === "qianfan" ? [{ id: "appbuilder", label: t("platform.tabAppbuilder", "AppBuilder") }] : []),
-    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "ratelimits", label: t("platform.tabRateLimits", "Rate Limits") }] : []),
-    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "breaker", label: t("platform.tabBreaker", "Circuit breaker") }] : []),
+    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "peak", label: t("platform.tabPeak", "Peak hours multiplier") }] : []),
+    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "direct", label: t("platform.tabDirect", "Direct models") }] : []),
+    ...(protocol === "qianfan" ? [{ id: "appbuilder", label: t("platform.tabAppbuilder", "AppBuilder") }] : []),
+    ...(!isPassthrough && !isPassThrough ? [{ id: "ratelimits", label: t("platform.tabRateLimits", "Rate Limits") }] : []),
+    ...(!isPassthrough && !isPassThrough ? [{ id: "breaker", label: t("platform.tabBreaker", "Circuit breaker") }] : []),
     ...(!isMock ? [{ id: "clients", label: t("platform.tabClients", "Client allowlist") }] : []),
     { id: "expiry", label: t("platform.tabExpiry", "Expires at") },
     ...(!isPassthrough ? [{ id: "group", label: t("platform.tabGroupAssign", "Group Assignment") }] : []),
@@ -328,7 +328,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
 
         {/* 高峰时段倍率（2026-10-20 从计费 tab 拆出；仅编辑态可配；空数组 = 用 preset 默认 / 1.0） */}
-        {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "peak") && (
+        {!isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "peak") && (
           <PeakSection
             windows={timemodels.peak} setWindows={timemodels.setPeak}
             tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
@@ -341,7 +341,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
 
         {/* 直通模型（直接模型转发）：extra.direct_models；仅编辑态可配（声明即生效），mock 无路由不渲染 */}
-        {!isMock && editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "direct") && (
+        {!isMock && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "direct") && (
           <DirectModelsSection
             models={timemodels.directModels} setModels={timemodels.setDirectModels}
             availableModels={availableModels} protocol={proto}
@@ -350,7 +350,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
 
         {/* qianfan AppBuilder 凭据（独立搜索转发，票 20）：extra.appbuilder_key，仅 qianfan 平台展示 */}
-        {editing && protocol === "qianfan" && (advTabs.length === 1 || activeAdvTab === "appbuilder") && (
+        {protocol === "qianfan" && (advTabs.length === 1 || activeAdvTab === "appbuilder") && (
           <AppbuilderKeySection
             value={appbuilderKey} onChange={setAppbuilderKey}
             t={t}
@@ -378,12 +378,12 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           </>
         )}
         {/* 限频（2026-10-20 从稳定性 tab 拆出；rate-limit-aware 票 04：extra.rate_limits / extra.quota_windows） */}
-        {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "ratelimits") && (
+        {!isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "ratelimits") && (
           <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} protocol={protocol} modelOptions={allConfiguredModelValues({ models, extra: serializePlatformTimeWindows("", timemodels.timeModels) })} platformCalendar={platformCalendar} t={t} />
         )}
 
         {/* 熔断（2026-10-20 从稳定性 tab 拆出）：Circuit Breaker 覆盖（仅编辑态可配；空 = 继承全局默认） */}
-        {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "breaker") && (
+        {!isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "breaker") && (
           <BreakerSection
             defaults={breakerDefaults}
             failure={breakerFailureThreshold} setFailure={setBreakerFailureThreshold}
