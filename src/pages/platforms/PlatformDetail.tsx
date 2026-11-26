@@ -20,7 +20,7 @@ export interface PlatformDetailProps {
 
 export function PlatformDetail({ platform, membership, onBack, onRefreshQuota, service }: PlatformDetailProps) {
   return (
-    <div data-testid="platform-detail" className="mx-auto grid w-full max-w-[1760px] grid-cols-1 items-start gap-0 sm:grid-cols-2 2xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_minmax(300px,360px)]">
+    <div data-testid="platform-detail" className="mx-auto grid w-full max-w-[1760px] grid-cols-1 items-start gap-0 sm:grid-cols-2 2xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_minmax(360px,480px)]">
       <div className="col-span-full min-w-0">
         <DetailHeader
           platform={platform}
