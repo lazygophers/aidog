@@ -2260,6 +2260,45 @@ static CLINE: ClineFamilyAdapter = ClineFamilyAdapter;
 static AIHUBMIX: AiHubMixAdapter = AiHubMixAdapter;
 static DEEPSEEK: DeepSeekAdapter = DeepSeekAdapter;
 static COMMAND_CODE: CommandCodeAdapter = CommandCodeAdapter;
+/// TypeSafe（System One 决策平台；api.typesafe.ai）专属适配器（issue 111；单成员，非编码套餐）。
+///
+/// 逐项核对（官方文档核对日期 2026-11-26；Mintlify 站，raw `.md` 与 OpenAPI 均可抓取）：
+/// - 端点：决策 `POST base_url + /systemone`（registry 内置默认 base_url `https://api.typesafe.ai/v1`
+///   已含版本前缀；决策 URL = base_url + `/systemone`，与 `decision_api_path()` 现状一致）；
+///   模型列表 `GET /v1/models`（SDK `models.list()`，平台拉模型列表走通用逻辑）。
+///   运行时一律用用户平台配置端点。https://docs.typesafe.ai/api/system-one https://docs.typesafe.ai/api/list-models
+/// - 鉴权：`Authorization: Bearer <API_KEY>`；网关决策路径现状注入同形，行为不变。
+/// - 请求字段与默认值：`SystemOneRequest {state, model, questions}`（questions 为具名问题对象，
+///   type = choice / score / noul / box）；决策 body 由客户端透传、网关仅改写 `model`（R8），
+///   无平台级新增字段。https://docs.typesafe.ai/api/system-one
+/// - 思考参数 / 工具调用 / system 提示 / max_tokens 上限：决策 API 无这些概念，文档无对应参数
+///   （不适用）；400 `max_tokens_exceeded` 仅指请求超模型上下文长度。
+/// - 图片与音视频：图片走 multipart 变体（request JSON part + image parts）或
+///   `TypeSafe-Danger-Zone-Images: true` 头 + box 问题，官方标注「dreamer-ready only」实验特性
+///   （2026-11-14 起）；音视频未支持。网关决策路径只发 JSON body，multipart / danger-zone 头
+///   不由 aidog 代加（客户端自选开关）。https://docs.typesafe.ai/api/system-one https://docs.typesafe.ai/images
+/// - 流式：决策 API 无流式（文档无 stream 参数，响应整体 JSON），网关决策路径现状不发流式，
+///   行为不变。
+/// - usage：响应 `usage: {input_tokens, output_tokens}`；缓存 token 字段文档未记载——未证实，
+///   不覆盖。官方示例无 `usage.cost`；网关 R14 在存在时读 `usage.cost`、不存在回落 registry 价，
+///   行为不变。https://docs.typesafe.ai/introduction/quickstart
+/// - 错误体：400（请求规则违规或 `max_tokens_exceeded`）、401（鉴权）、413（body > 32 MiB）、
+///   415（不支持的压缩编码）、422 `{detail:[{loc,msg,type}]}`（校验失败）、429（限频）、
+///   529（过载）。400 信封 HTTPBadRequestError 的字段细节未逐字取证——未证实。
+///   429 / 529 由框架按状态码归服务类，不扩展错误分类。https://docs.typesafe.ai/api/errors
+/// - coding_plan 注入：非编码套餐，基座按平台协议分派对 `Protocol::TypeSafe` 为 no-op，行为不变。
+/// - 转发层现状（grep 2026-11-26）：决策链路 `decision.rs` 直构请求（`decision_api_path()`），
+///   不经 chat 转换器；gateway 对 typesafe 无其他特判，无既有差异可迁；行为不变由
+///   `decision_request_end_to_end` 等决策回归测试锁定。
+///
+/// 结论：typesafe 是决策专属 wire 协议（非 openai / anthropic 系），chat 协议构件不适用；
+/// 专属适配器只承担显式注册语义（与 [`AiHubMixAdapter`] 同形），决策行为全部在网关决策链路，
+/// 原样保持。
+pub struct TypeSafeAdapter;
+
+impl PlatformAdapter for TypeSafeAdapter {}
+
+static TYPESAFE: TypeSafeAdapter = TypeSafeAdapter;
 static MIMO: MimoFamilyAdapter = MimoFamilyAdapter {
     official_openai_thinking: true,
     carry_history_reasoning_openai: true,
@@ -2400,6 +2439,59 @@ struct NvidiaAdapter;
 impl PlatformAdapter for NvidiaAdapter {}
 static NVIDIA: NvidiaAdapter = NvidiaAdapter;
 
+/// OpenRouter，官方文档核对日期 2026-11-25。
+/// Chat Completions 端点 `/api/v1/chat/completions`（base `https://openrouter.ai/api/v1`）；
+/// Anthropic 兼容接口 base `https://openrouter.ai/api`（reasoning 预算走 Anthropic 式
+/// `reasoning.max_tokens`）。`reasoning` 参数：`effort` 取 max/xhigh/high/medium/low/minimal，
+/// `max_tokens` 为 Anthropic 式预算，`enabled` 缺省由 effort/max_tokens 推断，`exclude`
+/// 仅 Chat Completions 支持；模型元数据带 supported_efforts/default_effort/mandatory。
+/// usage 含 `output_tokens_details.reasoning_tokens`；思考耗尽预算时返回 200 +
+/// `finish_reason:"length"` + 空 content。流式 SSE 以 `data: [DONE]` 结束；错误体为
+/// `{error: {code, message, metadata}}`，HTTP 状态与 error.code 一致，429 限频的
+/// `error.metadata.limit_source` 标记来源，审核拦截细节在 error.metadata。
+/// https://openrouter.ai/docs/guides/best-practices/reasoning-tokens.md
+/// https://openrouter.ai/docs/api_reference/errors-and-debugging.md
+/// 未证实：usage 缓存 token 字段形状、max_tokens 各模型上限、工具与图片细节、
+/// Anthropic 兼容端点的完整流事件；保持协议构件默认行为。官方未列其他 wire 协议端点；
+/// 对用户配置其他协议仅做合成假上游兼容性测试，不表示 OpenRouter 官方支持。
+struct OpenrouterAdapter;
+impl PlatformAdapter for OpenrouterAdapter {}
+static OPENROUTER: OpenrouterAdapter = OpenrouterAdapter;
+
+/// TheRouter.ai，官方文档核对日期 2026-11-25（https://therouter.ai/docs/api/reference/overview/ ）。
+/// OpenAI 兼容核心端点 `/v1/*`（含 `/v1/chat/completions`）；另有 Anthropic Messages 与
+/// Responses API 端点；`/api/v1/*` 为 OpenRouter 兼容层。Bearer 鉴权，每个响应带
+/// x-request-id。流式 SSE：`stream` 默认 false，`stream_options.include_usage` 必须为
+/// true 才在 `data: [DONE]` 前发独立的 usage 终块（choices 为空数组）。错误体：
+/// 标准 `{error: {message, type, code, param}}`；402 扩展带 `error.balance` 与
+/// `error.actions`，语义码 `insufficient_credits`；404 `model_not_found` 带
+/// did_you_mean/suggestions/docs/trace_id。错误码：400/401/402/404/429/500/502/503。
+/// https://therouter.ai/docs/api/reference/streaming/
+/// https://therouter.ai/docs/api/reference/errors-and-debugging/
+/// 未证实：usage 缓存 token 字段、思考开关/档位、工具与媒体细节、max_tokens 上限、
+/// Anthropic/Responses 端点的完整事件与错误形状；保持协议构件默认行为。官方未列其他
+/// wire 协议端点；对用户配置其他协议仅做合成假上游兼容性测试，不表示 TheRouter 官方支持。
+struct TherouterAdapter;
+impl PlatformAdapter for TherouterAdapter {}
+static THEROUTER: TherouterAdapter = TherouterAdapter;
+
+/// 基元律动 TokenRhythm，官方文档核对日期 2026-11-25（https://tokenrhythm.studio/docs/api-integration ）。
+/// 端点：GET /v1/models、POST /v1/chat/completions（OpenAI）、POST /v1/messages（Anthropic）、
+/// POST /v1/embeddings；JEV 决策与 Wan 视频为独立接口，不经聊天转发。统一 base
+/// `https://tokenrhythm.studio/v1`，Bearer 鉴权。Anthropic：anthropic-version 未传或为空
+/// 时默认按 2023-06-01 处理，显式传入不校验白名单、向上游透传；max_tokens 必填。
+/// 流式：OpenAI 传 stream:true 后按 SSE 返回，增量在 choices[0].delta.content；Anthropic
+/// 按原生 Messages 流式事件返回，两种协议解析器不混用。工具：支持 OpenAI tools、
+/// tool_choice、tool_calls；DeepSeek 的 tool_choice 只收 none/auto/required，不收对象形式。
+/// 错误体统一 {code, message, traceId}；401 密钥无效、403 未获灰度权限、413 请求体超限、
+/// 422 参数或上游输入限制、429 容量限流、502/503/504 上游故障。
+/// 未证实：usage 缓存 token 字段、思考开关/档位、max_tokens 上限、图片与音视频细节；
+/// 保持协议构件默认行为。官方未列其他 wire 协议端点；对用户配置其他协议仅做合成假上游
+/// 兼容性测试，不表示 TokenRhythm 官方支持。
+struct TokenrhythmAdapter;
+impl PlatformAdapter for TokenrhythmAdapter {}
+static TOKENRHYTHM: TokenrhythmAdapter = TokenrhythmAdapter;
+
 /// 显式注册表：registry 平台 code → 适配器单例（与 src-tauri/defaults/registry/platforms/ 一一对应；
 /// 未列入家族适配器的平台走默认家族基座）。
 static ATLASCLOUD: AtlasCloudAdapter = AtlasCloudAdapter;
@@ -2448,7 +2540,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("openai", &OPENAI),
     ("opencode", &OPENCODE),
     ("opencode_zen", &OPENCODE),
-    ("openrouter", &GENERIC),
+    ("openrouter", &OPENROUTER),
     ("passthrough", &GENERIC),
     ("pipellm", &GENERIC),
     ("qianfan", &QIANFAN),
@@ -2463,9 +2555,9 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("tencent_coding", &TENCENT_CODING),
     ("tencent_tokenhub", &TENCENT),
     ("tencent_tokenhub_intl", &TENCENT),
-    ("therouter", &GENERIC),
-    ("tokenrhythm", &GENERIC),
-    ("typesafe", &GENERIC),
+    ("therouter", &THEROUTER),
+    ("tokenrhythm", &TOKENRHYTHM),
+    ("typesafe", &TYPESAFE),
     ("xai", &GENERIC),
     ("xiaomi_mimo", &MIMO),
     ("xiaomi_mimo_coding", &MIMO_CODING),
@@ -2641,9 +2733,9 @@ mod sensenova_family_tests {
 
         assert!(std::ptr::eq(cn, en));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
-        assert!(!std::ptr::eq(cn, adapter_for("openrouter")));
-        assert!(!std::ptr::eq(en, adapter_for("openrouter")));
+        // 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+        assert!(!std::ptr::eq(cn, adapter_for("devin")));
+        assert!(!std::ptr::eq(en, adapter_for("devin")));
         assert!(!std::ptr::eq(cn, adapter_for("openai")));
     }
 }
@@ -2672,9 +2764,9 @@ mod openai_family_tests {
         let codex = lookup("codex").expect("Codex adapter must be registered");
         assert!(std::ptr::eq(openai, codex));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
-        assert!(!std::ptr::eq(openai, adapter_for("openrouter")));
-        assert!(!std::ptr::eq(codex, adapter_for("openrouter")));
+        // 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+        assert!(!std::ptr::eq(openai, adapter_for("devin")));
+        assert!(!std::ptr::eq(codex, adapter_for("devin")));
         assert!(!std::ptr::eq(openai, adapter_for("anthropic")));
     }
 }
@@ -2717,11 +2809,11 @@ mod aihubmix_tests {
     use super::*;
 
     /// issue 91：aihubmix 必须走专属适配器（显式注册），不再回落通用适配。
-    /// 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
+    /// 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
     #[test]
     fn aihubmix_uses_registered_adapter() {
         let a = adapter_for("aihubmix");
-        assert!(!std::ptr::eq(a, adapter_for("openrouter")));
+        assert!(!std::ptr::eq(a, adapter_for("devin")));
     }
 
     /// 官方把错误体 response ID 改为 tid（traceId）；分类仍读 error.message/type，
@@ -2766,7 +2858,7 @@ mod deepseek_tests {
     #[test]
     fn deepseek_uses_dedicated_adapter() {
         let a = adapter_for("deepseek");
-        assert!(!std::ptr::eq(a, lookup("openrouter").unwrap()));
+        assert!(!std::ptr::eq(a, lookup("devin").unwrap()));
     }
 
     /// 官方禁思考写法是顶层 `thinking: {"type": "disabled"}`（思考开关缺省 = 开启，

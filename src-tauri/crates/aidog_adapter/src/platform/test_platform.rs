@@ -36,7 +36,7 @@ fn gemini_has_dedicated_adapter_registration() {
 fn atlascloud_has_dedicated_adapter_registration() {
     let adapter = super::adapter_for("atlascloud");
     assert!(
-        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
+        !std::ptr::eq(adapter, super::adapter_for("devin")),
         "AtlasCloud registration must not use generic adapter"
     );
     let mut body = json!({"model":"atlas-test"});
@@ -57,6 +57,19 @@ fn crazyrouter_has_dedicated_adapter_registration() {
     let mut body = json!({"model":"cr-test"});
     adapter.inject_coding_plan(&mut body, &Protocol::CrazyRouter, &Protocol::OpenAI);
     assert_eq!(body, json!({"model":"cr-test"}));
+}
+
+#[test]
+fn typesafe_has_dedicated_adapter_registration() {
+    let adapter = super::adapter_for("typesafe");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("devin")),
+        "TypeSafe registration must not use the generic adapter"
+    );
+    // 决策专属协议：非编码套餐，coding_plan 注入 no-op。
+    let mut body = json!({"model":"jev-latest"});
+    adapter.inject_coding_plan(&mut body, &Protocol::TypeSafe, &Protocol::TypeSafe);
+    assert_eq!(body, json!({"model":"jev-latest"}));
 }
 
 #[test]
@@ -259,8 +272,8 @@ fn kimi_coding_openai_tool_history_carries_reasoning_content() {
 /// 基座默认实现与协议构件逐字节等价（issue 68：初始映射与现状等价的单元面）。
 #[test]
 fn generic_adapter_delegates_to_protocol_components() {
-    // 对照件用 openrouter（GENERIC 注册项；deepseek 自 issue 95 起为专属适配器）。
-    let pa = super::adapter_for("openrouter");
+    // 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+    let pa = super::adapter_for("devin");
     let chat_req: ChatRequest = serde_json::from_value(json!({
         "model": "deepseek-v4",
         "max_tokens": 64,
@@ -375,7 +388,7 @@ fn minimax_synthetic_base_resp_stays_unclassified() {
     );
     assert_eq!(
         adapter.classify_error(400, body),
-        super::adapter_for("openrouter").classify_error(400, body)
+        super::adapter_for("devin").classify_error(400, body)
     );
 }
 
@@ -388,7 +401,7 @@ fn minimax_family_preserves_generic_protocol_behavior() {
         "messages": [{ "role": "user", "content": "hello" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("openrouter");
+    let generic = super::adapter_for("devin");
     let completion = json!({
         "id": "cmpl-1", "model": "MiniMax-M3",
         "choices": [{ "index": 0, "message": { "role": "assistant", "content": "hi" }, "finish_reason": "stop" }]
@@ -530,11 +543,11 @@ fn glm_family_forced_thinking_and_non_glm_unchanged() {
         super::adapter_for(code).apply_disable_thinking(&mut body, true, &Protocol::OpenAI, url, true);
         assert_eq!(body, json!({}), "{code} 强制思考应只剥禁用参数: {body}");
     }
-    // 非家族成员对照：GENERIC 注册项 openrouter 仍写基座第三方 vLLM 式参数
+    // 非家族成员对照：GENERIC 注册项 devin 仍写基座第三方 vLLM 式参数
     // （deepseek 自 issue 95 起为专属适配器，openai wire 写官方 thinking.type=disabled，
     // 见 registry.rs deepseek_tests）。
     let mut body = json!({ "disable_thinking": true });
-    super::adapter_for("openrouter").apply_disable_thinking(
+    super::adapter_for("devin").apply_disable_thinking(
         &mut body,
         true,
         &Protocol::OpenAI,
@@ -903,7 +916,7 @@ fn byteplus_full_pipeline_matches_family_base() {
     }))
     .unwrap();
     let adapter = super::adapter_for("byteplus");
-    let generic = super::adapter_for("openrouter");
+    let generic = super::adapter_for("devin");
     let platform = Protocol::BytePlus;
 
     // ① 请求构造：三协议路径与 body 同基座构件（本地假上游 URL 不参与转换）。
@@ -1215,7 +1228,7 @@ fn siliconflow_family_preserves_generic_protocol_behavior() {
         "messages": [{ "role": "user", "content": "hi" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("openrouter");
+    let generic = super::adapter_for("devin");
     let completion = json!({
         "id": "cmpl-1", "model": "deepseek-ai/DeepSeek-V3.2",
         "choices": [{ "index": 0, "message": { "role": "assistant", "content": "ok" }, "finish_reason": "stop" }],
@@ -1397,7 +1410,7 @@ fn stepfun_family_preserves_generic_protocol_behavior() {
         "messages": [{ "role": "user", "content": "hi" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("openrouter");
+    let generic = super::adapter_for("devin");
     let completion = json!({
         "id": "cmpl-1", "model": "step-5-preview",
         "choices": [{ "index": 0, "message": { "role": "assistant", "content": "ok" }, "finish_reason": "stop" }],
@@ -1630,7 +1643,7 @@ async fn tencent_family_protocols_use_local_upstream_and_extract_usage() {
         "messages": [{ "role": "user", "content": "hello" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("openrouter");
+    let generic = super::adapter_for("devin");
     for code in ["tencent_coding", "tencent_tokenhub", "tencent_tokenhub_intl"] {
         let adapter = super::adapter_for(code);
         assert!(super::lookup(code).is_some(), "{code} registration");
@@ -1903,7 +1916,7 @@ async fn mimo_family_protocols_use_local_upstream_and_extract_usage() {
         "messages": [{ "role": "user", "content": "hello" }]
     }))
     .unwrap();
-    let generic = super::adapter_for("openrouter");
+    let generic = super::adapter_for("devin");
     for code in ["xiaomi_mimo", "xiaomi_mimo_coding", "xiaomi_mimo_coding_en"] {
         let adapter = super::adapter_for(code);
         assert!(super::lookup(code).is_some(), "{code} registration");
@@ -2210,7 +2223,7 @@ fn mimo_error_classification_status_code_only() {
 fn litellm_has_dedicated_adapter_registration() {
     let adapter = super::adapter_for("litellm");
     assert!(
-        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
+        !std::ptr::eq(adapter, super::adapter_for("devin")),
         "LiteLLM registration must not use generic adapter"
     );
     // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
@@ -2274,7 +2287,7 @@ fn litellm_anthropic_route_budget_error_classifies_service() {
 fn intern_inkstone_has_dedicated_adapter_registration() {
     let adapter = super::adapter_for("intern_inkstone");
     assert!(
-        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
+        !std::ptr::eq(adapter, super::adapter_for("devin")),
         "InternInkstone registration must not use generic adapter"
     );
     // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
@@ -2284,9 +2297,25 @@ fn intern_inkstone_has_dedicated_adapter_registration() {
 }
 
 #[test]
+fn therouter_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("therouter"), super::adapter_for("devin")),
+        "TheRouter registration must not use the generic adapter"
+    );
+}
+
+#[test]
+fn tokenrhythm_has_dedicated_adapter_registration() {
+    assert!(
+        !std::ptr::eq(super::adapter_for("tokenrhythm"), super::adapter_for("devin")),
+        "TokenRhythm registration must not use the generic adapter"
+    );
+}
+
+#[test]
 fn meta_has_dedicated_adapter_registration() {
     assert!(
-        !std::ptr::eq(super::adapter_for("meta"), super::adapter_for("openrouter")),
+        !std::ptr::eq(super::adapter_for("meta"), super::adapter_for("devin")),
         "Meta registration must not use the generic adapter"
     );
 }
@@ -2294,7 +2323,7 @@ fn meta_has_dedicated_adapter_registration() {
 #[test]
 fn mistral_has_dedicated_adapter_registration() {
     assert!(
-        !std::ptr::eq(super::adapter_for("mistral"), super::adapter_for("openrouter")),
+        !std::ptr::eq(super::adapter_for("mistral"), super::adapter_for("devin")),
         "Mistral registration must not use the generic adapter"
     );
 }
@@ -2302,7 +2331,7 @@ fn mistral_has_dedicated_adapter_registration() {
 #[test]
 fn modelscope_has_dedicated_adapter_registration() {
     assert!(
-        !std::ptr::eq(super::adapter_for("modelscope"), super::adapter_for("openrouter")),
+        !std::ptr::eq(super::adapter_for("modelscope"), super::adapter_for("devin")),
         "ModelScope registration must not use the generic adapter"
     );
 }
@@ -2310,7 +2339,7 @@ fn modelscope_has_dedicated_adapter_registration() {
 #[test]
 fn novita_has_dedicated_adapter_registration() {
     assert!(
-        !std::ptr::eq(super::adapter_for("novita"), super::adapter_for("openrouter")),
+        !std::ptr::eq(super::adapter_for("novita"), super::adapter_for("devin")),
         "Novita registration must not use the generic adapter"
     );
 }
@@ -2318,7 +2347,7 @@ fn novita_has_dedicated_adapter_registration() {
 #[test]
 fn nvidia_has_dedicated_adapter_registration() {
     assert!(
-        !std::ptr::eq(super::adapter_for("nvidia"), super::adapter_for("openrouter")),
+        !std::ptr::eq(super::adapter_for("nvidia"), super::adapter_for("devin")),
         "NVIDIA registration must not use the generic adapter"
     );
 }
@@ -2326,7 +2355,7 @@ fn nvidia_has_dedicated_adapter_registration() {
 #[test]
 fn magpie_has_dedicated_adapter_registration() {
     assert!(
-        !std::ptr::eq(super::adapter_for("magpie"), super::adapter_for("openrouter")),
+        !std::ptr::eq(super::adapter_for("magpie"), super::adapter_for("devin")),
         "Magpie registration must not use the generic adapter"
     );
 }
@@ -2336,7 +2365,7 @@ fn magpie_has_dedicated_adapter_registration() {
 fn longcat_has_dedicated_adapter_registration() {
     let adapter = super::adapter_for("longcat");
     assert!(
-        !std::ptr::eq(adapter, super::adapter_for("openrouter")),
+        !std::ptr::eq(adapter, super::adapter_for("devin")),
         "LongCat registration must not use generic adapter"
     );
     // 非编码套餐：coding_plan 注入 no-op，行为与基座分派一致。
