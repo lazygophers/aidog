@@ -61,11 +61,11 @@ function PolicyDetail({ p, expanded, onToggle, t }: { p: RateLimitPolicy; expand
     <div style={{ display: "flex", flexDirection: "column", gap: 3, width: "100%" }}>
       {empty ? (
         <span id={`rl-policy-empty-${p.id}`} style={detailStyle}>
-          {t("platform.rateLimits.policyEmpty", "No rate-limit numbers published by the vendor; importing adds no limits")}
+          {t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).")}
         </span>
       ) : (
         <span id={`rl-policy-platform-${p.id}`} style={detailStyle}>
-          {n.length > 0 ? n.join(" · ") : t("platform.rateLimits.policyNoNumbers", "No platform-level numbers published")}
+          {n.length > 0 ? n.join(" · ") : t("platform.rateLimits.policyNoNumbers", "No platform-level numbers configured")}
         </span>
       )}
       {rules.length > 0 && (
@@ -165,14 +165,14 @@ export function RateLimitPolicyLibrary({ protocol, source, onImport, t, headerOn
             </a>
             <button type="button" id={`rl-policy-import-${p.id}`} className="btn-ghost"
               style={{ marginLeft: "auto", fontSize: 14, padding: "2px 10px" }}
-              title={empty ? t("platform.rateLimits.policyEmpty", "No rate-limit numbers published by the vendor; importing adds no limits") : undefined}
+              title={empty ? t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).") : undefined}
               onClick={() => { if (empty) setEmptyFeedback(p.id); else { setEmptyFeedback(null); setPending(p); } }}>
               {t("platform.rateLimits.policyImport", "Import")}
             </button>
             <PolicyDetail p={p} expanded={!!expanded[p.id]} onToggle={() => setExpanded(e => ({ ...e, [p.id]: !e[p.id] }))} t={t} />
             {emptyFeedback === p.id && (
               <span id="rl-policy-empty-feedback" role="status" style={{ fontSize: 14, color: "var(--text-primary)" }}>
-                {t("platform.rateLimits.policyEmpty", "No rate-limit numbers published by the vendor; importing adds no limits")}
+                {t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).")}
               </span>
             )}
           </div>

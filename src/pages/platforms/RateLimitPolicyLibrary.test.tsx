@@ -48,7 +48,7 @@ describe("RateLimitPolicyLibrary", () => {
   it("空策略点击导入时给出可见反馈且不覆盖已有配置", async () => {
     const { onImport } = await renderLib();
     fireEvent.click(byId("rl-policy-import-skel")!);
-    expect(byId("rl-policy-empty-feedback")?.textContent).toContain("importing adds no limits");
+    expect(byId("rl-policy-empty-feedback")?.textContent).toContain("won't produce limits");
     expect(onImport).not.toHaveBeenCalled();
     expect(byId("rl-import-confirm")).toBeNull();
   });
