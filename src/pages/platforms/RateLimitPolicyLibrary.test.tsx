@@ -1,6 +1,8 @@
 // 策略库区：导入覆盖（含来源字段）+「内置策略已更新」提示。选择器锚稳定 id + data-state。
 import { describe, it, expect, vi } from "vitest";
+import { getDefaultRateLimitPolicies } from "../../domains/platforms";
 import { render, fireEvent, waitFor } from "../../test/render";
+import { act } from "@testing-library/react";
 import { RateLimitPolicyLibrary } from "./RateLimitPolicyLibrary";
 import type { RateLimitPolicy } from "../../domains/platforms/defaults";
 
@@ -36,6 +38,13 @@ async function renderLib(source?: { id?: string; at?: number }) {
 }
 
 describe("RateLimitPolicyLibrary", () => {
+  it("全空策略时不渲染导入按钮", async () => {
+    vi.mocked(getDefaultRateLimitPolicies).mockResolvedValueOnce({ policies: [POLICIES[2]], lastUpdated: 200 });
+    render(<RateLimitPolicyLibrary protocol="anthropic" onImport={vi.fn()} t={t} headerOnly />);
+    await act(async () => {});
+    expect(getDefaultRateLimitPolicies).toHaveBeenCalledWith("anthropic");
+    expect(byId("rl-policy-header")).toBeNull();
+  });
   it("空策略点击导入时给出可见反馈且不覆盖已有配置", async () => {
     const { onImport } = await renderLib();
     fireEvent.click(byId("rl-policy-import-skel")!);

@@ -118,7 +118,7 @@ export function RateLimitPolicyLibrary({ protocol, source, onImport, t, headerOn
     return () => { cancelled = true; };
   }, [protocol]);
 
-  if (lib.policies.length === 0) return null;
+  if (lib.policies.length === 0 || (headerOnly && lib.policies.every(p => policyIsEmpty(p, t)))) return null;
   const stale = !!source?.id && (source.at ?? 0) < lib.lastUpdated;
   const staleTip = stale ? t("platform.rateLimits.policyUpdated", "Built-in policy updated, re-import available") : undefined;
   if (headerOnly) {
