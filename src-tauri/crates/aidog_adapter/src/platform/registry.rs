@@ -723,6 +723,26 @@ impl PlatformAdapter for MiniMaxCodingAdapter {
 /// coding.dashscope.aliyuncs.com / coding-intl.dashscope.aliyuncs.com 的 compatible-mode/v1
 /// 与 apps/anthropic），运行时只用用户平台配置的端点。成员级差异（如按模型的思考参数分派）
 /// 由各成员 issue 取证后覆盖。
+///
+/// `bailian` 普通版核对（2026-11-26）：
+///
+/// - Chat Completions 使用 `model`、`messages`，`stream` 默认关闭。`enable_thinking`
+///   及 `thinking_budget` 的支持与默认值随模型变化。`max_tokens` 将废弃，新接入推荐
+///   `max_completion_tokens`。`tools` / `tool_choice` 用于客户端工具，`enable_search`
+///   控制服务端搜索（默认关闭，支持范围随模型变化）。图片、音频和视频分别使用
+///   `image_url`、`input_audio`、`video` 或 `video_url`，支持范围随模型变化。
+///   System 提示使用 `messages` 中的 `system` 角色。流式使用 SSE，
+///   `stream_options.include_usage` 可请求用量，`data: [DONE]` 结束。
+///   https://help.aliyun.com/zh/model-studio/qwen-api-via-openai-chat-completions
+/// - Messages 使用 `model`、`messages`、必填 `max_tokens` 和独立 `system` 字段。
+///   `thinking.budget_tokens` 将废弃，官方推荐 `output_config.effort`。工具可使用
+///   `tools` 声明，服务端搜索使用 `web_search_*`。图片内容块接受 URL 或 Base64。
+///   流式按 `message_start`、内容块事件、`message_delta`、`message_stop` 发送，
+///   完整缓存用量见 `message_delta`。
+///   https://help.aliyun.com/zh/model-studio/anthropic-api-messages
+/// - 未证实项沿用家族行为：Messages 音视频支持、跨模型统一输出上限、统一错误信封、
+///   Chat Completions 缓存写入是否计入 `prompt_tokens`。普通版沿用家族错误分类、
+///   usage 抽取和 coding_plan 分派。
 pub struct BailianFamilyAdapter;
 
 impl PlatformAdapter for BailianFamilyAdapter {
