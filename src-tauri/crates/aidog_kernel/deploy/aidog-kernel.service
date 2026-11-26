@@ -7,11 +7,16 @@
 ;     内核不链 tauri。已在 debian:bookworm 上实测通过。）
 ;
 ; 安装：
-;   sudo install -m 0755 aidog-kernel /usr/local/bin/aidog-kernel
+;   sudo install -D -m 0755 -o aidog -g aidog aidog-kernel /var/lib/aidog/bin/aidog-kernel
 ;   sudo install -m 0644 aidog-kernel.service /etc/systemd/system/aidog-kernel.service
 ;   sudo systemctl daemon-reload && sudo systemctl enable --now aidog-kernel
 ;   journalctl -u aidog-kernel -f          # 标准输出的日志
 ;   tail -f /var/lib/aidog/.aidog/logs/*   # 文件日志（同一份内容）
+;
+; 二进制装在 /var/lib/aidog/bin（服务用户可写）是有意的（票 magpie-05）：内核更新确认后
+; 由服务进程自己替换这个文件并退出，systemd Restart=on-failure 拉起新版 —— 全程无需提权
+; helper。别把二进制挪回 /usr/local/bin：ProtectSystem=strict 下服务账户写不动它，更新
+; 会以「no write permission」失败（update.rs::install_inner 的写权限预检）。
 ;
 ; 默认这份是**纯内核**：只转发代理，不开任何 HTTP 管理面。要 Web 界面见文件末尾注释。
 
@@ -32,9 +37,10 @@ Group=aidog
 Environment=HOME=/var/lib/aidog
 WorkingDirectory=/var/lib/aidog
 
-ExecStart=/usr/local/bin/aidog-kernel
+ExecStart=/var/lib/aidog/bin/aidog-kernel
 
 # 内核收到 SIGTERM 会正常退出（main.rs 的 wait_for_shutdown 显式监听）。
+# 更新确认后的自重启走 exit(75)（update.rs）：on-failure 把它当失败拉起新版二进制。
 KillSignal=SIGTERM
 TimeoutStopSec=20
 Restart=on-failure
@@ -59,7 +65,7 @@ WantedBy=multi-user.target
 ; ---------------------------------------------------------------------------
 ; 要 Web 管理界面：把上面的 ExecStart 换成
 ;
-;   ExecStart=/usr/local/bin/aidog-kernel --ui --ui-dir /usr/local/share/aidog/ui
+;   ExecStart=/var/lib/aidog/bin/aidog-kernel --ui --ui-dir /var/lib/aidog/ui
 ;
 ; 管理面**永远只监听 127.0.0.1**（main.rs::management_bind_addr，没有任何设置能改）。
 ; 端口来自数据库里的内核设置（默认 9891），不是命令行参数。

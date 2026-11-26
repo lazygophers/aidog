@@ -18,6 +18,7 @@ use mimalloc::MiMalloc;
 static GLOBAL_ALLOCATOR: MiMalloc = MiMalloc;
 
 mod ctx;
+mod update;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -216,6 +217,8 @@ async fn run(opts: Options) -> Result<(), String> {
     let kernel_settings = load_kernel_settings(&db).await;
     check_ui_allowed(&opts, &kernel_settings)?;
     let mut mgmt = aidog_rpc::management_router();
+    // 内核更新命令（票 magpie-05）：与桌面命令同一组管理闸门（本机 / 开关 / 凭据）。
+    mgmt = update::install_routes(mgmt);
     if opts.ui {
         mgmt = with_ui(mgmt, resolve_ui_dir(opts.ui_dir));
     }
