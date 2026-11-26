@@ -2324,7 +2324,7 @@ static TYPESAFE: TypeSafeAdapter = TypeSafeAdapter;
 /// - system 提示 / max_tokens 上限：system 走 messages 标准角色；统一 max_tokens 上限官方
 ///   未列（per-model 上下文在 models 页）——上限按 registry 条目 `cap_max_tokens` 裁剪（现状）。
 /// - usage（含缓存 token）：响应示例 `usage.prompt_tokens / completion_tokens / total_tokens`
-///   + `prompt_tokens_details {text_tokens, audio_tokens, image_tokens, cached_tokens}`——
+///   及 `prompt_tokens_details {text_tokens, audio_tokens, image_tokens, cached_tokens}`——
 ///   基座 `usage.rs` 已读 `prompt_tokens_details.cached_tokens`（`usage.rs:64`），无需覆写。
 ///   https://docs.x.ai/developers/model-capabilities/legacy/chat-completions
 /// - 错误体：状态码表 400（含「不正确的 API key」）、401、403、404（含「模型不存在」）、
