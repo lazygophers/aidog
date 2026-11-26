@@ -743,6 +743,29 @@ impl PlatformAdapter for MiniMaxCodingAdapter {
 /// - 未证实项沿用家族行为：Messages 音视频支持、跨模型统一输出上限、统一错误信封、
 ///   Chat Completions 缓存写入是否计入 `prompt_tokens`。普通版沿用家族错误分类、
 ///   usage 抽取和 coding_plan 分派。
+///
+/// `bailian_en` 国际版核对（2026-11-26）：
+///
+/// - 官方两份协议文档（中文站与国际站）均列出业务空间专属域名迁移说明：北京
+///   `dashscope.aliyuncs.com` → `{WorkspaceId}.cn-beijing.maas.aliyuncs.com`、新加坡
+///   `dashscope-intl.aliyuncs.com` → `{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`、
+///   香港 → `{WorkspaceId}.cn-hongkong.maas.aliyuncs.com`、弗吉尼亚 →
+///   `{WorkspaceId}.us-east-1.maas.aliyuncs.com`；openai 兼容路径
+///   `/compatible-mode/v1` 与 anthropic 路径 `/apps/anthropic`（请求
+///   `/apps/anthropic/v1/messages`）在新域名下均受支持。旧域名作为迁移起点仍在文档
+///   中出现（香港旧式 `cn-hongkong.dashscope.aliyuncs.com` 未在文档列出，按未证实
+///   处理）。
+///   https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope
+///   https://help.aliyun.com/zh/model-studio/anthropic-api-messages
+///   https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope
+///   https://www.alibabacloud.com/help/en/model-studio/anthropic-api-messages
+/// - 协议形状（请求字段、思考参数、工具、多模态、system、max_tokens、usage、错误、
+///   流式）与普通版一致，沿用家族基座与 `bailian` 普通版核对结论；registry 预填仍为
+///   旧式域名（dashscope-intl / dashscope-us / cn-hongkong），仅作新建平台表单预填，
+///   运行时只用用户平台配置端点，业务空间专属域名由用户按官方文档填入。
+/// - 未证实项沿用家族行为：国际站各地域的服务端工具与联网搜索支持范围、统一错误
+///   信封、`max_tokens` 统一上限。国际版沿用家族错误分类、usage 抽取和 coding_plan
+///   分派（`BailianEn` 协议非编码套餐，分派 no-op）。
 pub struct BailianFamilyAdapter;
 
 impl PlatformAdapter for BailianFamilyAdapter {
