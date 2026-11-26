@@ -4,6 +4,7 @@ import { useSystemSettings } from "./AppSettings/useSystemSettings";
 import { ProxyStatusSection, UpstreamProxySection } from "./AppSettings/ProxyStatusSection";
 import { StartupSection } from "./AppSettings/StartupSection";
 import { KernelSection } from "./AppSettings/KernelSection";
+import { KernelUpdateSection } from "./AppSettings/KernelUpdateSection";
 import { ApiCallLogSection } from "./AppSettings/ApiCallLogSection";
 import { ApiTestPanel } from "./AppSettings/ApiTestPanel";
 import { ApiCatalogSection } from "./AppSettings/ApiCatalogSection";
@@ -74,6 +75,7 @@ function ApiTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <RevealedSection staggerMs={0}><KernelSection onSaved={() => setRev((r) => r + 1)} /></RevealedSection>
+      <RevealedSection staggerMs={40}><KernelUpdateSection /></RevealedSection>
       <RevealedSection staggerMs={80}><ApiCatalogSection refreshKey={rev} /></RevealedSection>
       <RevealedSection staggerMs={120}><ApiTestPanel refreshKey={rev} onSent={() => setSent((n) => n + 1)} /></RevealedSection>
       <RevealedSection staggerMs={160}><ApiCallLogSection refreshKey={sent} /></RevealedSection>

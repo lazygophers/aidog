@@ -7,6 +7,7 @@ export * from "./platforms";
 export * from "./groups";
 export * from "./proxy";
 export * from "./kernel";
+export * from "./kernelUpdate";
 export * from "./settings";
 export * from "./tray";
 export * from "./scheduling";
