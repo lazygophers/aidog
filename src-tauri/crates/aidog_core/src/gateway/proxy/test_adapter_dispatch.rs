@@ -3986,6 +3986,53 @@ async fn doubao_configured_endpoint_dispatch() {
     configured_endpoint_dispatch(Protocol::Doubao, "doubao").await;
 }
 
+#[tokio::test]
+async fn bailian_coding_en_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::BailianCodingEn, "bailian_coding_en").await;
+}
+
+/// 回归护栏：仅验证既有本地转换行为，夹具不声明套餐官方响应契约。
+#[tokio::test]
+async fn bailian_coding_en_default_wires_conversion_and_cache() {
+    for (wire, path, inbound, request, response, stream, cached) in [
+        (Protocol::OpenAI, "/chat/completions", "/v1/messages", GLM_ANTHROPIC_IN, MINIMAX_OPENAI_RESP, MINIMAX_OPENAI_SSE, 2),
+        (Protocol::Anthropic, "/v1/messages", "/chat/completions", GLM_OPENAI_IN, MINIMAX_ANTHROPIC_RESP, MINIMAX_ANTHROPIC_SSE, 2),
+    ] {
+        let (status, body, hits) = glm_member_call(Protocol::BailianCodingEn, wire.clone(), "bailian-en-cache", inbound, request, (200, "application/json", response)).await;
+        assert_eq!(status, StatusCode::OK, "{wire:?}: {body}");
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, path);
+        let sent: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+        assert_eq!(sent["messages"][0]["role"], "user", "{wire:?}: {sent}");
+        let received: serde_json::Value = serde_json::from_str(&body).unwrap();
+        if wire == Protocol::OpenAI {
+            assert_eq!(sent["messages"][0]["content"], "hi");
+            assert_eq!(received["content"][0]["text"], "hi");
+            assert_eq!(received["usage"]["cache_read_input_tokens"], cached);
+        } else {
+            assert_eq!(sent["max_tokens"], 32);
+            assert_eq!(received["choices"][0]["message"]["content"], "hi");
+            assert_eq!(received["usage"]["prompt_tokens_details"]["cached_tokens"], cached);
+        }
+        let streaming = if wire == Protocol::OpenAI { GLM_ANTHROPIC_IN_STREAM } else { GLM_OPENAI_IN_STREAM };
+        let (status, body, _) = glm_member_call(Protocol::BailianCodingEn, wire.clone(), "bailian-en-stream", inbound, streaming, (200, "text/event-stream", stream)).await;
+        assert_eq!(status, StatusCode::OK, "{wire:?}: {body}");
+        assert!(body.contains("hi"), "{wire:?}: {body}");
+        assert!(body.contains(if wire == Protocol::OpenAI { "message_stop" } else { "[DONE]" }), "{wire:?}: {body}");
+    }
+}
+
+#[test]
+fn bailian_coding_en_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("bailian_coding_en");
+    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+        let mut body = serde_json::json!({"model": "example", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::BailianCodingEn, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
+
 async fn configured_endpoint_dispatch(platform: Protocol, name: &str) {
     let completion = r#"{"id":"cmpl-test","object":"text_completion","choices":[{"text":"hi","index":0,"finish_reason":"stop"}],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}"#;
     let completion_stream = "data: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"hi\",\"index\":0}]}\n\ndata: {\"id\":\"cmpl-test\",\"object\":\"text_completion\",\"choices\":[{\"text\":\"\",\"index\":0,\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n";

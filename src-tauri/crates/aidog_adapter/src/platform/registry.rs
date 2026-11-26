@@ -788,6 +788,21 @@ impl PlatformAdapter for MiniMaxCodingAdapter {
 ///   出站字段）。registry 端点 `coding_plan: true` 仅参与路由与徽标展示。
 /// - 未证实项沿用家族行为：编码套餐的错误信封、`max_tokens` 上限、流式结束细节在
 ///   套餐文档未单列。百炼编程沿用家族错误分类与 usage 抽取。
+///
+/// `bailian_coding_en` 百炼编程国际版核对（2026-11-26）：
+///
+/// - 编码套餐独立协议 `BailianCodingEn`，registry 预填与国际站编码套餐文档一致：
+///   OpenAI 兼容 `https://coding-intl.dashscope.aliyuncs.com/v1`、Anthropic 兼容
+///   `https://coding-intl.dashscope.aliyuncs.com/apps/anthropic`。
+///   https://www.alibabacloud.com/help/en/model-studio/coding-plan
+/// - 上述地址属于旧 Coding Plan，须配套餐专用 API key；Token Plan 使用不同地址和密钥，
+///   不能视为同一套餐的地址变体。官方接入说明：
+///   https://www.alibabacloud.com/help/en/model-studio/claude-code
+///   https://www.alibabacloud.com/help/en/model-studio/qwen-code
+/// - 未证实（保留家族默认）：国际 Coding Plan 的请求字段及默认值、思考开关/档位/预算、
+///   工具调用及服务端工具、图片及音视频、system 提示、max_tokens 上限、usage 与缓存 token、
+///   错误体、流式事件及结束标记。上述套餐接入页面未逐项给出这些契约。
+/// - coding_plan 注入对 `BailianCodingEn` 为 no-op，依据基座分派代码，非官方契约。
 pub struct BailianFamilyAdapter;
 
 impl PlatformAdapter for BailianFamilyAdapter {
