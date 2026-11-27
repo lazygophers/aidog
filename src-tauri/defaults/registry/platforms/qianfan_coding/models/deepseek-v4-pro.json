@@ -1,0 +1,26 @@
+{
+  "last_updated": 1795758054,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "deepseek-v4-pro",
+  "display_name": "DeepSeek V4 Pro",
+  "canonical_model": "deepseek-v4-pro",
+  "family": "deepseek",
+  "version": "4",
+  "thinking_supported": true,
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 393216,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "currency": "CNY",
+    "input": 0.000012,
+    "output": 0.000024,
+    "cache_read": 0.000001
+  }
+}

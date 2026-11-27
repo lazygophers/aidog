@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795758054,
   "is_coding_plan": true,
   "holiday_calendar": "CN",
   "endpoints": {
@@ -27,11 +27,7 @@
   "model_list": {
     "default": [
       "qianfan-code-latest",
-      "deepseek-v3.2",
-      "glm-5",
-      "minimax-m2.5",
-      "ernie-4.5-turbo-20260402",
-      "deepseek-v4-flash",
+      "deepseek-v4-pro",
       "glm-5.1"
     ]
   },
@@ -65,5 +61,63 @@
     "baiduqianfan",
     "bdqf"
   ],
-  "color": "#2932E1"
+  "color": "#2932E1",
+  "plan_quotas": [
+    {
+      "id": "lite",
+      "name": "Lite",
+      "budgets": [
+        {
+          "kind": "rolling",
+          "unit": "count",
+          "amount": 1200,
+          "window_hours": 5,
+          "window_unit": "hour"
+        },
+        {
+          "kind": "rolling",
+          "unit": "count",
+          "amount": 9000,
+          "window_hours": 1,
+          "window_unit": "week"
+        },
+        {
+          "kind": "rolling",
+          "unit": "count",
+          "amount": 18000,
+          "window_hours": 1,
+          "window_unit": "month"
+        }
+      ],
+      "source_url": "https://cloud.baidu.com/doc/qianfan/s/imlg0beiu"
+    },
+    {
+      "id": "pro",
+      "name": "Pro",
+      "budgets": [
+        {
+          "kind": "rolling",
+          "unit": "count",
+          "amount": 6000,
+          "window_hours": 5,
+          "window_unit": "hour"
+        },
+        {
+          "kind": "rolling",
+          "unit": "count",
+          "amount": 45000,
+          "window_hours": 1,
+          "window_unit": "week"
+        },
+        {
+          "kind": "rolling",
+          "unit": "count",
+          "amount": 90000,
+          "window_hours": 1,
+          "window_unit": "month"
+        }
+      ],
+      "source_url": "https://cloud.baidu.com/doc/qianfan/s/imlg0beiu"
+    }
+  ]
 }

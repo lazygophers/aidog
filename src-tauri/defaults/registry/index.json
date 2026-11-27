@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795574916,  "platforms": [
+  "last_updated": 1795758054,  "platforms": [
     {
       "code": "aihubmix",
       "name": "AiHubMix",
@@ -9622,12 +9622,8 @@
       "platform_file": "platforms/qianfan_coding/platform.json",
       "models_dir": "platforms/qianfan_coding/models",
       "models": [
-        "deepseek-v3.2.json",
-        "deepseek-v4-flash.json",
-        "ernie-4.5-turbo-20260402.json",
-        "glm-5.json",
+        "deepseek-v4-pro.json",
         "glm-5.1.json",
-        "minimax-m2.5.json",
         "qianfan-code-latest.json"
       ]
     },
