@@ -1858,11 +1858,29 @@ impl PlatformAdapter for ClineFamilyAdapter {
 /// - 错误体：`{"type":"error","error":{"type":"<error type>","message":"..."}}`，状态码
 ///   400/401/403/404/405/409/413/429/500/529（overloaded）。框架 `classify_upstream_error`
 ///   已按该形状分类，无覆写。https://docs.anthropic.com/en/api/errors
-/// - `claude_code`（Claude Code 订阅）为透传平台（ADR 0008）：`Protocol::ClaudeCode`
-///   平台请求在 handler.rs 透传拦截分支原样 relay（handler.rs:784 起，test_endpoint.rs
-///   注释明示不引用 convert_request / build_upstream_headers），不经过 PlatformAdapter
-///   转换链；家族基座对它只承担注册语义（`adapter_for("claude_code")` 统一指向本基座，
-///   与 `anthropic` 成员指针相同），不产生行为差异。
+/// - `claude_code`（Claude Code 订阅）成员级核对（issue 150，核对日期 2026-11-27，
+///   依据官方文档镜像 claude-api 参考库缓存 2026-11-03，出处 URL 见段末）：
+///   订阅流量走官方 Messages API 同一协议面，`adapter_for("claude_code")` 指向本基座
+///   （与 `anthropic` 成员指针相同），继承 trait 默认 = 家族基座，无成员级覆写。
+///   `Protocol::ClaudeCode` 平台为透传平台（ADR 0008）：请求在 handler.rs 透传拦截分支
+///   1:1 relay（handler.rs:784 起，test_endpoint.rs 注释明示不引用 convert_request /
+///   build_upstream_headers），不经过 PlatformAdapter 转换链；认证由客户端 OAuth 自带，
+///   authorization / x-api-key 原样转发（passthrough.rs `strip_inbound_auth=false`），
+///   透传提取 usage 落 proxy_log（`extract_usage=true`）。逐项核对均与基座 anthropic 臂
+///   一致（同一 API）：请求字段（model / messages / max_tokens 必填，stream 缺省 false）；
+///   思考（现行模型 adaptive / disabled / between_tools 按模型而定，budget_tokens 已自
+///   4.6 之后模型移除，4.6 及更早仍接受）；工具（客户端 `tools[]` + 服务端
+///   `web_search_*` / `web_fetch_*` / `code_execution` 等，服务端工具错误以 HTTP 200 +
+///   错误结果块返回，不抛 HTTP 错误）；图片（base64 / url `source`；音视频输入官方
+///   Messages 文档未列 → 未证实，保持基座默认）；system（顶层字符串或内容块数组，可带
+///   cache_control）；max_tokens（per-model 上限，现行模型最高 128K，由 cap_max_tokens
+///   按 registry 条目裁剪）；usage / 错误体与状态码 / 流式事件集与 message_stop 结束
+///   同上列基座核对。官方出处：
+///   https://docs.anthropic.com/en/api/messages
+///   https://docs.anthropic.com/en/api/errors
+///   https://docs.anthropic.com/en/docs/claude-code/overview
+///   未证实（保持基座默认，不改行为）：订阅侧配额 / 计费专用请求头与响应字段、
+///   OAuth token 刷新语义（客户端自理，透传不触碰）。
 ///
 /// 结论：官方行为与框架协议构件默认实现一致，无可证实的家族级覆写；两成员均继承
 /// trait 默认（与 OpenCodeFamilyAdapter 同形）。
