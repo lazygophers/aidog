@@ -1,5 +1,38 @@
 {
-  "last_updated": 1794657886,
+  "rate_limit_policies": [
+    {
+      "id": "default",
+      "label": "逐模型单账号合计限速（全部 API Key 调同一模型合计）：chat 与 TTS 族 100 RPM / 10,000,000 TPM；asr 100 RPM / 10,000 TPM；预留配额模型需联系官方",
+      "source_url": "https://mimo.mi.com/static/docs/api/guidance/rate-limit.md",
+      "rules": [
+        {
+          "models": [
+            "mimo-v2.6-flash",
+            "mimo-v2.6-pro"
+          ],
+          "rpm": 100,
+          "tpm": 10000000
+        },
+        {
+          "models": [
+            "mimo-v2.5-asr"
+          ],
+          "rpm": 100,
+          "tpm": 10000
+        },
+        {
+          "models": [
+            "mimo-v2.5-tts",
+            "mimo-v2.5-tts-voiceclone",
+            "mimo-v2.5-tts-voicedesign"
+          ],
+          "rpm": 100,
+          "tpm": 10000000
+        }
+      ]
+    }
+  ],
+  "last_updated": 1795756463,
   "holiday_calendar": "CN",
   "endpoints": {
     "default": [

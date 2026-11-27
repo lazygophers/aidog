@@ -1,5 +1,100 @@
 {
-  "last_updated": 1795488926,
+  "rate_limit_policies": [
+    {
+      "id": "build",
+      "label": "Build tier（累计消费满 $5，月度上限 $500）",
+      "source_url": "https://platform.openai.com/docs/guides/rate-limits",
+      "rules": [
+        {
+          "models": [
+            "gpt-5.6-sol",
+            "gpt-5.6-terra",
+            "gpt-6-astra",
+            "gpt-6-astra-law",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6.1-terra",
+            "gpt-6.2-astra",
+            "gpt-6.2-astra-law",
+            "gpt-6.2-sol"
+          ],
+          "rpm": 5000,
+          "tpm": 1000000
+        },
+        {
+          "models": [
+            "gpt-5.6-luna",
+            "gpt-6-luna"
+          ],
+          "rpm": 5000,
+          "tpm": 2000000
+        }
+      ]
+    },
+    {
+      "id": "launch",
+      "label": "Launch tier（累计消费满 $100，月度上限 $5,000）",
+      "source_url": "https://platform.openai.com/docs/guides/rate-limits",
+      "rules": [
+        {
+          "models": [
+            "gpt-5.6-sol",
+            "gpt-5.6-terra",
+            "gpt-6-astra",
+            "gpt-6-astra-law",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6.1-terra",
+            "gpt-6.2-astra",
+            "gpt-6.2-astra-law",
+            "gpt-6.2-sol"
+          ],
+          "rpm": 10000,
+          "tpm": 4000000
+        },
+        {
+          "models": [
+            "gpt-5.6-luna",
+            "gpt-6-luna"
+          ],
+          "rpm": 10000,
+          "tpm": 10000000
+        }
+      ]
+    },
+    {
+      "id": "grow",
+      "label": "Grow tier（累计消费满 $500，月度上限 $200,000）",
+      "source_url": "https://platform.openai.com/docs/guides/rate-limits",
+      "rules": [
+        {
+          "models": [
+            "gpt-5.6-sol",
+            "gpt-5.6-terra",
+            "gpt-6-astra",
+            "gpt-6-astra-law",
+            "gpt-6-sol",
+            "gpt-6.1-sol",
+            "gpt-6.1-terra",
+            "gpt-6.2-astra",
+            "gpt-6.2-astra-law",
+            "gpt-6.2-sol"
+          ],
+          "rpm": 15000,
+          "tpm": 40000000
+        },
+        {
+          "models": [
+            "gpt-5.6-luna",
+            "gpt-6-luna"
+          ],
+          "rpm": 30000,
+          "tpm": 180000000
+        }
+      ]
+    }
+  ],
+  "last_updated": 1795756463,
   "holiday_calendar": "US-CA",  "endpoints": {
     "default": [
       {

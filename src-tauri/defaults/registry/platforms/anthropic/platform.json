@@ -1,5 +1,5 @@
 {
-  "rate_limit_policies":   [
+    "rate_limit_policies": [
     {
       "id": "start",
       "label": "Start tier",
@@ -9,8 +9,7 @@
           "models": [
             "claude-fable-5",
             "claude-fable-5-1",
-            "claude-mythos-5",
-            "claude-mythos-5-1"
+            "claude-fable-5-2"
           ],
           "rpm": 4000,
           "tpm": 500000
@@ -53,8 +52,7 @@
           "models": [
             "claude-fable-5",
             "claude-fable-5-1",
-            "claude-mythos-5",
-            "claude-mythos-5-1"
+            "claude-fable-5-2"
           ],
           "rpm": 10000,
           "tpm": 1500000
@@ -97,8 +95,7 @@
           "models": [
             "claude-fable-5",
             "claude-fable-5-1",
-            "claude-mythos-5",
-            "claude-mythos-5-1"
+            "claude-fable-5-2"
           ],
           "rpm": 13000,
           "tpm": 4000000
@@ -131,9 +128,22 @@
           "tpm": 10000000
         }
       ]
+    },
+    {
+      "id": "mythos",
+      "label": "Claude Mythos 5 / 5.1 / 5.2 共享独立合并桶（官方页未公布数值）",
+      "source_url": "https://docs.claude.com/en/api/rate-limits",
+      "rules": [
+        {
+          "models": [
+            "claude-mythos-5",
+            "claude-mythos-5-1"
+          ]
+        }
+      ]
     }
   ],
-  "last_updated": 1795488925,
+  "last_updated": 1795756463,
   "tools_pricing": {
     "web_search": {
       "per_1000": 10.0

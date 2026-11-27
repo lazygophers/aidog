@@ -2,7 +2,7 @@
   "rate_limit_policies":   [
     {
       "id": "default",
-      "label": "账号级并发上限（deepseek-flash 2500 / deepseek-v4-pro 500）",
+      "label": "并发上限按 user_id 计（deepseek-flash 2500 / deepseek-v4-pro 500），提额账号另加账号总并发上限",
       "source_url": "https://api-docs.deepseek.com/quick_start/rate_limit",
       "rules": [
         {
@@ -138,5 +138,5 @@
     "search": "https://api.deepseek.com/v1/tools/search",
     "fetch": "https://api.deepseek.com/v1/tools/fetch"
   },
-  "last_updated": 1794597248
+  "last_updated": 1795756463
 }
