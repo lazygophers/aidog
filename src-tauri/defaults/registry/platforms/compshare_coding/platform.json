@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795776665,
   "is_coding_plan": true,
   "holiday_calendar": "CN",
   "endpoints": {
@@ -8,26 +8,62 @@
         "protocol": "anthropic",
         "base_url": "https://cp.compshare.cn",
         "coding_plan": true
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://cp.compshare.cn/v1",
+        "coding_plan": true
       }
     ]
   },
   "models": {
-    "default": {
-      "sonnet": ["claude-sonnet-4-6"],
-      "opus": ["claude-opus-4-8"],
-      "haiku": ["claude-haiku-4-5"]
-    }
+    "default": {}
   },
   "model_list": {
-    "default": [
-      "claude-opus-4-8",
-      "claude-sonnet-4-6",
-      "claude-haiku-4-5",
-      "claude-opus-4-7",
-      "claude-opus-4-6",
-      "claude-opus-4-5",
-      "claude-sonnet-4-5"
-    ]
+    "default": []
+  },
+  "rate_limit_policies": [
+    {
+      "id": "mini",
+      "label": "Mini 迷你版",
+      "source_url": "https://www.compshare.cn/docs/modelverse/package_plan/package",
+      "concurrency": 3
+    },
+    {
+      "id": "lite",
+      "label": "Lite 入门版",
+      "source_url": "https://www.compshare.cn/docs/modelverse/package_plan/package",
+      "concurrency": 5
+    },
+    {
+      "id": "basic",
+      "label": "Basic 基础版",
+      "source_url": "https://www.compshare.cn/docs/modelverse/package_plan/package",
+      "concurrency": 10
+    },
+    {
+      "id": "pro",
+      "label": "Pro 增强版",
+      "source_url": "https://www.compshare.cn/docs/modelverse/package_plan/package",
+      "concurrency": 10
+    },
+    {
+      "id": "max",
+      "label": "Max 高级版",
+      "source_url": "https://www.compshare.cn/docs/modelverse/package_plan/package",
+      "concurrency": 10
+    },
+    {
+      "id": "ultra",
+      "label": "Ultra 畅享版",
+      "source_url": "https://www.compshare.cn/docs/modelverse/package_plan/package",
+      "concurrency": 10
+    }
+  ],
+  "rate_limit_error_codes": {
+    "429": "rate_limit",
+    "500": "overloaded",
+    "504": "overloaded"
   },
   "name": {
     "en-US": "Compshare Coding Plan",
