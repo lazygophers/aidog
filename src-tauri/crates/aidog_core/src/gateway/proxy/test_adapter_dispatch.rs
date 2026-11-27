@@ -4399,6 +4399,233 @@ async fn sensenova_anthropic_endpoint_dispatch() {
     assert!(resp.contains("model is empty"), "{resp}");
 }
 
+// ══ issue 150：Claude Code 订阅（透传）`claude_code` 端点护栏（本地假上游）══
+// 成员级核对（官方 URL + 2026-11-27）见 AnthropicFamilyAdapter 文档注释
+// （aidog_adapter/src/platform/registry.rs）。claude_code 是透传平台（ADR 0008）：
+// handler.rs 拦截分支 1:1 relay（passthrough.rs protocol_tag="claude_code"），
+// 不经 PlatformAdapter 转换链；本节锁定「用户配置端点被使用 + 透传语义不变」。
+
+/// 假上游命中记录：(path, body, authorization, anthropic-beta)。
+type CcHit = (String, String, String, String);
+
+/// 起一个按固定 (status, content-type, body) 应答的本地假上游，
+/// 记录 (path, body, authorization, anthropic-beta)。
+async fn spawn_cc_upstream(
+    status: u16,
+    content_type: &'static str,
+    resp_body: &'static str,
+) -> (String, Arc<Mutex<Vec<CcHit>>>) {
+    let hits: Arc<Mutex<Vec<CcHit>>> = Arc::new(Mutex::new(Vec::new()));
+    let sink = hits.clone();
+    let content_type = content_type.to_string();
+    let resp_body = resp_body.to_string();
+    let app = axum::Router::new().fallback(
+        move |uri: axum::http::Uri, headers: axum::http::HeaderMap, body: String| async move {
+            let hdr = |name: &str| {
+                headers
+                    .get(name)
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("")
+                    .to_string()
+            };
+            sink.lock().unwrap().push((
+                uri.path().to_string(),
+                body,
+                hdr("authorization"),
+                hdr("anthropic-beta"),
+            ));
+            (
+                axum::http::StatusCode::from_u16(status).unwrap(),
+                [(
+                    axum::http::header::CONTENT_TYPE,
+                    axum::http::HeaderValue::from_str(&content_type).unwrap(),
+                )],
+                resp_body,
+            )
+        },
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    (format!("http://{addr}"), hits)
+}
+
+/// claude_code 订阅平台（base_url = 假上游，api_key 空即订阅形态）+ 独占组，
+/// 收一条入站请求。返回 (客户端状态码, 客户端响应体, 上游记录, state)。
+async fn cc_member_call(
+    gk: &str,
+    extra_headers: &[(&str, &str)],
+    inbound_path: &str,
+    inbound_body: &'static str,
+    upstream: (u16, &'static str, &'static str),
+) -> (
+    StatusCode,
+    String,
+    Vec<CcHit>,
+    Arc<ProxyState>,
+) {
+    let (base, hits) = spawn_cc_upstream(upstream.0, upstream.1, upstream.2).await;
+    let state = make_state(test_db().await).await;
+    let pid = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "cc-stub".into(),
+            platform_type: Protocol::ClaudeCode,
+            base_url: base.clone(),
+            api_key: String::new(), // 订阅透传：aidog 不持有凭证
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: pid.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+    let mut builder = HttpRequest::builder()
+        .method("POST")
+        .uri(inbound_path)
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json")
+        .header("user-agent", "claude-cli/2.0.1 (external, cli)");
+    for (k, v) in extra_headers {
+        builder = builder.header(*k, *v);
+    }
+    let req = builder.body(Body::from(inbound_body)).unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let status = resp.status();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    flush_log_queue(&state).await;
+    let hits = hits.lock().unwrap().clone();
+    (status, String::from_utf8_lossy(&bytes).into_owned(), hits, state)
+}
+
+/// claude_code 唯一端点协议（anthropic）一组：请求构造（1:1 原样）、非流式响应、
+/// 流式响应、错误透传、usage 落库；OAuth / beta 头原样转发（既有差异行为不变）。
+#[tokio::test]
+async fn claude_code_passthrough_endpoint_dispatch() {
+    // ① 请求构造 + 非流式 + 认证头原样 + usage 落库。
+    let resp_body = r#"{"id":"msg_cc","type":"message","role":"assistant","model":"claude-sonnet-5","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":7,"output_tokens":4,"cache_read_input_tokens":2}}"#;
+    let inbound = r#"{"model":"claude-sonnet-5","max_tokens":64,"system":"be terse","messages":[{"role":"user","content":"hi"}],"tools":[{"name":"bash","input_schema":{"type":"object","properties":{}}}]}"#;
+    let (status, resp, hits, state) = cc_member_call(
+        "gk150cc",
+        &[("anthropic-beta", "oauth-2025-04-20")],
+        "/v1/messages",
+        inbound,
+        (200, "application/json", resp_body),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits.len(), 1, "恰一次上游命中: {hits:?}");
+    assert_eq!(
+        hits[0].0, "/v1/messages",
+        "透传保留原始路径（用户配置端点协议被使用）"
+    );
+    assert_eq!(hits[0].1, inbound, "请求体逐字节原样转发（1:1 relay 不改写）");
+    assert_eq!(
+        hits[0].2, "Bearer gk150cc",
+        "authorization 原样转发（strip_inbound_auth=false）"
+    );
+    assert_eq!(hits[0].3, "oauth-2025-04-20", "anthropic-beta 原样转发");
+    assert_eq!(resp, resp_body, "响应体逐字节原样回客户端");
+    let (tin, tout, cost): (i32, i32, f64) = state
+        .db
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+            c.query_row(
+                "SELECT input_tokens, output_tokens, est_cost FROM proxy_log WHERE group_key = 'gk150cc'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+        })
+        .await
+        .unwrap();
+    assert_eq!((tin, tout), (7, 4), "透传提取 usage 落 proxy_log");
+    assert!(cost > 0.0, "est_cost 非零（registry 条目官方价）: {cost}");
+
+    // ② 流式：SSE 帧原样透传（message_stop 结束，无 [DONE]）。
+    const CC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_cc\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet-5\",\"content\":[],\"usage\":{\"input_tokens\":7,\"output_tokens\":0}}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":4}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+    let (status, resp, hits, _state) = cc_member_call(
+        "gk150stream",
+        &[],
+        "/v1/messages",
+        r#"{"model":"claude-sonnet-5","max_tokens":64,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", CC_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages", "{:?}", hits[0].0);
+    assert!(
+        resp.contains("text_delta") && resp.contains("message_stop"),
+        "流式帧原样透传: {resp}"
+    );
+
+    // ③ 错误：429 错误体原样透传（官方错误形状 {"type":"error","error":{...}}）。
+    let (status, resp, hits, _state) = cc_member_call(
+        "gk150err",
+        &[],
+        "/v1/messages",
+        r#"{"model":"claude-sonnet-5","max_tokens":64,"messages":[{"role":"user","content":"hi"}]}"#,
+        (
+            429,
+            "application/json",
+            r#"{"type":"error","error":{"type":"rate_limit_error","message":"Number of request tokens has exceeded your per-minute rate limit"}}"#,
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert!(resp.contains("rate_limit_error"), "{resp}");
+}
+
+/// 注册与继承语义：claude_code 指向 Anthropic 家族基座（与 anthropic 同指针）；
+/// coding_plan 注入对 claude_code 平台 noop（既有差异行为不变）；usage / 错误分类走基座臂。
+#[test]
+fn claude_code_member_registry_semantics() {
+    let cc = aidog_adapter::platform::adapter_for("claude_code");
+    let anth = aidog_adapter::platform::adapter_for("anthropic");
+    assert!(
+        std::ptr::eq(cc, anth),
+        "claude_code 必须继承 Anthropic 家族基座（同指针），不得另起转换行为"
+    );
+    for wire in [Protocol::Anthropic, Protocol::OpenAI] {
+        let mut body = serde_json::json!({"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}]});
+        let before = body.clone();
+        cc.inject_coding_plan(&mut body, &Protocol::ClaudeCode, &wire);
+        assert_eq!(body, before, "{wire:?} coding_plan 注入必须 noop");
+    }
+    let (i, o, cr, _cw, _cw1h, tools) = cc.extract_usage(
+        r#"{"usage":{"input_tokens":7,"output_tokens":4,"cache_read_input_tokens":2,"server_tool_use":{"web_search_requests":1}}}"#,
+    );
+    assert_eq!((i, o, cr, tools.len()), (7, 4, 2, 1), "usage 走基座 anthropic 臂");
+    assert_eq!(
+        cc.classify_error(429, r#"{"type":"error","error":{"type":"rate_limit_error"}}"#),
+        aidog_adapter::platform::error::UpstreamErrorClass::Service,
+    );
+}
 // ══ issue 152：OpenAI Codex 成员 `codex` 逐端点协议护栏（本地假上游）══
 // 成员与 openai 共用 OpenAIFamilyAdapter 基座（registry.rs 指针同一）；官方 Responses API
 // 契约（https://developers.openai.com/api/reference/resources/responses/methods/create，
