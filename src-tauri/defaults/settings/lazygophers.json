@@ -634,6 +634,14 @@
         ],
         "SessionStart": [
             {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "printf '{\"systemMessage\":\"会话ID: %s\"}\\n' \"$CLAUDE_CODE_SESSION_ID\""
+                    }
+                ]
+            },
+            {
                 "matcher": "startup",
                 "hooks": [
                     {
