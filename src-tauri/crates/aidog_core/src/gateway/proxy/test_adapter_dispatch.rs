@@ -4323,3 +4323,78 @@ async fn qianfan_anthropic_endpoint_dispatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
     assert!(resp.contains("model is empty"), "{resp}");
 }
+
+// ══ issue 131：商汤 SenseNova 家族成员 `sensenova` 逐端点协议护栏（本地假上游）══
+// 成员级核对及未证实项（官方文档 SPA 抓不到、数字错误码语义未证实）见
+// SenseNovaFamilyAdapter 文档注释（aidog_adapter/src/platform/registry.rs，核对日期 2026-11-24）。
+
+/// openai 兼容端点非流式响应（通用 chat.completion 形状）。
+const SENSENOVA_OPENAI_RESP: &str = r#"{"id":"chatcmpl_sn1","object":"chat.completion","model":"sensenova-6.8-flash-lite","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13}}"#;
+/// openai 兼容流式：末帧带 usage，`data: [DONE]` 结束。
+const SENSENOVA_OPENAI_SSE: &str = "data: {\"id\":\"chatcmpl_sn1\",\"object\":\"chat.completion.chunk\",\"model\":\"sensenova-6.8-flash-lite\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"hi\"}}]}\n\n\
+data: {\"id\":\"chatcmpl_sn1\",\"object\":\"chat.completion.chunk\",\"model\":\"sensenova-6.8-flash-lite\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13}}\n\n\
+data: [DONE]\n\n";
+/// Anthropic 兼容端点非流式响应。
+const SENSENOVA_ANTHROPIC_RESP: &str = r#"{"id":"msg_sn","type":"message","role":"assistant","model":"sensenova-6.8-flash-lite","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3}}"#;
+const SENSENOVA_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_sn\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"sensenova-6.8-flash-lite\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0}}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+
+/// 注入不透传：sensenova 非 coding plan 成员，`inject_coding_plan` 对两种 wire 均不改请求体。
+#[test]
+fn sensenova_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("sensenova");
+    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+        let mut body = serde_json::json!({"model": "sensenova-6.8-flash-lite", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::SenseNova, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic（usage 10/3 全额计）；
+/// 流式上游 `[DONE]` 不漏进 anthropic 输出、末帧 usage 转换；401 原状态透传。
+#[tokio::test]
+async fn sensenova_openai_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::SenseNova, Protocol::OpenAI, "gk131oa", "/v1/messages", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", SENSENOVA_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "sensenova-6.8-flash-lite", "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi");
+    assert_eq!(response["usage"]["input_tokens"], 10, "{response}");
+    assert_eq!(response["usage"]["output_tokens"], 3, "{response}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNova, Protocol::OpenAI, "gk131oas", "/v1/messages", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", SENSENOVA_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    assert!(!resp.contains("[DONE]"), "OpenAI upstream terminator must not leak into Anthropic output: {resp}");
+    assert!(resp.contains("\"input_tokens\":10") && resp.contains("\"output_tokens\":3"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNova, Protocol::OpenAI, "gk131oae", "/v1/messages", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", r#"{"error":{"message":"Invalid API key provided","type":"invalid_request_error"}}"#)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("Invalid API key"), "{resp}");
+}
+
+/// anthropic 端点（registry 内置第二端点）：出站打 `/v1/messages`；非流式回 openai 形状；
+/// 流式透传标准事件链；400 错误体原样透传；usage 按基座 anthropic 臂（input 6 − cache 0）。
+#[tokio::test]
+async fn sensenova_anthropic_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::SenseNova, Protocol::Anthropic, "gk131an", "/chat/completions", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", SENSENOVA_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "sensenova-6.8-flash-lite", "{req}");
+    assert_eq!(req["messages"][0]["content"], "hi", "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    assert_eq!(response["usage"]["prompt_tokens"], 6, "{response}");
+    assert_eq!(response["usage"]["completion_tokens"], 3, "{response}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNova, Protocol::Anthropic, "gk131ans", "/chat/completions", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"stream":true,"stream_options":{"include_usage":true},"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", SENSENOVA_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    assert!(resp.contains("\"prompt_tokens\":6") && resp.contains("\"completion_tokens\":3"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNova, Protocol::Anthropic, "gk131ane", "/chat/completions", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"model is empty"}}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model is empty"), "{resp}");
+}
