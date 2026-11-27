@@ -55,6 +55,46 @@
       "id": "default",
       "label": "Default",
       "source_url": "https://docs.bigmodel.cn/cn/coding-plan/overview"
+    },
+    {
+      "id": "v0",
+      "label": "V0",
+      "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
+      "rules": [
+        { "models": ["glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-5.3"], "concurrency": 30 },
+        { "models": ["glm-5.3-flash"], "concurrency": 50 }
+      ]
+    },
+    {
+      "id": "v1",
+      "label": "V1",
+      "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
+      "rules": [
+        { "models": ["glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-5.3"], "concurrency": 30 },
+        { "models": ["glm-5.3-flash"], "concurrency": 50 }
+      ]
+    },
+    {
+      "id": "v2",
+      "label": "V2",
+      "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
+      "rules": [
+        { "models": ["glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-5.3"], "concurrency": 30 },
+        { "models": ["glm-5.3-flash"], "concurrency": 50 }
+      ]
+    },
+    {
+      "id": "v3",
+      "label": "V3",
+      "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
+      "rules": [
+        { "models": ["glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-5.3"], "concurrency": 30 },
+        { "models": ["glm-5.3-flash"], "concurrency": 50 }
+      ]
     }
   ],
   "rate_limit_error_codes": {
@@ -85,7 +125,7 @@
   ],
   "color": "#3B5FEC",
   "peak": [{"start_hour":14,"end_hour":18,"multiplier":3,"days_of_week":[1,2,3,4,5],"models":["glm-5.3"],"timezone":"Asia/Shanghai"},{"start_hour":14,"end_hour":18,"multiplier":1.2,"days_of_week":[1,2,3,4,5],"models":["glm-5.3-flash"],"timezone":"Asia/Shanghai"}],
-  "last_updated": 1794650107,
+  "last_updated": 1795745676,
   "quota_url_match": [
     "bigmodel.cn",
     "api.z.ai"

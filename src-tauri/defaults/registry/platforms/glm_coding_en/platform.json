@@ -74,6 +74,55 @@
       "id": "default",
       "label": "Default",
       "source_url": "https://docs.z.ai/devpack/overview"
+    },
+    {
+      "id": "v0",
+      "label": "V0",
+      "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
+      "rules": [
+        { "models": ["glm-4-flash-250414"], "concurrency": 2 },
+        { "models": ["glm-4-long", "glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-4-32b-0414-128k"], "concurrency": 15 },
+        { "models": ["glm-5.3"], "concurrency": 30 },
+        { "models": ["glm-4-flashx-250414", "glm-5.3-flash"], "concurrency": 50 }
+      ]
+    },
+    {
+      "id": "v1",
+      "label": "V1",
+      "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
+      "rules": [
+        { "models": ["glm-4-flash-250414"], "concurrency": 5 },
+        { "models": ["glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-4-32b-0414-128k"], "concurrency": 20 },
+        { "models": ["glm-4-long", "glm-5.3"], "concurrency": 30 },
+        { "models": ["glm-5.3-flash"], "concurrency": 50 },
+        { "models": ["glm-4-flashx-250414"], "concurrency": 100 }
+      ]
+    },
+    {
+      "id": "v2",
+      "label": "V2",
+      "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
+      "rules": [
+        { "models": ["glm-4-flash-250414", "glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-4-32b-0414-128k"], "concurrency": 25 },
+        { "models": ["glm-5.3"], "concurrency": 30 },
+        { "models": ["glm-4-long"], "concurrency": 40 },
+        { "models": ["glm-5.3-flash"], "concurrency": 50 },
+        { "models": ["glm-4-flashx-250414"], "concurrency": 100 }
+      ]
+    },
+    {
+      "id": "v3",
+      "label": "V3",
+      "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
+      "rules": [
+        { "models": ["glm-4-flash-250414", "glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-4-32b-0414-128k", "glm-5.3"], "concurrency": 30 },
+        { "models": ["glm-4-long", "glm-5.3-flash"], "concurrency": 50 },
+        { "models": ["glm-4-flashx-250414"], "concurrency": 100 }
+      ]
     }
   ],
   "rate_limit_error_codes": {
@@ -122,7 +171,7 @@
       ]
     }
   ],
-  "last_updated": 1794650107,
+  "last_updated": 1795745676,
   "quota_url_match": ["bigmodel.cn", "api.z.ai"],
   "quota_scripts": [
     {
