@@ -2,15 +2,15 @@
 
 适用于起 aidog 内核做压测、延迟、CPU / 内存采样的活，含派给后台 agent 的。
 
-## 0. 测试与构建资源上限（强制）
+## 0. Rust 构建与测试资源上限（强制，跨平台）
 
-- cargo 构建 / 测试 / clippy 一律最多 1 CPU：`taskpolicy -c utility` + `CARGO_BUILD_JOBS=1`（或 `-j1`），测试执行加 `--test-threads=1`；`--manifest-path` 形式写 `cargo test --manifest-path <路径> ... -- --test-threads=1`。派 agent 时把整条命令格式写进 prompt。
-- 内存无硬上限手段（macOS `ulimit -v` / `ulimit -d` 报 `setrlimit failed: invalid argument`，`taskpolicy -m` 非硬上限）：必须挂进程组看门狗做 RSS 采样软上限，超限按 pid 文件 + 身份核验停整个进程组；记录与回报写「软上限」，禁写成硬限制。
-- 长构建收尾阶段才输出诊断，中途的零计数不作数；看门狗阈值与采样间隔随命令记录。
+- cargo 构建 / 测试 / clippy 使用 `CARGO_BUILD_JOBS=1`（或 `-j1`），限制 Cargo 同时运行的构建任务数为 1；测试使用 `RUST_TEST_THREADS=1` 或 `--test-threads=1`，限制测试运行器同时运行的测试数为 1。`--manifest-path` 形式写 `cargo test --manifest-path <路径> ... -- --test-threads=1`。这些参数不限制构建脚本、编译器或测试创建的线程；Rust 稳定工具链没有等效的跨平台单核环境变量，要硬限整棵进程的 CPU 须由运行环境支持。派 agent 时把整条命令格式写进 prompt。
+- 内存不做采样监控（2026-11-26 拍板：Rust / Node 编译打包峰值参考 4 GiB，仅作量级参考，不挂 RSS / 磁盘采样软上限，不设运行时内存强制；macOS `ulimit -v` / `ulimit -d` 不可用属平台细节，不改变这条口径）。
+- 长构建收尾阶段才输出诊断，中途的零计数不作数；看门狗墙钟 deadline 随命令记录。
 - 包装链（看门狗 → taskpolicy → 沙箱 → cargo）的退出码以最外层 wrapper 记录为准；wrapper 中途限流或身份核对 REFUSED 提前退出时，内部命令的真实退出码丢失——「编译 Finished + 零 warning 行」不作通过证据，按「做了没验证（缺 EXIT）」记，磁盘 / 资源恢复后重跑取真实 EXIT。
 - 看门狗限流触发时的身份核对锚点用「record 命令的 basename 出现在 live argv 最后一个路径元素」后逐项子串比对：exec 包装链上 launcher 内部参数消失属预期，逐字比对会安全侧 REFUSED 误判。
 - **watcher pid 文件禁通配清理**：`resource-watch.mjs` 的 pid 文件带 watch 进程 pid 后缀（`resource-watch-<pid>.pid.json`），多 watcher 并存是常态；wrapper 收尾 `rm -f resource-watch-*.pid.json` 会毁掉他 watcher 的身份核对依据（先例：run-db-test.sh 通配 rm 误删其他 watcher 的 pid 文件，verify agent 报出）。清理只删自己那份：起跑前快照现存清单、收尾只删新增；根因修法 = watch 脚本 exit 时 unlink 自己的 pid 文件。
-- RSS / 磁盘阈值只覆盖资源超限，不覆盖挂死：子进程基准父子互等 EOF（父进程写 stdin 后未 drop、子进程 `read_to_string` 等不到管道关闭）挂死 39 分钟，阈值全程未触发。任何基准 / 长任务的看门狗带墙钟 deadline，超限按 pid 核对命令行后终止进程组；harness 里父进程写完子进程 stdin 立即 drop。
+- RSS / 磁盘阈值不设（采样监控已撤）；阈值类监控不覆盖挂死：子进程基准父子互等 EOF（父进程写 stdin 后未 drop、子进程 `read_to_string` 等不到管道关闭）挂死 39 分钟。任何基准 / 长任务的看门狗带墙钟 deadline，超时按 pid 文件 + 身份核验终止进程组；harness 里父进程写完子进程 stdin 立即 drop。
 
 ## 1. 用户的 AiDog 不能碰
 
