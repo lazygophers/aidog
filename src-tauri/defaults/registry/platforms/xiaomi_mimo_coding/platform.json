@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795776665,
   "holiday_calendar": "CN",
   "is_coding_plan": true,
   "endpoints": {
@@ -45,11 +45,20 @@
     "default": [
     "mimo-v2.6-pro",
     "mimo-v2.6-flash"
-  
+
 
 
     ]
   },
+  "rate_limit_policies": [
+    {
+      "id": "default",
+      "label": "每账号同模型 100 RPM / 10M TPM（模型页通用口径，Token Plan 内是否同值官方未单独声明）",
+      "source_url": "https://mimo.mi.com/static/docs/quick-start/summary/model",
+      "rpm": 100,
+      "tpm": 10000000
+    }
+  ],
   "name": {
     "en-US": "Xiaomi MiMo Token Plan",
     "zh-Hans": "小米 MiMo 套餐",
