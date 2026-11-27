@@ -715,7 +715,7 @@
                 "reset_mode": {
                   "type": "string",
                   "enum": ["calendar_week", "subscription_month"],
-                  "description": "【可选】北京时间周一零点或订阅日零点重置；缺省沿用 kind 的窗口语义。"
+                  "description": "【可选】北京时间周一零点或订阅日零点重置；缺省沿用 kind 的窗口语义。短月取月末、下一含订阅原日的月份恢复原日为 AiDog 本地约定，官方未定义。"
                 }
               }
             },

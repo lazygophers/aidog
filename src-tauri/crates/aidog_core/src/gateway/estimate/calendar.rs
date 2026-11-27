@@ -1,4 +1,6 @@
 //! 固定北京时间的套餐周期边界。
+//!
+//! 短月取月末、下一个含订阅原日的月份恢复原日为 AiDog 本地约定，官方未定义。
 
 use chrono::{Datelike, Duration, FixedOffset, NaiveDate, TimeZone, Utc};
 
