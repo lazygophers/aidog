@@ -80,8 +80,11 @@
       "label": "V0",
       "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
       "rules": [
-        { "models": ["glm-4-flash-250414"], "concurrency": 2 },
-        { "models": ["glm-4-long", "glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-4.6v-flash", "glm-4.7-flash", "glm-5-turbo"], "concurrency": 1 },
+        { "models": ["glm-4-flash-250414", "glm-4.5-flash", "glm-4.7", "glm-5"], "concurrency": 2 },
+        { "models": ["glm-4.6", "glm-4.6v-flashx", "glm-4.7-flashx"], "concurrency": 3 },
+        { "models": ["glm-4.5-air", "glm-4.5-airx"], "concurrency": 5 },
+        { "models": ["glm-4-long", "glm-4.5", "glm-4.5v", "glm-4.6v", "glm-5.1", "glm-5.2"], "concurrency": 10 },
         { "models": ["glm-4-32b-0414-128k"], "concurrency": 15 },
         { "models": ["glm-5.3"], "concurrency": 30 },
         { "models": ["glm-4-flashx-250414", "glm-5.3-flash"], "concurrency": 50 }
@@ -92,8 +95,11 @@
       "label": "V1",
       "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
       "rules": [
-        { "models": ["glm-4-flash-250414"], "concurrency": 5 },
-        { "models": ["glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-4.6v-flash", "glm-4.7-flash", "glm-5-turbo"], "concurrency": 1 },
+        { "models": ["glm-4.5-flash", "glm-4.7", "glm-5"], "concurrency": 2 },
+        { "models": ["glm-4.6", "glm-4.6v-flashx", "glm-4.7-flashx"], "concurrency": 3 },
+        { "models": ["glm-4-flash-250414", "glm-4.5-air", "glm-4.5-airx"], "concurrency": 5 },
+        { "models": ["glm-4.5", "glm-4.5v", "glm-4.6v", "glm-5.1", "glm-5.2"], "concurrency": 10 },
         { "models": ["glm-4-32b-0414-128k"], "concurrency": 20 },
         { "models": ["glm-4-long", "glm-5.3"], "concurrency": 30 },
         { "models": ["glm-5.3-flash"], "concurrency": 50 },
@@ -105,7 +111,11 @@
       "label": "V2",
       "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
       "rules": [
-        { "models": ["glm-4-flash-250414", "glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-4.6v-flash", "glm-4.7-flash", "glm-5-turbo"], "concurrency": 1 },
+        { "models": ["glm-4.5-flash", "glm-4.7", "glm-5"], "concurrency": 2 },
+        { "models": ["glm-4.6", "glm-4.6v-flashx", "glm-4.7-flashx"], "concurrency": 3 },
+        { "models": ["glm-4.5-air", "glm-4.5-airx"], "concurrency": 5 },
+        { "models": ["glm-4-flash-250414", "glm-4.5", "glm-4.5v", "glm-4.6v", "glm-5.1", "glm-5.2"], "concurrency": 10 },
         { "models": ["glm-4-32b-0414-128k"], "concurrency": 25 },
         { "models": ["glm-5.3"], "concurrency": 30 },
         { "models": ["glm-4-long"], "concurrency": 40 },
@@ -118,7 +128,11 @@
       "label": "V3",
       "source_url": "https://bigmodel.cn/usercenter/equity-mgmt/user-rights",
       "rules": [
-        { "models": ["glm-4-flash-250414", "glm-5.2"], "concurrency": 10 },
+        { "models": ["glm-4.6v-flash", "glm-4.7-flash", "glm-5-turbo"], "concurrency": 1 },
+        { "models": ["glm-4.5-flash", "glm-4.7", "glm-5"], "concurrency": 2 },
+        { "models": ["glm-4.6", "glm-4.6v-flashx", "glm-4.7-flashx"], "concurrency": 3 },
+        { "models": ["glm-4.5-air", "glm-4.5-airx"], "concurrency": 5 },
+        { "models": ["glm-4-flash-250414", "glm-4.5", "glm-4.5v", "glm-4.6v", "glm-5.1", "glm-5.2"], "concurrency": 10 },
         { "models": ["glm-4-32b-0414-128k", "glm-5.3"], "concurrency": 30 },
         { "models": ["glm-4-long", "glm-5.3-flash"], "concurrency": 50 },
         { "models": ["glm-4-flashx-250414"], "concurrency": 100 }
@@ -171,7 +185,7 @@
       ]
     }
   ],
-  "last_updated": 1795745676,
+  "last_updated": 1795753542,
   "quota_url_match": ["bigmodel.cn", "api.z.ai"],
   "quota_scripts": [
     {
