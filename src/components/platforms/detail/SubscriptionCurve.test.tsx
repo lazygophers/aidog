@@ -69,4 +69,25 @@ describe("SubscriptionCurveView — 分档小卡", () => {
     expect(screen.getByTestId("detail-t3-curve-card-weekly_limit").textContent)
       .toContain("platform.detail.curveExhausts");
   });
+
+  it("计划消耗参考线：窗口起点 100% 到重置点 0% 的直线在场，坐标取窗口两端", () => {
+    const ws = NOW - 6 * HOUR;
+    const { unmount } = render(<SubscriptionCurveView cards={[card({
+      curve: {
+        windowStart: ws, resetAt: NOW + 3 * HOUR,
+        actual: [{ t: NOW - 5 * HOUR, pct: 90 }, { t: NOW - HOUR, pct: 50 }],
+        snapshotPct: 50,
+        forecast: { lasts: true, exhaustAt: null },
+      },
+    })]} />);
+    const plan = screen.getByTestId(`detail-t3-plan-weekly_limit`);
+    expect(plan.getAttribute("x1")).toBe("8");
+    expect(plan.getAttribute("y1")).toBe("8");
+    expect(plan.getAttribute("x2")).toBe("552");
+    expect(plan.getAttribute("y2")).toBe("112");
+    unmount();
+    // 无历史（无窗口）：不画参考线
+    render(<SubscriptionCurveView cards={[card({ curve: null })]} />);
+    expect(screen.queryByTestId(`detail-t3-plan-weekly_limit`)).toBeNull();
+  });
 });

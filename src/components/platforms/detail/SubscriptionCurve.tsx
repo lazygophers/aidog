@@ -71,6 +71,7 @@ function TierCard({ card }: { card: TierCardData }) {
   const pathD = fitPath || fitLine;
   const lastPt = fitPts[fitPts.length - 1] ?? null;
 
+  const showPlan = curve != null && curve.resetAt > 0 && actual.length >= 2;
   const forecastText = !curve?.forecast
     ? null
     : curve.forecast.lasts
@@ -93,6 +94,7 @@ function TierCard({ card }: { card: TierCardData }) {
           {resetLabel ?? "·"}
           {forecastText && resetLabel ? " · " : ""}
           {forecastText ?? ""}
+          {showPlan ? ` · ${t("platform.detail.planLine")}` : ""}
         </span>
       </div>
       {/* 卡体：有真实轨迹才画线；否则只显示当前快照 + 积累说明 */}
@@ -103,6 +105,10 @@ function TierCard({ card }: { card: TierCardData }) {
             <line key={p} x1={PAD} y1={yScale(p)} x2={W - PAD} y2={yScale(p)}
               stroke="var(--border)" strokeWidth={1} />
           ))}
+          <line data-testid={`detail-t3-plan-${name}`}
+            x1={xScale(curve.windowStart, curve.windowStart, curve.resetAt)} y1={yScale(100)}
+            x2={xScale(curve.resetAt, curve.windowStart, curve.resetAt)} y2={yScale(0)}
+            stroke="var(--muted-foreground)" strokeWidth={1} strokeOpacity={0.5} strokeDasharray="2 5" />
           <text x={PAD + 2} y={yScale(100) + 10} fontSize={11} fill="var(--muted-foreground)" fontFamily="var(--font-mono, monospace)">100</text>
           <text x={PAD + 2} y={yScale(0) - 3} fontSize={11} fill="var(--muted-foreground)" fontFamily="var(--font-mono, monospace)">0</text>
           {/* 重置点（右端竖虚线） */}

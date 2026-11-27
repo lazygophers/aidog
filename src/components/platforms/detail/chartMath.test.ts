@@ -125,6 +125,27 @@ describe("buildTierCurve", () => {
     expect(c.forecast).toEqual({ lasts: true, exhaustAt: null });
   });
 
+  it("观测窗 <30 分钟：双点也不投影（forecast null），快照仍显示", () => {
+    const c = buildTierCurve({
+      windowStart, resetAt,
+      points: [{ t: NOW - 10 * 60_000, pct: 90 }, { t: NOW - 5 * 60_000, pct: 80 }],
+      nowMs: NOW,
+    })!;
+    expect(c.actual).toHaveLength(2);
+    expect(c.snapshotPct).toBe(80);
+    expect(c.forecast).toBeNull();
+  });
+
+  it("观测窗恰 30 分钟（边界）：正常投影", () => {
+    const lastT = NOW - 5 * 60_000;
+    const c = buildTierCurve({
+      windowStart, resetAt,
+      points: [{ t: lastT - 30 * 60_000, pct: 100 }, { t: lastT, pct: 95 }],
+      nowMs: NOW,
+    })!;
+    expect(c.forecast).toEqual({ lasts: true, exhaustAt: null });
+  });
+
   it("轨迹点 <2 → 不投影（forecast null），快照仍显示", () => {
     const c = buildTierCurve({
       windowStart, resetAt,

@@ -130,7 +130,10 @@ export function buildTierCurve(input: {
   const snapshotPct = actual.length > 0 ? actual[actual.length - 1].pct : (input.fallbackPct != null ? clampPct(input.fallbackPct) : null);
 
   let forecast: TierForecast | null = null;
-  if (actual.length >= 2 && resetAt > input.nowMs) {
+  // 最小观测窗：首末点跨度 <30 分钟的斜率噪声太大，不投影。
+  const MIN_OBSERVATION = 30 * 60_000;
+  if (actual.length >= 2 && resetAt > input.nowMs &&
+      actual[actual.length - 1].t - actual[0].t >= MIN_OBSERVATION) {
     const first = actual[0], last = actual[actual.length - 1];
     if (last.t > first.t) {
       const rate = (last.pct - first.pct) / (last.t - first.t); // %/ms
