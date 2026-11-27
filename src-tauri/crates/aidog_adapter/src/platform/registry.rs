@@ -1145,6 +1145,13 @@ impl PlatformAdapter for ArkFamilyAdapter {
 /// - 未证实（保持基座默认）：流式帧内错误体形态、anthropic 端点 SSE 结束标记（测试按
 ///   Anthropic 标准事件链构造，无 [DONE]）、`thinking`/`enable_thinking` 逐模型支持清单、
 ///   max_tokens 统一上限、图片/音视频块在该文本生成端点的认受性（官方图片理解是独立端点）。
+///
+/// 成员 `qianfan_coding` 核对（2026-11-27）：Coding Plan 使用专属密钥与两个兼容端点，
+/// https://cloud.baidu.com/doc/qianfan/s/imlg0beiu；请求仍使用用户配置的端点。
+/// Chat API 的 `max_tokens` 默认最大输出长度按模型查询，未列统一上限：
+/// https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb 。流式错误帧、qwen3 的
+/// `thinking` 认受性及 `content_filter` 细分仍未证实，保持家族基座默认。
+/// Anthropic 端点逐字段及流式结束标记未证实，测试使用兼容协议夹具。
 pub struct QianfanFamilyAdapter;
 
 impl PlatformAdapter for QianfanFamilyAdapter {
