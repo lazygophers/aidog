@@ -4197,6 +4197,58 @@ async fn longcat_anthropic_endpoint_dispatch() {
     assert!(resp.contains("top_p"), "{resp}");
 }
 
+#[test]
+fn qianfan_coding_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("qianfan_coding");
+    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+        let mut body = serde_json::json!({"model": "example", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::QianfanCoding, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
+
+// issue 130：Coding Plan 两个端点使用用户配置的本地假上游。
+#[tokio::test]
+async fn qianfan_coding_openai_endpoint_dispatch() {
+    let request = r#"{"model":"deepseek-v4-pro","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, hits) = glm_member_call(Protocol::QianfanCoding, Protocol::OpenAI, "gk130oa", "/v1/messages", request, (200, "application/json", QIANFAN_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "deepseek-v4-pro");
+    let response: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi");
+    assert_eq!(response["usage"]["cache_read_input_tokens"], 40);
+    let stream = r#"{"model":"deepseek-v4-pro","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, _) = glm_member_call(Protocol::QianfanCoding, Protocol::OpenAI, "gk130oas", "/v1/messages", stream, (200, "text/event-stream", QIANFAN_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("hi") && body.contains("message_stop") && !body.contains("[DONE]"), "{body}");
+    let (status, body, _) = glm_member_call(Protocol::QianfanCoding, Protocol::OpenAI, "gk130oae", "/v1/messages", request, (401, "application/json", QIANFAN_OPENAI_ERROR)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{body}");
+    assert!(body.contains("The model does not exist"), "{body}");
+}
+
+#[tokio::test]
+async fn qianfan_coding_anthropic_endpoint_dispatch() {
+    let request = r#"{"model":"deepseek-v4-pro","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, hits) = glm_member_call(Protocol::QianfanCoding, Protocol::Anthropic, "gk130an", "/chat/completions", request, (200, "application/json", QIANFAN_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["messages"][0]["content"], "hi");
+    let response: serde_json::Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    assert_eq!(response["usage"]["prompt_tokens_details"]["cached_tokens"], 4);
+    let stream = r#"{"model":"deepseek-v4-pro","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#;
+    let (status, body, _) = glm_member_call(Protocol::QianfanCoding, Protocol::Anthropic, "gk130ans", "/chat/completions", stream, (200, "text/event-stream", QIANFAN_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(body.contains("hi") && body.contains("[DONE]"), "{body}");
+    let (status, body, _) = glm_member_call(Protocol::QianfanCoding, Protocol::Anthropic, "gk130ane", "/chat/completions", request, (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"model is empty"}}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("model is empty"), "{body}");
+}
+
 // ══ issue 129：百度千帆成员 `qianfan` 逐端点协议护栏（本地假上游）══
 // 成员级核对及未证实项见 QianfanFamilyAdapter 文档注释。
 
