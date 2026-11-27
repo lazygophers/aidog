@@ -2,7 +2,7 @@
   "model_id": "amazon/nova-pro-v1",
   "display_name": "Amazon: Nova Pro 1.0",
   "canonical_model": "nova-pro-v1",
-  "family": "nova",
+  "family": "bedrock",
   "version": "1",
   "max_input_tokens": 300000,
   "context_window": 300000,
@@ -15,7 +15,7 @@
     "input": 8e-07,
     "output": 3.2e-06
   },
-  "last_updated": 1793244705,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "anthropic",
     "openai"

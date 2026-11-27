@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai",
     "openai_responses",
@@ -7,7 +7,7 @@
   ],
   "model_id": "deepseek/deepseek-v4-flash-0731",
   "display_name": "DeepSeek-V4-Flash 0731 正式版 原厂直供",
-  "canonical_model": "deepseek/deepseek-v4-flash-0731",
+  "canonical_model": "deepseek-v4-flash-0731",
   "capabilities": [
     "text"
   ],

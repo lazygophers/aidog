@@ -418,11 +418,14 @@ for (const start of predByCanon.keys()) {
 // 但字面写法不同 = JSON round-trip 指纹（2e-06 被重写成 0.000002，值等字面漂移），硬错。
 // 批量改数据必须文本级插入/替换（同 bump-registry-last-updated.mjs 约束）。无 diff / 非 git 环境跳过。
 const NUMBER_RE = /-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g;
+// 字符串值内也含数字（version "1"→"001"、快照日期），合法文本级编辑会命中
+// NUMBER_RE——比对前剥掉字符串字面，只看数值位置的 token（真指纹 2e-06→0.000002 仍能抓）。
+const stripStrings = (text) => text.replace(/"(?:[^"\\]|\\.)*"/g, '""');
 function numericMultiset(text) {
-  return JSON.stringify((text.match(NUMBER_RE) ?? []).map(Number).sort((a, b) => a - b));
+  return JSON.stringify((stripStrings(text).match(NUMBER_RE) ?? []).map(Number).sort((a, b) => a - b));
 }
 function literalMultiset(text) {
-  return JSON.stringify((text.match(NUMBER_RE) ?? []).sort());
+  return JSON.stringify((stripStrings(text).match(NUMBER_RE) ?? []).sort());
 }
 try {
   const changed = execFileSync("git", ["diff", "--name-only", "--", registryDir], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })

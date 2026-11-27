@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "cloudflare/@cf/thinkingmachines/inkling-2-small",
-  "canonical_model": "@cf/thinkingmachines/inkling-2-small",
+  "canonical_model": "Inkling-2-Small",
   "version": "2",
   "capabilities": [
     "text",

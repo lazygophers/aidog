@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "inferenceapis/deepseek-v3",
-  "canonical_model": "deepseek-v3",
+  "canonical_model": "DeepSeek-V3",
   "family": "deepseek",
   "capabilities": [
     "text",

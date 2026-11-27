@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nebius/thinkingmachines/Inkling-2-Small",
-  "canonical_model": "thinkingmachines/Inkling-2-Small",
+  "canonical_model": "Inkling-2-Small",
   "family": "thinkingmachines",
   "version": "2",
   "capabilities": [

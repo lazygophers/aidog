@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/eu-west-1/mistral.mixtral-8x7b-instruct-v0:1",
-  "canonical_model": "eu-west-1/mistral.mixtral-8x7b-instruct-v0",
-  "family": "eu",
+  "canonical_model": "mixtral-8x7b-instruct-v0",
+  "family": "mistral",
   "capabilities": [
     "text"
   ],

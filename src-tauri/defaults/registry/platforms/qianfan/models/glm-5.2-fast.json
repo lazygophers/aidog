@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "anthropic"
   ],
   "model_id": "glm-5.2-fast",
   "display_name": "GLM-5.2-Fast",
-  "canonical_model": "glm-5.2-fast",
+  "canonical_model": "GLM-5.2-Fast",
   "family": "glm",
   "capabilities": [
     "text"

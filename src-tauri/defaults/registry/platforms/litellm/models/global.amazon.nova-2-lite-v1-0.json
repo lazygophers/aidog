@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "global.amazon.nova-2-lite-v1:0",
   "display_name": "Amazon: Nova 2 Lite",
   "canonical_model": "nova-2-lite-v1",
-  "family": "nova",
+  "family": "bedrock",
   "version": "2",
   "capabilities": [
     "text",

@@ -720,7 +720,7 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     "claude-opus-4", // openrouter 官方已下架，litellm/therouter 仍售
     "claude-sonnet-4", // 同上
     "ernie-4.5-turbo-128k", // compshare/therouter 前缀形态
-    "glm-5.2-fast", // qianfan
+    "GLM-5.2-Fast", // qianfan（canonical 归一批量修后聚合键字面，条目场景不变）
     "jev-1.13.0", // litellm/pipellm
     "minimax-m1", // shengsuanyun
     "mistral-large-4", // commandcode/litellm/opencode_zen/therouter

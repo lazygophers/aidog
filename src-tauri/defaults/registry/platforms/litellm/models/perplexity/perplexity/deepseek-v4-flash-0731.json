@@ -1,13 +1,13 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "perplexity/perplexity/deepseek-v4-flash-0731",
   "context_window": 1000000,
-  "canonical_model": "perplexity/deepseek-v4-flash-0731",
-  "family": "perplexity",
-  "version": "0731",
+  "canonical_model": "deepseek-v4-flash-0731",
+  "family": "deepseek",
+  "version": "4",
   "capabilities": [
     "text",
     "tool_use",

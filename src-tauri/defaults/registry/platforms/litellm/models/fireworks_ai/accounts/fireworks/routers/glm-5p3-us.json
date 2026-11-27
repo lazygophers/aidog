@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "fireworks_ai/accounts/fireworks/routers/glm-5p3-us",
-  "canonical_model": "accounts/fireworks/routers/glm-5p3-us",
-  "family": "accounts",
+  "canonical_model": "glm-5p3-us",
+  "family": "glm",
   "capabilities": [
     "text",
     "tool_use",

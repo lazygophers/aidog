@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "replicate/ibm-granite/granite-3.3-8b-instruct",
-  "canonical_model": "ibm-granite/granite-3.3-8b-instruct",
+  "canonical_model": "granite-3.3-8b-instruct",
   "family": "ibm",
   "version": "3.3",
   "capabilities": [

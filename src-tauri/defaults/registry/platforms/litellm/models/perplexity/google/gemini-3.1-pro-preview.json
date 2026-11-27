@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "perplexity/google/gemini-3.1-pro-preview",
   "context_window": 1048576,
-  "canonical_model": "google/gemini-3.1-pro-preview",
-  "family": "google",
+  "canonical_model": "gemini-3.1-pro-preview",
+  "family": "gemini",
   "version": "3.1",
   "capabilities": [
     "text",

@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "scx-ai/DeepSeek-V4.1-flash",
-  "canonical_model": "DeepSeek-V4.1-flash",
-  "family": "DeepSeek",
+  "canonical_model": "deepseek-v4.1-flash",
+  "family": "deepseek",
   "version": "4.1",
   "capabilities": [
     "text",

@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/eu/computer-use-preview",
   "context_window": 8192,
-  "canonical_model": "eu/computer-use-preview",
-  "family": "eu",
+  "canonical_model": "computer-use-preview",
+  "family": "computer-use",
   "capabilities": [
     "text"
   ],

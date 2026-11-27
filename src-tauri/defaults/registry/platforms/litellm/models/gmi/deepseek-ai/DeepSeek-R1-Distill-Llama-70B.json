@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-  "canonical_model": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+  "canonical_model": "deepseek-r1-distill-llama-70b",
   "family": "deepseek",
-  "version": "70B",
+  "version": "r1",
   "capabilities": [
     "text"
   ],

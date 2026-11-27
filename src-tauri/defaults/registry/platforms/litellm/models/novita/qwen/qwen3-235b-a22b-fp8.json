@@ -1,11 +1,11 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "novita/qwen/qwen3-235b-a22b-fp8",
   "display_name": "Qwen3-235B-A22B-FP8",
-  "canonical_model": "qwen3-235b-a22b-fp8",
+  "canonical_model": "Qwen3-235B-A22B-FP8",
   "capabilities": [
     "text",
     "reasoning"

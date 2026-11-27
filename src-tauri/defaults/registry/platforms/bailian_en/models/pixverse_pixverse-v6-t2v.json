@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai",
     "anthropic"
   ],
   "model_id": "pixverse/pixverse-v6-t2v",
   "display_name": "pixverse/pixverse-v6-t2v",
-  "canonical_model": "pixverse/pixverse-v6-t2v",
+  "canonical_model": "pixverse-v6-t2v",
   "family": "pixverse",
   "capabilities": [
     "text_to_video"

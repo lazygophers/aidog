@@ -1,8 +1,8 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "model_id": "thinkingmachines/inkling-2-small",
-  "canonical_model": "inkling-2-small",
-  "family": "inkling",
+  "canonical_model": "Inkling-2-Small",
+  "family": "thinkingmachines",
   "version": "2",
   "display_name": "Thinking Machines: Inkling 2 Small",
   "thinking_supported": true,

@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/ap-northeast-1/qwen.qwen3-coder-480b-a35b-v1:0",
-  "canonical_model": "bedrock/ap-northeast-1/qwen.qwen3-coder-480b-a35b-v1",
+  "canonical_model": "qwen3-coder-480b-a35b-v1",
   "family": "bedrock",
   "version": "480b",
   "capabilities": [

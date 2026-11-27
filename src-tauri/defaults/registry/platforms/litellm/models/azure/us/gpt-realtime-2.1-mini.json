@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/us/gpt-realtime-2.1-mini",
-  "canonical_model": "us/gpt-realtime-2.1-mini",
-  "family": "us",
+  "canonical_model": "gpt-realtime-2.1-mini",
+  "family": "gpt",
   "version": "2.1",
   "capabilities": [
     "text",

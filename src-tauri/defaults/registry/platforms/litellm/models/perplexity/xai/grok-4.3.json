@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "perplexity/xai/grok-4.3",
-  "canonical_model": "xai/grok-4.3",
-  "family": "xai",
+  "canonical_model": "grok-4.3",
+  "family": "grok",
   "version": "4.3",
   "capabilities": [
     "text",

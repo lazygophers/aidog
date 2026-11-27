@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795524336,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "together_ai/together/Tev1-4B-experimental",
   "canonical_model": "tev1-4b-experimental",
   "family": "together",
-  "version": "4B",
+  "version": "4b",
   "capabilities": [
     "text"
   ],

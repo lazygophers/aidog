@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "empiriolabs/glm-5-3-flash",
-  "canonical_model": "glm-5-3-flash",
+  "canonical_model": "glm-5.3-flash",
   "family": "glm",
-  "version": "5",
+  "version": "5.3",
   "capabilities": [
     "text",
     "vision",

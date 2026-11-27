@@ -1,11 +1,11 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "novita/deepseek/deepseek-prover-v2-671b",
   "display_name": "DeepSeek Prover V2 671B",
-  "canonical_model": "deepseek-prover-v2-671b",
+  "canonical_model": "DeepSeek-Prover-V2-671B",
   "capabilities": [
     "text"
   ],

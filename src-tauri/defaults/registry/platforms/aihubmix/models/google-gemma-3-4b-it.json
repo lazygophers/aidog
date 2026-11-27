@@ -1,12 +1,12 @@
 {
-  "last_updated": 1793244702,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "anthropic",
     "gemini",
     "openai"
   ],
   "model_id": "google-gemma-3-4b-it",
-  "canonical_model": "google-gemma-3-4b-it",
+  "canonical_model": "gemma-3-4b-it",
   "version": "3",
   "family": "gemma",
   "display_name": "Google Gemma 3 4B It",

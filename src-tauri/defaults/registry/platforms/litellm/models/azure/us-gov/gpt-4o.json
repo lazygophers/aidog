@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/us-gov/gpt-4o",
-  "canonical_model": "us-gov/gpt-4o",
-  "family": "us",
+  "canonical_model": "gpt-4o",
+  "family": "gpt",
   "version": "4o",
   "capabilities": [
     "text",

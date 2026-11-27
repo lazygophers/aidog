@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nscale/Qwen/Qwen2.5-Coder-7B-Instruct",
   "context_window": 131072,
-  "canonical_model": "Qwen/Qwen2.5-Coder-7B-Instruct",
-  "family": "Qwen",
+  "canonical_model": "qwen2.5-coder-7b-instruct",
+  "family": "qwen",
   "version": "2.5",
   "capabilities": [
     "text"

@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/sa-east-1/qwen.qwen3-vl-235b-a22b",
-  "canonical_model": "bedrock/sa-east-1/qwen.qwen3-vl-235b-a22b",
+  "canonical_model": "qwen3-vl-235b-a22b",
   "family": "bedrock",
   "version": "235b",
   "capabilities": [

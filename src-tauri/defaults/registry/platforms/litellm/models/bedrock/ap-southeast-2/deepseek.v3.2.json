@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/ap-southeast-2/deepseek.v3.2",
-  "canonical_model": "bedrock/ap-southeast-2/deepseek.v3.2",
-  "family": "bedrock",
+  "canonical_model": "DeepSeek-V3.2",
+  "family": "deepseek",
   "version": "3.2",
   "capabilities": [
     "text",

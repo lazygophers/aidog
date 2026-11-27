@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock_mantle/qwen.qwen3-vl-235b-a22b-instruct",
-  "canonical_model": "qwen.qwen3-vl-235b-a22b-instruct",
+  "canonical_model": "qwen3-vl-235b-a22b-instruct",
   "family": "qwen",
-  "version": "235b",
+  "version": "3",
   "capabilities": [
     "text",
     "vision",

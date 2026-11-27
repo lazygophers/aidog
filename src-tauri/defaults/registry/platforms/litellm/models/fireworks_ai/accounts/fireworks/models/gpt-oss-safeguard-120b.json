@@ -1,12 +1,12 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-safeguard-120b",
   "display_name": "GPT OSS Safeguard 120B",
   "canonical_model": "gpt-oss-safeguard-120b",
-  "family": "gpt",
+  "family": "bedrock",
   "capabilities": [
     "text"
   ],

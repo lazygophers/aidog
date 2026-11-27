@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794017726,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
@@ -7,7 +7,7 @@
   "display_name": "Qwen3 235B A22B Instruct 2507",
   "canonical_model": "qwen3-235b-a22b-2507",
   "family": "qwen",
-  "version": "3",
+  "version": "235b",
   "capabilities": [
     "text",
     "tool_use",

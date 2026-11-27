@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "cloudflare/@cf/cloudflare/clairic",
-  "canonical_model": "@cf/cloudflare/clairic",
+  "canonical_model": "clairic",
   "capabilities": [
     "text",
     "vision"

@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "deepinfra/zai-org/GLM-5.3-Flash",
-  "canonical_model": "zai-org/GLM-5.3-Flash",
-  "family": "zai",
+  "canonical_model": "glm-5.3-flash",
+  "family": "glm",
   "version": "5.3",
   "capabilities": [
     "text",

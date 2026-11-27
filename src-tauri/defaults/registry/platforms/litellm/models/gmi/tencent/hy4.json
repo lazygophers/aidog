@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/tencent/hy4",
-  "canonical_model": "tencent/hy4",
-  "family": "tencent",
+  "canonical_model": "hy4",
+  "family": "hunyuan",
   "capabilities": [
     "text"
   ],

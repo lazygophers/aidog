@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/deepseek-ai/DeepSeek-Prover-V2-671B",
-  "canonical_model": "deepseek-ai/DeepSeek-Prover-V2-671B",
+  "canonical_model": "DeepSeek-Prover-V2-671B",
   "family": "deepseek",
-  "version": "671B",
+  "version": "2",
   "capabilities": [
     "text"
   ],

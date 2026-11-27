@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure_ai/Cohere-Embed-V5-Pro",
-  "canonical_model": "Cohere-Embed-V5-Pro",
-  "family": "Cohere",
+  "canonical_model": "cohere-embed-v5-pro",
+  "family": "cohere",
   "capabilities": [
     "embedding"
   ],
