@@ -39,7 +39,7 @@ vi.mock("../../services/api", async (importOriginal) => ({
 vi.mock("./ModelsMatrixSection", () => ({ ModelsMatrixSection: () => null }));
 vi.mock("./CcMitmAccessSection", () => ({ CcMitmAccessSection: () => null }));
 
-function state(original: "unknown" | "openai", protocol = original): PlatformsState {
+function state(original: "unknown" | "openai", protocol: string = original): PlatformsState {
   return {
     form: {
       editing: { name: "Existing", platform_type: original, endpoints: [] },
@@ -54,6 +54,35 @@ function state(original: "unknown" | "openai", protocol = original): PlatformsSt
     getPrimaryBaseUrl: () => "",
   } as unknown as PlatformsState;
 }
+
+describe("subscription date", () => {
+  it("blocks an invalid imported date and allows clearing it", () => {
+    const s = state("openai", "qianfan_coding");
+    const setExtra = vi.fn();
+    Object.assign(s.form, { extra: '{"other":1,"subscription_start_date":"9999-01-01"}', setExtra });
+    render(<PlatformEditForm s={s} />);
+    expect(screen.getByRole("button", { name: "action.save" })).toBeDisabled();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("subscription-date-clear"));
+    expect(JSON.parse(setExtra.mock.calls[0][0]('{"other":1,"subscription_start_date":"9999-01-01"}'))).toEqual({ other: 1 });
+  });
+
+  it("shows only for qianfan coding and writes a clearable date", () => {
+    const s = state("openai", "qianfan_coding");
+    const setExtra = vi.fn();
+    Object.assign(s.form, { extra: '{"other":1}', setExtra });
+    const view = render(<PlatformEditForm s={s} />);
+    const input = screen.getByTestId("subscription-start-date");
+    fireEvent.change(input, { target: { value: "2026-01-31" } });
+    expect(JSON.parse(setExtra.mock.calls[0][0]('{"other":1}'))).toEqual({ other: 1, subscription_start_date: "2026-01-31" });
+    Object.assign(s.form, { extra: '{"other":1,"subscription_start_date":"2026-01-31"}' });
+    view.rerender(<PlatformEditForm s={s} />);
+    fireEvent.change(input, { target: { value: "" } });
+    expect(JSON.parse(setExtra.mock.calls[1][0]('{"other":1,"subscription_start_date":"2026-01-31"}'))).toEqual({ other: 1 });
+    view.rerender(<PlatformEditForm s={state("openai")} />);
+    expect(screen.queryByTestId("subscription-start-date")).not.toBeInTheDocument();
+  });
+});
 
 describe("PlatformEditForm unknown protocol", () => {
   it("keeps the selector available after repairing the original unknown protocol", async () => {

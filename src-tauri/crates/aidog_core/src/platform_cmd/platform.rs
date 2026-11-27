@@ -73,6 +73,11 @@ pub async fn platform_list() -> Result<Vec<Platform>, String> {
     // 列表页余额按使用速率配色：per-platform 动态窗口日速率 → days_remaining → balance_level。
     // 阈值走 usage_color::balance_level（唯一源，不漂移）；无用量数据 → neutral（前端退中性）。
     for p in platforms.iter_mut() {
+        if p.platform_type == Protocol::QianfanCoding {
+            p.est_coding_plan = gateway::estimate::current_plan(
+                &p.est_coding_plan, &p.extra, true, chrono::Utc::now().timestamp_millis(),
+            ).to_json();
+        }
         // manual 配额方式（quota-ia 票 07）：余额概念不适用（est_balance 冻结值），
         // balance_level 置 neutral（空串，前端退中性）；只走预算块展示。
         // coding_window_cost（B3 折算行）照算——coding 套餐与配额方式正交。
@@ -113,7 +118,13 @@ crate::tauri_command! {
 pub async fn platform_get(id: u64) -> Result<Option<Platform>, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "platform_get", id, "command invoked");
-    db::get_platform(db, id).await
+    let mut platform = db::get_platform(db, id).await?;
+    if let Some(p) = platform.as_mut().filter(|p| p.platform_type == Protocol::QianfanCoding) {
+        p.est_coding_plan = gateway::estimate::current_plan(
+            &p.est_coding_plan, &p.extra, true, chrono::Utc::now().timestamp_millis(),
+        ).to_json();
+    }
+    Ok(platform)
 }
 }
 

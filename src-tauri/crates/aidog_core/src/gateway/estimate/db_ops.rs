@@ -37,16 +37,42 @@ pub async fn apply_coding_plan_delta(
     requests: i64,
     usage_units: f64,
 ) -> Result<(), String> {
+    apply_coding_plan_delta_at(db, platform_id, platform_type, requests, usage_units, now()).await
+}
+
+async fn apply_coding_plan_delta_at(
+    db: &Db,
+    platform_id: u64,
+    platform_type: &str,
+    requests: i64,
+    usage_units: f64,
+    at_ms: i64,
+) -> Result<(), String> {
     let platform_type = platform_type.to_string();
     db.platform_write_conn()
         .call(move |conn| -> rusqlite::Result<()> {
-            let json: String = conn.query_row(
-                "SELECT est_coding_plan FROM platform WHERE id = ?1",
+            let (json, extra): (String, String) = conn.query_row(
+                "SELECT est_coding_plan, extra FROM platform WHERE id = ?1",
                 params![platform_id as i64],
-                |r| r.get(0),
+                |r| Ok((r.get(0)?, r.get(1)?)),
             )?;
             let mut plan = EstCodingPlan::from_json(&json);
+            if platform_type == "qianfan_coding" {
+                for anchor in super::anchors::default_plan_quota_anchors(&platform_type) {
+                    if !plan.tiers.iter().any(|tier| tier.name == anchor.name) {
+                        plan.tiers.push(anchor);
+                    }
+                }
+                plan = super::calendar::current_plan(&plan.to_json(), &extra, true, now());
+            }
             for tier in plan.tiers.iter_mut() {
+                if platform_type == "qianfan_coding" && !tier.reset_mode.is_empty() {
+                    let date = serde_json::from_str::<serde_json::Value>(&extra).ok();
+                    let subscription = date.as_ref().and_then(|v| v.get("subscription_start_date")).and_then(|v| v.as_str());
+                    if super::calendar::bounds(&tier.name, subscription, at_ms) != Some((tier.window_start, tier.window_end)) {
+                        continue;
+                    }
+                }
                 if platform_type == "glm_coding" {
                     if let Some(limit) = plan.level.as_deref().and_then(|level| {
                         glm_coding_plan_limit(level, &tier.name)
@@ -745,6 +771,7 @@ pub async fn estimate_after_request(
     let quota_window_platform =
         count_quota_windows && crate::gateway::quota_window::has_enabled_windows(extra);
     if !quota_window_platform
+        && !(is_coding_plan && platform_type == "qianfan_coding")
         && input_tokens <= 0
         && output_tokens <= 0
         && cache_tokens <= 0
@@ -775,7 +802,8 @@ pub async fn estimate_after_request(
             at_ms,
         )
         .unwrap_or(total);
-        let _ = apply_coding_plan_delta(db, platform_id, platform_type, 1, usage_units).await;
+        let _ =
+            apply_coding_plan_delta_at(db, platform_id, platform_type, 1, usage_units, at_ms).await;
         // 通知体系票 01：配额预测（只在 coding plan 平台——按量平台无窗口耗尽语义）。
         maybe_emit_quota_forecast(db, platform_id, platform_type).await;
     } else if resolved_price.is_some() || tool_cost_usd > 0.0 {

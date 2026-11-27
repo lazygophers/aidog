@@ -414,6 +414,40 @@ export function serializePlatformBreaker(extra: string, b: PlatformBreaker): str
   return JSON.stringify(obj);
 }
 
+export function parseSubscriptionStartDate(extra: string): string {
+  try {
+    const value: unknown = (JSON.parse(extra) as Record<string, unknown>).subscription_start_date;
+    return value === undefined ? "" : typeof value === "string" ? value : String(value);
+  } catch { return ""; }
+}
+
+export function beijingToday(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+  const part = (type: string) => parts.find(p => p.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+export function validSubscriptionStartDate(value: string, today = beijingToday()): boolean {
+  if (!value) return true;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return year > 0 && month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1] && value <= today;
+}
+
+export function serializeSubscriptionStartDate(extra: string, date: string): string {
+  let obj: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) obj = parsed as Record<string, unknown>;
+  } catch { /* ignore */ }
+  if (date) obj.subscription_start_date = date;
+  else delete obj.subscription_start_date;
+  return JSON.stringify(obj);
+}
+
 /** 从 platform.extra 解析用户覆盖的节假日日历；缺失时继承 registry 默认。 */
 export function parsePlatformHolidayCalendar(extra?: string): string | undefined {
   if (!extra?.trim()) return undefined;

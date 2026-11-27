@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795758054,
+  "last_updated": 1795773010,
   "is_coding_plan": true,
   "holiday_calendar": "CN",
   "endpoints": {
@@ -79,14 +79,16 @@
           "unit": "count",
           "amount": 9000,
           "window_hours": 1,
-          "window_unit": "week"
+          "window_unit": "week",
+          "reset_mode": "calendar_week"
         },
         {
           "kind": "rolling",
           "unit": "count",
           "amount": 18000,
           "window_hours": 1,
-          "window_unit": "month"
+          "window_unit": "month",
+          "reset_mode": "subscription_month"
         }
       ],
       "source_url": "https://cloud.baidu.com/doc/qianfan/s/imlg0beiu"
@@ -107,14 +109,16 @@
           "unit": "count",
           "amount": 45000,
           "window_hours": 1,
-          "window_unit": "week"
+          "window_unit": "week",
+          "reset_mode": "calendar_week"
         },
         {
           "kind": "rolling",
           "unit": "count",
           "amount": 90000,
           "window_hours": 1,
-          "window_unit": "month"
+          "window_unit": "month",
+          "reset_mode": "subscription_month"
         }
       ],
       "source_url": "https://cloud.baidu.com/doc/qianfan/s/imlg0beiu"

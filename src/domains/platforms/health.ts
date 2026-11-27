@@ -114,10 +114,11 @@ export function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, p
       ? estCoding.tiers.map(tier => {
           const limit = tier.limit ?? null;
           const remaining = limit != null ? Math.round(limit * tierRemain(tier.est_utilization) / 100) : null;
-          // 预估侧：remain = window_start + cycle - now（无 window_start → null → 中性）。
-          const cycleMs = cycleMsForTier(tier.name);
-          const remainMs = tier.window_start && tier.window_start > 0 && cycleMs != null
-            ? tier.window_start + cycleMs - Date.now()
+          const start = tier.window_start ?? 0;
+          const end = tier.window_end ?? 0;
+          const cycleMs = start > 0 && end > start ? end - start : cycleMsForTier(tier.name);
+          const remainMs = start > 0 && cycleMs != null
+            ? (end > start ? end : start + cycleMs) - Date.now()
             : null;
           const level = codingTierLevel(tier.est_utilization, remainMs, cycleMs);
           const resetsAt = remainMs != null ? new Date(Date.now() + remainMs).toISOString() : null;

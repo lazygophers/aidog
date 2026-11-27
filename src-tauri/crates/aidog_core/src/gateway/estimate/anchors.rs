@@ -15,6 +15,8 @@ struct PlanBudget {
     window_hours: f64,
     #[serde(default)]
     window_unit: Option<String>,
+    #[serde(default)]
+    reset_mode: String,
 }
 
 /// registry `plan_quotas[]` 一档（官方套餐档位）。
@@ -60,6 +62,7 @@ pub fn anchors_in(doc: &serde_json::Value, protocol: &str) -> Vec<EstTier> {
                 has_base: true,
                 limit: b.amount,
                 unit: "prompt_count".to_string(),
+                reset_mode: b.reset_mode.clone(),
                 ..Default::default()
             })
         })

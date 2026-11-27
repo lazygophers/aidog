@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  parseSubscriptionStartDate, serializeSubscriptionStartDate, validSubscriptionStartDate, beijingToday,
   DEFAULT_DEVIN_CONFIG,
   parseDevinConfig,
   serializeDevinConfig,
@@ -33,6 +34,23 @@ import {
 // 空串、非法 JSON、数组、缺键 → 回默认；serialize 保留兄弟键；空值 → 删键而非写空。
 
 const BAD = ["", "   ", "{not json", "[1,2]", "null", '{"other":1}'];
+
+describe("subscription start date", () => {
+  it("validates calendar dates against Beijing's day", () => {
+    const today = beijingToday(new Date("2026-01-31T16:00:00Z"));
+    expect(today).toBe("2026-02-01");
+    expect(validSubscriptionStartDate("2026-02-01", today)).toBe(true);
+    expect(validSubscriptionStartDate("2026-02-02", today)).toBe(false);
+    expect(validSubscriptionStartDate("2026-02-30", today)).toBe(false);
+    expect(validSubscriptionStartDate("", today)).toBe(true);
+  });
+  it("preserves other settings and removes the date when cleared", () => {
+    const saved = serializeSubscriptionStartDate('{"other":1}', "2026-01-31");
+    expect(parseSubscriptionStartDate(saved)).toBe("2026-01-31");
+    expect(JSON.parse(serializeSubscriptionStartDate(saved, ""))).toEqual({ other: 1 });
+    expect(parseSubscriptionStartDate("null")).toBe("");
+  });
+});
 
 describe("parseDevinConfig", () => {
   it.each(BAD)("非法/缺键 %s 回默认", (extra) => {

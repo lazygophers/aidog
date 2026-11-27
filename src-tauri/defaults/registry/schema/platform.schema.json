@@ -662,6 +662,30 @@
               "type": "object",
               "additionalProperties": false,
               "required": ["kind", "unit", "amount"],
+              "allOf": [
+                {
+                  "if": { "required": ["reset_mode"], "properties": { "reset_mode": { "const": "calendar_week", "description": "日历周重置。" } } },
+                  "then": {
+                    "required": ["window_hours", "window_unit"],
+                    "properties": {
+                      "unit": { "const": "count", "description": "日历周仅支持按请求次数计算。" },
+                      "window_hours": { "const": 1, "description": "日历周期为一周。" },
+                      "window_unit": { "const": "week", "description": "日历周按周计算。" }
+                    }
+                  }
+                },
+                {
+                  "if": { "required": ["reset_mode"], "properties": { "reset_mode": { "const": "subscription_month", "description": "订阅月重置。" } } },
+                  "then": {
+                    "required": ["window_hours", "window_unit"],
+                    "properties": {
+                      "unit": { "const": "count", "description": "订阅月仅支持按请求次数计算。" },
+                      "window_hours": { "const": 1, "description": "日历周期为一个订阅月。" },
+                      "window_unit": { "const": "month", "description": "订阅月按月计算。" }
+                    }
+                  }
+                }
+              ],
               "properties": {
                 "kind": {
                   "type": "string",
@@ -687,6 +711,11 @@
                   "type": "string",
                   "enum": ["minute", "hour", "day", "week", "month"],
                   "description": "【可选】窗口单位，缺省 hour。"
+                },
+                "reset_mode": {
+                  "type": "string",
+                  "enum": ["calendar_week", "subscription_month"],
+                  "description": "【可选】北京时间周一零点或订阅日零点重置；缺省沿用 kind 的窗口语义。"
                 }
               }
             },

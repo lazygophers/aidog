@@ -77,6 +77,42 @@ async fn group_no_platform_not_applicable() {
     assert_eq!(v["applicable"], false);
 }
 
+
+#[tokio::test]
+async fn qianfan_group_info_refreshes_old_usage_without_request() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    let mut input = sample_platform("qianfan");
+    input.platform_type = aidog_db::models::Protocol::QianfanCoding;
+    input.extra = "{}".into();
+    let p = aidog_db::create_platform(&state.db, input).await.unwrap();
+    let old = r#"{"tiers":[{"name":"weekly_limit","est_utilization":80,"window_start":1},{"name":"monthly","est_utilization":90,"window_start":1}]}"#;
+    super::estimate::write_real_quota(&state.db, p.id, 0.0, old, aidog_db::now())
+        .await
+        .unwrap();
+    let g = aidog_db::create_group(&state.db, sample_group("calendar", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        g.id,
+        &[GroupPlatformInput {
+            platform_id: p.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+    let resp = handle_group_info(AxumState(state), bearer("calendar"), ci("127.0.0.1:50000")).await;
+    let v = body_json(resp).await;
+    let tiers = v["coding_plan"].as_array().unwrap();
+    assert_eq!(tiers.len(), 1);
+    assert_eq!(tiers[0]["name"], "weekly_limit");
+    assert_eq!(tiers[0]["utilization"], 0.0);
+    assert!(tiers[0]["reset_at"].as_i64().unwrap() > aidog_db::now() / 1000);
+}
 #[tokio::test]
 async fn single_platform_applicable() {
     let state = make_state(test_db().await).await;

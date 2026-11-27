@@ -2,6 +2,10 @@
 
 use serde::{Deserialize, Serialize};
 
+fn is_zero(value: &i64) -> bool {
+    *value == 0
+}
+
 /// 校准阈值：距上次真查超过 5min
 pub const CALIBRATE_INTERVAL_MS: i64 = 300_000;
 /// 校准阈值：自上次真查以来预估次数
@@ -50,6 +54,12 @@ pub struct EstTier {
     /// 0 / 缺失 = 无可靠周期起点 → 配色退中性（usage_color，不静默走旧利用率阈值）。
     #[serde(default)]
     pub window_start: i64,
+    /// 日历周期的结束时刻；缺省为零表示沿用旧周期计算。
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub window_end: i64,
+    /// 日历重置方式；缺省沿用旧窗口语义。
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub reset_mode: String,
     /// 计费单位（spec B1，serde default 向后兼容旧 JSON）：
     /// - `prompt_count`：按次扣。has_base → 每请求 +`100/limit`；无 → 拟合 [`Self::coef_per_request`]
     /// - `mcp_time`：MCP 使用时长，不增量只真查
