@@ -1799,6 +1799,19 @@ impl PlatformAdapter for OpenCodeFamilyAdapter {}
 ///   基座 sse.rs 已按该结构解析，无覆写。同上 URL。
 /// - Codex 服务端对网关请求的额外字段约定（相比公开 Responses API）未证实，成员继承基座默认。
 ///
+/// 成员 `openai` 复核（issue 151，2026-11-27，官方 API reference 与 error-codes 页 raw 抓取）：
+/// Chat Completions `max_completion_tokens` 为输出 token 上界（可选，无文档固定上限）、
+/// 旧 `max_tokens` 仍在；`reasoning_effort` 默认 "medium"、词表 none/minimal/low/medium/high/xhigh/max；
+/// tool_choice 词表 none/auto/required/{"name"}；system/developer 角色消息；流式 chat.completion.chunk
+/// 帧、finish_reason 终帧、`data: [DONE]` 结束；usage `prompt_tokens_details.cached_tokens` /
+/// `completion_tokens_details.reasoning_tokens`；错误体 `error{message,type,param,code}`；
+/// 端点 POST /chat/completions（内置 base https://api.openai.com/v1，出站照用户配置）。
+/// 与家族基座既有记录一致，无新增成员差异；未证实：逐模型参数支持范围、Responses/Anthropic
+/// 等非内置端点的完整形状（registry 仅列 openai wire，其它 wire 不代表官方支持）。
+/// https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create.md
+/// https://platform.openai.com/docs/guides/error-codes
+/// 结论（成员 `openai`）：无可证实的网关覆写，继承家族基座默认实现。
+///
 /// 两成员无可证实的网关覆写；均继承协议构件默认实现。
 ///
 /// 官方未证实项不外推；本适配器保持空实现。
