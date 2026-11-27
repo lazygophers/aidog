@@ -2285,6 +2285,23 @@ impl PlatformAdapter for LiteLlmAdapter {
 static LITELLM: LiteLlmAdapter = LiteLlmAdapter;
 static GENERIC: GenericAdapter = GenericAdapter;
 
+/// Devin（Cognition）适配器（issue 153）。
+///
+/// Devin 接入协议是 **stateful session API v3**（非 chat wire）：chat 流量在
+/// `aidog_core` 的 `gateway/proxy/devin.rs::handle_devin`（handler.rs
+/// Protocol::Devin 分支）被拦截，不经 forward_attempt / 本 trait——session 生命
+/// 周期、伪流式、ACU 记账全部在该 handler 内实现（官方契约逐项核对见
+/// [`crate::devin`] 模块注释，核对日 2026-11-28）。
+///
+/// 因此本适配器零覆写、行为与家族基座逐字节等价（既有测试以 devin 为基座
+/// 对照件即依赖这一点）；注册为专属单例是为了「平台 code → 专属适配器」注册
+/// 面的完整性（devin 不再与 newapi / passthrough 共享 GENERIC）。
+struct DevinAdapter;
+
+impl PlatformAdapter for DevinAdapter {}
+
+static DEVIN: DevinAdapter = DevinAdapter;
+
 /// Gemini adapter; official GenerateContent thinking guide checked 2026-11-25:
 /// - `generationConfig.thinkingConfig.thinkingLevel` is used by Gemini 3/4;
 ///   Gemini 2.5 uses `thinkingBudget`. Supported values and defaults depend on model.
@@ -2806,7 +2823,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("compshare_coding", &COMPSHARE),
     ("crazyrouter", &CRAZYROUTER),
     ("deepseek", &DEEPSEEK),
-    ("devin", &GENERIC),
+    ("devin", &DEVIN),
     ("doubao", &ARK),
     ("gemini", &GEMINI),
     ("glm", &GLM),
@@ -3025,10 +3042,38 @@ mod sensenova_family_tests {
 
         assert!(std::ptr::eq(cn, en));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        // 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+        // 对照件用 devin（issue 153 起为专属单例但零覆写，行为仍与 GENERIC 等价）。
         assert!(!std::ptr::eq(cn, adapter_for("devin")));
         assert!(!std::ptr::eq(en, adapter_for("devin")));
         assert!(!std::ptr::eq(cn, adapter_for("openai")));
+    }
+}
+
+#[cfg(test)]
+mod devin_adapter_tests {
+    use super::*;
+
+    /// issue 153：devin 注册为专属单例，不再与 newapi / passthrough 共享 GENERIC；
+    /// 零覆写，行为与家族基座逐字节等价（chat 流量实际走 handle_devin，见
+    /// [`crate::devin`] 模块注释）。
+    #[test]
+    fn devin_uses_dedicated_adapter_with_base_defaults() {
+        let devin = lookup("devin").expect("Devin adapter must be registered");
+        assert!(!std::ptr::eq(devin, adapter_for("newapi")));
+        assert!(!std::ptr::eq(devin, adapter_for("passthrough")));
+        // 零覆写 = 关键钩子与基座（GENERIC 对照件 newapi）同结果。
+        let chat_req: crate::types::ChatRequest = serde_json::from_value(serde_json::json!({
+            "model": "devin-normal",
+            "max_tokens": 64,
+            "messages": [{ "role": "user", "content": "hi" }]
+        }))
+        .unwrap();
+        let wire = aidog_db::models::Protocol::OpenAI;
+        let platform = aidog_db::models::Protocol::Devin;
+        assert_eq!(
+            devin.build_request(&chat_req, &wire, &platform),
+            adapter_for("newapi").build_request(&chat_req, &wire, &platform)
+        );
     }
 }
 
@@ -3056,7 +3101,7 @@ mod openai_family_tests {
         let codex = lookup("codex").expect("Codex adapter must be registered");
         assert!(std::ptr::eq(openai, codex));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        // 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+        // 对照件用 devin（issue 153 起为专属单例但零覆写，行为仍与 GENERIC 等价）。
         assert!(!std::ptr::eq(openai, adapter_for("devin")));
         assert!(!std::ptr::eq(codex, adapter_for("devin")));
         assert!(!std::ptr::eq(openai, adapter_for("anthropic")));
@@ -3101,7 +3146,7 @@ mod aihubmix_tests {
     use super::*;
 
     /// issue 91：aihubmix 必须走专属适配器（显式注册），不再回落通用适配。
-    /// 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+    /// 对照件用 devin（issue 153 起为专属单例但零覆写，行为仍与 GENERIC 等价）。
     #[test]
     fn aihubmix_uses_registered_adapter() {
         let a = adapter_for("aihubmix");

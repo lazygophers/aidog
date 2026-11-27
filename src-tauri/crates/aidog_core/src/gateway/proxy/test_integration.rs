@@ -16640,3 +16640,229 @@ async fn image_rate_limit_rpm_blocks_second_request() {
     let log = last_log_for(&state, "gkrlimg").await;
     assert_eq!(log.blocked_reason, "rate_limit");
 }
+
+// ══ Devin session 平台端到端（issue 153；官方契约见 aidog_adapter devin 模块注释）══
+// 本地假上游覆盖 create/poll/messages 三端点，零真实外呼。
+
+const DEVIN_CREATE_OK: &str = r#"{"session_id":"devin-t1","acus_consumed":0}"#;
+const DEVIN_POLL_EXIT: &str = r#"{"status":"exit","acus_consumed":0.5}"#;
+const DEVIN_POLL_ERROR: &str = r#"{"status":"error"}"#;
+const DEVIN_POLL_SUSPENDED: &str = r#"{"status":"suspended","status_detail":"out_of_credits"}"#;
+const DEVIN_MESSAGES_OK: &str =
+    r#"[{"source":"user","message":"hi"},{"source":"devin","message":"hello from devin"}]"#;
+
+/// Devin 假上游：按 (method, path) 分流 create/poll/messages；记录 (method, path, body)。
+async fn spawn_devin_upstream(
+    create_status: u16,
+    create_body: &'static str,
+    poll_body: &'static str,
+) -> (String, Arc<std::sync::Mutex<Vec<(String, String, String)>>>) {
+    let hits: Arc<std::sync::Mutex<Vec<(String, String, String)>>> =
+        Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink = hits.clone();
+    let app = axum::Router::new().fallback(
+        move |method: axum::http::Method, uri: axum::http::Uri, body: String| async move {
+            let path = uri.path().to_string();
+            let m = method.to_string();
+            if m == "POST" && path == "/sessions" {
+                sink.lock().unwrap().push((m, path, body));
+                return (
+                    axum::http::StatusCode::from_u16(create_status).unwrap(),
+                    [("content-type", "application/json")],
+                    create_body,
+                );
+            }
+            if m == "GET" && path.ends_with("/messages") {
+                sink.lock().unwrap().push((m, path, body));
+                return (
+                    axum::http::StatusCode::OK,
+                    [("content-type", "application/json")],
+                    DEVIN_MESSAGES_OK,
+                );
+            }
+            if m == "GET" && path.starts_with("/sessions/") {
+                sink.lock().unwrap().push((m, path, body));
+                return (
+                    axum::http::StatusCode::OK,
+                    [("content-type", "application/json")],
+                    poll_body,
+                );
+            }
+            (
+                axum::http::StatusCode::NOT_FOUND,
+                [("content-type", "application/json")],
+                "{}",
+            )
+        },
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    (format!("http://{addr}"), hits)
+}
+
+async fn setup_devin_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "devinp".into(),
+            platform_type: Protocol::Devin,
+            base_url: base_url.to_string(),
+            api_key: "cog-test".into(),
+            extra: r#"{"devin":{"org_id":"org-1"}}"#.into(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+/// 请求转换 + 非流式响应 + usage（ACU→est_cost）全链路。
+#[tokio::test]
+async fn devin_session_nonstream_full_lifecycle() {
+    let state = make_state(test_db().await).await;
+    let (up, hits) = spawn_devin_upstream(200, DEVIN_CREATE_OK, DEVIN_POLL_EXIT).await;
+    setup_devin_group(&state, "gkdevin", &up).await;
+
+    let req = messages_request(
+        "gkdevin",
+        r#"{"model":"devin-fast","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v["content"][0]["text"], "hello from devin");
+    assert_eq!(v["usage"]["input_tokens"], 0);
+    assert_eq!(v["usage"]["output_tokens"], 0);
+
+    // 出站请求转换：prompt 拼接 + model→devin_mode 映射 + Bearer cog_ key
+    {
+        let h = hits.lock().unwrap();
+        assert_eq!(h.len(), 3, "create+poll+messages 三次出站: {h:?}");
+        let (m, p, b) = &h[0];
+        assert_eq!((m.as_str(), p.as_str()), ("POST", "/sessions"));
+        let created: serde_json::Value = serde_json::from_str(b).unwrap();
+        assert_eq!(created["prompt"], "[user] hi");
+        assert_eq!(created["devin_mode"], "fast");
+    }
+
+    // usage：tokens 全 0，acus_consumed 落 est_cost（契约 9）
+    let log = last_log_for(&state, "gkdevin").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!(log.input_tokens, 0);
+    assert_eq!(log.output_tokens, 0);
+    assert!((log.est_cost - 0.5).abs() < 1e-9, "est_cost={}", log.est_cost);
+}
+
+/// 流式：伪 SSE Start→Delta→Stop（anthropic message_stop 收官），est_cost 落 ACU。
+#[tokio::test]
+async fn devin_session_stream_pseudo_sse() {
+    let state = make_state(test_db().await).await;
+    let (up, _hits) = spawn_devin_upstream(200, DEVIN_CREATE_OK, DEVIN_POLL_EXIT).await;
+    setup_devin_group(&state, "gkdevins", &up).await;
+
+    let req = messages_request_stream("gkdevins");
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = String::from_utf8(body.to_vec()).unwrap();
+    assert!(body.contains("event: message_start"), "{body:?}");
+    assert!(body.contains("hello from devin"), "{body:?}");
+    assert_eq!(body.matches("event: message_stop").count(), 1, "{body:?}");
+
+    let log = last_log_for(&state, "gkdevins").await;
+    assert_eq!(log.status_code, 200);
+    assert!((log.est_cost - 0.5).abs() < 1e-9, "est_cost={}", log.est_cost);
+}
+
+/// 终态 error → 502 + anthropic error body；est_cost 仍记 ACU（契约 9）。
+#[tokio::test]
+async fn devin_session_error_terminal_maps_502() {
+    let state = make_state(test_db().await).await;
+    let (up, _hits) = spawn_devin_upstream(200, DEVIN_CREATE_OK, DEVIN_POLL_ERROR).await;
+    setup_devin_group(&state, "gkdevine", &up).await;
+
+    let req = messages_request(
+        "gkdevine",
+        r#"{"model":"devin-normal","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v["type"], "error");
+    assert_eq!(v["error"]["message"], "Devin session error");
+
+    let log = last_log_for(&state, "gkdevine").await;
+    assert_eq!(log.status_code, 502);
+}
+
+/// 终态 suspended（欠费）→ 402 + 可读消息。
+#[tokio::test]
+async fn devin_session_suspended_maps_402() {
+    let state = make_state(test_db().await).await;
+    let (up, _hits) = spawn_devin_upstream(200, DEVIN_CREATE_OK, DEVIN_POLL_SUSPENDED).await;
+    setup_devin_group(&state, "gkdevinsp", &up).await;
+
+    let req = messages_request(
+        "gkdevinsp",
+        r#"{"model":"devin-normal","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::PAYMENT_REQUIRED);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert!(
+        v["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("out of credits"),
+        "{v}"
+    );
+}
+
+/// 上游 create 非 2xx（官方 RFC 9457 ProblemDetail）→ 502 + 摘要，错误体不透传。
+#[tokio::test]
+async fn devin_session_create_failure_maps_502() {
+    let state = make_state(test_db().await).await;
+    let problem = r#"{"type":"about:blank","title":"Conflict","status":409,"detail":"session limit"}"#;
+    let (up, _hits) =
+        spawn_devin_upstream(409, Box::leak(problem.to_string().into_boxed_str()), DEVIN_POLL_EXIT)
+            .await;
+    setup_devin_group(&state, "gkdevinc", &up).await;
+
+    let req = messages_request(
+        "gkdevinc",
+        r#"{"model":"devin-normal","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = String::from_utf8(body.to_vec()).unwrap();
+    assert!(body.contains("status 409"), "{body:?}");
+}
