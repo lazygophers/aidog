@@ -5,6 +5,7 @@
 ## 默认：主 checkout 当前分支开发，implementer 串行
 
 - 写代码的 agent 默认直接在主 checkout 当前分支改，一次一个，前一个回报后再派下一个。
+- **commit / 单文件小改动直接在主 checkout 当前分支提交，不为此建 worktree 或分支**：全局 CLAUDE.md「开发用 git worktree」不覆盖本默认（优先级：项目规则 > 全局其余规则）；worktree 只为上文「有必要」的开发情形（先例：单文件预设 JSON 提交误建 worktree + 分支，2026-11-27 用户纠正「直接 git commit 就可以了」）。
 - **「有必要」只有三种**：① 两个写码 agent 必须同时跑，文件集不相交，**且不在同一 cargo workspace crate**（同 crate 不同模块文件集不相交也互踩；cargo 一次锁整个 workspace，crate 层面没有「不相交」可用）；② 构建旧版本 / 基线二进制（perf-testing.md §6/§7 的 detach worktree）；③ 主 checkout 正被别的会话占用（脏文件与本任务相交，无法并存）。其余理由（「隔离更干净」「怕改坏」）不算；改坏用 `git diff` 按行号还原。第四种：GitHub issue 开发（一 issue 一 worktree 一 PR，见文末「issue 开发：独立 worktree + PR」节）。
 - 用了 worktree 就写明是哪一种，验收标准全部满足后当场合回并删除；未满足时保留 worktree；下文各节是「用了 worktree 时」的卫生规则。
 - **主 checkout 带他线在途脏文件时，产出用户日常应用的构建（`make install` / release 包）从 detach worktree 构建**：`/usr/bin/git worktree add --detach .worktrees/build-<sha> <sha>` 里跑；Makefile 硬编码 `src-tauri/target` 时在 worktree 内用 symlink 把该路径桥接到 worktree 自己的 target（如 `CARGO_TARGET_DIR=.worktrees/.target`）。写 agent 在途期间用户说「编译不过 / 装不上」时，主会话先核在途写 agent 及其改动文件；要装机时给出 detach worktree 构建命令或等 agent 收工，不把半截改动当成缺陷报给用户。

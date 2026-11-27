@@ -53,6 +53,7 @@
 - 自检：`GITHUB_ACTIONS=true cargo test --workspace` 后对测试二进制 `strings | grep -c lazygophers/ccplugin`（非 oss 独有标记）应为 0，不设变量应 >0。
 - 风险：非 `oss` 预设（如 `lazygophers.json`）是个人配置且进公开 git，禁放密钥 / token / 内网地址，提交前过凭据扫描。
 - 改 `src-tauri/defaults/settings/lazygophers.json` 的任何键后跑 `yarn sync:preset-min-version`（从官方文档取各键所需 CLI 版本的最大值写入顶层 `minimumVersion`）并一并提交；`yarn sync:preset-min-version` 不带 `--write` 即校验，仅覆盖该预设，其它预设无此键。
+- **预设钩子的 `command` 用 shell 内建优先，禁起解释器进程**：钩子每会话都跑，开销直接进启动耗时——输出 JSON 一条内建 `printf '{"systemMessage":"..."}\n' "$VAR"` 即可（实测 printf 2.87ms vs python3 生成 19.63ms，各 30 次中位数）；先例 commit 7107ddcb1。
 
 ### 应用更新（内核自主更新 + 桌面收尾）
 - **内核自主更新**（`aidog_kernel/src/update.rs`，magpie 参照）：签名复用桌面 Tauri updater 的 Ed25519 密钥与 latest.json 清单（单一发布渠道单一密钥）；二进制装到服务用户可写目录（`~/.local/bin`，systemd 样例同步），自替换无需提权；失败保留/恢复旧版并提示。release.yml 有内核构建/签名/清单合并 job（2026-11-26 补，真实验证在下次发版）。
