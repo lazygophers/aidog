@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
@@ -8,7 +8,7 @@
   "thinking_supported": true,
   "display_name": "Z.ai: GLM 5.3 Prime",
   "version": "5.3",
-  "canonical_model": "glm-5-3-prime",
+  "canonical_model": "glm-5.3-prime",
   "family": "glm",
   "capabilities": [
     "text"

@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "baseten/zai-org/GLM-5.3-Fast",
-  "canonical_model": "zai-org/GLM-5.3-Fast",
-  "family": "zai",
+  "canonical_model": "glm-5.3-fast",
+  "family": "glm",
   "version": "5.3",
   "capabilities": [
     "text",

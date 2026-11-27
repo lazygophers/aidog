@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "together_ai/Qwen/Qwen2.5-VL-72B-Instruct",
-  "canonical_model": "Qwen/Qwen2.5-VL-72B-Instruct",
-  "family": "Qwen",
+  "canonical_model": "qwen2.5-vl-72b-instruct",
+  "family": "qwen",
   "version": "2.5",
   "capabilities": [
     "text"

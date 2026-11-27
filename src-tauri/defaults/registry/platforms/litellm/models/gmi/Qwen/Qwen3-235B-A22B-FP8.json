@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/Qwen/Qwen3-235B-A22B-FP8",
-  "canonical_model": "Qwen/Qwen3-235B-A22B-FP8",
-  "family": "Qwen",
-  "version": "235B",
+  "canonical_model": "Qwen3-235B-A22B-FP8",
+  "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text"
   ],

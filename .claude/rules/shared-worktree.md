@@ -41,7 +41,7 @@
 
 agent 的 Bash 驱动不了交互式 `git add -p`；用 patch 过滤等价替代：
 
-1. `git diff -- <文件> > .tmp/<任务名>/sel.patch`；
+1. `git diff -U1 -- <文件> > .tmp/<任务名>/sel.patch`；默认 `-U3` 的 hunk 合并把他人相邻改动卷进同一 hunk，超长行文件（一行即一整段，如本项目 CLAUDE.md）无法分离——`-U1` 缩小合并半径；
 2. 过滤脚本（python / node，**落盘成文件再跑**）按 hunk 头 `@@` 只保留自己的 hunk；
 3. patch 文件必须以换行结尾——缺结尾换行 `git apply` 报 `corrupt patch`（过滤脚本补结尾换行）；
 4. `git apply --cached --check` → `git apply --cached` → `git diff --cached` 逐行核对暂存面 == 想提交的内容 → 不带 pathspec 的 `git commit`；
@@ -50,11 +50,6 @@ agent 的 Bash 驱动不了交互式 `git add -p`；用 patch 过滤等价替代
 ## 文件所有权
 
 冲突高发的共用文件要有主：
-
-| 文件 | 归属 |
-|---|---|
-| `flutter/lib/src/pages/ui_bits.dart` | team-lead；他人改前先说 |
-| `flutter/lib/src/shell/*` | team-lead |
 
 其余文件按「谁在做那块活谁临时持有」，做完明确交还。
 
@@ -230,6 +225,10 @@ GitHub issue 的开发不受文首「尽可能不要 worktree」约束，一 iss
 
 - 改走隔离构建后，`make lint` 同样放进隔离 worktree 跑，或等锁释放后再在主仓跑；回报写明 `make lint` 跑在哪个 target、是否持锁。
 - 判据：清单里任何会触发 cargo 的命令（`make lint`、`yarn test:statusline-golden` 等）都算 cargo 步骤，不只是显式写出的 `cargo …`。
+
+## 规则与派发 prompt 引用代码写 `file::symbol`，不写行号
+
+CLAUDE.md / `.claude/rules/` / 派发 prompt 里引用代码位置一律写 `file::symbol`（如 `gateway/proxy/forward.rs::forward_attempt`），不写行号：行号随重构漂移（rules 审计轮抽查 11 处 8 处已漂移），符号稳定且改名时可 grep 全量更新。行号只在必须按行定位时写（如 `sed -i` 按行恢复）。
 
 ## commit message 里的计数取自命令输出
 

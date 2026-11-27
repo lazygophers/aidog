@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure_ai/deepseek-r1",
-  "canonical_model": "deepseek-r1",
+  "canonical_model": "DeepSeek-R1",
   "family": "deepseek",
   "capabilities": [
     "text"

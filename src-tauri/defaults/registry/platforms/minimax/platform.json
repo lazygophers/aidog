@@ -1,5 +1,5 @@
 {
-  "rate_limit_policies":   [
+    "rate_limit_policies": [
     {
       "id": "free",
       "label": "LLM（MiniMax-M3.1-Flash / MiniMax-M3）免费用户：20 RPM / 1,000,000 TPM",
@@ -16,7 +16,7 @@
     },
     {
       "id": "media",
-      "label": "视频：Hailuo 系列 20 RPM；Video Generation V2（MiniMax-H3）300 RPM + 最大并行 30 任务；音乐 Music Generation 充值用户 120 RPM + CONN 20（免费 3/3）；语音 T2A v2 免费 10 RPM、充值 20 RPM",
+      "label": "视频：Hailuo 系列 20 RPM；Video Generation V2（MiniMax-H3）300 RPM + 最大并行 30 任务；音乐 Music Generation 充值用户 120 RPM + CONN 20（免费 3/3）；语音 T2A v2 免费 10 RPM、充值 20 RPM；图片：H3-Image 文生图/图片编辑 IPM 1000（两模型各计）、H3-Image-Context-IR 200 RPM、image-01 / image-01-live 10 RPM + TPM 60；asr-1.0 并发 2 / TPM 30,000（按音频秒计，仅充值用户）",
       "source_url": "https://platform.minimax.cn/docs/guides/rate-limits",
       "rules": [
         {
@@ -32,11 +32,25 @@
             "MiniMax-Hailuo-2.3-Fast"
           ],
           "rpm": 20
+        },
+        {
+          "models": [
+            "MiniMax-H3-Context-IR"
+          ],
+          "rpm": 200
+        },
+        {
+          "models": [
+            "image-01",
+            "image-01-live"
+          ],
+          "rpm": 10,
+          "tpm": 60
         }
       ]
     }
   ],
-  "last_updated": 1795488926,
+  "last_updated": 1795756463,
   "holiday_calendar": "CN",
   "endpoints": {
     "default": [

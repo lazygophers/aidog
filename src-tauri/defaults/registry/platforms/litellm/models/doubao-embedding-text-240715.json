@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488925,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "doubao-embedding-text-240715",
   "display_name": "Doubao Embedding Text 240715",
   "canonical_model": "doubao-embedding-text-240715",
-  "version": "24.07",
+  "version": "240715",
   "family": "doubao-embedding",
   "capabilities": [
     "embedding"

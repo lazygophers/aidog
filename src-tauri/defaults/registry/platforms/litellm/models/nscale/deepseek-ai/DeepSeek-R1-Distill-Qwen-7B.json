@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "nscale/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-  "canonical_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+  "canonical_model": "deepseek-r1-distill-qwen-7b",
   "family": "deepseek",
-  "version": "7B",
+  "version": "r1",
   "capabilities": [
     "text"
   ],

@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "together_ai/reflection/Beam-1.0-501B-A23B",
-  "canonical_model": "reflection/Beam-1.0-501B-A23B",
+  "canonical_model": "Beam-1.0-501B-A23B",
   "family": "reflection",
   "version": "1.0",
   "capabilities": [

@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "fireworks_ai/accounts/fireworks/models/ember-1",
-  "canonical_model": "accounts/fireworks/models/ember-1",
+  "canonical_model": "ember-1",
   "family": "accounts",
   "version": "1",
   "capabilities": [

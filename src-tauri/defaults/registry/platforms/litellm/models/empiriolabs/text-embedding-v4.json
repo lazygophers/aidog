@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "empiriolabs/text-embedding-v4",
   "canonical_model": "text-embedding-v4",
-  "family": "text",
+  "family": "text-embedding",
   "capabilities": [
     "embedding"
   ],

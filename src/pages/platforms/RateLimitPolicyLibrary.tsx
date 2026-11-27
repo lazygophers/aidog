@@ -8,6 +8,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
 import { formatInteger } from "../../utils/formatters";
+import { Button } from "../../components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
 
 /** 策略 → 平台限频配置（深拷贝；内置原件不变），记录来源策略 id 与 platform.json last_updated。 */
 export function policyToRateLimits(p: RateLimitPolicy, lastUpdated: number): RateLimitsConfig {
@@ -25,6 +27,11 @@ const nums = (p: RateLimitModelOverride, t: TFunction) => [
   p.rpm && `RPM ${formatInteger(p.rpm)}`,
   p.tpm && `TPM ${formatInteger(p.tpm)}`,
 ].filter(Boolean) as string[];
+
+/** 全策略（平台级 + 每条规则）都无任何限频数字 = 导入不产生限制。 */
+function policyIsEmpty(p: RateLimitPolicy, t: TFunction): boolean {
+  return nums(p, t).length === 0 && (p.rules ?? []).every(r => nums(r, t).length === 0);
+}
 
 const COLLAPSE_AT = 5;
 const detailStyle = { fontSize: 14, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" } as const;
@@ -48,17 +55,17 @@ function RuleTime({ r, t }: { r: RateLimitRule; t: TFunction }) {
 function PolicyDetail({ p, expanded, onToggle, t }: { p: RateLimitPolicy; expanded: boolean; onToggle: () => void; t: TFunction }) {
   const n = nums(p, t);
   const rules = p.rules ?? [];
-  const empty = n.length === 0 && rules.every(r => nums(r, t).length === 0);
+  const empty = policyIsEmpty(p, t);
   const shown = expanded ? rules : rules.slice(0, COLLAPSE_AT);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 3, width: "100%" }}>
       {empty ? (
         <span id={`rl-policy-empty-${p.id}`} style={detailStyle}>
-          {t("platform.rateLimits.policyEmpty", "No rate-limit numbers published by the vendor; importing adds no limits")}
+          {t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).")}
         </span>
       ) : (
         <span id={`rl-policy-platform-${p.id}`} style={detailStyle}>
-          {n.length > 0 ? n.join(" · ") : t("platform.rateLimits.policyNoNumbers", "No platform-level numbers published")}
+          {n.length > 0 ? n.join(" · ") : t("platform.rateLimits.policyNoNumbers", "No platform-level numbers configured")}
         </span>
       )}
       {rules.length > 0 && (
@@ -91,24 +98,54 @@ function PolicyDetail({ p, expanded, onToggle, t }: { p: RateLimitPolicy; expand
   );
 }
 
-export function RateLimitPolicyLibrary({ protocol, source, onImport, t }: {
+export function RateLimitPolicyLibrary({ protocol, source, onImport, t, headerOnly }: {
   protocol: Protocol;
   /** 当前配置记录的来源（extra.rate_limits.source_*）。 */
   source?: { id?: string; at?: number };
   onImport: (cfg: RateLimitsConfig) => void;
   t: TFunction;
+  /** true = 仅渲染右上角入口按钮（策略列表与确认弹窗由独立挂载实例渲染）。 */
+  headerOnly?: boolean;
 }) {
   const [lib, setLib] = useState<{ policies: RateLimitPolicy[]; lastUpdated: number }>({ policies: [], lastUpdated: 0 });
   const [pending, setPending] = useState<RateLimitPolicy | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [open, setOpen] = useState(false);
+  const [emptyFeedback, setEmptyFeedback] = useState<string | null>(null);
+  const [selected, setSelected] = useState("v0");
+  const codingLevels = (protocol === "glm_coding" || protocol === "glm_coding_en") && lib.policies.some(p => p.id === "v0" && !policyIsEmpty(p, t));
   useEffect(() => {
     let cancelled = false;
+    setSelected("v0");
     getDefaultRateLimitPolicies(protocol).then(r => { if (!cancelled) setLib(r); }).catch(() => {});
     return () => { cancelled = true; };
   }, [protocol]);
 
-  if (lib.policies.length === 0) return null;
+  if (lib.policies.length === 0 || (headerOnly && lib.policies.every(p => policyIsEmpty(p, t)))) return null;
   const stale = !!source?.id && (source.at ?? 0) < lib.lastUpdated;
+  const staleTip = stale ? t("platform.rateLimits.policyUpdated", "Built-in policy updated, re-import available") : undefined;
+  if (headerOnly) {
+    // 右上角入口形态（对齐高峰「Import default」按钮）：无策略 / 已导入时给态徽标。
+    const current = source?.id && lib.policies.some(p => p.id === source.id);
+    return (
+      <div id="rl-policy-header" data-state={stale ? "stale" : current ? "current" : "none"} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {staleTip && (
+          <span id="rl-policy-updated-badge" title={staleTip} style={{ fontSize: 14, padding: "2px 8px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", color: "var(--text-primary)" }}>
+            {staleTip}
+          </span>
+        )}
+        <Button variant="ghost" size="sm" style={{ padding: "2px 8px", fontSize: 14, whiteSpace: "nowrap", height: "auto" }} onClick={() => setOpen(true)}>
+          {t("platform.peak_import_default", "Import default")}
+        </Button>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent aria-describedby={undefined} style={{ maxHeight: "80vh", overflowY: "auto" }}>
+            <DialogTitle>{t("platform.rateLimits.policyLibrary", "Policy library (built-in rate-limit policies)")}</DialogTitle>
+            <RateLimitPolicyLibrary protocol={protocol} source={source} onImport={cfg => { onImport(cfg); setOpen(false); }} t={t} />
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
   return (
     <div id="rl-policy-library" data-state={stale ? "stale" : source?.id ? "current" : "none"}
       style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
@@ -117,25 +154,56 @@ export function RateLimitPolicyLibrary({ protocol, source, onImport, t }: {
       </span>
       {stale && (
         <div id="rl-policy-updated" style={{ fontSize: 14, padding: "6px 10px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", color: "var(--text-primary)" }}>
-          {t("platform.rateLimits.policyUpdated", "Built-in policy updated, re-import available")}
+          {staleTip}
         </div>
       )}
+      {codingLevels && (
+        <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
+          {t("platform.rateLimits.codingLevelHint", "V0–V3 are user entitlement concurrency guarantees from the general API, not official Coding Plan limits. Choose your entitlement level.")}
+        </span>
+      )}
       {lib.policies.map(p => {
+        const empty = policyIsEmpty(p, t);
+        const radio = codingLevels && !empty;
         return (
-          <div key={p.id} id={`rl-policy-${p.id}`} data-state={source?.id === p.id ? "imported" : "idle"}
+          <div key={p.id} id={`rl-policy-${p.id}`} data-state={source?.id === p.id ? "imported" : empty ? "empty" : "idle"}
             style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 10px", borderRadius: "var(--radius-sm)", background: "var(--card)", border: "1px solid var(--border)" }}>
+            {radio && (
+              <input type="radio" name="rl-policy-level" value={p.id} aria-label={p.label}
+                checked={selected === p.id} onChange={() => setSelected(p.id)}
+                style={{ accentColor: "var(--primary)" }} />
+            )}
             <strong style={{ fontSize: 14 }}>{p.label}</strong>
             <a href={p.source_url} target="_blank" rel="noreferrer" style={{ fontSize: 14, color: "var(--primary)" }}>
               {t("platform.rateLimits.policySource", "Source")}
             </a>
-            <button type="button" id={`rl-policy-import-${p.id}`} className="btn-ghost"
-              style={{ marginLeft: "auto", fontSize: 14, padding: "2px 10px" }} onClick={() => setPending(p)}>
-              {t("platform.rateLimits.policyImport", "Import")}
-            </button>
+            {!radio && !codingLevels && (
+              <button type="button" id={`rl-policy-import-${p.id}`} className="btn-ghost"
+                style={{ marginLeft: "auto", fontSize: 14, padding: "2px 10px" }}
+                title={empty ? t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).") : undefined}
+                onClick={() => { if (empty) setEmptyFeedback(p.id); else { setEmptyFeedback(null); setPending(p); } }}>
+                {t("platform.rateLimits.policyImport", "Import")}
+              </button>
+            )}
             <PolicyDetail p={p} expanded={!!expanded[p.id]} onToggle={() => setExpanded(e => ({ ...e, [p.id]: !e[p.id] }))} t={t} />
+            {emptyFeedback === p.id && (
+              <span id="rl-policy-empty-feedback" role="status" style={{ fontSize: 14, color: "var(--text-primary)" }}>
+                {t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).")}
+              </span>
+            )}
           </div>
         );
       })}
+      {codingLevels && (
+        <button type="button" id="rl-policy-import-selected" className="btn-ghost"
+          style={{ alignSelf: "flex-end", fontSize: 14, padding: "2px 10px" }}
+          onClick={() => {
+            const p = lib.policies.find(x => x.id === selected);
+            if (p && !policyIsEmpty(p, t)) { setEmptyFeedback(null); setPending(p); }
+          }}>
+          {t("platform.rateLimits.policyImport", "Import")}
+        </button>
+      )}
       <AlertDialog open={pending !== null} onOpenChange={next => { if (!next) setPending(null); }}>
         <AlertDialogContent id="rl-import-confirm" className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}>
           <AlertDialogHeader>

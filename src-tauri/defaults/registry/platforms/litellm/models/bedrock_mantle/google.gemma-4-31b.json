@@ -1,10 +1,10 @@
 {
-  "last_updated": 1793244703,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock_mantle/google.gemma-4-31b",
-  "canonical_model": "google.gemma-4-31b",
+  "canonical_model": "gemma-4-31b",
   "capabilities": [
     "text",
     "vision",

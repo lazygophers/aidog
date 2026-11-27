@@ -1761,6 +1761,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
     <FormSection
       title={t("platform.rateLimits.title", "Rate Limits")}
       desc={t("platform.rateLimits.desc", "Configure RPM/TPM and quota windows per plan; scheduling excludes the platform and blocks requests when exceeded.")}
+      action={<RateLimitPolicyLibrary protocol={protocol} source={bundle.rate_limits?.source_policy_id ? { id: bundle.rate_limits.source_policy_id, at: bundle.rate_limits.source_last_updated } : undefined} onImport={importPolicy} t={t} headerOnly />}
     >
       {/* 实时态条：配置摘要（调度数据未回传，先展示静态配置态） */}
       <div className="aidog-anim-rise" style={C.strip}>
@@ -1811,8 +1812,6 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
         <span style={labelStyle}>{t("platform.rateLimits.rules", "Rate-limit rules")}</span>
         <RateLimitRulesList rules={draft.rules} onChange={rules => upd("rules", rules)} modelOptions={modelOptions} protocol={protocol} platformCalendar={platformCalendar} t={t} />
       </div>
-
-      <RateLimitPolicyLibrary protocol={protocol} source={bundle.rate_limits?.source_policy_id ? { id: bundle.rate_limits.source_policy_id, at: bundle.rate_limits.source_last_updated } : undefined} onImport={importPolicy} t={t} />
 
       {/* 额度窗口（2026-10-23 A2 定稿：时长自由数字+单位，预算三选一 token|金额|次数，预设只是快捷填充；
           2026-11-16 执行上线：每窗口启用开关 + 重置方式） */}

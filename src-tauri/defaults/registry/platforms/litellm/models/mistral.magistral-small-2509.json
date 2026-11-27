@@ -1,13 +1,13 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "mistral.magistral-small-2509",
   "display_name": "Magistral Small 1.2",
   "canonical_model": "mistral.magistral-small-2509",
-  "family": "magistral",
-  "version": "25.09",
+  "family": "bedrock",
+  "version": "2509",
   "capabilities": [
     "text",
     "vision",

@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock_mantle/qwen.qwen3-coder-next",
-  "canonical_model": "qwen.qwen3-coder-next",
+  "canonical_model": "qwen3-coder-next",
   "family": "qwen",
   "capabilities": [
     "text",

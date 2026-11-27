@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai",
     "anthropic"
@@ -8,7 +8,7 @@
   "context_window": 1000000,
   "context_window": 1000000,
   "display_name": "vanchin/deepseek-v4.1-flash",
-  "canonical_model": "vanchin/deepseek-v4.1-flash",
+  "canonical_model": "deepseek-v4.1-flash",
   "family": "deepseek",
   "capabilities": [
     "text"

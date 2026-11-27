@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "kyma/deepseek-r1",
-  "canonical_model": "deepseek-r1",
+  "canonical_model": "DeepSeek-R1",
   "family": "deepseek",
   "capabilities": [
     "text",

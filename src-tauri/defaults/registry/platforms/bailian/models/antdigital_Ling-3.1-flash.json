@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai",
     "anthropic"
   ],
   "model_id": "antdigital/Ling-3.1-flash",
   "display_name": "antdigital/Ling-3.1-flash",
-  "canonical_model": "antdigital/Ling-3.1-flash",
+  "canonical_model": "Ling-3.1-flash",
   "family": "ling",
   "capabilities": [
     "text"

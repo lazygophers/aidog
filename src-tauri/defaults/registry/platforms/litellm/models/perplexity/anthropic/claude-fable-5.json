@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "perplexity/anthropic/claude-fable-5",
   "context_window": 1000000,
-  "canonical_model": "anthropic/claude-fable-5",
-  "family": "anthropic",
+  "canonical_model": "claude-fable-5",
+  "family": "claude",
   "version": "5",
   "capabilities": [
     "text",

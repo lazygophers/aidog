@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795524335,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "empiriolabs/minimax-m3-1-flash",
   "canonical_model": "MiniMax-M3.1-Flash",
   "family": "minimax",
-  "version": "1",
+  "version": "3.1",
   "capabilities": [
     "text",
     "vision",

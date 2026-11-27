@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795488925,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -9,7 +9,7 @@
   "canonical_model": "qwen3-coder-480b-a35b-instruct",
   "display_name": "Qwen3 Coder 480B A35B Instruct",
   "family": "qwen",
-  "version": "3",
+  "version": "480b",
   "capabilities": [
     "text"
   ],

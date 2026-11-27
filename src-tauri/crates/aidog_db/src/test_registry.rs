@@ -720,7 +720,7 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     "claude-opus-4", // openrouter 官方已下架，litellm/therouter 仍售
     "claude-sonnet-4", // 同上
     "ernie-4.5-turbo-128k", // compshare/therouter 前缀形态
-    "glm-5.2-fast", // qianfan
+    "GLM-5.2-Fast", // qianfan（canonical 归一批量修后聚合键字面，条目场景不变）
     "jev-1.13.0", // litellm/pipellm
     "minimax-m1", // shengsuanyun
     "mistral-large-4", // commandcode/litellm/opencode_zen/therouter
@@ -1244,7 +1244,8 @@ async fn presets_cache_concurrent_reads_are_consistent() {
     invalidate_presets_cache();
 }
 
-/// glm 四个内置限频策略可解析，V0~V3 官方并发数落在模型级；其余三个 GLM 平台是骨架；
+/// glm 四个内置限频策略可解析，V0~V3 官方并发数落在模型级；glm_en 是骨架；
+/// glm_coding / glm_coding_en 在 default 骨架后追加智谱用户权益 V0~V3（并发落在规则级）；
 /// 四个 GLM 平台都带 1302/1305 码义；其余带限频字段的平台（registry-数据补齐轮
 /// 落库 14 平台）经 default_rate_limit_policies / default_rate_limit_error_codes
 /// 全部可解析。
@@ -1268,10 +1269,23 @@ fn glm_rate_limit_policies_parse() {
         .collect();
     assert_eq!(plus, [Some(50), Some(100), Some(300), Some(500)]);
 
-    for code in ["glm_en", "glm_coding", "glm_coding_en"] {
+    let en = default_rate_limit_policies("glm_en");
+    assert_eq!(en.len(), 1);
+    assert!(en[0].rules.is_empty() && en[0].caps == RateLimitCaps::default());
+    for code in ["glm_coding", "glm_coding_en"] {
         let ps = default_rate_limit_policies(code);
-        assert_eq!(ps.len(), 1, "{code}");
-        assert!(ps[0].rules.is_empty() && ps[0].caps == RateLimitCaps::default());
+        let ids: Vec<&str> = ps.iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(ids, ["default", "v0", "v1", "v2", "v3"], "{code}");
+        assert!(
+            ps[0].rules.is_empty() && ps[0].caps == RateLimitCaps::default(),
+            "{code}"
+        );
+        assert!(
+            ps[1..]
+                .iter()
+                .all(|p| !p.rules.is_empty() && p.caps == RateLimitCaps::default()),
+            "{code}"
+        );
     }
     for code in ["glm", "glm_en", "glm_coding", "glm_coding_en"] {
         let codes = default_rate_limit_error_codes(code);

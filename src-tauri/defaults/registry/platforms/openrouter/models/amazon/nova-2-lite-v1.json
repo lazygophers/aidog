@@ -2,7 +2,7 @@
   "model_id": "amazon/nova-2-lite-v1",
   "display_name": "Amazon: Nova 2 Lite",
   "canonical_model": "nova-2-lite-v1",
-  "family": "nova",
+  "family": "bedrock",
   "version": "2",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
@@ -15,7 +15,7 @@
     "input": 3e-07,
     "output": 2.5e-06
   },
-  "last_updated": 1793244705,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "anthropic",
     "openai"

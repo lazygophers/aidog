@@ -1,6 +1,8 @@
 // 策略库区：导入覆盖（含来源字段）+「内置策略已更新」提示。选择器锚稳定 id + data-state。
 import { describe, it, expect, vi } from "vitest";
+import { getDefaultRateLimitPolicies } from "../../domains/platforms";
 import { render, fireEvent, waitFor } from "../../test/render";
+import { act } from "@testing-library/react";
 import { RateLimitPolicyLibrary } from "./RateLimitPolicyLibrary";
 import type { RateLimitPolicy } from "../../domains/platforms/defaults";
 
@@ -36,6 +38,40 @@ async function renderLib(source?: { id?: string; at?: number }) {
 }
 
 describe("RateLimitPolicyLibrary", () => {
+  it.each(["glm_coding", "glm_coding_en"] as const)("%s 默认选 V0，可选择 V3 并确认导入", async protocol => {
+    vi.mocked(getDefaultRateLimitPolicies).mockResolvedValueOnce({ policies: [
+      { id: "default", label: "Default", source_url: "https://example.com/default" },
+      { id: "v3", label: "V3", source_url: "https://example.com/v3", concurrency: 30 },
+      { id: "v0", label: "V0", source_url: "https://example.com/v0", concurrency: 10 },
+    ], lastUpdated: 200 });
+    const onImport = vi.fn();
+    render(<RateLimitPolicyLibrary protocol={protocol} onImport={onImport} t={t} />);
+    await waitFor(() => expect(document.querySelector('input[value="v0"]')).not.toBeNull());
+    expect((document.querySelector('input[value="v0"]') as HTMLInputElement).checked).toBe(true);
+    expect(byId("rl-policy-default")?.querySelector("a")).not.toBeNull();
+    expect(byId("rl-policy-import-default")).toBeNull();
+    fireEvent.click(document.querySelector('input[value="v3"]')!);
+    fireEvent.click(byId("rl-policy-import-selected")!);
+    expect(onImport).not.toHaveBeenCalled();
+    await waitFor(() => expect(byId("rl-import-confirm-ok")).not.toBeNull());
+    fireEvent.click(byId("rl-import-confirm-ok")!);
+    expect(onImport).toHaveBeenCalledWith(expect.objectContaining({ concurrency: 30, source_policy_id: "v3" }));
+  });
+  it("全空策略时不渲染导入按钮", async () => {
+    vi.mocked(getDefaultRateLimitPolicies).mockResolvedValueOnce({ policies: [POLICIES[2]], lastUpdated: 200 });
+    render(<RateLimitPolicyLibrary protocol="anthropic" onImport={vi.fn()} t={t} headerOnly />);
+    await act(async () => {});
+    expect(getDefaultRateLimitPolicies).toHaveBeenCalledWith("anthropic");
+    expect(byId("rl-policy-header")).toBeNull();
+  });
+  it("空策略点击导入时给出可见反馈且不覆盖已有配置", async () => {
+    const { onImport } = await renderLib();
+    fireEvent.click(byId("rl-policy-import-skel")!);
+    expect(byId("rl-policy-empty-feedback")?.textContent).toContain("won't produce limits");
+    expect(onImport).not.toHaveBeenCalled();
+    expect(byId("rl-import-confirm")).toBeNull();
+  });
+
   it("导入：确认后覆盖写入，规则原样拷贝（不转换），带 source_policy_id / source_last_updated", async () => {
     const { onImport } = await renderLib();
     fireEvent.click(byId("rl-policy-import-v0")!);
@@ -52,7 +88,7 @@ describe("RateLimitPolicyLibrary", () => {
 
   it("取消确认 → 不导入", async () => {
     const { onImport } = await renderLib();
-    fireEvent.click(byId("rl-policy-import-skel")!);
+    fireEvent.click(byId("rl-policy-import-mw")!);
     await waitFor(() => expect(byId("rl-import-confirm-cancel")).not.toBeNull());
     fireEvent.click(byId("rl-import-confirm-cancel")!);
     expect(onImport).not.toHaveBeenCalled();

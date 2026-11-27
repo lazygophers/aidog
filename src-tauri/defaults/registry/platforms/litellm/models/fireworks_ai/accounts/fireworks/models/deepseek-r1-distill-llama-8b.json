@@ -1,12 +1,12 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-r1-distill-llama-8b",
   "display_name": "DeepSeek R1 Distill Llama 8B",
   "canonical_model": "deepseek-r1-distill-llama-8b",
-  "version": "r1",
+  "version": "8B",
   "family": "deepseek",
   "capabilities": [
     "text"

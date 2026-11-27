@@ -2,7 +2,7 @@
   "rate_limit_policies":   [
     {
       "id": "tier0",
-      "label": "Tier 0（累计消费 $0 默认，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
+      "label": "Tier 0（2026-01-01 起累计消费 $0 默认，永不降档，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
       "source_url": "https://docs.x.ai/developers/rate-limits",
       "rules": [
         {
@@ -50,7 +50,7 @@
     },
     {
       "id": "tier1",
-      "label": "Tier 1（累计消费 $50，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
+      "label": "Tier 1（2026-01-01 起累计消费 $50，永不降档，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
       "source_url": "https://docs.x.ai/developers/rate-limits",
       "rules": [
         {
@@ -98,7 +98,7 @@
     },
     {
       "id": "tier2",
-      "label": "Tier 2（累计消费 $250，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
+      "label": "Tier 2（2026-01-01 起累计消费 $250，永不降档，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
       "source_url": "https://docs.x.ai/developers/rate-limits",
       "rules": [
         {
@@ -146,7 +146,7 @@
     },
     {
       "id": "tier3",
-      "label": "Tier 3（累计消费 $1,000，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
+      "label": "Tier 3（2026-01-01 起累计消费 $1,000，永不降档，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
       "source_url": "https://docs.x.ai/developers/rate-limits",
       "rules": [
         {
@@ -194,7 +194,7 @@
     },
     {
       "id": "tier4",
-      "label": "Tier 4（累计消费 $5,000，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
+      "label": "Tier 4（2026-01-01 起累计消费 $5,000，永不降档，按模型 RPS/TPM；rpm=RPS×48 官方换算）",
       "source_url": "https://docs.x.ai/developers/rate-limits",
       "rules": [
         {
@@ -241,7 +241,7 @@
       ]
     }
   ],
-  "last_updated": 1794657886,
+  "last_updated": 1795756463,
   "holiday_calendar": "US-CA",
   "endpoints": {
     "default": [

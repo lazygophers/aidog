@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795524336,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "streamlake/DeepSeek-V4-Pro-0813",
   "canonical_model": "deepseek-v4-pro-0813",
-  "family": "DeepSeek",
-  "version": "0813",
+  "family": "deepseek",
+  "version": "4",
   "capabilities": [
     "text",
     "tool_use",

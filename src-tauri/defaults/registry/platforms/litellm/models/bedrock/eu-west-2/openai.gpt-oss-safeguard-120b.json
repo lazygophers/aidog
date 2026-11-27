@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/eu-west-2/openai.gpt-oss-safeguard-120b",
-  "canonical_model": "bedrock/eu-west-2/openai.gpt-oss-safeguard-120b",
+  "canonical_model": "gpt-oss-safeguard-120b",
   "family": "bedrock",
   "version": "120b",
   "capabilities": [

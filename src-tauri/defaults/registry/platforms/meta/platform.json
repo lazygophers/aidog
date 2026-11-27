@@ -1,5 +1,5 @@
 {
-  "rate_limit_policies":   [
+    "rate_limit_policies": [
     {
       "id": "default",
       "label": "Per-model limits, per team (all API keys in a team share): token-priced reasoning models 3,000 RPM / 4,000,000 TPM (contributor variants 150 RPM / 3,000,000 TPM); sam-3.1 3,000 RPM (no TPM); muse-image-1.0 150 RPM; muse-voice-transcribe-1.0 256 concurrent streams + 16,000 streams per hour",
@@ -10,7 +10,8 @@
             "muse-wonder-1.0",
             "muse-spark-1.1",
             "muse-spark-1.2",
-            "muse-spark-1.3"
+            "muse-spark-1.3",
+            "muse-ember-1.0"
           ],
           "rpm": 3000,
           "tpm": 4000000
@@ -53,7 +54,7 @@
   "rate_limit_error_codes":   {
     "429": "rate_limit"
   },
-  "last_updated": 1795488926,
+  "last_updated": 1795756463,
   "holiday_calendar": "US-CA",
   "endpoints": {
     "default": [

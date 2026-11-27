@@ -92,7 +92,7 @@ test_registry.rs 躺着「除 4 个 GLM 平台外其余平台不得有 rate_limi
 
 ## 外部数值落库前量级核对
 
-aliyun rerank 档官方 TPM 4.98e9 超 u32 上限 4.29e9，`RateLimitCaps` 首版 u32 装不下，靠 cargo test 抓住后改 u64（`registry.rs:248` 字段注释即此出处）。外部官方数值（TPM / RPM / 上下文窗口 / 价格）落库前做一次量级核对：grep struct 定义看整数宽度（u32 上限 4.29e9，u64 约 1.8e19），超限 → 先改字段类型再落库，禁截断 / 估算塞入。机械拦截候选：check-registry lint 加数值范围检查（未做，属代码改动，需要时开票）。
+aliyun rerank 档官方 TPM 4.98e9 超 u32 上限 4.29e9，`RateLimitCaps` 首版 u32 装不下，靠 cargo test 抓住后改 u64（`registry.rs::RateLimitCaps` 字段注释即此出处，u64 注释现 :413）。外部官方数值（TPM / RPM / 上下文窗口 / 价格）落库前做一次量级核对：grep struct 定义看整数宽度（u32 上限 4.29e9，u64 约 1.8e19），超限 → 先改字段类型再落库，禁截断 / 估算塞入。机械拦截候选：check-registry lint 加数值范围检查（未做，属代码改动，需要时开票）。
 
 ## 审计口径先对门禁源码，摘要数字不算工作清单
 
@@ -121,5 +121,5 @@ aliyun rerank 档官方 TPM 4.98e9 超 u32 上限 4.29e9，`RateLimitCaps` 首�
 ## 排查与条目维护三约定
 
 1. **「模型缺失」先查 `model_list.default`**：先查 `platform.json` 的 `model_list.default`（前端下拉冷启动候选，用户唯一可见），再查 `models/` 目录（只是计价条目，界面不可见）。两者应保持 `model_list.default ⊇ models/ 全部 model_id`（openrouter / therouter 素有此约定）。`platform.json` 只有在 `JSON.stringify(doc, null, 2) + "\n"` 与原文逐字节相同时才可安全 round-trip 回写，否则手工编辑（aihubmix / crazyrouter / opencode_zen 属这类）。
-2. **平台变体分开维护**：`glm` 与 `glm_codingplan`、`minimax` 与 `minimax_codingplan` 各自独立条目——变体的模型范围、端点、计费/计划语义不同，禁压进同一条数据。
+2. **平台变体分开维护**：`glm` 与 `glm_coding`、`minimax` 与 `minimax_coding` 各自独立条目——变体的模型范围、端点、计费/计划语义不同，禁压进同一条数据。
 3. **schema 三文件每个字段必须带 description**（check-registry ⑤ 强制）。

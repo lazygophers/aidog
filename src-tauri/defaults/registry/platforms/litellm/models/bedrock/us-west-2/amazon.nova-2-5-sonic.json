@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/us-west-2/amazon.nova-2-5-sonic",
-  "canonical_model": "us-west-2/amazon.nova-2-5-sonic",
-  "family": "us",
+  "canonical_model": "nova-2-5-sonic",
+  "family": "amazon",
   "version": "2",
   "capabilities": [
     "text",

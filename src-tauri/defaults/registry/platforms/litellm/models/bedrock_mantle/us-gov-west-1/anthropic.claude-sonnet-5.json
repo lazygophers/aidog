@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock_mantle/us-gov-west-1/anthropic.claude-sonnet-5",
-  "canonical_model": "us-gov-west-1/anthropic.claude-sonnet-5",
-  "family": "us",
+  "canonical_model": "claude-sonnet-5",
+  "family": "claude",
   "version": "5",
   "capabilities": [
     "text",

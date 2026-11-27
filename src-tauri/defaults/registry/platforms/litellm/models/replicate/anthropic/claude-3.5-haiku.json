@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "replicate/anthropic/claude-3.5-haiku",
   "context_window": 200000,
-  "canonical_model": "anthropic/claude-3.5-haiku",
-  "family": "anthropic",
+  "canonical_model": "claude-3-5-haiku",
+  "family": "claude",
   "version": "3.5",
   "capabilities": [
     "text",

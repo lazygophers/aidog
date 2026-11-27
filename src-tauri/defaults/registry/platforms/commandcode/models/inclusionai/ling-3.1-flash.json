@@ -1,8 +1,8 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "model_id": "inclusionai/ling-3.1-flash",
   "display_name": "Ling 3.1 Flash",
-  "canonical_model": "ling-3.1-flash",
+  "canonical_model": "Ling-3.1-flash",
   "family": "ling",
   "version": "3.1",
   "official": false,

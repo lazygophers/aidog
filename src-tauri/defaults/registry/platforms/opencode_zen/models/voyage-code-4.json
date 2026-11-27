@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "voyage-code-4",
   "display_name": "voyage-code-4",
   "canonical_model": "voyage-code-4",
-  "family": "voyage",
+  "family": "voyage-code",
   "version": "4",
   "capabilities": [
     "embedding"

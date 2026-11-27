@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock/ap-southeast-3/mistral.devstral-2-123b",
-  "canonical_model": "bedrock/ap-southeast-3/mistral.devstral-2-123b",
+  "canonical_model": "devstral-2-123b",
   "family": "bedrock",
   "version": "2",
   "capabilities": [

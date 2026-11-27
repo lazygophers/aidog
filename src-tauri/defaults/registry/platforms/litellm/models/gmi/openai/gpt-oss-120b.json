@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/openai/gpt-oss-120b",
-  "canonical_model": "openai/gpt-oss-120b",
-  "family": "openai",
+  "canonical_model": "gpt-oss-120b",
+  "family": "gpt",
   "version": "120b",
   "capabilities": [
     "text"

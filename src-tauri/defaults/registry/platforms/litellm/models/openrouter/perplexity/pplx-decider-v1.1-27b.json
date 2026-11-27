@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "openrouter/perplexity/pplx-decider-v1.1-27b",
-  "canonical_model": "perplexity/pplx-decider-v1.1-27b",
+  "canonical_model": "pplx-decider-v1.1-27b",
   "family": "perplexity",
   "version": "1.1",
   "capabilities": [

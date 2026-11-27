@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/google/gemini-3.1-flash-lite-preview",
-  "canonical_model": "google/gemini-3.1-flash-lite-preview",
-  "family": "google",
+  "canonical_model": "gemini-3.1-flash-lite-preview",
+  "family": "gemini",
   "version": "3.1",
   "capabilities": [
     "text"

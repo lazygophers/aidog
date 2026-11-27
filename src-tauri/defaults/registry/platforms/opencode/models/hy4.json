@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "hy4",
   "display_name": "Hy4",
   "canonical_model": "hy4",
-  "family": "hy4",
+  "family": "hunyuan",
   "version": "4",
   "capabilities": [
     "text"

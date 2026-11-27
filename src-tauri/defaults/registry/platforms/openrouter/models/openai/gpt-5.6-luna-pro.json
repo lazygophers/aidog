@@ -1,7 +1,7 @@
 {
   "model_id": "openai/gpt-5.6-luna-pro",
   "display_name": "OpenAI: GPT-5.6 Luna Pro",
-  "canonical_model": "gpt-5-6-luna-pro",
+  "canonical_model": "gpt-5.6-luna-pro",
   "family": "gpt",
   "version": "5.6",
   "max_input_tokens": 1050000,
@@ -24,7 +24,7 @@
       }
     ],
     "cache_write": 2.5e-7},
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "anthropic",
     "openai"

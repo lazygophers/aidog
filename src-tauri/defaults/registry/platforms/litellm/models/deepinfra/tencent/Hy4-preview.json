@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "deepinfra/tencent/Hy4-preview",
-  "canonical_model": "tencent/Hy4-preview",
-  "family": "tencent",
+  "canonical_model": "hy4-preview",
+  "family": "hunyuan",
   "capabilities": [
     "text",
     "tool_use",

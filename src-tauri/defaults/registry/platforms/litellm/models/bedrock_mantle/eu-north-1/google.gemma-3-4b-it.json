@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "bedrock_mantle/eu-north-1/google.gemma-3-4b-it",
-  "canonical_model": "eu-north-1/google.gemma-3-4b-it",
-  "family": "eu",
+  "canonical_model": "gemma-3-4b-it",
+  "family": "gemma",
   "version": "3",
   "capabilities": [
     "text",

@@ -1,12 +1,12 @@
 {
-  "last_updated": 1795499859,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "gmi/moonshotai/Kimi-K2-Instruct-0905",
-  "canonical_model": "moonshotai/Kimi-K2-Instruct-0905",
-  "family": "moonshotai",
-  "version": "0905",
+  "canonical_model": "Kimi-K2-Instruct-0905",
+  "family": "kimi",
+  "version": "2",
   "capabilities": [
     "text"
   ],

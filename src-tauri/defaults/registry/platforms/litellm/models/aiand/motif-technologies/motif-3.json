@@ -1,10 +1,10 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "aiand/motif-technologies/motif-3",
-  "canonical_model": "motif-technologies/motif-3",
+  "canonical_model": "motif-3",
   "family": "motif",
   "version": "3",
   "capabilities": [

@@ -1,11 +1,11 @@
 {
-  "last_updated": 1795499858,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "azure/standard/1024-x-1024/dall-e-2",
-  "canonical_model": "standard/1024-x-1024/dall-e-2",
-  "family": "standard",
+  "canonical_model": "dall-e-2",
+  "family": "dall-e",
   "version": "2",
   "capabilities": [
     "text_to_image"

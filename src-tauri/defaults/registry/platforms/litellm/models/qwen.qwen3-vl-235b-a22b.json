@@ -1,13 +1,13 @@
 {
-  "last_updated": 1793244704,
+  "last_updated": 1795755353,
   "supported_protocols": [
     "openai"
   ],
   "model_id": "qwen.qwen3-vl-235b-a22b",
   "display_name": "Qwen3 VL 235B A22B",
-  "canonical_model": "qwen.qwen3-vl-235b-a22b",
-  "family": "qwen",
-  "version": "3",
+  "canonical_model": "qwen3-vl-235b-a22b",
+  "family": "bedrock",
+  "version": "235b",
   "capabilities": [
     "text",
     "vision",

@@ -593,6 +593,15 @@
         ],
         "PostToolUse": [
             {
+                "matcher": "TaskCreate|TaskUpdate",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 -c 'import json,sys,os,re\ne=json.load(sys.stdin)\nsid=e.get(\"session_id\") or os.environ.get(\"CLAUDE_CODE_SESSION_ID\")\nif not sid: sys.exit(0)\nf=os.path.join(os.getcwd(),\".scratch\",\"session\",sid+\".md\")\nti=e.get(\"tool_input\") or {}\ntr=e.get(\"tool_response\") or e.get(\"tool_output\") or {}\nq=chr(34)\nm=re.search(q+\"(?:id|taskId)\"+q+r\"\\s*:\\s*\"+q+\"([^\"+q+\"]+)\"+q,json.dumps(tr))\ntid=ti.get(\"taskId\") or (m.group(1) if e.get(\"tool_name\")==\"TaskCreate\" else None)\nif not tid: sys.exit(0)\nB=\"<!--task-sync:start-->\"; E=\"<!--task-sync:end-->\"\nSM={\"pending\":\"[ ]\",\"in_progress\":\"[~]\",\"completed\":\"[x]\"}\nif os.path.exists(f): t=open(f).read()\nelse:\n    d=os.path.dirname(f)\n    if d: os.makedirs(d,exist_ok=True)\n    t=\"## 目标\\n\\n（待补：用户原话）\\n\\n## checkpoint\\n\\n\"+B+\"\\n\"+E+\"\\n\\n## 已确认\\n\\n（无）\\n\\n## 待确认\\n\\n（无）\\n\"\nif B not in t: t=t.replace(\"## checkpoint\\n\",\"## checkpoint\\n\\n\"+B+\"\\n\"+E+\"\\n\")\nb=t.index(B); e2=t.index(E)\nhead=t[:b]; tail=t[e2+len(E):]\nbody=[l for l in t[b:e2].split(\"\\n\") if l and not l.startswith(\"<!--\")]\npat=re.compile(\"- \\\\[( |~|x)\\\\] ([^.\\\\s]+)\\\\.\")\nif e.get(\"tool_name\")==\"TaskCreate\":\n    s=(ti.get(\"subject\") or \"（无标题）\").replace(\"\\n\",\" \").strip()\n    body=body+[\"- [ ] \"+str(tid)+\". \"+s]\nelse:\n    st=ti.get(\"status\")\n    keep=[l for l in body if not (mm:=pat.search(l)) or mm.group(2)!=str(tid)]\n    if st==\"deleted\": body=keep\n    elif st in SM:\n        old=next((l for l in body if (mm:=pat.search(l)) and mm.group(2)==str(tid)),str(tid)+\".\")\n        rest=old.split(\"] \",1)[1] if \"] \" in old else old\n        body=keep+[\"- \"+SM[st]+\" \"+rest]\nopen(f,\"w\").write(head+B+\"\\n<!-- 由 task hook 维护，勿手改 -->\\n\"+\"\\n\".join(body)+\"\\n\"+E+tail)'"
+                    }
+                ]
+            },
+            {
                 "hooks": [
                     {
                         "command": "sqz hook claude-post",
@@ -693,6 +702,7 @@
     "subagentPromptCacheTtl": "5m",
     "skillListingBudgetFraction": 0.01,
     "env": {
+        "CLAUDE_CODE_ENABLE_TASKS": "1",
         "ANTHROPIC_CUSTOM_HEADERS": "",
         "FORCE_HYPERLINK": "1",
         "CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS": "2",

@@ -1,9 +1,9 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795755353,
   "model_id": "tencent/hy4",
   "display_name": "Tencent Hy4",
   "canonical_model": "hy4",
-  "family": "hy4",
+  "family": "hunyuan",
   "official": false,
   "capabilities": [
     "text"

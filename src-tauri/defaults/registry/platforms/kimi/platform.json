@@ -2,7 +2,7 @@
   "rate_limit_policies":   [
     {
       "id": "tier0",
-      "label": "Tier0（累计充值 ¥0，TPD 1,500,000）",
+      "label": "Tier0（累计充值 ¥0，TPD 1,500,000，联网搜索 QPS 1）",
       "source_url": "https://platform.kimi.com/docs/pricing/limits",
       "concurrency": 1,
       "rpm": 3,
@@ -10,7 +10,7 @@
     },
     {
       "id": "tier1",
-      "label": "Tier1（累计充值 ¥50）",
+      "label": "Tier1（累计充值 ¥50，联网搜索 QPS 3）",
       "source_url": "https://platform.kimi.com/docs/pricing/limits",
       "concurrency": 15,
       "rpm": 100,
@@ -18,7 +18,7 @@
     },
     {
       "id": "tier2",
-      "label": "Tier2（累计充值 ¥100）",
+      "label": "Tier2（累计充值 ¥100，联网搜索 QPS 5）",
       "source_url": "https://platform.kimi.com/docs/pricing/limits",
       "concurrency": 40,
       "rpm": 100,
@@ -26,7 +26,7 @@
     },
     {
       "id": "tier3",
-      "label": "Tier3（累计充值 ¥500）",
+      "label": "Tier3（累计充值 ¥500，联网搜索 QPS 10）",
       "source_url": "https://platform.kimi.com/docs/pricing/limits",
       "concurrency": 50,
       "rpm": 200,
@@ -34,7 +34,7 @@
     },
     {
       "id": "tier4",
-      "label": "Tier4（累计充值 ¥5,000）",
+      "label": "Tier4（累计充值 ¥5,000，联网搜索 QPS 20）",
       "source_url": "https://platform.kimi.com/docs/pricing/limits",
       "concurrency": 60,
       "rpm": 200,
@@ -42,7 +42,7 @@
     },
     {
       "id": "tier5",
-      "label": "Tier5（累计充值 ¥20,000）",
+      "label": "Tier5（累计充值 ¥20,000，联网搜索 QPS 50）",
       "source_url": "https://platform.kimi.com/docs/pricing/limits",
       "concurrency": 100,
       "rpm": 300,
@@ -59,7 +59,7 @@
     "search_pro": {"per_1000": 15.0, "currency": "CNY"},
     "fetch": {"per_1000": 10.0, "currency": "CNY"}
   },
-  "last_updated": 1794648844,
+  "last_updated": 1795756463,
   "endpoints": {
     "default": [
       {
