@@ -51,11 +51,6 @@ agent 的 Bash 驱动不了交互式 `git add -p`；用 patch 过滤等价替代
 
 冲突高发的共用文件要有主：
 
-| 文件 | 归属 |
-|---|---|
-| `flutter/lib/src/pages/ui_bits.dart` | team-lead；他人改前先说 |
-| `flutter/lib/src/shell/*` | team-lead |
-
 其余文件按「谁在做那块活谁临时持有」，做完明确交还。
 
 ## 后台 agent 的提交边界

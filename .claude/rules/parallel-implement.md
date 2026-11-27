@@ -79,7 +79,7 @@ agent 可能只跑部分 target 或 crate，导致子集门禁全绿、完整门
 
 ## 8. 派 agent 前先数在途数
 
-后台 agent 同时不超过 2（全局约束），多个并行 spec 各要 code-review 时会串行排队；**派之前先数在途 agent 数**，排队会饿住关键路径（如 review 挡合并）时，把顺序重排或将轻票收给主会话自己干。
+后台 agent 同时不超过 2（本项目约定；全局为 3），多个并行 spec 各要 code-review 时会串行排队；**派之前先数在途 agent 数**，排队会饿住关键路径（如 review 挡合并）时，把顺序重排或将轻票收给主会话自己干。
 
 - **在途账本与实际占槽同步**：agent 回报并 TaskStop 后，主会话当场把任务状态文件里该 agent 的占槽条目标成已释放——TaskStop 不清账本，派发 hook 按自己的账本计数且条目约 4 小时才过期。被「并发 subagent 上限 N 已满」拦时先核对账本：条目对应 agent 已回报 / 已结束却未释放的，释放后立即重派，不干等自动过期，也不硬重试。
 - **用户催促 / 说「继续」时同样先数在途**：先 ListAgents 核对在途，同任务只留一个收口方，收口 agent 还在跑就等它，不为催促新开重复代理。
@@ -92,10 +92,9 @@ agent 可能只跑部分 target 或 crate，导致子集门禁全绿、完整门
 - 合并前派复核：对 revert diff 逐 hunk 标「属目标功能 / 属别的功能」，后者即误删，修回。
 - 以可达性证据收口：被删符号的其它入口仍在（该轮 `PlatformEditForm.tsx:287`、`usePlatformsState.ts:704`），不凭「diff 看着没问题」。
 
-## 10. 门禁红先跑基线对照再归因；worktree 内 build:web 的限制
+## 10. 门禁红先跑基线对照再归因
 
-- 升级依赖后 `yarn build:web` 红时，直接 detach worktree 到升级前 commit、独立 `yarn install` 跑同一命令（perf-testing.md §7 双版本对照）；基线同红 = 预存，记遗留，不算升级回归。
-- `build:web`（next/turbopack）在 harness worktree 里可能因 `node_modules` 软链找不到 next（`web/next.config.ts` 的 `turbopack.root`）。验证在主仓跑；非要在 worktree 跑，临时改 `turbopack.root` 并在提交前还原。
+- 升级依赖后门禁红时，直接 detach worktree 到升级前 commit、独立 `yarn install` 跑同一命令（perf-testing.md §7 双版本对照）；基线同红 = 预存，记遗留，不算升级回归。
 
 ## 11. 等别人的门禁日志：禁 `tail -F | grep -m1`，用 node 等待脚本
 
@@ -151,7 +150,7 @@ completed 的后台 subagent 不会从列表消失，界面一直显示最后一
 
 ## 17. 门禁里的计时断言偶发红：`--no-fail-fast` 取全量，重跑定性
 
-`cargo test --workspace` 遇一个 suite 失败就停，后面的 suite 不跑，拿不到全量结果。门禁命令写 `{ cargo test --workspace --no-fail-fast; rc=$?; echo EXIT=$rc; } > .tmp/<任务名>/x.log 2>&1`。计时断言（如 `aidog_stats::test_usage_stats::flow_breakdown_7d_scale_guard`）首轮红先单跑该测试一次：绿 = 负载抖动，记账本遗留；仍红才按回归处理。同族挂钟断言：`aidog_core::gateway::proxy::test_integration::mock_platform_ttft_and_inter_chunk_split`（`test_integration.rs:1366`，ttft 阈值 40–160ms、chunk 间隔 ≤60ms，已加预热请求兜底）。再红先查机器负载 / 内存压力，不当回归。
+`cargo test --workspace` 遇一个 suite 失败就停，后面的 suite 不跑，拿不到全量结果。门禁命令写 `{ cargo test --workspace --no-fail-fast; rc=$?; echo EXIT=$rc; } > .tmp/<任务名>/x.log 2>&1`。计时断言（如 `aidog_stats::test_usage_stats::flow_breakdown_7d_scale_guard`）首轮红先单跑该测试一次：绿 = 负载抖动，记账本遗留；仍红才按回归处理。同族挂钟断言：`aidog_core::gateway::proxy::test_integration::mock_platform_ttft_and_inter_chunk_split`（ttft 阈值 40–160ms、chunk 间隔 ≤60ms，已加预热请求兜底）。再红先查机器负载 / 内存压力，不当回归。
 
 ## 18. 网络断连中断、先红严格性、票状态词、带密钥写命令登记
 
@@ -162,7 +161,7 @@ completed 的后台 subagent 不会从列表消失，界面一直显示最后一
 - **票 `Status:` 只有 `claimed` → `resolved`**：与 wayfinder-session.md §2 同口径，派发 prompt 三行词表照贴；合并后当场 grep `Status:`。
 - **新增带密钥的写命令，同提交登记 `RESTORERS`**（`aidog_rpc/src/secret_fields.rs:114`）：派发含新增写命令且涉及 `SECRET_PATHS` 字段的票时，prompt 写明此登记要求，review 时对照检查。建议做成机械检查：「`SECRET_PATHS` 涉及的写命令 ⊆ `RESTORERS`」测试（未做，属代码改动；重审触发：再新增带密钥写命令）。
 
-## 18. 门禁日志与构建目录收回仓库
+## 18b. 门禁日志与构建目录收回仓库（原编号重复，18b）
 
 - 上文各节的 `/tmp/<名>.log` 一律落仓库 `.tmp/<任务名>/<名>.log`（`.gitignore` 已忽略），收工删该目录；命令前先 `mkdir -p .tmp/<任务名>`。**先红（`red*.log`）与门禁日志例外：实现 agent 不删**——留到 review 核对与合并完成后由收尾 agent / 主会话清；派发 prompt 交代清场边界时带上这句。
 - 上文 `CARGO_TARGET_DIR=/tmp/aidog-agent-target` 作废：主 checkout 用默认 `src-tauri/target`，仅 worktree 用 `<项目根>/.worktrees/.target`（见 shared-worktree.md「构建目录」）。
