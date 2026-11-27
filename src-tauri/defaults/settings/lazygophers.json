@@ -693,6 +693,7 @@
     "subagentPromptCacheTtl": "5m",
     "skillListingBudgetFraction": 0.01,
     "env": {
+        "CLAUDE_CODE_ENABLE_TASKS": "1",
         "ANTHROPIC_CUSTOM_HEADERS": "",
         "FORCE_HYPERLINK": "1",
         "CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS": "2",
