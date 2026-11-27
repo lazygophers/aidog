@@ -1,11 +1,10 @@
 {
-  "last_updated": 1795524334,
+  "last_updated": 1795772789,
   "supported_protocols": [
     "openai",
     "anthropic"
   ],
   "model_id": "kimi/kimi-k3.1-pro-highspeed",
-  "context_window": 1048576,
   "context_window": 1048576,
   "display_name": "kimi/kimi-k3.1-pro-highspeed",
   "canonical_model": "kimi-k3.1-pro-highspeed",
