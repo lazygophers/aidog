@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795789237,  "platforms": [
+  "last_updated": 1795789625,  "platforms": [
     {
       "code": "aihubmix",
       "name": "AiHubMix",
@@ -5400,14 +5400,6 @@
         "fal_ai/xhigh/3840-x-2160/openai/gpt-image-2.5/flare/text-to-image.json",
         "fal_ai/xhigh/3840-x-2160/openai/gpt-image-2.5/sunburst/edit.json",
         "fal_ai/xhigh/3840-x-2160/openai/gpt-image-2.5/sunburst/text-to-image.json",
-        "fireworks-ai-4.1b-to-16b.json",
-        "fireworks-ai-56b-to-176b.json",
-        "fireworks-ai-above-16b.json",
-        "fireworks-ai-default.json",
-        "fireworks-ai-embedding-150m-to-350m.json",
-        "fireworks-ai-embedding-up-to-150m.json",
-        "fireworks-ai-moe-up-to-56b.json",
-        "fireworks-ai-up-to-4b.json",
         "fireworks_ai/WhereIsAI/UAE-Large-V1.json",
         "fireworks_ai/accounts/fireworks/models/SSD-1B.json",
         "fireworks_ai/accounts/fireworks/models/chronos-hermes-13b-v2.json",
@@ -7666,14 +7658,9 @@
         "text-unicorn.json",
         "text-unicorn@001.json",
         "tinyfish/search.json",
-        "together-ai-21.1b-41b.json",
-        "together-ai-4.1b-8b.json",
-        "together-ai-41.1b-80b.json",
         "together-ai-8.1b-21b.json",
-        "together-ai-81.1b-110b.json",
         "together-ai-embedding-151m-to-350m.json",
         "together-ai-embedding-up-to-150m.json",
-        "together-ai-up-to-4b.json",
         "together_ai/BAAI/bge-base-en-v1.5.json",
         "together_ai/MiniMaxAI/MiniMax-M2.7.json",
         "together_ai/MiniMaxAI/MiniMax-M3.json",
