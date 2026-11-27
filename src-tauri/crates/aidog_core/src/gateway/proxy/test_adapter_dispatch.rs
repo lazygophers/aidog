@@ -4196,3 +4196,78 @@ async fn longcat_anthropic_endpoint_dispatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
     assert!(resp.contains("top_p"), "{resp}");
 }
+
+// ══ issue 129：百度千帆成员 `qianfan` 逐端点协议护栏（本地假上游）══
+// 成员级核对及未证实项见 QianfanFamilyAdapter 文档注释。
+
+/// 官方非流式响应形状（cached_tokens 命中缓存 40，从 input 扣除）。
+const QIANFAN_OPENAI_RESP: &str = r#"{"id":"as-qf1","object":"chat.completion","model":"deepseek-v4-pro","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150,"prompt_tokens_details":{"cached_tokens":40,"search_tokens":10}}}"#;
+/// 官方流式形状：启用 `stream_options.include_usage` 后末帧带 usage；`data: [DONE]` 结束。
+const QIANFAN_OPENAI_SSE: &str = "data: {\"id\":\"as-qf1\",\"object\":\"chat.completion.chunk\",\"model\":\"deepseek-v4-pro\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"think\"}}]}\n\n\
+data: {\"id\":\"as-qf1\",\"object\":\"chat.completion.chunk\",\"model\":\"deepseek-v4-pro\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
+data: {\"id\":\"as-qf1\",\"object\":\"chat.completion.chunk\",\"model\":\"deepseek-v4-pro\",\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"delta\":{}}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":50,\"total_tokens\":150,\"prompt_tokens_details\":{\"cached_tokens\":40}}}\n\n\
+data: [DONE]\n\n";
+/// 官方错误码页 401 `invalid_model`。
+const QIANFAN_OPENAI_ERROR: &str = r#"{"error":{"code":"invalid_model","message":"The model does not exist or you do not have access to it.","type":"invalid_request_error"},"id":"as-qfe"}"#;
+/// Anthropic 兼容端点响应（input_tokens 已不含缓存命中，公告 2025-06-04 生效）。
+const QIANFAN_ANTHROPIC_RESP: &str = r#"{"id":"msg_qf","type":"message","role":"assistant","model":"deepseek-v4-pro","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":6,"output_tokens":3,"cache_read_input_tokens":4}}"#;
+const QIANFAN_ANTHROPIC_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_qf\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"deepseek-v4-pro\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":4}}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic 且 cached_tokens 计 cache_read；
+/// 流式 delta.reasoning_content → thinking、上游 `[DONE]` 不漏进 anthropic 输出；
+/// 401 `invalid_model` 原状态透传（模型不存在挂 401，基座按状态码归服务类）。
+#[tokio::test]
+async fn qianfan_openai_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::QianFan, Protocol::OpenAI, "gk129oa", "/v1/messages", r#"{"model":"deepseek-v4-pro","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", QIANFAN_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "deepseek-v4-pro", "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi");
+    assert_eq!(response["usage"]["input_tokens"], 100, "{response}");
+    assert_eq!(response["usage"]["output_tokens"], 50, "{response}");
+    assert_eq!(response["usage"]["cache_read_input_tokens"], 40, "{response}");
+    let (status, resp, hits) = glm_member_call(Protocol::QianFan, Protocol::OpenAI, "gk129oas", "/v1/messages", r#"{"model":"deepseek-v4-pro","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", QIANFAN_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    assert!(!resp.contains("[DONE]"), "OpenAI upstream terminator must not leak into Anthropic output: {resp}");
+    assert!(resp.contains("\"input_tokens\":100"), "{resp}");
+    assert!(resp.contains("\"output_tokens\":50"), "{resp}");
+    assert!(resp.contains("\"cache_read_input_tokens\":40"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::QianFan, Protocol::OpenAI, "gk129oae", "/v1/messages", r#"{"model":"deepseek-v4-pro","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", QIANFAN_OPENAI_ERROR)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("The model does not exist"), "{resp}");
+}
+
+/// anthropic 端点（内置默认）：出站打 `/v1/messages`；非流式回 openai 形状；
+/// 流式透传标准事件链；400 错误体原样透传；usage 按公告语义（input 6 已不含 cache 4）。
+#[tokio::test]
+async fn qianfan_anthropic_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::QianFan, Protocol::Anthropic, "gk129an", "/chat/completions", r#"{"model":"deepseek-v4-pro","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", QIANFAN_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "deepseek-v4-pro", "{req}");
+    assert_eq!(req["messages"][0]["role"], "user", "{req}");
+    assert_eq!(req["messages"][0]["content"], "hi", "{req}");
+    assert_eq!(req["max_tokens"], 32, "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    assert_eq!(response["usage"]["prompt_tokens"], 6, "{response}");
+    assert_eq!(response["usage"]["completion_tokens"], 3, "{response}");
+    assert_eq!(response["usage"]["prompt_tokens_details"]["cached_tokens"], 4, "{response}");
+    let (status, resp, _) = glm_member_call(Protocol::QianFan, Protocol::Anthropic, "gk129ans", "/chat/completions", r#"{"model":"deepseek-v4-pro","max_tokens":32,"stream":true,"stream_options":{"include_usage":true},"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", QIANFAN_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    assert!(resp.contains("\"prompt_tokens\":6"), "{resp}");
+    assert!(resp.contains("\"completion_tokens\":3"), "{resp}");
+    assert!(resp.contains("\"cached_tokens\":4"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::QianFan, Protocol::Anthropic, "gk129ane", "/chat/completions", r#"{"model":"deepseek-v4-pro","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"model is empty"}}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model is empty"), "{resp}");
+}
