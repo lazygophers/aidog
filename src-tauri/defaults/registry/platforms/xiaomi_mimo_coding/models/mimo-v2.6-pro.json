@@ -13,11 +13,12 @@
   "thinking_toggleable": true,
   "model_id": "mimo-v2.6-pro",
   "context_window": 1048576,
+  "max_output_tokens": 131072,
   "canonical_model": "mimo-v2.6-pro",
   "price": {
     "currency": "CNY",
     "input": 7.2e-08,
     "output": 7.2e-08
   },
-  "last_updated": 1794028978
+  "last_updated": 1795776239
 }

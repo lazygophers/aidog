@@ -74,6 +74,14 @@ pub enum Protocol {
     ClinePass,
     #[serde(rename = "bailian")]
     Bailian,
+    #[serde(rename = "bailian_us_global")]
+    BailianUsGlobal,
+    #[serde(rename = "bailian_us_local")]
+    BailianUsLocal,
+    #[serde(rename = "bailian_hk_global")]
+    BailianHkGlobal,
+    #[serde(rename = "bailian_hk_local")]
+    BailianHkLocal,
     #[serde(rename = "bailian_coding")]
     BailianCoding,
     /// 阿里百炼国际版（Model Studio International，新加坡区）：

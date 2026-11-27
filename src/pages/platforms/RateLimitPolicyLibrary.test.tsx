@@ -38,6 +38,17 @@ async function renderLib(source?: { id?: string; at?: number }) {
 }
 
 describe("RateLimitPolicyLibrary", () => {
+  it("imports platform and model per-second limits", async () => {
+    vi.mocked(getDefaultRateLimitPolicies).mockResolvedValueOnce({ policies: [
+      { id: "v0", label: "V0", source_url: "https://example.com/v0", rps: 3, rules: [{ models: ["m"], rps: 2 }] },
+    ], lastUpdated: 200 });
+    const { onImport } = await renderLib();
+    expect(byId("rl-policy-v0")?.textContent).toContain("RPS 3");
+    fireEvent.click(byId("rl-policy-v0")!.querySelector('[id^="rl-policy-import-"]')!);
+    await waitFor(() => expect(byId("rl-import-confirm-ok")).not.toBeNull());
+    fireEvent.click(byId("rl-import-confirm-ok")!);
+    expect(onImport).toHaveBeenCalledWith(expect.objectContaining({ rps: 3, rules: [{ models: ["m"], rps: 2 }] }));
+  });
   it.each(["glm_coding", "glm_coding_en"] as const)("%s 默认选 V0，可选择 V3 并确认导入", async protocol => {
     vi.mocked(getDefaultRateLimitPolicies).mockResolvedValueOnce({ policies: [
       { id: "default", label: "Default", source_url: "https://example.com/default" },

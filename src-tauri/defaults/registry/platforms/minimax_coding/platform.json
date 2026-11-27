@@ -1,5 +1,5 @@
 {
-  "last_updated": 1794657886,
+  "last_updated": 1795776665,
   "is_coding_plan": true,
   "holiday_calendar": "CN",
   "endpoints": {
@@ -34,6 +34,22 @@
       "MiniMax-M2.5"
     ]
   },
+  "rate_limit_policies": [
+    {
+      "id": "free",
+      "label": "免费用户（开放平台按量页口径，订阅 Key 是否同值官方未明示）",
+      "source_url": "https://platform.minimaxi.com/docs/guides/rate-limits",
+      "rpm": 20,
+      "tpm": 1000000
+    },
+    {
+      "id": "paid",
+      "label": "充值用户（开放平台按量页口径，订阅 Key 是否同值官方未明示）",
+      "source_url": "https://platform.minimaxi.com/docs/guides/rate-limits",
+      "rpm": 200,
+      "tpm": 10000000
+    }
+  ],
   "name": {
     "en-US": "MiniMax Coding Plan (Token Plan)",
     "zh-Hans": "MiniMax 编程套餐（Token Plan）",

@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformUsageSeriesPoint, PlatformHealthDetail, PlatformModelDistributionRow, PlatformQuotaWindowLevel, PlatformRateOccupancy, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformUsageSeriesPoint, PlatformHealthDetail, PlatformModelDistributionRow, PlatformQuotaWindowLevel, PlatformRateOccupancy, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, QuotaTierSnapshot, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
 import QUOTA_SCRIPT_SAMPLE_RAW from "../../domains/platforms/quotaScriptSample.txt?raw";
@@ -1037,6 +1037,9 @@ export const modelTestApi = {
 export const quotaApi = {
   magpieNames: (baseUrl: string, apiKey: string) =>
     invoke<string[]>("platform_magpie_quota_names", { baseUrl, apiKey }),
+  /** 某平台全部配额档位查询快照（queried_at 升序），供订阅消耗曲线逐档轨迹。 */
+  tierSnapshots: (platformId: number) =>
+    invoke<QuotaTierSnapshot[]>("platform_quota_tier_snapshots", { platformId }),
   query: (baseUrl: string, apiKey: string, platformId?: number, draftRequires?: Record<string, string>) =>
     invoke<PlatformQuota>("platform_query_quota", { baseUrl, apiKey, platformId: platformId ?? null, draftRequires: draftRequires ?? null }),
   queryNewapi: (baseUrl: string, apiKey: string, extra: string, platformId?: number) =>
@@ -1082,6 +1085,7 @@ export function syncProtocolLogo(protocol: Protocol): Promise<void> {
 export interface RateLimitModelOverride {
   concurrency?: number;
   rpm?: number;
+  rps?: number;
   tpm?: number;
 }
 
@@ -1098,6 +1102,7 @@ export interface RateLimitRule {
   timezone?: string;
   concurrency?: number;
   rpm?: number;
+  rps?: number;
   tpm?: number;
   /** 仅平台侧（extra.rate_limits.rules[]）：false = 关掉，网关视为不存在；缺省 = 开。registry 策略不写。 */
   enabled?: boolean;
@@ -1116,6 +1121,7 @@ export function rateLimitRuleError(r: RateLimitRule): "noCondition" | "badWildca
 export interface RateLimitsConfig {
   concurrency?: number;
   rpm?: number;
+  rps?: number;
   tpm?: number;
   rules?: RateLimitRule[];
   /** 导入自 registry 内置策略时记录的来源策略 id（网关只透传不读）。 */
@@ -1151,6 +1157,7 @@ export interface RateLimitsBundle {
 const isRateLimitsEmpty = (r: RateLimitsConfig | undefined) =>
   !r ||
   ((r.rpm ?? 0) === 0 &&
+    (r.rps ?? 0) === 0 &&
     (r.tpm ?? 0) === 0 &&
     (r.concurrency ?? 0) === 0 &&
     (!r.rules || r.rules.length === 0));
@@ -1205,6 +1212,7 @@ export function rateLimitsSummary(b: RateLimitsBundle, windowsLabel: (n: number)
   const r = b.rate_limits;
   if (r?.concurrency) parts.push(`${r.concurrency} CONC`);
   if (r?.rpm) parts.push(`${r.rpm} RPM`);
+  if (r?.rps) parts.push(`${r.rps} RPS`);
   if (r?.tpm) parts.push(`${r.tpm >= 1_000_000 ? `${(r.tpm / 1_000_000).toFixed(1)}M` : formatTpm(r.tpm)} TPM`);
   const w = b.quota_windows?.length ?? 0;
   if (w > 0) parts.push(windowsLabel(w));

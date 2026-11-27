@@ -59,6 +59,7 @@ export type RateLimitPolicy = {
   source_url: string;
   concurrency?: number;
   rpm?: number;
+  rps?: number;
   tpm?: number;
   rules?: RateLimitRule[];
 };

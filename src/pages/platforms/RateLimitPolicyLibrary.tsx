@@ -13,9 +13,9 @@ import { Dialog, DialogContent, DialogTitle } from "../../components/ui/dialog";
 
 /** 策略 → 平台限频配置（深拷贝；内置原件不变），记录来源策略 id 与 platform.json last_updated。 */
 export function policyToRateLimits(p: RateLimitPolicy, lastUpdated: number): RateLimitsConfig {
-  const { concurrency, rpm, tpm, rules } = structuredClone(p);
+  const { concurrency, rpm, rps, tpm, rules } = structuredClone(p);
   return {
-    concurrency, rpm, tpm,
+    concurrency, rpm, rps, tpm,
     rules: rules && rules.length > 0 ? rules : undefined,
     source_policy_id: p.id,
     source_last_updated: lastUpdated,
@@ -25,6 +25,7 @@ export function policyToRateLimits(p: RateLimitPolicy, lastUpdated: number): Rat
 const nums = (p: RateLimitModelOverride, t: TFunction) => [
   p.concurrency && `${t("platform.rateLimits.concurrencyShort", "Conc.")} ${formatInteger(p.concurrency)}`,
   p.rpm && `RPM ${formatInteger(p.rpm)}`,
+  p.rps && `RPS ${formatInteger(p.rps)}`,
   p.tpm && `TPM ${formatInteger(p.tpm)}`,
 ].filter(Boolean) as string[];
 
@@ -61,7 +62,7 @@ function PolicyDetail({ p, expanded, onToggle, t }: { p: RateLimitPolicy; expand
     <div style={{ display: "flex", flexDirection: "column", gap: 3, width: "100%" }}>
       {empty ? (
         <span id={`rl-policy-empty-${p.id}`} style={detailStyle}>
-          {t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).")}
+          {t("platform.rateLimits.policyEmpty", "No rate limits configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).")}
         </span>
       ) : (
         <span id={`rl-policy-platform-${p.id}`} style={detailStyle}>
@@ -180,7 +181,7 @@ export function RateLimitPolicyLibrary({ protocol, source, onImport, t, headerOn
             {!radio && !codingLevels && (
               <button type="button" id={`rl-policy-import-${p.id}`} className="btn-ghost"
                 style={{ marginLeft: "auto", fontSize: 14, padding: "2px 10px" }}
-                title={empty ? t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).") : undefined}
+                title={empty ? t("platform.rateLimits.policyEmpty", "No rate limits configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).") : undefined}
                 onClick={() => { if (empty) setEmptyFeedback(p.id); else { setEmptyFeedback(null); setPending(p); } }}>
                 {t("platform.rateLimits.policyImport", "Import")}
               </button>
@@ -188,7 +189,7 @@ export function RateLimitPolicyLibrary({ protocol, source, onImport, t, headerOn
             <PolicyDetail p={p} expanded={!!expanded[p.id]} onToggle={() => setExpanded(e => ({ ...e, [p.id]: !e[p.id] }))} t={t} />
             {emptyFeedback === p.id && (
               <span id="rl-policy-empty-feedback" role="status" style={{ fontSize: 14, color: "var(--text-primary)" }}>
-                {t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).")}
+                {t("platform.rateLimits.policyEmpty", "No rate limits configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).")}
               </span>
             )}
           </div>

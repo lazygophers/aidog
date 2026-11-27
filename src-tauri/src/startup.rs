@@ -360,6 +360,7 @@ pub fn run() {
             aidog_core::proxy_cmd::proxy_log::platform_rate_occupancy,
             // Platform Quota
             aidog_core::platform_cmd::quota::platform_magpie_quota_names,
+            aidog_core::platform_cmd::quota::platform_quota_tier_snapshots,
             aidog_core::platform_cmd::quota::platform_query_quota,
             aidog_core::platform_cmd::quota::platform_query_quota_newapi,
             aidog_core::platform_cmd::quota::platform_query_quota_devin,

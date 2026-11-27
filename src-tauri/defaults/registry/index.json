@@ -1,5 +1,5 @@
 {
-  "last_updated": 1795773010,  "platforms": [
+  "last_updated": 1795776665,  "platforms": [
     {
       "code": "aihubmix",
       "name": "AiHubMix",
@@ -1846,6 +1846,10 @@
         "z-image-turbo.json"
       ]
     },
+    {"code":"bailian_hk_global","name":"Bailian Hong Kong Global","platform_file":"platforms/bailian_hk_global/platform.json","models_dir":"platforms/bailian_hk_global/models","models":["qwen4-max.json"]},
+    {"code":"bailian_hk_local","name":"Bailian Hong Kong Local","platform_file":"platforms/bailian_hk_local/platform.json","models_dir":"platforms/bailian_hk_local/models","models":["qwen3.8-flash.json"]},
+    {"code":"bailian_us_global","name":"Bailian US Global","platform_file":"platforms/bailian_us_global/platform.json","models_dir":"platforms/bailian_us_global/models","models":["qwen4-max.json"]},
+    {"code":"bailian_us_local","name":"Bailian US Local","platform_file":"platforms/bailian_us_local/platform.json","models_dir":"platforms/bailian_us_local/models","models":["qwen4-max.json"]},
     {
       "code": "byteplus",
       "name": "BytePlus",
@@ -2229,15 +2233,7 @@
       "name": "Compshare Coding Plan",
       "platform_file": "platforms/compshare_coding/platform.json",
       "models_dir": "platforms/compshare_coding/models",
-      "models": [
-        "claude-haiku-4-5.json",
-        "claude-opus-4-5.json",
-        "claude-opus-4-6.json",
-        "claude-opus-4-7.json",
-        "claude-opus-4-8.json",
-        "claude-sonnet-4-5.json",
-        "claude-sonnet-4-6.json"
-      ]
+      "models": []
     },
     {
       "code": "crazyrouter",
@@ -8931,6 +8927,7 @@
         "jev-1.14.json",
         "kimi-k2.7-code.json",
         "kimi-k3.json",
+        "kimi-k3.1-pro.json",
         "mimo-v2.6-flash-free.json",
         "minimax-m2.5.json",
         "minimax-m2.7.json",
@@ -8948,6 +8945,7 @@
         "qwen3.6-plus.json",
         "qwen3.8-flash.json",
         "qwen3.8-max.json",
+        "seaglass-alpha-free.json",
         "text-embedding-3-large.json",
         "text-embedding-3-small.json",
         "tidepool-alpha-free.json",

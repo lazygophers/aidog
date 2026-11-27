@@ -71,6 +71,13 @@ per-platform `models/*.json` 的增删不自动反映到 `index.json` 的平台 
 
 四段形态：取证 agent 产值文件（`.scratch/<feature>/research/` 逐平台 json）→ 主会话抽核（24 条回源验证）→ 写入 agent 按文件集并行（platform.json / models / schema+代码 三分，边界三行写进派发 prompt）→ 收尾 agent 单点收口（逐档回填、盖戳、门禁、分批 commit）。
 
+**批次化流程**（官方全量落地先例 2026-11-27，`.scratch/官方全量落地/`）——「官方有的都落地」全平台批量落库按「盘点 → 分批取证 → 抽核拍板 → 落库 → 基线对照」跑：
+
+1. **盘点产物三件**（只读 agent，一次）：check-registry 基线底册（改动前基线输出存 `.tmp/<任务>/`，作收工对照）、缺口总表（逐平台列本地现状 + 清单风险）、分批建议（切分标准按文档可得性：一线官方厂商 → 云厂商大目录 → coding 套餐子批）。
+2. **每批一份取证文件**，逐平台三段式：官方出处（curl raw URL）/ 官方数值（按可落库档结构转录）/ registry 现状与差异（`代码事实`）；区间无数值的写口径待拍板（先例：siliconflow 取区间下界 + label 留原文）。
+3. **主会话抽核 N 条回源**后，把一批的全部口径拍板合并成一张 ask-me（wayfinder-session.md §6 合并条件）；官方查不到数值的停手记缺口，禁杜撰（先例：compshare 8 模型无单价停手、glm-4.5-x 两页均无数记遗留）。
+4. **落库收口** = 回填 + 盖戳 + 基线 diff 零新增 + commit；每批独立验证、独立提交，批间不互相阻塞；跨批共享文件（index.json / check-registry.mjs / schema）只由收口 agent 单点动。
+
 ## schema 拦截 ≠ 数据没丢：按 schema 删键前 grep 读取层
 
 本条是三件套（加字段方向）的反向对称件。model.schema.json 禁 `context_tier` 档内 `cache_write` / `cache_write_1h`（additionalProperties:false），check-registry 门禁**全绿**——但 `price_resolve.rs:163-171` 的 `overlay_prices` 显式读这两键：按 schema 删掉 gpt-6.1-terra 系档内 cache_write 价（2.5e-6）后，运行时行为从「档内价覆盖 base」静默变成「继承 base 价」。门禁绿 + schema 是契约，挡不住 schema 与读取层错位导致的数据静默删除。
@@ -123,3 +130,20 @@ aliyun rerank 档官方 TPM 4.98e9 超 u32 上限 4.29e9，`RateLimitCaps` 首�
 1. **「模型缺失」先查 `model_list.default`**：先查 `platform.json` 的 `model_list.default`（前端下拉冷启动候选，用户唯一可见），再查 `models/` 目录（只是计价条目，界面不可见）。两者应保持 `model_list.default ⊇ models/ 全部 model_id`（openrouter / therouter 素有此约定）。`platform.json` 只有在 `JSON.stringify(doc, null, 2) + "\n"` 与原文逐字节相同时才可安全 round-trip 回写，否则手工编辑（aihubmix / crazyrouter / opencode_zen 属这类）。
 2. **平台变体分开维护**：`glm` 与 `glm_coding`、`minimax` 与 `minimax_coding` 各自独立条目——变体的模型范围、端点、计费/计划语义不同，禁压进同一条数据。
 3. **schema 三文件每个字段必须带 description**（check-registry ⑤ 强制）。
+
+## check-registry 基线红：通过判据是与基线 diff 零新增，不是全绿
+
+存量数据错误数百处（2026-11-27 基线 465 处），`node scripts/check-registry.mjs` 恒 EXIT=1，`make lint` 的 registry 段因此红——把「全绿」当验收目标永远达不到，把基线红当本轮引入则每轮误报归因。
+
+- 开工先存基线：`node scripts/check-registry.mjs > .tmp/<任务>/registry-baseline.log 2>&1`；收工复跑存 final.log，`diff` 两份——**零新增 = 通过**；减少的行顺手核对是真修复还是漏扫。
+- 派单 prompt 写明：「check-registry / make lint 的 registry 段基线红 N 处，不修、不复跑验证；验收 = 与基线 diff 零新增」，并把基线红名单（或基线日志路径）贴进 prompt（parallel-implement.md §1 基线红名单前置在 registry 数据轮的具体形态）。
+- agent 报「门禁红」先 diff 基线再归因；同模式先例：adaptive 轮「make lint EXIT=2 仅 registry 基线红」逐票重报。
+
+## PII 钩子脱敏模型名与域名：一切以盘上原始件为准
+
+本机 PII 钩子把带版本数字 / hex 段的 model_id 与端点域名在**工具输出显示层**改写成 `{{PII_SECRET_*}}`（先例：grok-4.3 系、mimo-v2.6 系、MiniMax-M3.1-Flash、`{WorkspaceId}.cn-hongkong...` 全被脱敏；2026-11-27 官方全量落地轮 ≥4 次 agent 卡在「名字显示不出来」）。显示层名字禁抄——把占位符抄进 registry 或报告 = 数据污染。
+
+- **取证 agent 原始件落盘**：官方页面 / API 响应的 raw 原文先写进 `.tmp/<任务>/<平台>-原始件.md`（`curl -o` 或 node fs），报告引用「原始件路径 + 行号」；名字显示层被脱敏时标「（名见原始件 L<行>，显示层脱敏）」，这样标是合规写法不是缺陷。
+- **真实 id 取值两条路**：① node `fs` 读盘上原始件字节；② 重跑 curl raw。两条都取不到 = 记缺口停手，不猜。
+- **派单固定句**（registry 取证 / 落库类派发必贴）：「模型名与域名含数字段会被本机钩子脱敏显示；一切以盘上原始件与重跑 curl raw 为准，显示层名字禁抄进数据或报告」。
+- 主会话抽核同样核盘上字节，不核显示层（pii-redaction.md「不以显示层为准」在 registry 轮的具体形态）。

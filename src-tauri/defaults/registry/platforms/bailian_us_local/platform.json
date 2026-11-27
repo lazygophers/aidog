@@ -1,0 +1,13 @@
+{
+  "last_updated": 1795772675,
+  "rate_limit_policies": [{"id":"virginia-static","label":"Virginia","source_url":"https://www.alibabacloud.com/help/en/model-studio/rate-limit","rules":[{"models":["qwen4-max"],"rpm":15000,"tpm":3000000}]}],
+  "name": {"zh-Hans":"百炼美东（美国本地）","en-US":"Bailian US (United States)","ar-SA":"Bailian US (United States)","fr-FR":"Bailian US (United States)","de-DE":"Bailian US (United States)","ru-RU":"Bailian US (United States)","ja-JP":"Bailian US (United States)","es-ES":"Bailian US (United States)"},
+  "logo_url": "alibabacloud",
+  "color": "#FF6A00",
+  "homepage": "https://www.alibabacloud.com/en/product/modelstudio",
+  "keywords": ["bailian us local", "us local"],
+  "source_urls": {"docs":"https://www.alibabacloud.com/help/en/model-studio/qwen4-max", "pricing":"https://www.alibabacloud.com/help/en/model-studio/model-pricing"},
+  "endpoints": {"default":[{"protocol":"openai","base_url":"https://dashscope-us.aliyuncs.com/compatible-mode/v1"},{"protocol":"anthropic","base_url":"https://dashscope-us.aliyuncs.com/apps/anthropic"}]},
+  "models": {"default":{}},
+  "model_list": {"default":["qwen4-max"]}
+}

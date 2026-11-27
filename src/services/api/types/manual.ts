@@ -24,7 +24,7 @@ export type Protocol =
   | "anthropic" | "openai" | "openai_responses" | "openai_completions" | "gemini" | "typesafe"
   // ── 平台类型 ──
   | "glm" | "glm_coding" | "glm_en" | "glm_coding_en" | "kimi" | "kimi_en" | "kimi_coding" | "intern_inkstone" | "minimax" | "minimax_en" | "minimax_coding" | "codex" | "cline" | "cline_pass"
-  | "bailian" | "bailian_en" | "bailian_coding" | "bailian_coding_en" | "qianfan_coding" | "xiaomi_mimo_coding" | "xiaomi_mimo_coding_en"
+  | "bailian" | "bailian_en" | "bailian_coding" | "bailian_coding_en" | "bailian_us_global" | "bailian_us_local" | "bailian_hk_global" | "bailian_hk_local" | "qianfan_coding" | "xiaomi_mimo_coding" | "xiaomi_mimo_coding_en"
   // ── 国内官方平台 ──
   | "deepseek" | "stepfun" | "stepfun_en" | "tencent_tokenhub" | "tencent_tokenhub_intl" | "tencent_coding" | "doubao" | "byteplus" | "qianfan"
   | "xiaomi_mimo" | "longcat" | "sensenova" | "sensenova_en"

@@ -1,5 +1,13 @@
 {
-  "last_updated": 1795488926,
+  "last_updated": 1795762629,
+  "rate_limit_error_codes": {
+    "429001": "rate_limit",
+    "429002": "rate_limit",
+    "429003": "rate_limit",
+    "429004": "rate_limit",
+    "429005": "rate_limit",
+    "429006": "rate_limit"
+  },
   "holiday_calendar": "CN",
   "endpoints": {
     "default": [

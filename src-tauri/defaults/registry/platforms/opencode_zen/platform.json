@@ -100,7 +100,30 @@
       "muse-spark-1.2",
       "nemotron-3.5-lightning-free",
       "qwen3.5-plus",
-      "qwen3.6-plus"
+      "qwen3.6-plus",
+      "bge-m3",
+      "codestral-embed",
+      "cohere-embed-v5-fast",
+      "cohere-embed-v5-pro",
+      "gemini-decision-1",
+      "gemini-embedding-001",
+      "gemini-embedding-2",
+      "gemini-nano-banana-2.1",
+      "gemini-omni-1.2-flash",
+      "gpt-6-luna-decision",
+      "gpt-image-2.5-sunburst",
+      "grok-imagine-image-2.0",
+      "jev-1.13",
+      "jev-1.13-free",
+      "jev-1.14",
+      "kimi-k3.1-pro",
+      "mistral-embed",
+      "qwen3-embedding-8b",
+      "seaglass-alpha-free",
+      "text-embedding-3-large",
+      "text-embedding-3-small",
+      "voyage-4",
+      "voyage-code-4"
     ]
   },
   "name": {
@@ -150,4 +173,4 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1795488926}
+  "last_updated": 1795760701}

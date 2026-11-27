@@ -122,6 +122,16 @@ describe("guessProtocol", () => {
 });
 
 describe("matchPlatform", () => {
+  it("does not infer Bailian deployment scope from a shared regional URL", () => {
+    const presets = ["bailian_us_global", "bailian_us_local"].map((value) => ({
+      value, label: value, hosts: ["dashscope-us.aliyuncs.com/compatible-mode/v1"], keywords: [],
+    }));
+    expect(matchPlatform("", presets, [{ url: "https://dashscope-us.aliyuncs.com/compatible-mode/v1", protocol: "openai" }])).toBeNull();
+    const hongKong = ["bailian_en", "bailian_hk_local", "bailian_hk_global"].map((value) => ({
+      value, label: value, hosts: ["cn-hongkong.dashscope.aliyuncs.com/apps/anthropic"], keywords: [],
+    }));
+    expect(matchPlatform("", hongKong, [{ url: "https://cn-hongkong.dashscope.aliyuncs.com/apps/anthropic", protocol: "anthropic" }])).toBeNull();
+  });
   it("matches by base_url host (longest/most specific wins)", () => {
     const hit = matchPlatform("", PRESETS, [
       { url: "https://token-plan-cn.xiaomimimo.com/v1", protocol: "openai" },

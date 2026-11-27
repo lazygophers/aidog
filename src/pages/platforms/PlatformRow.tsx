@@ -148,7 +148,7 @@ export function PlatformRow({
   const rateLimitsBundle = useMemo(() => parseRateLimitsBundle(p.extra ?? ""), [p.extra]);
   // 限频徽标计数：平台级 RPM/TPM 配置记 1 窗 + 额度窗口数（稿 5「限频 N 窗口」）。
   const rlBase = rateLimitsBundle.rate_limits;
-  const rlConfigured = !!(rlBase && ((rlBase.rpm ?? 0) > 0 || (rlBase.tpm ?? 0) > 0 || !!rlBase.rules?.some(r => r.enabled !== false)));
+  const rlConfigured = !!(rlBase && ((rlBase.rpm ?? 0) > 0 || (rlBase.rps ?? 0) > 0 || (rlBase.tpm ?? 0) > 0 || !!rlBase.rules?.some(r => r.enabled !== false)));
   const qwCount = rateLimitsBundle.quota_windows?.length ?? 0;
   const rlCount = (rlConfigured ? 1 : 0) + qwCount;
   const disableDuringPeak = useMemo(() => {
@@ -504,12 +504,14 @@ export function PlatformRow({
                 <thead><tr>
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>{t("platform.detail.window", "Window")}</th>
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>RPM</th>
+                  {rlBase?.rps != null && <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>RPS</th>}
                   <th style={{ textAlign: "left", color: "var(--text-tertiary)", fontWeight: 500, padding: "0 8px 6px 0" }}>TPM</th>
                 </tr></thead>
                 <tbody>
                   <tr>
                     <td style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--foreground)" }}>{t("platform.detail.allDay", "All day")}</td>
                     <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>{rlBase?.rpm ?? "—"}</td>
+                    {rlBase?.rps != null && <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>{rlBase.rps}</td>}
                     <td className="num" style={{ padding: "5px 8px 5px 0", borderTop: "1px solid var(--border)", color: "var(--text-secondary)" }}>{rlBase?.tpm != null ? formatNumber(rlBase.tpm) : "—"}</td>
                   </tr>
                 </tbody>

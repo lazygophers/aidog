@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,19 +13,17 @@ const here = dirname(fileURLToPath(import.meta.url));
 const realDir = join(here, "..", "src-tauri", "defaults", "registry");
 const TARGET = "glm"; // 带 models 目录（glm-4-plus 存在）
 
-/** 临时 registry：除 TARGET 的 platform.json 外全部软链真目录。 */
+/** 临时 registry 仅包含被测平台，避免其他平台的存量问题影响限频测试。 */
 function run(mutate) {
   const dir = mkdtempSync(join(tmpdir(), "aidog-reg-"));
   try {
     symlinkSync(join(realDir, "schema"), join(dir, "schema"));
-    cpSync(join(realDir, "index.json"), join(dir, "index.json"));
+    const index = JSON.parse(readFileSync(join(realDir, "index.json"), "utf8"));
+    index.platforms = index.platforms.filter(({ code }) => code === TARGET);
+    index.pricing_only = [];
+    writeFileSync(join(dir, "index.json"), JSON.stringify(index, null, 2));
     mkdirSync(join(dir, "platforms", TARGET), { recursive: true });
-    for (const c of readdirSync(join(realDir, "platforms"))) {
-      if (c !== TARGET) symlinkSync(join(realDir, "platforms", c), join(dir, "platforms", c));
-    }
-    for (const f of readdirSync(join(realDir, "platforms", TARGET))) {
-      if (f !== "platform.json") symlinkSync(join(realDir, "platforms", TARGET, f), join(dir, "platforms", TARGET, f));
-    }
+    symlinkSync(join(realDir, "platforms", TARGET, "models"), join(dir, "platforms", TARGET, "models"));
     const doc = JSON.parse(readFileSync(join(realDir, "platforms", TARGET, "platform.json"), "utf8"));
     mutate(doc);
     writeFileSync(join(dir, "platforms", TARGET, "platform.json"), JSON.stringify(doc, null, 2));
@@ -45,9 +43,10 @@ const policy = (over = {}) => ({
   source_url: "https://docs.bigmodel.cn/cn/guide/platform/equity-explain.md",
   concurrency: 5,
   rpm: 60,
+  rps: 5,
   tpm: 100000,
   rules: [
-    { models: ["glm-4-plus"], concurrency: 20 },
+    { models: ["glm-4-plus"], concurrency: 20, rps: 2 },
     { start_hour: 0, end_hour: 8, timezone: "Asia/Shanghai", days_of_week: [1, 2], concurrency: 10 },
     { models: ["glm-4-plus"], start_hour: 9, end_hour: 18, rpm: 5 },
   ],
@@ -77,6 +76,10 @@ test("缺 source_url 硬错", () => {
 });
 test("数字非正整数硬错（0 / 负数 / 小数 / 字符串）", () => {
   for (const v of [0, -1, 1.5, "5"]) bad(withPolicies(policy({ concurrency: v })), /rate_limit_policies.*concurrency/);
+});
+test("每秒调用上限在平台和模型规则中必须为正整数", () => {
+  bad(withPolicies(policy({ rps: 0 })), /rate_limit_policies.*rps.*>= 1/);
+  bad(withPolicies(rules({ models: ["glm-4-plus"], rps: 1.5 })), /rate_limit_policies.*rps.*integer/);
 });
 test("策略 id 重复硬错", () => {
   bad(withPolicies(policy(), policy()), /id 重复/);

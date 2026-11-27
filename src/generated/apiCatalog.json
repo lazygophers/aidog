@@ -2544,6 +2544,20 @@
       "returns": "PlatformQuota"
     },
     {
+      "name": "platform_quota_tier_snapshots",
+      "category": "platform",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [
+        {
+          "name": "platformId",
+          "type": "u64"
+        }
+      ],
+      "returns": "Vec<aidog_db::models::QuotaTierSnapshot>"
+    },
+    {
       "name": "platform_quota_window_levels",
       "category": "proxy",
       "kind": "readonly",

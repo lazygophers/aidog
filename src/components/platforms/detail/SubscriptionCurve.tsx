@@ -1,170 +1,144 @@
-// 订阅消耗曲线（T3 板块 B，方向 5 密度终端）：实际剩余平滑拟合线 + 计划虚线 +
-// 重置竖线 + today 游标 + 快照校准点（偏差 >5% 图注）。纯渲染，数据映射在 chartMath。
-import { useEffect, useRef, useState } from "react";
+// 订阅消耗曲线（分档改版）：每档一张小卡——卡头档名 + 周期徽标 + 「重置于 {time} ·
+// forecast 文案」；卡体实线轨迹 + 虚线速率投影 + 重置点。无历史时只显示当前快照 +
+// 「记录随查询积累」，不伪造历史。纯渲染，数据映射在 chartMath::buildTierCurve。
 import { useTranslation } from "react-i18next";
-import { monotonePath, type SubscriptionCurve, type CalibrationPoint } from "./chartMath";
+import { monotonePath, type TierCurve } from "./chartMath";
 import { formatDateTime } from "../../../utils/formatters";
 
-const X0 = 44, X1 = 700, Y0 = 28, Y1 = 212;
+const W = 560, H = 120, PAD = 8;
 
 const xScale = (t: number, ws: number, re: number) =>
-  X0 + (X1 - X0) * Math.max(0, Math.min(1, (t - ws) / Math.max(1, re - ws)));
-const yScale = (pct: number) => Y1 + (Y0 - Y1) * (Math.max(0, Math.min(100, pct)) / 100);
+  PAD + (W - 2 * PAD) * Math.max(0, Math.min(1, (t - ws) / Math.max(1, re - ws)));
+const yScale = (pct: number) =>
+  H - PAD - (H - 2 * PAD) * (Math.max(0, Math.min(100, pct)) / 100);
 
-export function SubscriptionCurveView({ curve, nowMs }: {
-  curve: SubscriptionCurve;
-  nowMs: number;
-}) {
-  const { t } = useTranslation();
-  const chartRef = useRef<HTMLDivElement>(null);
-  const [chartWidth, setChartWidth] = useState(760);
-  useEffect(() => {
-    const element = chartRef.current;
-    if (!element || typeof ResizeObserver === "undefined") return;
-    setChartWidth(element.getBoundingClientRect().width);
-    const observer = new ResizeObserver(([entry]) => setChartWidth(entry.contentRect.width));
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  const tickFontSize = 14 * 850 / Math.max(chartWidth, 1);
-  const yTicks = chartWidth < 480 ? [100, 50, 0] : [100, 75, 50, 25, 0];
-  const { windowStart, resetAt, actual, plan, calibrations, maxDeviation, snapshotPct } = curve;
-  const latestActual = actual[actual.length - 1] ?? null;
+export interface TierCardData {
+  name: string;
+  unit: string;
+  cycleMs: number | null;
+  /** 重置时刻（quota resets_at 或 est 窗口推算）；null = 未知。 */
+  resetAt: number | null;
+  curve: TierCurve | null;
+  /** 无曲线时显示的当前快照%（est 估算）。 */
+  snapshotPct: number | null;
+}
 
-  const fitPts = actual.map(p => ({ x: xScale(p.t, windowStart, resetAt), y: yScale(p.pct) }));
-  const fit = actual.length >= 3 ? monotonePath(fitPts) : "";
-  const area = fit
-    ? `${fit} L ${fitPts[fitPts.length - 1].x} ${Y1} L ${fitPts[0].x} ${Y1} Z`
-    : "";
-  const planA = { x: xScale(plan[0].t, windowStart, resetAt), y: yScale(plan[0].pct) };
-  const planB = { x: xScale(plan[1].t, windowStart, resetAt), y: yScale(plan[1].pct) };
-  const todayX = xScale(nowMs, windowStart, resetAt);
-  const resetLabel = formatDateTime(resetAt);
-  const deviationFlag = maxDeviation != null && maxDeviation > 5;
-  const dataNote = actual.length === 0
-    ? t(
-        snapshotPct != null ? "platform.detail.curveNoHistory" : "platform.detail.curveUnknown",
-        snapshotPct != null
-          ? "No complete, unit-matched local history; showing the official snapshot only."
-          : "Window coverage or quota unit is unknown; remaining cannot be established.",
-      )
-    : actual.length < 3
-      ? t("platform.detail.curveSparse", "Only {{count}} verified daily samples; no smooth trend is drawn.")
-          .replace("{{count}}", `${actual.length}`)
-      : snapshotPct == null
-        ? t("platform.detail.curveCurrentUnknown", "The local curve ends at the latest sample; current remaining is unknown.")
-        : null;
+/** 周期毫秒 → 徽标字（5h / 7d / 30d）。 */
+const cycleBadge = (cycleMs: number): string => {
+  const h = cycleMs / 3_600_000;
+  return h < 24 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`;
+};
 
-  const calibLabel = (c: CalibrationPoint) =>
-    t("platform.detail.snapshot", "Snapshot {{pct}}%").replace("{{pct}}", `${Math.round(c.pct)}`);
-
+export function SubscriptionCurveView({ cards }: { cards: TierCardData[] }) {
   return (
-    <div data-testid="detail-t3-curve" ref={chartRef}>
-      <svg viewBox="-90 -20 850 344" width="100%" direction="ltr" role="img" aria-label={t("platform.detail.curve", "Subscription Usage Curve")}>
-        {/* 横向网格线 + Y 轴刻度 */}
-        {[100, 75, 50, 25, 0].map((p, i) => (
-          <g key={p}>
-            <line x1={X0} y1={yScale(p)} x2={X1} y2={yScale(p)}
-              stroke={i === 4 ? "var(--input)" : "var(--border)"} strokeWidth={1} />
-            {yTicks.includes(p) && (
-              <text x={X0 - 6} y={yScale(p) + 4} textAnchor="end" fontSize={tickFontSize}
-                fill="var(--muted-foreground)" fontFamily="var(--font-mono, monospace)">{p}</text>
-            )}
-          </g>
-        ))}
-        {/* 计划消耗线（虚线） */}
-        <line x1={planA.x} y1={planA.y} x2={planB.x} y2={planB.y}
-          stroke="var(--muted-foreground)" strokeWidth={1.5} strokeDasharray="6 5" />
-        {/* 实际剩余平滑拟合线 + 淡填充 */}
-        {area && <path d={area} fill="var(--accent-subtle)" stroke="none" />}
-        {fit && <path data-testid="detail-t3-fit" d={fit} stroke="var(--data-primary)" strokeWidth={2.5} fill="none" strokeLinejoin="round" />}
-        {/* 原始记账点（弱化叠加） */}
-        {fitPts.map((p, i) => (
-          <circle key={i} data-testid="detail-t3-raw-point" cx={p.x} cy={p.y} r={3} fill="var(--data-primary)" opacity={0.35} />
-        ))}
-        {/* 快照校准点 */}
-        {calibrations.map((c, i) => {
-          const cx = xScale(c.t, windowStart, resetAt);
-          return (
-            <g key={`${c.name}-${i}`}>
-              <circle cx={cx} cy={yScale(c.pct)} r={5} fill="var(--color-card)"
-                stroke="var(--color-warning)" strokeWidth={2}>
-                <title>{calibLabel(c)}</title>
-              </circle>
-            </g>
-          );
-        })}
-        {/* today 游标 */}
-        <line x1={todayX} y1={Y0 + 2} x2={todayX} y2={Y1} stroke="var(--accent)" strokeWidth={1.5} />
-        {[windowStart, (windowStart + resetAt) / 2, resetAt].map((time, i) => (
-          <text key={i} x={xScale(time, windowStart, resetAt)} y={Y1 + 90} fontSize={tickFontSize}
-            fill="var(--muted-foreground)" textAnchor={i === 0 ? "start" : i === 2 ? "end" : "middle"}
-            fontFamily="var(--font-mono, monospace)">
-            {new Date(time).toLocaleDateString(undefined, { month: "2-digit", day: "2-digit" })}
-          </text>
-        ))}
-        {/* 重置线标签与校准说明放在图外，避免压住采样点与 today 游标。 */}
-        <line x1={planB.x} y1={Y0} x2={planB.x} y2={Y1}
-          stroke="var(--muted-foreground)" strokeWidth={1.5} strokeDasharray="4 4" />
-      </svg>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 14, color: "var(--muted-foreground)", marginTop: 4 }}>
-        <span>{t("platform.detail.todayLabel", "Today")}</span>
-        <span>{t("platform.detail.resetAt", "Resets {{time}}").replace("{{time}}", resetLabel ?? "-")}</span>
-      </div>
-      {calibrations.length > 0 && (
-        <div data-testid="detail-t3-calibrations" style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 14, color: "var(--color-warning)", marginTop: 6 }}>
-          {calibrations.map((c, i) => <span key={`${c.name}-${i}`}>{calibLabel(c)}</span>)}
-        </div>
-      )}
-      <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 14, color: "var(--muted-foreground)", marginTop: 8 }}>
-        <LegendSwatch kind="line" label={t("platform.detail.actualLine", "Local remaining (daily samples; shape-preserving interpolation)")} />
-        <LegendSwatch kind="dot" label={t("platform.detail.rawPoints", "Raw ledger points")} />
-        <LegendSwatch kind="dash" label={t("platform.detail.planLine", "Planned usage line")} />
-        <LegendSwatch kind="calib" label={t("platform.detail.calibPoints", "Quota snapshot calibration points")} />
-        <LegendSwatch kind="vline" label={t("platform.detail.resetDay", "Reset day")} />
-      </div>
-      {dataNote && (
-        <div data-testid="detail-t3-sparse" role="note" style={{ marginTop: 8, fontSize: 14, color: "var(--muted-foreground)" }}>
-          {dataNote}
-        </div>
-      )}
-      <div style={{ marginTop: 8, fontSize: 14, color: "var(--text-secondary)" }}>
-        {snapshotPct != null && calibrations[0] && (
-          <div data-testid="detail-t3-snapshot">
-            {t("platform.detail.quotaSnapshotAt", "Official snapshot: {{pct}}% · {{time}}")
-              .replace("{{pct}}", `${Math.round(snapshotPct)}`)
-              .replace("{{time}}", formatDateTime(calibrations[0].t) ?? "-")}
-          </div>
-        )}
-        {snapshotPct == null && latestActual && (
-          <div data-testid="detail-t3-latest">
-            {t("platform.detail.latestRecorded", "Latest local daily sample: {{pct}}% · {{time}}")
-              .replace("{{pct}}", `${Math.round(latestActual.pct)}`)
-              .replace("{{time}}", formatDateTime(latestActual.t) ?? "-")}
-          </div>
-        )}
-        {deviationFlag && (
-          <div data-testid="detail-t3-deviation" style={{ color: "var(--color-warning)", marginTop: 4 }}>
-            {t("platform.detail.deviationNote", "Snapshot deviates {{pct}}% from local ledger; usage may be unrecorded")
-              .replace("{{pct}}", maxDeviation!.toFixed(1))}
-          </div>
-        )}
-      </div>
+    <div data-testid="detail-t3-curve" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {cards.map(card => (
+        <TierCard key={`${card.name}|${card.unit}`} card={card} />
+      ))}
     </div>
   );
 }
 
-function LegendSwatch({ kind, label }: { kind: "line" | "dot" | "dash" | "calib" | "vline"; label: string }) {
-  const swatch: Record<string, React.ReactNode> = {
-    line: <span style={{ width: 14, height: 0, borderTop: "2.5px solid var(--data-primary)", display: "inline-block" }} />,
-    dot: <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--data-primary)", opacity: 0.45, display: "inline-block" }} />,
-    dash: <span style={{ width: 14, height: 0, borderTop: "1.5px dashed var(--muted-foreground)", display: "inline-block" }} />,
-    calib: <span style={{ width: 9, height: 9, borderRadius: "50%", border: "2px solid var(--color-warning)", display: "inline-block" }} />,
-    vline: <span style={{ width: 0, height: 11, borderLeft: "1.5px dashed var(--muted-foreground)", display: "inline-block" }} />,
-  };
+function TierCard({ card }: { card: TierCardData }) {
+  const { t } = useTranslation();
+  const { name, curve, resetAt, cycleMs } = card;
+  const snapshotPct = curve?.snapshotPct ?? card.snapshotPct;
+  const tierLabel = t(`platform.detail.tierName.${name}`, name);
+  const resetLabel = resetAt != null
+    ? t("platform.detail.resetAt", "Resets {{time}}", { time: formatDateTime(resetAt) ?? "-" })
+    : null;
+
+  // 投影终点：lasts → (resetAt, pctAtReset)；提前耗尽 → (exhaustAt, 0)。
+  let proj: { x: number; y: number } | null = null;
+  const actual = curve?.actual ?? [];
+  if (curve && actual.length >= 2 && curve.forecast && curve.resetAt > 0) {
+    const last = actual[actual.length - 1];
+    const first = actual[0];
+    const rate = (last.pct - first.pct) / Math.max(1, last.t - first.t);
+    const endT = curve.forecast.lasts ? curve.resetAt : curve.forecast.exhaustAt ?? curve.resetAt;
+    const endPct = curve.forecast.lasts
+      ? Math.max(0, last.pct + rate * (curve.resetAt - last.t))
+      : 0;
+    proj = { x: xScale(endT, curve.windowStart, curve.resetAt), y: yScale(endPct) };
+  }
+  const fitPts = curve
+    ? actual.map(p => ({ x: xScale(p.t, curve.windowStart, curve.resetAt), y: yScale(p.pct) }))
+    : [];
+  const fitPath = fitPts.length >= 3 ? monotonePath(fitPts) : "";
+  const fitLine = fitPts.length === 2
+    ? `M ${fitPts[0].x} ${fitPts[0].y} L ${fitPts[1].x} ${fitPts[1].y}`
+    : "";
+  const pathD = fitPath || fitLine;
+  const lastPt = fitPts[fitPts.length - 1] ?? null;
+
+  const showPlan = curve != null && curve.resetAt > 0 && actual.length >= 2;
+  const forecastText = !curve?.forecast
+    ? null
+    : curve.forecast.lasts
+      ? t("platform.detail.curveLasts", "At this pace it will last until the reset")
+      : t("platform.detail.curveExhausts", "At this pace it will run out before the reset (~{{time}})", {
+          time: formatDateTime(curve.forecast.exhaustAt ?? 0) ?? "-",
+        });
+
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-      {swatch[kind]}{label}
-    </span>
+    <div data-testid={`detail-t3-curve-card-${name}`}
+      style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", minWidth: 0 }}>
+      {/* 卡头：档名 + 周期徽标 + 重置/forecast 一行 */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", fontSize: 14 }}>
+        <span style={{ fontWeight: 600 }}>{tierLabel}</span>
+        {cycleMs != null && <span data-testid={`detail-t3-cycle-badge-${name}`}
+          style={{ fontSize: 12, padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)", color: "var(--muted-foreground)", fontFamily: "var(--font-mono, monospace)" }}>
+          {cycleBadge(cycleMs)}
+        </span>}
+        <span style={{ color: "var(--muted-foreground)" }}>
+          {resetLabel ?? "·"}
+          {forecastText && resetLabel ? " · " : ""}
+          {forecastText ?? ""}
+          {showPlan ? ` · ${t("platform.detail.planLine")}` : ""}
+        </span>
+      </div>
+      {/* 卡体：有真实轨迹才画线；否则只显示当前快照 + 积累说明 */}
+      {curve && curve.resetAt > 0 && actual.length >= 2 ? (
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} direction="ltr" role="img"
+          aria-label={tierLabel} data-testid={`detail-t3-chart-${name}`}>
+          {[100, 0].map(p => (
+            <line key={p} x1={PAD} y1={yScale(p)} x2={W - PAD} y2={yScale(p)}
+              stroke="var(--border)" strokeWidth={1} />
+          ))}
+          <line data-testid={`detail-t3-plan-${name}`}
+            x1={xScale(curve.windowStart, curve.windowStart, curve.resetAt)} y1={yScale(100)}
+            x2={xScale(curve.resetAt, curve.windowStart, curve.resetAt)} y2={yScale(0)}
+            stroke="var(--muted-foreground)" strokeWidth={1} strokeOpacity={0.5} strokeDasharray="2 5" />
+          <text x={PAD + 2} y={yScale(100) + 10} fontSize={11} fill="var(--muted-foreground)" fontFamily="var(--font-mono, monospace)">100</text>
+          <text x={PAD + 2} y={yScale(0) - 3} fontSize={11} fill="var(--muted-foreground)" fontFamily="var(--font-mono, monospace)">0</text>
+          {/* 重置点（右端竖虚线） */}
+          <line data-testid={`detail-t3-reset-line-${name}`}
+            x1={xScale(curve.resetAt, curve.windowStart, curve.resetAt)} y1={PAD} x2={xScale(curve.resetAt, curve.windowStart, curve.resetAt)} y2={H - PAD}
+            stroke="var(--muted-foreground)" strokeWidth={1.5} strokeDasharray="4 4" />
+          {/* 实线轨迹（真实记录） */}
+          {pathD && <path data-testid={`detail-t3-fit-${name}`} d={pathD}
+            stroke="var(--data-primary)" strokeWidth={2.5} fill="none" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+          {fitPts.map((p, i) => (
+            <circle key={i} cx={p.x} cy={p.y} r={3} fill="var(--data-primary)" />
+          ))}
+          {/* 虚线投影（推算，非实测） */}
+          {proj && lastPt && (
+            <line data-testid={`detail-t3-forecast-${name}`}
+              x1={lastPt.x} y1={lastPt.y} x2={proj.x} y2={proj.y}
+              stroke="var(--muted-foreground)" strokeWidth={1.5} strokeDasharray="6 5" />
+          )}
+        </svg>
+      ) : (
+        <div data-testid={`detail-t3-snapshot-${name}`}
+          style={{ fontSize: 14, color: "var(--muted-foreground)", padding: "6px 0" }}>
+          {snapshotPct != null && (
+            <span style={{ color: "var(--text-secondary)", marginRight: 8 }}>
+              {t("platform.detail.snapshot", "Snapshot {{pct}}%", { pct: Math.round(snapshotPct) })}
+            </span>
+          )}
+          {t("platform.detail.curveAccumulating", "History builds up as quota queries accumulate")}
+        </div>
+      )}
+    </div>
   );
 }

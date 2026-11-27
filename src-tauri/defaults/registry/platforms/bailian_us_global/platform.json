@@ -1,0 +1,13 @@
+{
+  "last_updated": 1795772675,
+  "rate_limit_policies": [{"id":"global-static","label":"Global","source_url":"https://www.alibabacloud.com/help/en/model-studio/rate-limit","rules":[{"models":["qwen4-max"],"rpm":30000,"tpm":5000000}]}],
+  "name": {"zh-Hans":"百炼美东（Global）","en-US":"Bailian US (Global)","ar-SA":"Bailian US (Global)","fr-FR":"Bailian US (Global)","de-DE":"Bailian US (Global)","ru-RU":"Bailian US (Global)","ja-JP":"Bailian US (Global)","es-ES":"Bailian US (Global)"},
+  "logo_url": "alibabacloud",
+  "color": "#FF6A00",
+  "homepage": "https://www.alibabacloud.com/en/product/modelstudio",
+  "keywords": ["bailian us global", "us global"],
+  "source_urls": {"docs":"https://www.alibabacloud.com/help/en/model-studio/qwen4-max", "pricing":"https://www.alibabacloud.com/help/en/model-studio/model-pricing"},
+  "endpoints": {"default":[{"protocol":"openai","base_url":"https://dashscope-us.aliyuncs.com/compatible-mode/v1"},{"protocol":"anthropic","base_url":"https://dashscope-us.aliyuncs.com/apps/anthropic"}]},
+  "models": {"default":{}},
+  "model_list": {"default":["qwen4-max"]}
+}

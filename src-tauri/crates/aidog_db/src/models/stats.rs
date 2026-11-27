@@ -221,3 +221,25 @@ pub struct QuotaSnapshot {
     #[ts(type = "number")]
     pub created_at: i64,
 }
+
+/// 单档配额快照（订阅消耗曲线分档改版）：某平台某档位一次 quota 查询的解析值。
+/// `platform_quota_tier_snapshots` 返回 queried_at 升序序列，前端按 tier_name 分组画剩余%轨迹。
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct QuotaTierSnapshot {
+    /// 档位名（five_hour / weekly_limit / mcp_monthly …）。
+    pub tier_name: String,
+    /// 计费单位（tokens / prompt_count / mcp_time）。
+    pub unit: String,
+    /// 已用百分比（0-100）。
+    pub utilization: f64,
+    #[ts(type = "number | null")]
+    pub limit_value: Option<f64>,
+    #[ts(type = "number | null")]
+    pub remaining: Option<f64>,
+    /// 重置时间 ISO 8601；空串 = 未知。
+    pub resets_at: String,
+    /// 毫秒 Unix 时间戳（= 查询时刻 PlatformQuota.queried_at）。
+    #[ts(type = "number")]
+    pub queried_at: i64,
+}

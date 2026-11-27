@@ -1,0 +1,25 @@
+{
+  "last_updated": 1795760701,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "seaglass-alpha-free",
+  "display_name": "Seaglass Alpha Free",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "context_window": 1048576,
+  "max_output_tokens": 131072,
+  "thinking_supported": true,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0,
+    "output": 0,
+    "cache_read": 0,
+    "free": true
+  },
+  "canonical_model": "seaglass-alpha-free"
+}

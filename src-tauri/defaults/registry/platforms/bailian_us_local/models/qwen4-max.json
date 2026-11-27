@@ -1,0 +1,11 @@
+{
+  "last_updated": 1795772675,
+  "model_id": "qwen4-max",
+  "canonical_model": "qwen4-max",
+  "family": "qwen",
+  "capabilities": ["text"],
+  "official": true,
+  "supported_protocols": ["openai", "anthropic"],
+  "context_window": 1000000,
+  "price": {"input": 0.0000015, "output": 0.0000045}
+}

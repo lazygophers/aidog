@@ -10,6 +10,12 @@ const D = (over: Partial<RateLimitsDraft> = {}): RateLimitsDraft => ({
 });
 
 describe("rateLimits draft helpers", () => {
+  it("preserves a per-second limit through editing and serialization", () => {
+    const platform = { rate_limits: { rps: 3 } };
+    expect(parseRateLimitsBundle(serializeRateLimitsBundle("{}", draftToBundle(bundleToDraft(platform))))).toEqual(platform);
+    expect(draftToRule(ruleToDraft({ models: ["m"], rps: 2 }))).toEqual({ models: ["m"], rps: 2 });
+    expect(draftToBundle(D({ rps: "1.5" })).rate_limits).toBeUndefined();
+  });
   it("bundleToDraft → draftToBundle 往返保持（tokens/usd/count 三档）", () => {
     const b: RateLimitsBundle = {
       rate_limits: { rpm: 60, tpm: 1000, rules: [{ models: ["glm-4"], rpm: 10 }] },

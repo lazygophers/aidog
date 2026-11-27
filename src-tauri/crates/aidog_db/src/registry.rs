@@ -401,13 +401,15 @@ pub fn endpoints_in(
 
 // ── 限频策略（platform.json 顶层 `rate_limit_policies` / `rate_limit_error_codes`）──────────
 
-/// 一组上限：三项均 `None` = 不限（骨架策略）。平台级 / 规则共用。
+/// 一组上限：全部为 `None` = 不限（骨架策略）。平台级 / 规则共用。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RateLimitCaps {
     #[serde(default)]
     pub concurrency: Option<u64>,
     #[serde(default)]
     pub rpm: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rps: Option<u64>,
     #[serde(default)]
     pub tpm: Option<u64>,
     // u64 而非 u32：aliyun rerank 档官方 TPM 达 4.98e9（help.aliyun.com/zh/model-studio/rate-limit），

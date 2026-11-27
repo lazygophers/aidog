@@ -368,6 +368,7 @@ export function matchPlatform(
     if (urls.length) {
       let best: { value: string; label: string; codingPlan?: boolean } | null = null;
       let bestLen = 0;
+      let ambiguousBailian = false;
       for (const p of presets) {
         if (NEVER_AUTO_MATCH.has(p.value)) continue;
         for (const h of p.hosts ?? []) {
@@ -375,9 +376,14 @@ export function matchPlatform(
           if (urls.some((u) => u.includes(hl)) && hl.length > bestLen) {
             best = { value: p.value, label: p.label, codingPlan: p.codingPlan };
             bestLen = hl.length;
+            ambiguousBailian = false;
+          } else if (urls.some((u) => u.includes(hl)) && hl.length === bestLen && best?.value !== p.value &&
+            (/^bailian_(us|hk)_(global|local)$/.test(p.value) || /^bailian_(us|hk)_(global|local)$/.test(best?.value ?? ""))) {
+            ambiguousBailian = true;
           }
         }
       }
+      if (ambiguousBailian) return null;
       if (best) return best;
     }
   }
