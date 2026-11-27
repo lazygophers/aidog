@@ -2024,6 +2024,7 @@
   "platform.rateLimits.rulesInvalid": "Ungültige Ratenlimit-Regel: Jede Regel braucht mindestens ein Modell oder einen Zeitraum; Platzhalter nur als einzelnes * am Ende",
   "platform.rateLimits.windowTz": "Zeitzone",
   "platform.rateLimits.policyLibrary": "Richtlinienbibliothek (integrierte Ratenlimit-Richtlinien)",
+  "platform.rateLimits.codingLevelHint": "V0–V3 sind Parallelitätsgarantien der Benutzerberechtigungen der allgemeinen API, keine offiziellen Coding-Plan-Limits. Wählen Sie Ihre Berechtigungsstufe.",
   "platform.rateLimits.policyUpdated": "Integrierte Richtlinie aktualisiert, erneuter Import möglich",
   "platform.rateLimits.policyNoNumbers": "Keine Zahlen auf Plattformebene konfiguriert",
   "platform.rateLimits.policyEmpty": "Keine Parallelitäts-/RPM-/TPM-Zahlen konfiguriert; Import erzeugt keine Begrenzung. Abo-Plattformen können Punkte- oder dynamische Parallelitätsgrenzen durchsetzen (siehe Quelle)",

@@ -1936,6 +1936,7 @@
   "platform.rateLimits.rulesInvalid": "Regla de límite no válida: cada regla necesita al menos un modelo o un horario; el comodín debe ser un único * final",
   "platform.rateLimits.windowTz": "Zona horaria",
   "platform.rateLimits.policyLibrary": "Biblioteca de políticas (políticas de límite integradas)",
+  "platform.rateLimits.codingLevelHint": "V0–V3 son garantías de concurrencia de los derechos de usuario de la API general, no límites oficiales de Coding Plan. Selecciona tu nivel de derechos.",
   "platform.rateLimits.policyUpdated": "Política integrada actualizada, se puede reimportar",
   "platform.rateLimits.policyNoNumbers": "Sin cifras configuradas a nivel de plataforma",
   "platform.rateLimits.policyEmpty": "Sin cifras de concurrencia/RPM/TPM configuradas; importar no añade límites. Las plataformas por suscripción pueden aplicar límites de puntos o de concurrencia dinámica (ver fuente)",

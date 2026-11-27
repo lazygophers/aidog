@@ -2024,6 +2024,7 @@
   "platform.rateLimits.rulesInvalid": "レート制限ルールが無効です：各ルールにモデルか時間帯が必要で、ワイルドカードは末尾の * 1つのみです",
   "platform.rateLimits.windowTz": "タイムゾーン",
   "platform.rateLimits.policyLibrary": "ポリシーライブラリ（内蔵の流量制限ポリシー）",
+  "platform.rateLimits.codingLevelHint": "V0–V3 は一般 API のユーザー特典による同時実行保証であり、Coding Plan の公式制限ではありません。ご自身の特典レベルを選択してください。",
   "platform.rateLimits.policyUpdated": "内蔵ポリシーが更新されました。再インポートできます",
   "platform.rateLimits.policyNoNumbers": "プラットフォーム全体の数値は未設定",
   "platform.rateLimits.policyEmpty": "同時実行/RPM/TPM の数値が未設定のため、インポートしても制限は付きません。サブスクリプション系プラットフォームではポイントや動的同時実行の制限が課される場合があります（出典を参照）",

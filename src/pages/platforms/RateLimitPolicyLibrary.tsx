@@ -112,8 +112,11 @@ export function RateLimitPolicyLibrary({ protocol, source, onImport, t, headerOn
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [open, setOpen] = useState(false);
   const [emptyFeedback, setEmptyFeedback] = useState<string | null>(null);
+  const [selected, setSelected] = useState("v0");
+  const codingLevels = (protocol === "glm_coding" || protocol === "glm_coding_en") && lib.policies.some(p => p.id === "v0" && !policyIsEmpty(p, t));
   useEffect(() => {
     let cancelled = false;
+    setSelected("v0");
     getDefaultRateLimitPolicies(protocol).then(r => { if (!cancelled) setLib(r); }).catch(() => {});
     return () => { cancelled = true; };
   }, [protocol]);
@@ -154,21 +157,34 @@ export function RateLimitPolicyLibrary({ protocol, source, onImport, t, headerOn
           {staleTip}
         </div>
       )}
+      {codingLevels && (
+        <span style={{ fontSize: 14, color: "var(--text-secondary)" }}>
+          {t("platform.rateLimits.codingLevelHint", "V0–V3 are user entitlement concurrency guarantees from the general API, not official Coding Plan limits. Choose your entitlement level.")}
+        </span>
+      )}
       {lib.policies.map(p => {
         const empty = policyIsEmpty(p, t);
+        const radio = codingLevels && !empty;
         return (
           <div key={p.id} id={`rl-policy-${p.id}`} data-state={source?.id === p.id ? "imported" : empty ? "empty" : "idle"}
             style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 10px", borderRadius: "var(--radius-sm)", background: "var(--card)", border: "1px solid var(--border)" }}>
+            {radio && (
+              <input type="radio" name="rl-policy-level" value={p.id} aria-label={p.label}
+                checked={selected === p.id} onChange={() => setSelected(p.id)}
+                style={{ accentColor: "var(--primary)" }} />
+            )}
             <strong style={{ fontSize: 14 }}>{p.label}</strong>
             <a href={p.source_url} target="_blank" rel="noreferrer" style={{ fontSize: 14, color: "var(--primary)" }}>
               {t("platform.rateLimits.policySource", "Source")}
             </a>
-            <button type="button" id={`rl-policy-import-${p.id}`} className="btn-ghost"
-              style={{ marginLeft: "auto", fontSize: 14, padding: "2px 10px" }}
-              title={empty ? t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).") : undefined}
-              onClick={() => { if (empty) setEmptyFeedback(p.id); else { setEmptyFeedback(null); setPending(p); } }}>
-              {t("platform.rateLimits.policyImport", "Import")}
-            </button>
+            {!radio && !codingLevels && (
+              <button type="button" id={`rl-policy-import-${p.id}`} className="btn-ghost"
+                style={{ marginLeft: "auto", fontSize: 14, padding: "2px 10px" }}
+                title={empty ? t("platform.rateLimits.policyEmpty", "No concurrency/RPM/TPM numbers configured; importing won't produce limits. Subscription platforms may enforce points or dynamic concurrency limits (see source).") : undefined}
+                onClick={() => { if (empty) setEmptyFeedback(p.id); else { setEmptyFeedback(null); setPending(p); } }}>
+                {t("platform.rateLimits.policyImport", "Import")}
+              </button>
+            )}
             <PolicyDetail p={p} expanded={!!expanded[p.id]} onToggle={() => setExpanded(e => ({ ...e, [p.id]: !e[p.id] }))} t={t} />
             {emptyFeedback === p.id && (
               <span id="rl-policy-empty-feedback" role="status" style={{ fontSize: 14, color: "var(--text-primary)" }}>
@@ -178,6 +194,16 @@ export function RateLimitPolicyLibrary({ protocol, source, onImport, t, headerOn
           </div>
         );
       })}
+      {codingLevels && (
+        <button type="button" id="rl-policy-import-selected" className="btn-ghost"
+          style={{ alignSelf: "flex-end", fontSize: 14, padding: "2px 10px" }}
+          onClick={() => {
+            const p = lib.policies.find(x => x.id === selected);
+            if (p && !policyIsEmpty(p, t)) { setEmptyFeedback(null); setPending(p); }
+          }}>
+          {t("platform.rateLimits.policyImport", "Import")}
+        </button>
+      )}
       <AlertDialog open={pending !== null} onOpenChange={next => { if (!next) setPending(null); }}>
         <AlertDialogContent id="rl-import-confirm" className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}>
           <AlertDialogHeader>

@@ -38,6 +38,25 @@ async function renderLib(source?: { id?: string; at?: number }) {
 }
 
 describe("RateLimitPolicyLibrary", () => {
+  it.each(["glm_coding", "glm_coding_en"] as const)("%s 默认选 V0，可选择 V3 并确认导入", async protocol => {
+    vi.mocked(getDefaultRateLimitPolicies).mockResolvedValueOnce({ policies: [
+      { id: "default", label: "Default", source_url: "https://example.com/default" },
+      { id: "v3", label: "V3", source_url: "https://example.com/v3", concurrency: 30 },
+      { id: "v0", label: "V0", source_url: "https://example.com/v0", concurrency: 10 },
+    ], lastUpdated: 200 });
+    const onImport = vi.fn();
+    render(<RateLimitPolicyLibrary protocol={protocol} onImport={onImport} t={t} />);
+    await waitFor(() => expect(document.querySelector('input[value="v0"]')).not.toBeNull());
+    expect((document.querySelector('input[value="v0"]') as HTMLInputElement).checked).toBe(true);
+    expect(byId("rl-policy-default")?.querySelector("a")).not.toBeNull();
+    expect(byId("rl-policy-import-default")).toBeNull();
+    fireEvent.click(document.querySelector('input[value="v3"]')!);
+    fireEvent.click(byId("rl-policy-import-selected")!);
+    expect(onImport).not.toHaveBeenCalled();
+    await waitFor(() => expect(byId("rl-import-confirm-ok")).not.toBeNull());
+    fireEvent.click(byId("rl-import-confirm-ok")!);
+    expect(onImport).toHaveBeenCalledWith(expect.objectContaining({ concurrency: 30, source_policy_id: "v3" }));
+  });
   it("全空策略时不渲染导入按钮", async () => {
     vi.mocked(getDefaultRateLimitPolicies).mockResolvedValueOnce({ policies: [POLICIES[2]], lastUpdated: 200 });
     render(<RateLimitPolicyLibrary protocol="anthropic" onImport={vi.fn()} t={t} headerOnly />);

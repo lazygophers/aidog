@@ -2024,6 +2024,7 @@
   "platform.rateLimits.rulesInvalid": "Неверное правило ограничения: нужна хотя бы одна модель или время; шаблон — только один * в конце",
   "platform.rateLimits.windowTz": "Часовой пояс",
   "platform.rateLimits.policyLibrary": "Библиотека политик (встроенные политики лимитов)",
+  "platform.rateLimits.codingLevelHint": "V0–V3 — гарантии параллелизма пользовательских прав общего API, а не официальные лимиты Coding Plan. Выберите свой уровень прав.",
   "platform.rateLimits.policyUpdated": "Встроенная политика обновлена, можно импортировать заново",
   "platform.rateLimits.policyNoNumbers": "Значения уровня платформы не заданы",
   "platform.rateLimits.policyEmpty": "Значения параллелизма/RPM/TPM не заданы; импорт не добавит ограничений. Платформы по подписке могут применять лимиты в баллах или динамический параллелизм (см. источник)",
