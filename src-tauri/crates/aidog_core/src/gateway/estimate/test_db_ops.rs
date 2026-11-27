@@ -86,6 +86,49 @@ async fn balance_atomic_decrement() {
     assert_eq!(p2.estimate_count, 2);
 }
 
+#[tokio::test]
+async fn qianfan_old_weekly_usage_resets_before_write_without_month_date() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let id = mk_platform(&db, true).await;
+    let plan = EstCodingPlan {
+        tiers: vec![EstTier {
+            name: "weekly_limit".into(),
+            est_utilization: 80.0,
+            window_start: 1,
+            limit: 100.0,
+            has_base: true,
+            unit: "prompt_count".into(),
+            ..Default::default()
+        }],
+        level: None,
+    };
+    write_real_quota(&db, id, 0.0, &plan.to_json(), now()).await.unwrap();
+    apply_coding_plan_delta(&db, id, "qianfan_coding", 1, 0.0).await.unwrap();
+    let stored = db::get_platform(&db, id).await.unwrap().unwrap();
+    let plan = EstCodingPlan::from_json(&stored.est_coding_plan);
+    let weekly = plan.tiers.iter().find(|t| t.name == "weekly_limit").unwrap();
+    assert_eq!(weekly.est_utilization, 1.0);
+    assert!(weekly.window_end > now());
+    assert!(!plan.tiers.iter().any(|t| t.name == "monthly"));
+}
+
+#[tokio::test]
+async fn qianfan_counts_no_usage_and_ignores_late_previous_week() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let id = mk_platform(&db, true).await;
+    let plan = EstCodingPlan { tiers: vec![EstTier {
+        name: "weekly_limit".into(), limit: 100.0, has_base: true,
+        unit: "prompt_count".into(), ..Default::default()
+    }], level: None };
+    write_real_quota(&db, id, 0.0, &plan.to_json(), now()).await.unwrap();
+    assert!(estimate_after_request(&db, id, "qianfan_coding", "", "", "", "{}", 0, 0, 0, 0, 0, true, now(), 0.0, 0, false).await);
+    apply_coding_plan_delta_at(&db, id, "qianfan_coding", 1, 0.0, now() - 8 * 24 * 3600 * 1000).await.unwrap();
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    let plan = EstCodingPlan::from_json(&p.est_coding_plan);
+    let tier = plan.tiers.iter().find(|t| t.name == "weekly_limit").unwrap();
+    assert_eq!(tier.est_utilization, 1.0);
+}
+
 // ── coding plan delta read-modify-write 持久化 ──
 #[tokio::test]
 async fn coding_plan_delta_persists() {
@@ -105,6 +148,7 @@ async fn coding_plan_delta_persists() {
             coef_per_request: 0.0,
             requests_since_real: 0.0,
             unit: String::new(),
+            ..Default::default()
         }],
         level: None,
     };
@@ -272,6 +316,7 @@ async fn calibrate_from_quota_aligns_coding_plan() {
             coef_per_request: 0.0,
             requests_since_real: 0.0,
             unit: String::new(),
+            ..Default::default()
         }],
         level: None,
     };

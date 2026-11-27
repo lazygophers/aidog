@@ -410,7 +410,12 @@ async fn compute_health_order_keys(
             keys.insert(
                 gp.platform.id,
                 HealthOrderKey::CodingRemaining(coding_remaining_ratio(
-                    &gp.platform.est_coding_plan,
+                    &crate::gateway::estimate::current_plan(
+                        &gp.platform.est_coding_plan,
+                        &gp.platform.extra,
+                        gp.platform.platform_type == aidog_db::models::Protocol::QianfanCoding,
+                        now_ms,
+                    ).to_json(),
                 )),
             );
             continue;

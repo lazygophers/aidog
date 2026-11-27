@@ -13,6 +13,7 @@ export interface EstCodingTier {
   unit?: string;
   /** 本周期起点 unix ms（系统维护）；0/缺失 = 无可靠周期起点 → 配色中性。 */
   window_start?: number;
+  window_end?: number;
 }
 export interface EstCodingPlan {
   tiers: EstCodingTier[];

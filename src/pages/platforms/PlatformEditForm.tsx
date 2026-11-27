@@ -3,7 +3,7 @@
 //   不持有自己的 state；表单分区（endpoints/models/budgets/breaker/group/expires）
 //   均为 props 驱动的 JSX，无跨组件 setState。
 import { useEffect, useState } from "react";
-import { getClientVocab, serializePlatformTimeWindows, parsePlatformHolidayCalendar, serializePlatformHolidayCalendar, type ClientVocabCategory } from "../../services/api";
+import { getClientVocab, serializePlatformTimeWindows, parsePlatformHolidayCalendar, serializePlatformHolidayCalendar, parseSubscriptionStartDate, serializeSubscriptionStartDate, validSubscriptionStartDate, beijingToday, type ClientVocabCategory } from "../../services/api";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
 import {
@@ -149,7 +149,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           )}
           <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
           <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}
-            disabled={!name || protocol === "unknown"
+            disabled={!name || protocol === "unknown" || (protocol === "qianfan_coding" && !validSubscriptionStartDate(parseSubscriptionStartDate(extra)))
               // passthrough（自定义透传）：base_url 与 api_key 都必填（共识稿 §2）
               || (isPassThrough ? (endpoints.length === 0 || !apiKey)
               : isPassthrough ? endpoints.length === 0
@@ -189,6 +189,18 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             onChange={calendar => setExtra(current => serializePlatformHolidayCalendar(current, calendar))}
             t={t}
           />
+          {protocol === "qianfan_coding" && (
+            <label>
+              {t("platform.subscriptionStartDate", "Subscription start date (Beijing time)")}
+              <Input type="date" max={beijingToday()} data-testid="subscription-start-date" value={parseSubscriptionStartDate(extra)}
+                onChange={e => {
+                  const date = e.target.value;
+                  setExtra(current => serializeSubscriptionStartDate(current, date));
+                }} />
+              {!parseSubscriptionStartDate(extra) && <span>{t("platform.subscriptionDateMissing", "Set a start date to estimate the monthly quota.")}</span>}
+              {!validSubscriptionStartDate(parseSubscriptionStartDate(extra)) && <span role="alert">{t("platform.subscriptionDateInvalid", "Enter a valid date no later than today in Beijing.")} <button type="button" data-testid="subscription-date-clear" onClick={() => setExtra(current => serializeSubscriptionStartDate(current, ""))}>{t("action.clear", "Clear")}</button></span>}
+            </label>
+          )}
           {usageWarning && (
             <Alert variant="destructive" data-testid="platform-usage-warning">{usageWarning}</Alert>
           )}

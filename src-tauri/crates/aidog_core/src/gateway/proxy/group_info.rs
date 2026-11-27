@@ -44,6 +44,33 @@ struct CodingTierResp {
     reset_at: Option<i64>,
 }
 
+fn coding_tiers(json: &str, extra: &str, is_qianfan: bool, now_ms: i64) -> Vec<CodingTierResp> {
+    super::estimate::current_plan(json, extra, is_qianfan, now_ms)
+        .tiers
+        .into_iter()
+        .map(|t| {
+            let pace = super::estimate::tier_pace(&t).as_str().to_string();
+            let level = super::estimate::tier_usage_level(&t, now_ms)
+                .as_str()
+                .to_string();
+            let reset_at = if t.window_end > 0 {
+                Some(t.window_end / 1000)
+            } else {
+                super::usage_color::cycle_ms_for_tier(&t.name)
+                    .filter(|_| t.window_start > 0)
+                    .map(|cycle| (t.window_start + cycle) / 1000)
+            };
+            CodingTierResp {
+                name: t.name,
+                utilization: t.est_utilization,
+                pace,
+                level,
+                reset_at,
+            }
+        })
+        .collect()
+}
+
 /// 分组信息端点 — 仅单平台分组返回本地预估值。
 /// 鉴权：`Authorization: Bearer <group_key>`；localhost-only（非回环连接 403，
 /// bind_lan=true 监听 0.0.0.0 时同样只放行本机）。
@@ -184,31 +211,13 @@ async fn handle_group_info_inner(
     let total_tokens =
         stats.total_input_tokens + stats.total_output_tokens + stats.total_cache_tokens;
 
-    // coding plan tiers（补 pace + level + reset_at）
-    // level 走 usage_color（按 window_start + cycle 推算剩余可用时间%）；
-    // reset_at = window_start + cycle（预估侧推算的本周期重置点，无 window_start 时 None）。
     let now_ms = aidog_db::now();
-    let mut coding_plan: Vec<CodingTierResp> =
-        super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
-            .tiers
-            .into_iter()
-            .map(|t| {
-                let pace = super::estimate::tier_pace(&t).as_str().to_string();
-                let level = super::estimate::tier_usage_level(&t, now_ms)
-                    .as_str()
-                    .to_string();
-                let reset_at = super::usage_color::cycle_ms_for_tier(&t.name)
-                    .filter(|_| t.window_start > 0)
-                    .map(|cycle| (t.window_start + cycle) / 1000);
-                CodingTierResp {
-                    name: t.name,
-                    utilization: t.est_utilization,
-                    pace,
-                    level,
-                    reset_at,
-                }
-            })
-            .collect();
+    let mut coding_plan = coding_tiers(
+        &platform.est_coding_plan,
+        &platform.extra,
+        platform.platform_type == aidog_db::models::Protocol::QianfanCoding,
+        now_ms,
+    );
 
     // 追加 manual budgets 为 coding_plan tiers（让 statusline 显示各窗口预算利用率）
     // 只追加窗口类预算（rolling/fixed/daily），"total" 由 balance 段单独展示。
@@ -308,11 +317,16 @@ async fn handle_group_info_inner(
 
     // B3 折算 $：coding plan tier 的 window_start 起按 platform_id 聚合 est_cost
     // （stats_agg_hourly 的 platform_id 已是回溯后 eff_pid，与该平台日志对齐）。
-    let since = super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
-        .tiers
-        .iter()
-        .map(|t| t.window_start)
-        .find(|&ws| ws > 0);
+    let since = super::estimate::current_plan(
+        &platform.est_coding_plan,
+        &platform.extra,
+        platform.platform_type == aidog_db::models::Protocol::QianfanCoding,
+        now_ms,
+    )
+    .tiers
+    .iter()
+    .map(|t| t.window_start)
+    .find(|&ws| ws > 0);
     let coding_window_cost = match since {
         Some(since) => aidog_stats::sum_est_cost_since(&state.db, platform.id, since)
             .await
@@ -340,4 +354,34 @@ async fn handle_group_info_inner(
     let mut r = (StatusCode::OK, Json(resp)).into_response();
     inject_trace_header(&mut r);
     r
+}
+
+#[cfg(test)]
+mod calendar_tests {
+    use super::*;
+    #[test]
+    fn qianfan_tiers_reset_without_requests_and_use_short_month() {
+        let ts = |s: &str| {
+            chrono::DateTime::parse_from_rfc3339(s)
+                .unwrap()
+                .timestamp_millis()
+        };
+        let now = ts("2026-02-28T00:00:00+08:00");
+        let json = r#"{"tiers":[{"name":"weekly_limit","est_utilization":80,"window_start":1},{"name":"monthly","est_utilization":90,"window_start":1}]}"#;
+        let tiers = coding_tiers(
+            json,
+            r#"{"subscription_start_date":"2026-01-31"}"#,
+            true,
+            now,
+        );
+        assert_eq!(tiers[0].utilization, 0.0);
+        assert_eq!(tiers[1].utilization, 0.0);
+        assert_eq!(
+            tiers[1].reset_at,
+            Some(ts("2026-03-31T00:00:00+08:00") / 1000)
+        );
+        let tiers = coding_tiers(json, "{}", true, now);
+        assert_eq!(tiers.len(), 1);
+        assert_eq!(tiers[0].name, "weekly_limit");
+    }
 }

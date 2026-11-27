@@ -4398,3 +4398,123 @@ async fn sensenova_anthropic_endpoint_dispatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
     assert!(resp.contains("model is empty"), "{resp}");
 }
+
+// ══ issue 152：OpenAI Codex 成员 `codex` 逐端点协议护栏（本地假上游）══
+// 成员与 openai 共用 OpenAIFamilyAdapter 基座（registry.rs 指针同一）；官方 Responses API
+// 契约（https://developers.openai.com/api/reference/resources/responses/methods/create，
+// 核对 2026-11-27）：POST /v1/responses，model + input 必填、max_tokens→max_output_tokens、
+// stream 默认 false、usage 含 input_tokens_details.cached_tokens / cache_write_tokens 与
+// output_tokens_details.reasoning_tokens、SSE 以 response.completed 收官；错误体
+// {error:{message,type,param,code}}。Codex 侧对网关请求的额外字段约定未证实，继承基座默认。
+// fixtures 按上述官方形状构造。
+
+/// 官方 Responses 非流式响应形状（含 input/output_tokens_details 全臂）。
+const CODEX_RESPONSES_RESP: &str = r#"{"id":"resp_cx1","object":"response","model":"gpt-6.2-astra","status":"completed","output":[{"type":"message","id":"msg_cx1","status":"completed","role":"assistant","content":[{"type":"output_text","text":"hi","annotations":[]}]}],"usage":{"input_tokens":10,"input_tokens_details":{"cached_tokens":4,"cache_write_tokens":1},"output_tokens":3,"output_tokens_details":{"reasoning_tokens":2},"total_tokens":13}}"#;
+/// 官方流式：`response.output_text.delta` → `response.completed`（末帧带 usage）收官。
+const CODEX_RESPONSES_SSE: &str = concat!(
+    "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n\n",
+    "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_cx1\",\"status\":\"completed\",\"usage\":{\"input_tokens\":10,\"input_tokens_details\":{\"cached_tokens\":4},\"output_tokens\":3,\"output_tokens_details\":{\"reasoning_tokens\":2},\"total_tokens\":13}}}\n\n",
+);
+/// 官方错误体形状（error-codes 指南；401 归服务类）。
+const CODEX_ERROR_401: &str = r#"{"error":{"message":"Invalid API key provided","type":"invalid_request_error","param":null,"code":null}}"#;
+
+/// 注入不透传：codex 非 coding plan 成员，`inject_coding_plan` 对各 wire 均不改请求体。
+#[test]
+fn codex_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("codex");
+    for wire in [Protocol::OpenAI, Protocol::OpenAIResponses, Protocol::Anthropic] {
+        let mut body =
+            serde_json::json!({"model": "gpt-6.2-astra", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::Codex, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
+
+/// openai_responses 端点（用户配置，base_url 指本地假上游）：出站打 `/responses`；
+/// 请求转换 max_tokens → max_output_tokens；非流式回 anthropic（客户端展示侧 usage 保留
+/// 原始 input 10 + cache_read 单列 4，与 openai 臂同形；计费侧 extract_usage 按官方公式
+/// ordinary input = input − cached − cache_write = 5）；流式 `response.completed` 收官、
+/// 上游 `[DONE]` 不漏 anthropic 标记；401 原状态透传 + 错误消息保留。
+#[tokio::test]
+async fn codex_openai_responses_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::Codex, Protocol::OpenAIResponses, "gk152or", "/v1/messages", r#"{"model":"gpt-6.2-astra","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", CODEX_RESPONSES_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/responses", "{:?}", hits[0].0);
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "gpt-6.2-astra", "{req}");
+    assert_eq!(req["max_output_tokens"], 32, "{req}");
+    assert_eq!(req["input"][0]["content"][0]["text"], "hi", "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi", "{response}");
+    assert_eq!(response["usage"]["input_tokens"], 10, "{response}");
+    assert_eq!(response["usage"]["output_tokens"], 3, "{response}");
+    assert_eq!(response["usage"]["cache_read_input_tokens"], 4, "{response}");
+    let (input, output, cache_read, cache_write, cache_write_1h, _) = aidog_adapter::platform::adapter_for("codex")
+        .extract_usage(CODEX_RESPONSES_RESP);
+    assert_eq!((input, output, cache_read, cache_write, cache_write_1h), (5, 3, 4, 1, 0), "responses 缓存臂：ordinary input = input − cached − cache_write");
+
+    let (status, resp, _) = glm_member_call(Protocol::Codex, Protocol::OpenAIResponses, "gk152ors", "/v1/messages", r#"{"model":"gpt-6.2-astra","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", CODEX_RESPONSES_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    assert!(!resp.contains("[DONE]"), "Anthropic inbound must not receive OpenAI terminator: {resp}");
+    assert!(resp.contains("\"input_tokens\":10") && resp.contains("\"output_tokens\":3"), "{resp}");
+
+    let (status, resp, _) = glm_member_call(Protocol::Codex, Protocol::OpenAIResponses, "gk152ore", "/v1/messages", r#"{"model":"gpt-6.2-astra","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", CODEX_ERROR_401)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("Invalid API key provided"), "{resp}");
+}
+
+// ══ issue 151：官方 OpenAI 平台 `openai` 逐端点协议护栏（本地假上游）══
+// 成员级核对及未证实项见 OpenAIFamilyAdapter 文档注释（aidog_adapter/src/platform/registry.rs，
+// 成员复核日期 2026-11-27；官方 API reference 与 error-codes 页）。
+
+/// 官方 Chat Completions 非流式响应（API reference 示例形状，cached_tokens 命中缓存 6）。
+const OPENAI_RESP: &str = r#"{"id":"chatcmpl-151","object":"chat.completion","created":1702685778,"model":"gpt-5.6-terra","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":19,"completion_tokens":10,"total_tokens":29,"prompt_tokens_details":{"cached_tokens":6,"audio_tokens":0},"completion_tokens_details":{"reasoning_tokens":4,"accepted_prediction_tokens":0,"rejected_prediction_tokens":0}},"service_tier":"default"}"#;
+/// 官方流式：chat.completion.chunk 帧、finish_reason 终帧、`data: [DONE]` 结束（API reference）。
+const OPENAI_SSE: &str = "data: {\"id\":\"chatcmpl-151\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-5.6-terra\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}]}\n\n\
+data: {\"id\":\"chatcmpl-151\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-5.6-terra\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"},\"finish_reason\":null}]}\n\n\
+data: {\"id\":\"chatcmpl-151\",\"object\":\"chat.completion.chunk\",\"created\":1694268190,\"model\":\"gpt-5.6-terra\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":19,\"completion_tokens\":10,\"total_tokens\":29,\"prompt_tokens_details\":{\"cached_tokens\":6}}}\n\n\
+data: [DONE]\n\n";
+/// 官方错误体 error{message,type,param,code}（error-codes 页 / API reference）。
+const OPENAI_ERROR: &str = r#"{"error":{"message":"Incorrect API key provided","type":"invalid_request_error","param":null,"code":"invalid_api_key"}}"#;
+
+/// openai 端点（内置默认 openai wire）：出站打 `/chat/completions`；非流式 chat.completion
+/// 回 anthropic 且 cached_tokens 计 cache_read；流式 chunk 转换、`[DONE]` 不漏进 anthropic
+/// 输出、末帧 usage 透出；401 官方错误体原状态透传。
+#[tokio::test]
+async fn openai_openai_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::OpenAI, Protocol::OpenAI, "gk151o", "/v1/messages", r#"{"model":"gpt-5.6-terra","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "gpt-5.6-terra", "{req}");
+    assert_eq!(req["messages"][0]["role"], "user", "{req}");
+    assert_eq!(req["messages"][0]["content"], "hi", "{req}");
+    assert_eq!(req["max_tokens"], 32, "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi");
+    assert_eq!(response["usage"]["input_tokens"], 19, "{response}");
+    assert_eq!(response["usage"]["output_tokens"], 10, "{response}");
+    assert_eq!(response["usage"]["cache_read_input_tokens"], 6, "{response}");
+    let (status, resp, hits) = glm_member_call(Protocol::OpenAI, Protocol::OpenAI, "gk151os", "/v1/messages", r#"{"model":"gpt-5.6-terra","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    assert!(!resp.contains("[DONE]"), "OpenAI upstream terminator must not leak into Anthropic output: {resp}");
+    assert!(resp.contains("\"input_tokens\":19"), "{resp}");
+    assert!(resp.contains("\"output_tokens\":10"), "{resp}");
+    assert!(resp.contains("\"cache_read_input_tokens\":6"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::OpenAI, Protocol::OpenAI, "gk151oe", "/v1/messages", r#"{"model":"gpt-5.6-terra","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", OPENAI_ERROR)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("Incorrect API key"), "{resp}");
+}
+
+/// 注入不透传：`openai` 非 coding plan 成员，`inject_coding_plan` 对 openai wire 不改请求体。
+#[test]
+fn openai_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("openai");
+    let mut body = serde_json::json!({"model": "gpt-5.6-terra", "messages": [{"role": "user", "content": "hi"}]});
+    adapter.inject_coding_plan(&mut body, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert_eq!(body["prompt_cache_key"], serde_json::Value::Null, "openai 非 coding plan，不应注入 prompt_cache_key: {body}");
+}
