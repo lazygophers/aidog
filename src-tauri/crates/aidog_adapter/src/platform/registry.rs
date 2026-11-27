@@ -743,6 +743,66 @@ impl PlatformAdapter for MiniMaxCodingAdapter {
 /// - 未证实项沿用家族行为：Messages 音视频支持、跨模型统一输出上限、统一错误信封、
 ///   Chat Completions 缓存写入是否计入 `prompt_tokens`。普通版沿用家族错误分类、
 ///   usage 抽取和 coding_plan 分派。
+///
+/// `bailian_en` 国际版核对（2026-11-26）：
+///
+/// - 官方两份协议文档（中文站与国际站）均列出业务空间专属域名迁移说明：北京
+///   `dashscope.aliyuncs.com` → `{WorkspaceId}.cn-beijing.maas.aliyuncs.com`、新加坡
+///   `dashscope-intl.aliyuncs.com` → `{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com`、
+///   香港 → `{WorkspaceId}.cn-hongkong.maas.aliyuncs.com`、弗吉尼亚 →
+///   `{WorkspaceId}.us-east-1.maas.aliyuncs.com`；openai 兼容路径
+///   `/compatible-mode/v1` 与 anthropic 路径 `/apps/anthropic`（请求
+///   `/apps/anthropic/v1/messages`）在新域名下均受支持。旧域名作为迁移起点仍在文档
+///   中出现（香港旧式 `cn-hongkong.dashscope.aliyuncs.com` 未在文档列出，按未证实
+///   处理）。
+///   https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope
+///   https://help.aliyun.com/zh/model-studio/anthropic-api-messages
+///   https://www.alibabacloud.com/help/en/model-studio/compatibility-of-openai-with-dashscope
+///   https://www.alibabacloud.com/help/en/model-studio/anthropic-api-messages
+/// - 协议形状（请求字段、思考参数、工具、多模态、system、max_tokens、usage、错误、
+///   流式）与普通版一致，沿用家族基座与 `bailian` 普通版核对结论；registry 预填仍为
+///   旧式域名（dashscope-intl / dashscope-us / cn-hongkong），仅作新建平台表单预填，
+///   运行时只用用户平台配置端点，业务空间专属域名由用户按官方文档填入。
+/// - 未证实项沿用家族行为：国际站各地域的服务端工具与联网搜索支持范围、统一错误
+///   信封、`max_tokens` 统一上限。国际版沿用家族错误分类、usage 抽取和 coding_plan
+///   分派（`BailianEn` 协议非编码套餐，分派 no-op）。
+///
+/// `bailian_coding` 百炼编程核对（2026-11-26）：
+///
+/// - 编码套餐独立协议 `BailianCoding`，registry 预填与官方编码套餐文档一致：
+///   OpenAI 兼容 `https://coding.dashscope.aliyuncs.com/v1`、Anthropic 兼容
+///   `https://coding.dashscope.aliyuncs.com/apps/anthropic`。
+///   https://help.aliyun.com/zh/model-studio/coding-plan-overview
+/// - Claude Code 接入：`ANTHROPIC_BASE_URL` 指向 `coding.dashscope.aliyuncs.com/apps/anthropic`
+///   或业务空间专属 `token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic`；该
+///   Anthropic 兼容端点仅提供 `/v1/messages`，不提供模型列表端点（`/v1/models`
+///   探测 404 属预期）。
+///   https://help.aliyun.com/zh/model-studio/claude-code
+///   https://www.alibabacloud.com/help/en/model-studio/claude-code
+/// - Qwen Code 接入：`baseUrl` 为 `coding.dashscope.aliyuncs.com/v1`（或
+///   `token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1`），环境键
+///   `BAILIAN_CODING_PLAN_API_KEY`。
+///   https://help.aliyun.com/zh/model-studio/qwen-code
+/// - 协议形状沿用家族基座与 `bailian` 普通版核对结论；coding_plan 注入按基座分派对
+///   `BailianCoding` 协议为 no-op（官方接入文档只要求换 base_url 与 API Key，无额外
+///   出站字段）。registry 端点 `coding_plan: true` 仅参与路由与徽标展示。
+/// - 未证实项沿用家族行为：编码套餐的错误信封、`max_tokens` 上限、流式结束细节在
+///   套餐文档未单列。百炼编程沿用家族错误分类与 usage 抽取。
+///
+/// `bailian_coding_en` 百炼编程国际版核对（2026-11-26）：
+///
+/// - 编码套餐独立协议 `BailianCodingEn`，registry 预填与国际站编码套餐文档一致：
+///   OpenAI 兼容 `https://coding-intl.dashscope.aliyuncs.com/v1`、Anthropic 兼容
+///   `https://coding-intl.dashscope.aliyuncs.com/apps/anthropic`。
+///   https://www.alibabacloud.com/help/en/model-studio/coding-plan
+/// - 上述地址属于旧 Coding Plan，须配套餐专用 API key；Token Plan 使用不同地址和密钥，
+///   不能视为同一套餐的地址变体。官方接入说明：
+///   https://www.alibabacloud.com/help/en/model-studio/claude-code
+///   https://www.alibabacloud.com/help/en/model-studio/qwen-code
+/// - 未证实（保留家族默认）：国际 Coding Plan 的请求字段及默认值、思考开关/档位/预算、
+///   工具调用及服务端工具、图片及音视频、system 提示、max_tokens 上限、usage 与缓存 token、
+///   错误体、流式事件及结束标记。上述套餐接入页面未逐项给出这些契约。
+/// - coding_plan 注入对 `BailianCodingEn` 为 no-op，依据基座分派代码，非官方契约。
 pub struct BailianFamilyAdapter;
 
 impl PlatformAdapter for BailianFamilyAdapter {
@@ -914,11 +974,36 @@ impl PlatformAdapter for BailianFamilyAdapter {
 ///   各按协议构件处理）。
 ///
 /// 成员 `doubao`（火山引擎（字节跳动）；issue 127）、`byteplus`（BytePlus；issue 128）：
-/// 均登记为 [`ArkFamilyAdapter`]；registry 内置默认端点与官方一致（doubao
+/// 均登记为 [`ArkFamilyAdapter`]；registry 内置默认端点按家族基座条目预填（doubao
 /// ark.cn-beijing.volces.com/api/plan[/v3]、byteplus ark.ap-southeast.bytepluses.com/api/plan[/v3]，
-/// 协议 anthropic / openai / openai_responses），运行时只用用户平台配置的端点。既有平台特定行为
+/// 协议 anthropic / openai / openai_responses；doubao 套餐端点未证实，保持家族默认），
+/// 运行时只用用户平台配置的端点。既有平台特定行为
 /// 不变（doubao coding 端点 anthropic wire 无条件剥离 redacted_thinking 块，见
 /// aidog_core gateway/proxy/forward.rs）。成员级差异由子 issue 127 / 128 取证后覆盖。
+///
+/// `doubao` 火山引擎核对（2026-11-26）：
+///
+/// - 协议形状（思考开关 `thinking.type` / `reasoning_effort`、usage 含
+///   `prompt_tokens_details.cached_tokens` 与 `reasoning_tokens`、错误码、工具与多模态、
+///   流式与结束标记）沿用家族基座核对结论（官方文档原文，核对日期 2026-11-19），不覆盖。
+///   https://www.volcengine.com/docs/82379/1494384
+///   https://docs.volcengine.com/docs/ark/error-codes?lang=zh
+/// - 编码套餐端点 `ark.cn-beijing.volces.com/api/plan[/v3]`（anthropic / openai /
+///   openai_responses）：家族基座条目（issue 79，核对 2026-11-19）记 registry 预填与官方
+///   一致。本轮（2026-11-26）静态抓取管控与套餐页面为 JS 渲染，未取到套餐端点正文，
+///   该端点文本按未复核处理；运行时只用用户平台配置端点，registry 预填仅作表单预填。
+///   https://docs.volcengine.com/docs/ark/coding-plan?lang=zh
+/// - 官方 AI 工具接入页（本轮抓取，按量付费语境）：Claude Code 页列
+///   `ANTHROPIC_BASE_URL = https://ark.cn-beijing.volces.com/api/compatible`，Codex 页列
+///   `base_url = https://ark.cn-beijing.volces.com/api/v3`（wire_api responses）并支持
+///   Web Search（服务端搜索按协议走）；编程套餐语境的接入端点正文未在静态 HTML 出现，
+///   未证实。https://docs.volcengine.com/docs/ark/ai-tools-claude-code?lang=zh
+///   https://docs.volcengine.com/docs/ark/ai-tools-codex?lang=zh
+/// - coding_plan 注入：官方接入文档只要求设 base_url 与 API Key，基座按平台协议分派对
+///   `Doubao` 协议为 no-op，行为不变。doubao coding 端点 anthropic wire 剥离
+///   `redacted_thinking` 块的既有行为保持不变。
+/// - 未证实（保持基座默认）：错误体统一 JSON 形状、套餐端点语境下的行为差异（若与
+///   按量端点不同）。火山引擎沿用家族错误分类与 usage 抽取。
 pub struct ArkFamilyAdapter;
 
 impl PlatformAdapter for ArkFamilyAdapter {
@@ -1046,6 +1131,20 @@ impl PlatformAdapter for ArkFamilyAdapter {
 /// openai `https://qianfan.baidubce.com/v2/coding` + anthropic
 /// `https://qianfan.baidubce.com/anthropic/coding`，`coding_plan: true`）与官方一致，
 /// 运行时只用用户平台配置的端点。成员级差异由各成员 issue 取证后覆盖。
+///
+/// 成员 `qianfan` 核对补充（2026-11-26）：
+/// - 文本生成 Chat API https://cloud.baidu.com/doc/qianfan-api/s/3m7of64lb
+///   （`thinking.type` 默认 `disabled`；`stream` 默认 false、SSE 以 `data: [DONE]` 结束；
+///   流式默认不带 usage，`stream_options.include_usage=true` 时末帧携带；
+///   `usage.prompt_tokens_details.cached_tokens` 命中缓存 token 数、`search_tokens` 检索膨胀 token）。
+/// - 错误码 https://cloud.baidu.com/doc/qianfan-api/s/Om9b4yj3w
+///   （错误体 `{"error":{"code","message","type"},"id"}`；401 `invalid_model`
+///   「The model does not exist or you do not have access to it.」）。
+/// - Anthropic API 公告 https://cloud.baidu.com/doc/qianfan/s/empm33i0q
+///   （`input_tokens = prompt_tokens - cache_read_input_tokens`，与 Anthropic 定义一致）。
+/// - 未证实（保持基座默认）：流式帧内错误体形态、anthropic 端点 SSE 结束标记（测试按
+///   Anthropic 标准事件链构造，无 [DONE]）、`thinking`/`enable_thinking` 逐模型支持清单、
+///   max_tokens 统一上限、图片/音视频块在该文本生成端点的认受性（官方图片理解是独立端点）。
 pub struct QianfanFamilyAdapter;
 
 impl PlatformAdapter for QianfanFamilyAdapter {
