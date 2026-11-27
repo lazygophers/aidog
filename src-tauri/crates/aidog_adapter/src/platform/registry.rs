@@ -974,11 +974,36 @@ impl PlatformAdapter for BailianFamilyAdapter {
 ///   各按协议构件处理）。
 ///
 /// 成员 `doubao`（火山引擎（字节跳动）；issue 127）、`byteplus`（BytePlus；issue 128）：
-/// 均登记为 [`ArkFamilyAdapter`]；registry 内置默认端点与官方一致（doubao
+/// 均登记为 [`ArkFamilyAdapter`]；registry 内置默认端点按家族基座条目预填（doubao
 /// ark.cn-beijing.volces.com/api/plan[/v3]、byteplus ark.ap-southeast.bytepluses.com/api/plan[/v3]，
-/// 协议 anthropic / openai / openai_responses），运行时只用用户平台配置的端点。既有平台特定行为
+/// 协议 anthropic / openai / openai_responses；doubao 套餐端点未证实，保持家族默认），
+/// 运行时只用用户平台配置的端点。既有平台特定行为
 /// 不变（doubao coding 端点 anthropic wire 无条件剥离 redacted_thinking 块，见
 /// aidog_core gateway/proxy/forward.rs）。成员级差异由子 issue 127 / 128 取证后覆盖。
+///
+/// `doubao` 火山引擎核对（2026-11-26）：
+///
+/// - 协议形状（思考开关 `thinking.type` / `reasoning_effort`、usage 含
+///   `prompt_tokens_details.cached_tokens` 与 `reasoning_tokens`、错误码、工具与多模态、
+///   流式与结束标记）沿用家族基座核对结论（官方文档原文，核对日期 2026-11-19），不覆盖。
+///   https://www.volcengine.com/docs/82379/1494384
+///   https://docs.volcengine.com/docs/ark/error-codes?lang=zh
+/// - 编码套餐端点 `ark.cn-beijing.volces.com/api/plan[/v3]`（anthropic / openai /
+///   openai_responses）：家族基座条目（issue 79，核对 2026-11-19）记 registry 预填与官方
+///   一致。本轮（2026-11-26）静态抓取管控与套餐页面为 JS 渲染，未取到套餐端点正文，
+///   该端点文本按未复核处理；运行时只用用户平台配置端点，registry 预填仅作表单预填。
+///   https://docs.volcengine.com/docs/ark/coding-plan?lang=zh
+/// - 官方 AI 工具接入页（本轮抓取，按量付费语境）：Claude Code 页列
+///   `ANTHROPIC_BASE_URL = https://ark.cn-beijing.volces.com/api/compatible`，Codex 页列
+///   `base_url = https://ark.cn-beijing.volces.com/api/v3`（wire_api responses）并支持
+///   Web Search（服务端搜索按协议走）；编程套餐语境的接入端点正文未在静态 HTML 出现，
+///   未证实。https://docs.volcengine.com/docs/ark/ai-tools-claude-code?lang=zh
+///   https://docs.volcengine.com/docs/ark/ai-tools-codex?lang=zh
+/// - coding_plan 注入：官方接入文档只要求设 base_url 与 API Key，基座按平台协议分派对
+///   `Doubao` 协议为 no-op，行为不变。doubao coding 端点 anthropic wire 剥离
+///   `redacted_thinking` 块的既有行为保持不变。
+/// - 未证实（保持基座默认）：错误体统一 JSON 形状、套餐端点语境下的行为差异（若与
+///   按量端点不同）。火山引擎沿用家族错误分类与 usage 抽取。
 pub struct ArkFamilyAdapter;
 
 impl PlatformAdapter for ArkFamilyAdapter {

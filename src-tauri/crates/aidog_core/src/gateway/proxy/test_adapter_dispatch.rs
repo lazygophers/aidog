@@ -3982,6 +3982,11 @@ async fn bailian_coding_configured_endpoint_dispatch() {
 }
 
 #[tokio::test]
+async fn doubao_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::Doubao, "doubao").await;
+}
+
+#[tokio::test]
 async fn bailian_coding_en_configured_endpoint_dispatch() {
     configured_endpoint_dispatch(Protocol::BailianCodingEn, "bailian_coding_en").await;
 }
