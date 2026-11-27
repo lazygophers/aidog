@@ -1775,6 +1775,30 @@ impl PlatformAdapter for OpenCodeFamilyAdapter {}
 ///   https://platform.openai.com/docs/guides/error-codes
 /// - Codex API 独有的错误形状、缓存 token 计量语义以及 Chat Completions 的逐模型默认值未证实，保持框架默认。
 ///
+/// 成员 `codex`（issue 152；官方契约复核日期 2026-11-27）：
+/// - 端点：官方 Responses API `POST /v1/responses`（内置默认端点 openai_responses /
+///   https://api.openai.com/v1 仅预填；运行时使用用户配置端点），`model` 与 `input` 必填。
+///   https://developers.openai.com/api/reference/resources/responses/methods/create
+/// - 请求字段与默认值：`stream` 默认 false、`store` 默认 true、`temperature` 默认 1、`top_p` 默认 1、
+///   `tool_choice` 默认 "auto"、`truncation` 默认 "disabled"；`max_output_tokens` 可选（无官方全局上限）。
+///   框架 converter anthropic/openai 入站 → responses 出站已映射 `max_tokens → max_output_tokens`、
+///   `system → instructions`，无成员覆写。同上 URL。
+/// - 思考参数：`reasoning.effort`（默认 "medium"，值域 none/minimal/low/medium/high/xhigh/max），
+///   由出站 reasoning_effort 闸门按模型条目控制，无成员覆写。同上 URL。
+/// - 工具：`tools[]`（function / 内置 web_search / file_search / computer 等）+ `tool_choice`；
+///   converter responses 臂已透传，无成员覆写。同上 URL。
+/// - 图片 / 音视频：Responses 输入支持 `input_image` / `input_file` 内容块；converter 已透传；
+///   Codex 音视频支持未证实，保持基座默认。同上 URL。
+/// - system：顶层 `instructions` 字段（converter `instructions → system` 双向已覆盖）。
+/// - usage：`input_tokens` / `output_tokens` + `input_tokens_details.cached_tokens` /
+///   `cache_write_tokens` + `output_tokens_details.reasoning_tokens`；基座 usage 抽取已按
+///   responses 缓存臂采集（ordinary input = input − cached − cache_write），无覆写。同上 URL。
+/// - 错误体：`{"error":{"message","type","param","code"}}`；框架按 OpenAI 错误形状分类
+///   （401/403 Service 类），无覆写。https://platform.openai.com/docs/guides/error-codes
+/// - 流式：SSE `response.output_text.delta` 等事件，终帧 `response.completed` 携带 usage 收官；
+///   基座 sse.rs 已按该结构解析，无覆写。同上 URL。
+/// - Codex 服务端对网关请求的额外字段约定（相比公开 Responses API）未证实，成员继承基座默认。
+///
 /// 成员 `openai` 复核（issue 151，2026-11-27，官方 API reference 与 error-codes 页 raw 抓取）：
 /// Chat Completions `max_completion_tokens` 为输出 token 上界（可选，无文档固定上限）、
 /// 旧 `max_tokens` 仍在；`reasoning_effort` 默认 "medium"、词表 none/minimal/low/medium/high/xhigh/max；
