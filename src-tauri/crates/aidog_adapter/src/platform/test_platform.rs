@@ -2443,3 +2443,30 @@ fn longcat_disable_thinking_openai_writes_official_thinking_param() {
     );
     assert_eq!(an["thinking"], json!({"type":"disabled"}), "{an}");
 }
+
+// ══ issue 151：官方 `openai` 成员护栏 ══
+// 成员级核对及未证实项见 OpenAIFamilyAdapter 文档注释（registry.rs，成员复核日期 2026-11-27）。
+
+#[test]
+fn openai_member_registration_usage_injection_and_error_class() {
+    let adapter = super::adapter_for("openai");
+    assert!(
+        !std::ptr::eq(adapter, super::adapter_for("devin")),
+        "OpenAI registration must not use the generic adapter"
+    );
+    // usage 缓存 token：官方 prompt_tokens_details.cached_tokens（API reference，核对
+    // 2026-11-27），input 扣缓存量 19 - 6 = 13；completion_tokens_details 不参与计费。
+    let resp = r#"{"usage":{"prompt_tokens":19,"completion_tokens":10,"total_tokens":29,"prompt_tokens_details":{"cached_tokens":6,"audio_tokens":0},"completion_tokens_details":{"reasoning_tokens":4}}}"#;
+    let (input, output, cache_read, _, _, _) = adapter.extract_usage(resp);
+    assert_eq!((input, output, cache_read), (13, 10, 6));
+    // 错误体：官方 error{message,type,param,code} envelope；401 直接服务类（不读 body）。
+    let err = r#"{"error":{"message":"Incorrect API key provided","type":"invalid_request_error","param":null,"code":"invalid_api_key"}}"#;
+    assert_eq!(
+        adapter.classify_error(401, err),
+        UpstreamErrorClass::Service
+    );
+    // 非 coding plan 成员：注入 no-op。
+    let mut body = json!({"model":"gpt-5.6-terra"});
+    adapter.inject_coding_plan(&mut body, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert_eq!(body, json!({"model":"gpt-5.6-terra"}));
+}
