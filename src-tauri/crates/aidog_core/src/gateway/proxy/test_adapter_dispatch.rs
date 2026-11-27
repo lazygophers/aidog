@@ -4745,3 +4745,47 @@ fn openai_injection_is_noop() {
     adapter.inject_coding_plan(&mut body, &Protocol::OpenAI, &Protocol::OpenAI);
     assert_eq!(body["prompt_cache_key"], serde_json::Value::Null, "openai 非 coding plan，不应注入 prompt_cache_key: {body}");
 }
+
+// ══ issue 154：newapi 聚合网关逐端点协议护栏（本地假上游）══
+// 官方 API 参考（https://docs.newapi.pro/en/docs/api，核对 2026-11-28）：聚合网关按
+// wire 协议原样中转——openai `/v1/chat/completions`（「Compatible with OpenAI Chat
+// Completions API」）、anthropic `/v1/messages`（Native Claude Format）、gemini、
+// openai_responses、openai_completions 各页响应/错误/流式均为对应 wire 标准形；错误体
+// `error{message,type,param,code}`。契约核对与未证实项见 NewApiAdapter 文档注释
+// （aidog_adapter/src/platform/registry.rs）。
+
+/// 五端点协议全臂：请求路径与转换、非流式响应、流式、错误、usage（helper 内断言
+/// output_tokens）。用户配置端点（base_url = 本地假上游），出站按配置 (protocol, base_url)。
+#[tokio::test]
+async fn newapi_configured_endpoint_dispatch() {
+    configured_endpoint_dispatch(Protocol::NewApi, "newapi").await;
+}
+
+/// usage 抽取按官方 Response Body 形状（ChatCompletions 页 cached_tokens 缓存臂扣减）。
+#[test]
+fn newapi_usage_extraction_follows_official_shape() {
+    let adapter = aidog_adapter::platform::adapter_for("newapi");
+    let body = r#"{"usage":{"prompt_tokens":19,"completion_tokens":10,"total_tokens":29,"prompt_tokens_details":{"cached_tokens":6},"completion_tokens_details":{"reasoning_tokens":4}}}"#;
+    let (input, output, cache_read, cache_write, cache_write_1h, _) = adapter.extract_usage(body);
+    assert_eq!((input, output, cache_read, cache_write, cache_write_1h), (13, 10, 6, 0, 0), "cached_tokens 在 prompt_tokens 内须扣减");
+}
+
+/// 错误体官方形透传：400 原状态 + message 保留，按基座分类。
+#[tokio::test]
+async fn newapi_openai_endpoint_error_body() {
+    let (status, resp, _) = glm_member_call(Protocol::NewApi, Protocol::OpenAI, "gk154e", "/v1/messages", r#"{"model":"np-test","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", CRAZYROUTER_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model not found"), "{resp}");
+}
+
+/// 注入不透传：newapi 无 coding plan 平台级注入，`inject_coding_plan` 对各 wire 不改请求体。
+#[test]
+fn newapi_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("newapi");
+    for wire in [Protocol::OpenAI, Protocol::OpenAIResponses, Protocol::Anthropic, Protocol::Gemini] {
+        let mut body = serde_json::json!({"model": "np-test", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::NewApi, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
