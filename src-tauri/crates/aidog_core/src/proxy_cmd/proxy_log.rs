@@ -433,6 +433,17 @@ pub async fn run_retention_cleanup(db: &Db, settings: &ProxyLogSettings) {
     {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup quota_snapshots failed");
     }
+    // quota_tier_snapshot 同策略删整行（订阅消耗曲线分档改版，跟随 retention_days）。
+    if settings.retention_days > 0
+        && let Err(e) = aidog_stats::cleanup_tier_snapshots(
+            db,
+            settings.retention_days,
+            settings.retention_unit,
+        )
+        .await
+    {
+        tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup tier snapshots failed");
+    }
     if settings.retention_days > 0
         && let Err(e) =
             aidog_logs::cleanup_mitm_logs(db, settings.retention_days, settings.retention_unit)

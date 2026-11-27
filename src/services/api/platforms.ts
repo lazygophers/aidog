@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformUsageSeriesPoint, PlatformHealthDetail, PlatformModelDistributionRow, PlatformQuotaWindowLevel, PlatformRateOccupancy, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformUsageSeriesPoint, PlatformHealthDetail, PlatformModelDistributionRow, PlatformQuotaWindowLevel, PlatformRateOccupancy, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, QuotaTierSnapshot, TimeModelRule, PlatformErrorStatus, ClientVocabCategory } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
 import QUOTA_SCRIPT_SAMPLE_RAW from "../../domains/platforms/quotaScriptSample.txt?raw";
@@ -1003,6 +1003,9 @@ export const modelTestApi = {
 export const quotaApi = {
   magpieNames: (baseUrl: string, apiKey: string) =>
     invoke<string[]>("platform_magpie_quota_names", { baseUrl, apiKey }),
+  /** 某平台全部配额档位查询快照（queried_at 升序），供订阅消耗曲线逐档轨迹。 */
+  tierSnapshots: (platformId: number) =>
+    invoke<QuotaTierSnapshot[]>("platform_quota_tier_snapshots", { platformId }),
   query: (baseUrl: string, apiKey: string, platformId?: number, draftRequires?: Record<string, string>) =>
     invoke<PlatformQuota>("platform_query_quota", { baseUrl, apiKey, platformId: platformId ?? null, draftRequires: draftRequires ?? null }),
   queryNewapi: (baseUrl: string, apiKey: string, extra: string, platformId?: number) =>

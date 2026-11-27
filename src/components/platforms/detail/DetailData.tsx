@@ -4,16 +4,17 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Platform, PlatformUsageStats, PlatformUsageSeriesPoint, PlatformHealthDetail,
-  PlatformModelDistributionRow, PlatformQuota, ProxyLogSummary } from "../../../services/api";
+  PlatformModelDistributionRow, PlatformQuota, QuotaTierSnapshot, ProxyLogSummary } from "../../../services/api";
 import { platformApi, quotaApi, proxyLogApi } from "../../../services/api";
-import { parseEstCodingPlan } from "../../../domains/platforms";
+import { parseEstCodingPlan, isCodingPlanProtocol } from "../../../domains/platforms";
 import { Blk } from "./Blk";
 import { WaterLevel } from "./WaterLevel";
-import { SubscriptionCurveView } from "./SubscriptionCurve";
+import { SubscriptionCurveView, type TierCardData } from "./SubscriptionCurve";
 import { PaygoBarsView } from "./PaygoBars";
 import {
-  buildSubscriptionCurve, buildDailyBars, classifyFailures, topModels,
-  type CurveTierLike, type SubscriptionCurve, type DailyBar, type FailClass,
+  buildTierCurve, buildDailyBars, classifyFailures, topModels,
+  unitOf, cycleMsForName,
+  type TierSnapshotPoint, type DailyBar, type FailClass,
 } from "./chartMath";
 import { formatNumber, formatMoney, formatPercent, formatDurationMs } from "../../../utils/formatters";
 
@@ -32,15 +33,22 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
   const [win, setWin] = useState<Win>("7d");
   const [stats, setStats] = useState<PlatformUsageStats | undefined>();
   const [series, setSeries] = useState<PlatformUsageSeriesPoint[]>([]);
-  const [seriesWindowStart, setSeriesWindowStart] = useState<number | null>(null);
-  const [seriesQueriedAt, setSeriesQueriedAt] = useState<number | null>(null);
   const [health, setHealth] = useState<PlatformHealthDetail | undefined>();
   const [models, setModels] = useState<PlatformModelDistributionRow[]>([]);
   const [fails, setFails] = useState<ProxyLogSummary[]>([]);
   const [quota, setQuota] = useState<PlatformQuota | null>(null);
+  const [tierSnaps, setTierSnaps] = useState<QuotaTierSnapshot[]>([]);
 
+  const [codingProtocol, setCodingProtocol] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    isCodingPlanProtocol(p.platform_type).then(isCoding => {
+      if (alive) setCodingProtocol(isCoding ? p.platform_type : null);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [p.platform_type]);
   const estPlan = useMemo(() => parseEstCodingPlan(p.est_coding_plan), [p.est_coding_plan]);
-  const isSubscription = p.platform_type === "claude_code" || (estPlan !== null && estPlan.tiers.length > 0);
+  const isSubscription = p.platform_type === "claude_code" || codingProtocol === p.platform_type || (estPlan !== null && estPlan.tiers.length > 0);
 
   // 窗口相关：统计 + 模型分布
   useEffect(() => {
@@ -54,16 +62,8 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
   useEffect(() => {
     let alive = true;
     setSeries([]);
-    setSeriesWindowStart(null);
-    setSeriesQueriedAt(null);
-    // 7d API lower bound is hour-floored; +1h is the first safely complete bucket boundary.
-    const seriesWindowStart = Date.now() - 7 * 86_400_000 + 3_600_000;
     platformApi.usageSeries(p.id, "7d").then(s => {
-      if (alive && Array.isArray(s)) {
-        setSeries(s);
-        setSeriesWindowStart(seriesWindowStart);
-        setSeriesQueriedAt(Date.now());
-      }
+      if (alive && Array.isArray(s)) setSeries(s);
     }).catch(() => {});
     platformApi.healthDetail(p.id).then(h => { if (alive && h) setHealth(h); }).catch(() => {});
     proxyLogApi.listFiltered({ platform_id: p.id, status: -1, time_start: Date.now() - 7 * 86_400_000 }, 200, 0)
@@ -72,32 +72,80 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
     return () => { alive = false; };
   }, [p.id]);
 
-  // 订阅平台：一次官方 quota 查询（快照校准点 / resets_at 窗口锚点；失败静默，回落 est 档位）
+  // 订阅平台：一次官方 quota 查询（成功路径后端已落档位快照；失败静默，回落 est 档位）+ 快照历史
   useEffect(() => {
     let alive = true;
     setQuota(null);
+    setTierSnaps([]);
     if (!isSubscription) return () => { alive = false; };
+    let refreshed = false;
+    quotaApi.tierSnapshots(p.id).then(rows => { if (alive && !refreshed && Array.isArray(rows)) setTierSnaps(rows); }).catch(() => {});
     quotaApi.query(primaryBaseUrl(p), p.api_key, p.id)
-      .then(q => { if (alive && q && q.success) setQuota(q); })
+      .then(q => {
+        if (!alive) return;
+        if (q && q.success) {
+          setQuota(q);
+          // 查询成功路径后端已写库，重拉快照历史把新点接进轨迹。
+          quotaApi.tierSnapshots(p.id).then(rows => {
+            if (alive && Array.isArray(rows)) { refreshed = true; setTierSnaps(rows); }
+          }).catch(() => {});
+        }
+      })
       .catch(() => {});
     return () => { alive = false; };
   }, [p.id, isSubscription]);
 
-  const curve: SubscriptionCurve | null = useMemo(() => {
-    if (!isSubscription) return null;
-    const quotaTiers: CurveTierLike[] = (quota?.coding_plan?.tiers ?? []).map(tr => ({
-      name: tr.name, unit: tr.unit ?? null, utilization: tr.utilization, limit: tr.limit, resets_at: tr.resets_at,
-    }));
-    const estTiers: CurveTierLike[] = (estPlan?.tiers ?? []).map(tr => ({
-      name: tr.name, unit: tr.unit ?? null, est_utilization: tr.est_utilization,
-      limit: tr.has_base ? tr.limit ?? null : null, window_start: tr.window_start,
-    }));
-    return buildSubscriptionCurve({
-      series, seriesWindowStart, seriesQueriedAt, quotaTiers,
-      quotaQueriedAt: quota?.queried_at ?? null,
-      estTiers, nowMs: Date.now(),
-    });
-  }, [isSubscription, series, seriesWindowStart, seriesQueriedAt, quota, estPlan]);
+  // 分档卡片：quota 结果档位 ∪ est 档位（按档名+单位去重），每档喂自己的快照时间序列。
+  const cards: TierCardData[] = useMemo(() => {
+    if (!isSubscription) return [];
+    const nowMs = Date.now();
+    const byKey = new Map<string, TierCardData>();
+    const put = (name: string, unit: string, data: Omit<TierCardData, "name" | "unit">) => {
+      byKey.set(`${name}|${unitOf(unit)}`, { name, unit: unitOf(unit), ...data });
+    };
+    for (const tr of quota?.coding_plan?.tiers ?? []) {
+      const resetAt = tr.resets_at ? Date.parse(tr.resets_at) : NaN;
+      const unit = unitOf(tr.unit);
+      const cycle = cycleMsForName(tr.name);
+      const points: TierSnapshotPoint[] = tierSnaps
+        .filter(s => s.tier_name === tr.name && unitOf(s.unit) === unit &&
+          (!s.resets_at || Date.parse(s.resets_at) === resetAt))
+        .map(s => ({ t: s.queried_at, pct: 100 - s.utilization }));
+      if (quota && !points.some(p => p.t === quota.queried_at)) {
+        points.push({ t: quota.queried_at, pct: 100 - tr.utilization });
+      }
+      put(tr.name, unit, {
+        cycleMs: cycle,
+        resetAt: Number.isFinite(resetAt) ? resetAt : null,
+        curve: buildTierCurve({
+          windowStart: Number.isFinite(resetAt) && cycle != null ? resetAt - cycle : null,
+          resetAt: Number.isFinite(resetAt) ? resetAt : null,
+          points, fallbackPct: 100 - tr.utilization, nowMs,
+        }),
+        snapshotPct: Number.isFinite(resetAt) ? null : 100 - tr.utilization,
+      });
+    }
+    for (const tr of estPlan?.tiers ?? []) {
+      const key = `${tr.name}|${unitOf(tr.unit)}`;
+      if (byKey.has(key)) continue;
+      const unit = unitOf(tr.unit);
+      const points: TierSnapshotPoint[] = tierSnaps
+        .filter(s => s.tier_name === tr.name && unitOf(s.unit) === unit)
+        .map(s => ({ t: s.queried_at, pct: 100 - s.utilization }));
+      const cycle = cycleMsForName(tr.name);
+      const ws = tr.window_start && tr.window_start > 0 ? tr.window_start : null;
+      put(tr.name, unit, {
+        cycleMs: cycle,
+        resetAt: ws != null && cycle != null ? ws + cycle : null,
+        curve: buildTierCurve({
+          windowStart: ws, resetAt: ws != null && cycle != null ? ws + cycle : null,
+          points, fallbackPct: tr.est_utilization != null ? 100 - tr.est_utilization : null, nowMs,
+        }),
+        snapshotPct: ws != null ? null : tr.est_utilization != null ? 100 - tr.est_utilization : null,
+      });
+    }
+    return [...byKey.values()];
+  }, [isSubscription, quota, estPlan, tierSnaps]);
 
   const bars: DailyBar[] = useMemo(() => buildDailyBars(series), [series]);
   const failStats = useMemo(() => classifyFailures(fails), [fails]);
@@ -174,7 +222,7 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
         testid="detail-t3-usage"
         title={isSubscription ? t("platform.detail.curve", "Subscription Usage Curve") : t("platform.detail.paygo", "Last 7 Days Usage")}
         hint={isSubscription
-          ? t("platform.detail.curveWindowHint", "Current window: 7 days")
+          ? undefined
           : formatMoney(bars.reduce((s, b) => s + b.cost, 0))}
       >
         {!isSubscription && p.est_balance_remaining > 0 && (
@@ -186,8 +234,8 @@ export function DetailData({ platform: p, col3Extra }: { platform: Platform; col
           </div>
         )}
         {isSubscription
-          ? (curve
-              ? <SubscriptionCurveView curve={curve} nowMs={Date.now()} />
+          ? (cards.length > 0
+              ? <SubscriptionCurveView cards={cards} />
               : <Empty t={t} />)
           : (bars.length > 0 ? <PaygoBarsView bars={bars} /> : <Empty t={t} />)}
       </Blk>

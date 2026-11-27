@@ -316,6 +316,31 @@ CREATE TABLE IF NOT EXISTS platform_preset (
 CREATE INDEX IF NOT EXISTS idx_quota_snapshot_platform ON quota_snapshot(platform_id, created_at);"#,
     )?;
 
+    // Migration 20261127-01 (订阅消耗曲线分档改版): quota_tier_snapshot 每档配额快照事件表。
+    //
+    // 真实 quota 查询成功时（estimate::calibrate_from_quota 成功路径，与 quota_snapshot 同点）
+    // 每档插一行，供详情页订阅消耗曲线逐档轨迹（utilization 剩余%时间序列）。
+    // 幂等：UNIQUE(platform_id, tier_name, unit, queried_at) + INSERT OR IGNORE（同 queried_at
+    // 重复查询不重复落）。queried_at 毫秒 Unix（= PlatformQuota.queried_at，非写入时刻）。
+    // limit/remaining 可空（仅部分平台有绝对值）。落主库（同 quota_snapshot 语义归属）。
+    conn.execute_batch(
+        r#"CREATE TABLE IF NOT EXISTS quota_tier_snapshot (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform_id  INTEGER NOT NULL,
+    tier_name    TEXT NOT NULL DEFAULT '',
+    unit         TEXT NOT NULL DEFAULT '',
+    utilization  REAL NOT NULL DEFAULT 0,
+    limit_value  REAL,
+    remaining    REAL,
+    resets_at    TEXT NOT NULL DEFAULT '',
+    queried_at   INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(platform_id, tier_name, unit, queried_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_quota_tier_snapshot_platform
+    ON quota_tier_snapshot(platform_id, tier_name, queried_at);"#,
+    )?;
+
     // Migration 20260927-01 (cc-sub-mitm 票 07): mitm_log + oauth_usage_sample 两张新表。
     //
     // mitm_log：CONNECT 代理旁路流量观测（D7，不进 proxy_log 防 telemetry 行污染统计）。

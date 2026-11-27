@@ -8,6 +8,7 @@ mod scatter_hist;
 mod session_stats;
 mod stats_agg;
 mod stats_today;
+mod tier_snapshot;
 #[cfg(test)]
 mod test_query_stats;
 #[cfg(test)]
@@ -31,6 +32,7 @@ pub use scatter_hist::*;
 pub use session_stats::*;
 pub use stats_agg::*;
 pub use stats_today::*;
+pub use tier_snapshot::*;
 pub use usage_stats::*;
 
 /// `db.init_tables()` 便捷封装。跨 crate 禁止给 `Db` 加 inherent impl（E0116），
