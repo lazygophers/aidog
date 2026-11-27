@@ -1,4 +1,6 @@
-- 本项目授权自动 `git commit`：所有文件变更完成后立即提交，无需等待明确指令
+- 本项目授权自动 `git commit`：所有文件变更完成后立即提交，无需等待明确指令。
+- **派发 prompt 暂停某 agent 自动提交时，提交义务转回主会话**：agent 回报后当轮按 `.claude/rules/shared-worktree.md` 硬规则代为提交，并在任务状态文件记「待提交」；不留给收尾复盘补（先例：agent 被禁提交后主会话漏接手，改动裸奔到 /retro 才补提交）。
+- **开发完成**：验收通过后合入 `master`，并核实 `master` 包含本次改动，才可报告完成。分支提交属于进行中。普通合并用 `git merge-base --is-ancestor <提交> master` 核实，压缩合并核对 PR 的合并状态和 `master` 中的改动。
 - 提交信息格式：`<type>(<scope>): <description>`，type 遵循 conventional commits（feat / fix / chore / style / refactor / docs）
 - **git 授权**：合并 PR（仅在任务验收标准全部满足后）、code review、切换分支（checkout / switch）无需逐次确认。**issue 工作分支 push 到 origin 并创建 PR = 永久授权**；**其余分支（含 master）仍禁主动 push**，仅在用户当轮明说时推送。issue 分支 push 前核 `git rev-list --count origin/master..<分支>` 只含本 issue 提交、分支从 `origin/master` 开，细则见 `.claude/rules/shared-worktree.md`「推送只走 origin」节与「issue 开发：独立 worktree + PR」节。高危项仍需当轮明示：force push、改历史、删分支/删远端 ref。**分支保护**：master 开必需检查 secret-scan（`.github/workflows/secret-scan.yml`，PR/push 只扫新增提交区间——全历史扫描撞 108 处测试假密钥属基线红）+ `strict=true` + `allow_force_pushes=false`，master 强推被 GitHub 硬拦；未来历史重写须临时开 allow_force_pushes、推完关回（细则见 `.claude/rules/shared-worktree.md` 规则 8）
 - **`.git/index.lock` 残留自动清理，无需询问用户**：判据 `pgrep -fl 'git '` 无 git 进程且锁文件 0 字节才删；有 git 进程或非 0 字节不删（别的会话正在写）
