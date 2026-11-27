@@ -6,6 +6,14 @@ use std::sync::Arc;
 use gateway::quota::PlatformQuota;
 
 crate::tauri_command! {
+/// 返回某平台全部配额档位查询快照，按查询时间升序。
+pub async fn platform_quota_tier_snapshots(
+    platform_id: u64) -> Result<Vec<aidog_db::models::QuotaTierSnapshot>, String> {
+    aidog_stats::tier_snapshots(aidog_ctx::db(), platform_id).await
+}
+}
+
+crate::tauri_command! {
 pub async fn platform_magpie_quota_names(
     base_url: String, api_key: String) -> Result<Vec<String>, String> {
     let db = Arc::new(aidog_ctx::db().clone());

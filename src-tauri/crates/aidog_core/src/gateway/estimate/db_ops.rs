@@ -379,6 +379,26 @@ pub async fn calibrate_from_quota_with(
     {
         tracing::warn!(platform_id, error = %e, "insert quota snapshot failed");
     }
+    // 订阅消耗曲线分档改版：coding plan 各档位结构化落 quota_tier_snapshot
+    // （UNIQUE(platform, tier, unit, queried_at) 幂等），供详情页逐档剩余%轨迹。
+    if let Some(plan) = &quota.coding_plan {
+        let rows = plan
+            .tiers
+            .iter()
+            .map(|t| aidog_stats::TierSnapshot {
+                name: t.name.clone(),
+                unit: t.unit.clone().unwrap_or_else(|| "tokens".into()),
+                utilization: t.utilization,
+                limit: t.limit,
+                remaining: t.remaining,
+                resets_at: t.resets_at.clone(),
+                queried_at: quota.queried_at,
+            })
+            .collect();
+        if let Err(e) = aidog_stats::insert_tier_snapshots(db, platform_id, rows).await {
+            tracing::warn!(platform_id, error = %e, "insert tier snapshots failed");
+        }
+    }
     tracing::info!(platform_id, is_coding_plan, coding_json_len = coding_json.len(), result = ?result, "calibrate_from_quota done");
     schedule_reset_refresh(db, platform_id, quota).await;
 }

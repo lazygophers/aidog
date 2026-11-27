@@ -1,6 +1,6 @@
 // T3 DetailData 行为测试：渲染真组件、断言走 data-testid、invoke 按 command mock。
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "../../../test/render";
+import { render, screen, fireEvent, act, waitFor } from "../../../test/render";
 import { DetailData } from "./DetailData";
 import type { Platform } from "../../../services/api";
 
@@ -80,6 +80,7 @@ const QUOTA = {
 
 const baseMock = (cmd: string) => {
   switch (cmd) {
+    case "get_defaults_json": return Promise.resolve(JSON.stringify({ protocols: { kimi_coding: { is_coding_plan: true } } }));
     case "platform_usage_stats": return Promise.resolve(USAGE_STATS);
     case "platform_usage_series": return Promise.resolve(SERIES);
     case "platform_health_detail": return Promise.resolve(HEALTH);
@@ -112,27 +113,57 @@ const basePlatform = (over: Partial<Platform>): Platform => ({
 } as Platform);
 
 describe("DetailData（T3 数据板块）", () => {
-  it("订阅平台：渲染平滑拟合曲线，无按量柱图，发 quota 查询，偏差 >5% 有图注", async () => {
+  const TIER_SNAPS = [0, 1, 2].map(i => ({
+    tier_name: "weekly_limit", unit: "tokens", utilization: 10 + i * 20,
+    limit_value: 2000, remaining: 2000 - (10 + i * 20) * 20,
+    resets_at: new Date(CURVE_RESET_AT).toISOString(),
+    queried_at: CURVE_WINDOW_START.getTime() + (i + 1) * DAY,
+  }));
+
+  it("新建 coding 平台无估算数据时仍查询订阅额度", async () => {
+    render(<DetailData platform={basePlatform({ platform_type: "kimi_coding", est_coding_plan: "" })} />);
+    await waitFor(() => expect(mockedInvoke.mock.calls.some(c => c[0] === "platform_query_quota")).toBe(true));
+    expect(await screen.findByTestId("detail-t3-curve")).toBeInTheDocument();
+  });
+
+  it("订阅平台：每档小卡渲染，快照历史接进轨迹，发 quota 查询与快照拉取", async () => {
+    mockedInvoke.mockImplementation((cmd: string) =>
+      cmd === "platform_quota_tier_snapshots" ? Promise.resolve(TIER_SNAPS) : baseMock(cmd));
     render(<DetailData platform={basePlatform({ platform_type: "kimi_coding", est_coding_plan: estPlanJson(FIXED_NOW - 4 * DAY) })} />);
     expect(await screen.findByTestId("detail-t3-curve")).toBeInTheDocument();
     expect(screen.queryByTestId("detail-t3-paygo")).not.toBeInTheDocument();
-    // quota 查询已发起（快照校准）
-    const quotaCall = mockedInvoke.mock.calls.find(c => c[0] === "platform_query_quota");
-    expect(quotaCall).toBeTruthy();
-    // quota utilization 0 → 校准点 100%；最后小时桶与快照同刻，可比较偏差。
-    expect(await screen.findByTestId("detail-t3-deviation")).toBeInTheDocument();
-    // 曲线要素：拟合线 + 校准点 SVG 在场
-    expect(screen.getByTestId("detail-t3-fit")).toBeInTheDocument();
-    expect(document.querySelector('[data-testid="detail-t3-curve"] circle')).toBeTruthy();
+    // quota 查询 + 快照历史均已发起
+    expect(mockedInvoke.mock.calls.find(c => c[0] === "platform_query_quota")).toBeTruthy();
+    const snapCall = mockedInvoke.mock.calls.find(c => c[0] === "platform_quota_tier_snapshots");
+    expect(snapCall?.[1]).toMatchObject({ platformId: 1 });
+    // weekly_limit 卡：3 个真实快照点 → 拟合线在场
+    expect(await screen.findByTestId("detail-t3-fit-weekly_limit")).toBeInTheDocument();
+    expect(screen.getByTestId("detail-t3-curve-card-weekly_limit")).toBeInTheDocument();
   });
 
-  it("少于三点时只画原始采样，不拟合曲线并说明数据不足", async () => {
-    mockedInvoke.mockImplementation((cmd: string) =>
-      cmd === "platform_usage_series" ? Promise.resolve(SERIES.slice(0, 1)) : baseMock(cmd));
+  it("较晚返回的首次历史读取不能覆盖查询后的新历史", async () => {
+    let resolveFirst!: (rows: typeof TIER_SNAPS) => void;
+    const first = new Promise<typeof TIER_SNAPS>(resolve => { resolveFirst = resolve; });
+    let calls = 0;
+    mockedInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "platform_quota_tier_snapshots") return ++calls === 1 ? first : Promise.resolve(TIER_SNAPS);
+      return baseMock(cmd);
+    });
     render(<DetailData platform={basePlatform({ platform_type: "kimi_coding", est_coding_plan: estPlanJson(FIXED_NOW - 4 * DAY) })} />);
-    expect(await screen.findByTestId("detail-t3-sparse")).toHaveTextContent("platform.detail.curveSparse");
-    expect(screen.queryByTestId("detail-t3-fit")).not.toBeInTheDocument();
-    expect(screen.getAllByTestId("detail-t3-raw-point")).toHaveLength(1);
+    const fitId = ["detail", "t3", "fit", "weekly_limit"].join("-");
+    await screen.findByTestId(fitId);
+    await act(async () => { resolveFirst([]); await first; });
+    expect(screen.queryByTestId(fitId)).toBeInTheDocument();
+  });
+
+  it("无快照历史：只显示当前快照 + 积累说明，不画轨迹", async () => {
+    mockedInvoke.mockImplementation((cmd: string) =>
+      cmd === "platform_quota_tier_snapshots" ? Promise.resolve([]) : baseMock(cmd));
+    render(<DetailData platform={basePlatform({ platform_type: "kimi_coding", est_coding_plan: estPlanJson(FIXED_NOW - 4 * DAY) })} />);
+    expect(await screen.findByTestId("detail-t3-curve")).toBeInTheDocument();
+    expect(await screen.findByTestId("detail-t3-snapshot-weekly_limit")).toHaveTextContent(
+      "platform.detail.curveAccumulating");
+    expect(screen.queryByTestId("detail-t3-fit-weekly_limit")).not.toBeInTheDocument();
   });
 
   it("按量平台：渲染 7 天柱线图 + 余额，无曲线与重置文案", async () => {

@@ -351,6 +351,7 @@ rpc_routes! {
     readonly aidog_core::proxy_cmd::proxy_log::platform_quota_window_levels,
     readonly aidog_core::proxy_cmd::proxy_log::platform_rate_occupancy,
     readonly aidog_core::platform_cmd::quota::platform_magpie_quota_names,
+    readonly aidog_core::platform_cmd::quota::platform_quota_tier_snapshots,
     mutating aidog_core::platform_cmd::quota::platform_query_quota,
     mutating aidog_core::platform_cmd::quota::platform_query_quota_newapi,
     mutating aidog_core::platform_cmd::quota::platform_query_quota_devin,
