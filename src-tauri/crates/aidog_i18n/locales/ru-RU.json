@@ -2002,6 +2002,7 @@
   "platform.rateLimits.resetModeCalendarDay": "Календарный день",
   "platform.rateLimits.resetModeCalendarHour": "Календарный час",
   "platform.rateLimits.rpm": "RPM (зап/мин)",
+  "platform.rateLimits.rps": "Запросов в секунду (RPS)",
   "platform.rateLimits.tpm": "TPM (токен/мин)",
   "platform.rateLimits.quotaWindows": "Окна квоты (5h=18000 / 7d=604800 сек)",
   "platform.rateLimits.windowSec": "сек",

@@ -2002,6 +2002,7 @@
   "platform.rateLimits.resetModeCalendarDay": "Kalendertag",
   "platform.rateLimits.resetModeCalendarHour": "Kalenderstunde",
   "platform.rateLimits.rpm": "RPM (Anf./Min)",
+  "platform.rateLimits.rps": "Anfragen pro Sekunde (RPS)",
   "platform.rateLimits.tpm": "TPM (Token/Min)",
   "platform.rateLimits.quotaWindows": "Quotenfenster (5h=18000 / 7d=604800 s)",
   "platform.rateLimits.windowSec": "Sek",

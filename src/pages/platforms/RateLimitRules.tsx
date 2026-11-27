@@ -17,7 +17,7 @@ export interface RateLimitRuleDraft {
   id: string;
   models: string[];
   start: string; end: string; tz: string; days: number[]; dayType?: "workday" | "holiday"; holidayCalendar?: string;
-  concurrency: string; rpm: string; tpm: string;
+  concurrency: string; rpm: string; rps?: string; tpm: string;
   /** false = 关掉（落库写 enabled:false）；缺省 = 开。 */
   enabled?: boolean;
 }
@@ -38,7 +38,7 @@ export function ruleToDraft(r: RateLimitRule): RateLimitRuleDraft {
     tz: r.timezone ?? "",
     days: [...(r.days_of_week ?? [])],
     dayType: r.day_type, holidayCalendar: r.holiday_calendar,
-    concurrency: str(r.concurrency), rpm: str(r.rpm), tpm: str(r.tpm),
+    concurrency: str(r.concurrency), rpm: str(r.rpm), rps: str(r.rps), tpm: str(r.tpm),
     ...(r.enabled === false ? { enabled: false } : {}),
   };
 }
@@ -67,6 +67,8 @@ export function draftToRule(d: RateLimitRuleDraft): RateLimitRule {
   const c = pos(d.concurrency), rpm = pos(d.rpm), tpm = pos(d.tpm);
   if (c !== undefined) out.concurrency = c;
   if (rpm !== undefined) out.rpm = rpm;
+  const rps = Number(d.rps);
+  if (Number.isSafeInteger(rps) && rps > 0) out.rps = rps;
   if (tpm !== undefined) out.tpm = tpm;
   if (d.enabled === false) out.enabled = false;
   return out;
@@ -180,6 +182,7 @@ export function RateLimitRulesList({ rules, onChange, modelOptions, protocol, pl
                 </div>}
                 <Input data-testid={`rl-rule-${i}-concurrency`} type="number" min={0} value={r.concurrency} placeholder={t("platform.rateLimits.concurrencyShort", "Conc.")} onChange={e => upd(i, { concurrency: e.target.value })} style={numStyle} />
                 <Input data-testid={`rl-rule-${i}-rpm`} type="number" min={0} value={r.rpm} placeholder="RPM" onChange={e => upd(i, { rpm: e.target.value })} style={numStyle} />
+                <Input data-testid={`rl-rule-${i}-rps`} type="number" min={1} step={1} value={r.rps ?? ""} aria-label={t("platform.rateLimits.rps", "Calls per second (RPS)")} placeholder="RPS" onChange={e => upd(i, { rps: e.target.value })} style={numStyle} />
                 <Input data-testid={`rl-rule-${i}-tpm`} type="number" min={0} value={r.tpm} placeholder="TPM" onChange={e => upd(i, { tpm: e.target.value })} style={numStyle} />
               </div>
               {err && (

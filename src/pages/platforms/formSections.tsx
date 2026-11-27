@@ -1657,6 +1657,7 @@ export type QuotaBudgetMode = "tokens" | "usd" | "count";
 export interface RateLimitsDraft {
   concurrency?: string;
   rpm: string;
+  rps?: string;
   tpm: string;
   rules: RateLimitRuleDraft[];
   windows: { num: string; unit: string; mode: QuotaBudgetMode; amount: string; enabled: boolean; resetMode: string }[];
@@ -1670,6 +1671,7 @@ export function bundleToDraft(b: RateLimitsBundle): RateLimitsDraft {
   return {
     concurrency: str(b.rate_limits?.concurrency),
     rpm: str(b.rate_limits?.rpm),
+    rps: str(b.rate_limits?.rps),
     tpm: str(b.rate_limits?.tpm),
     rules: (b.rate_limits?.rules ?? []).map(ruleToDraft),
     source: b.rate_limits?.source_policy_id ? { id: b.rate_limits.source_policy_id, at: b.rate_limits.source_last_updated } : undefined,
@@ -1694,11 +1696,13 @@ export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
     const v = Math.floor(Number(s));
     return s.trim() !== "" && Number.isFinite(v) && v > 0 ? v : undefined;
   };
-  const caps = (o: { concurrency?: string; rpm: string; tpm: string }) => ({ concurrency: num(o.concurrency ?? ""), rpm: num(o.rpm), tpm: num(o.tpm) });
-  const hasCap = (c: { concurrency?: number; rpm?: number; tpm?: number }) => c.concurrency !== undefined || c.rpm !== undefined || c.tpm !== undefined;
+  const rps = Number(d.rps);
   const rules = d.rules.map(draftToRule);
   const rate_limits: RateLimitsConfig = {
-    ...caps(d),
+    concurrency: num(d.concurrency ?? ""),
+    rpm: num(d.rpm),
+    rps: Number.isSafeInteger(rps) && rps > 0 ? rps : undefined,
+    tpm: num(d.tpm),
     rules: rules.length > 0 ? rules : undefined,
     source_policy_id: d.source?.id,
     source_last_updated: d.source?.at,
@@ -1721,7 +1725,7 @@ export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
     if (q.budget_tokens !== undefined || q.budget_usd !== undefined || q.budget_count !== undefined) windows.push(q);
   }
   return {
-    rate_limits: hasCap(rate_limits) || rate_limits.rules ? rate_limits : undefined,
+    rate_limits: rate_limits.concurrency || rate_limits.rpm || rate_limits.rps || rate_limits.tpm || rate_limits.rules ? rate_limits : undefined,
     quota_windows: windows.length > 0 ? windows : undefined,
   };
 }
@@ -1760,7 +1764,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
   return (
     <FormSection
       title={t("platform.rateLimits.title", "Rate Limits")}
-      desc={t("platform.rateLimits.desc", "Configure RPM/TPM and quota windows per plan; scheduling excludes the platform and blocks requests when exceeded.")}
+      desc={t("platform.rateLimits.desc", "Configure rate limits and quota windows per plan; scheduling excludes the platform and blocks requests when exceeded.")}
       action={<RateLimitPolicyLibrary protocol={protocol} source={bundle.rate_limits?.source_policy_id ? { id: bundle.rate_limits.source_policy_id, at: bundle.rate_limits.source_last_updated } : undefined} onImport={importPolicy} t={t} headerOnly />}
     >
       {/* 实时态条：配置摘要（调度数据未回传，先展示静态配置态） */}
@@ -1782,8 +1786,8 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
         )}
       </div>
 
-      {/* 平台级 RPM/TPM：C 方向稿大数字底边线输入 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+      {/* 平台级限频：C 方向稿大数字底边线输入 */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 10 }}>
         <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
           <span style={labelStyle}>{t("platform.rateLimits.concurrency", "Concurrency (in-flight)")}</span>
           <Input id="rl-concurrency" type="number" min={0} value={draft.concurrency ?? ""} onChange={e => upd("concurrency", e.target.value)}
@@ -1794,6 +1798,13 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
         <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
           <span style={labelStyle}>{t("platform.rateLimits.rpm", "RPM (req/min)")}</span>
           <Input id="rl-rpm" type="number" min={0} value={draft.rpm} onChange={e => upd("rpm", e.target.value)}
+            className="aidog-bignum"
+            style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
+            placeholder="—" />
+        </label>
+        <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
+          <span style={labelStyle}>{t("platform.rateLimits.rps", "Calls per second (RPS)")}</span>
+          <Input id="rl-rps" type="number" min={1} step={1} value={draft.rps ?? ""} onChange={e => upd("rps", e.target.value)}
             className="aidog-bignum"
             style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
             placeholder="—" />

@@ -643,7 +643,7 @@ fn kimi_family_adjust_tool_choice_scope() {
 /// `chat_template_kwargs.enable_thinking` 一并剥除。anthropic 端点与强制思考路径同基座。
 #[test]
 fn bailian_family_openai_disable_thinking_writes_enable_thinking() {
-    for code in ["bailian", "bailian_en", "bailian_coding", "bailian_coding_en"] {
+    for code in ["bailian", "bailian_en", "bailian_coding", "bailian_coding_en", "bailian_us_global", "bailian_us_local", "bailian_hk_global", "bailian_hk_local"] {
         let adapter = super::adapter_for(code);
         let url = "http://127.0.0.1:31234/compatible-mode/v1";
         let mut body = json!({

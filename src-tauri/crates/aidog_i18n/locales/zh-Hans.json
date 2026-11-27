@@ -1909,6 +1909,7 @@
   "platform.rateLimits.title": "限频配置",
   "platform.rateLimits.desc": "按平台套餐配置 RPM/TPM 与额度窗口；调度侧超限自动排除候选并阻断请求。",
   "platform.rateLimits.rpm": "RPM（请求/分钟）",
+  "platform.rateLimits.rps": "每秒调用（RPS）",
   "platform.rateLimits.tpm": "TPM（token/分钟）",
   "platform.rateLimits.quotaWindows": "额度窗口（5h=18000 / 7d=604800 秒）",
   "platform.rateLimits.windowEnabled": "启用",

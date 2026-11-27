@@ -336,6 +336,12 @@
             "minimum": 1,
             "description": "【可选】平台级每分钟请求数上限；省略 = 不限。"
           },
+          "rps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "【可选】平台级每秒调用数上限，按滑动一秒计；省略 = 不限。"
+          },
           "tpm": {
             "type": "integer",
             "minimum": 1,
@@ -405,6 +411,12 @@
                   "type": "integer",
                   "minimum": 1,
                   "description": "【可选】规则命中时的 RPM；没填 = 不限。"
+                },
+                "rps": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991,
+                  "description": "【可选】规则命中时的每秒调用数上限，按滑动一秒计；没填 = 不限。"
                 },
                 "tpm": {
                   "type": "integer",

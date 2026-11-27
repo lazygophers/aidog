@@ -286,6 +286,13 @@ for (const entry of indexDoc.platforms) {
   if (notListed.length) {
     failures.push([`platforms/${code}/platform.json`, `models 槽位值不在 model_list.default 内: ${notListed.join(", ")}`]);
   }
+  // 其他平台的历史缺口暂为警告，修齐后应升级为硬错误。
+  const unlistedModels = [...idSet].filter((id) => !listed.has(id)).sort();
+  if (unlistedModels.length) {
+    const msg = `models 目录有 ${unlistedModels.length} 个 model id 不在 model_list.default: ${unlistedModels.join(", ")}`;
+    if (code === "opencode_zen") failures.push([`platforms/${code}/platform.json`, msg]);
+    else warnings.push(`platforms/${code}: ${msg}`);
+  }
   for (const branch of Object.values(platformDoc.model_list ?? {})) {
     for (const id of branch ?? []) refs.add(id);
   }
@@ -495,6 +502,10 @@ if (Number.isFinite(covMin) && covMin > 0) {
 // ⑪ token 语义护栏：context_window 不得小于 max_input_tokens；默认 warning，
 // AIDOG_REGISTRY_SEMANTIC_STRICT=1 升级为失败。历史镜像存在平台实际限制差异，
 // 先提示再逐平台取证，避免把合法平台限制误判成全局硬错。
+if (warnings.length) {
+  console.log(`registry warning：${warnings.length} 项`);
+  for (const w of warnings) console.log(`  ${w}`);
+}
 if (failures.length) {
   console.error(`registry 校验失败：${failures.length} 处 / ${checked} 个文件`);
   for (const [file, msg] of failures) console.error(`  ${file}: ${msg}`);
@@ -504,9 +515,4 @@ console.log(`registry schema 校验通过：${checked} 个文件（1 index + pla
 if (semanticWarnings.length) {
   console.log(`registry semantic warning：${semanticWarnings.length} 个模型的 context_window 小于 max_input_tokens（AIDOG_REGISTRY_SEMANTIC_STRICT=1 时报错）`);
   for (const warning of semanticWarnings) console.log(`  ${warning}`);
-}
-if (warnings.length) {
-  console.log(`registry warning：${warnings.length} 个平台引用了无文件的 model id（中转平台常见，AIDOG_REGISTRY_STRICT=1 时报错）`);
-  // 票 #19：逐平台明细（原先只汇总会数，43 平台谁缺多少条不可见）
-  for (const w of warnings) console.log(`  ${w}`);
 }

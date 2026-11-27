@@ -24,6 +24,7 @@ const WINDOW_MS: i64 = 60_000;
 pub struct Limits {
     pub concurrency: Option<i64>,
     pub rpm: Option<i64>,
+    pub rps: Option<i64>,
     pub tpm: Option<i64>,
 }
 
@@ -33,7 +34,7 @@ impl Limits {
             let x = v.get(k)?;
             x.as_i64().or_else(|| x.as_f64().map(|f| f as i64)).filter(|n| *n > 0)
         };
-        Self { concurrency: pos("concurrency"), rpm: pos("rpm"), tpm: pos("tpm") }
+        Self { concurrency: pos("concurrency"), rpm: pos("rpm"), rps: v.get("rps").and_then(Value::as_i64).filter(|n| *n > 0), tpm: pos("tpm") }
     }
 
     pub fn is_unlimited(&self) -> bool {
@@ -199,6 +200,12 @@ impl Inner {
         if lim.rpm.is_some_and(|r| self.hits.len() as i64 >= r) {
             return false;
         }
+        if let Some(rps) = lim.rps {
+            let recent = self.hits.len() - self.hits.partition_point(|t| *t <= now - 1_000);
+            if recent as i64 >= rps {
+                return false;
+            }
+        }
         if let Some(t) = lim.tpm {
             let used: i64 = self.tokens.iter().map(|(_, c)| c.load(Ordering::Relaxed)).sum();
             if used > 0 && used + est.max(1) > t {
@@ -217,6 +224,13 @@ impl Inner {
             let over = self.hits.len() as i64 - r;
             if over >= 0 {
                 at = at.max(self.hits.get(over as usize).map_or(now, |t| *t) + WINDOW_MS);
+            }
+        }
+        if let Some(r) = lim.rps {
+            let first_recent = self.hits.partition_point(|t| *t <= now - 1_000);
+            let index = self.hits.len() as i64 - r;
+            if index >= first_recent as i64 {
+                at = at.max(self.hits[index as usize] + 1_000);
             }
         }
         if let Some(t) = lim.tpm {
@@ -335,7 +349,13 @@ impl RateLimiter {
             return None;
         }
         g.in_flight += 1;
-        g.hits.push_back(now);
+        // 并发调用可能按不同于采样时刻的顺序拿到桶锁。
+        if g.hits.back().is_some_and(|last| *last > now) {
+            let index = g.hits.partition_point(|ts| *ts <= now);
+            g.hits.insert(index, now);
+        } else {
+            g.hits.push_back(now);
+        }
         let cell = Arc::new(AtomicI64::new(est));
         g.tokens.push_back((now, cell.clone()));
         drop(g);
@@ -411,7 +431,7 @@ mod tests {
     use super::*;
 
     fn lim(c: Option<i64>, r: Option<i64>, t: Option<i64>) -> Limits {
-        Limits { concurrency: c, rpm: r, tpm: t }
+        Limits { concurrency: c, rpm: r, rps: None, tpm: t }
     }
 
     const H: i64 = 3_600_000;
@@ -539,6 +559,24 @@ mod tests {
         assert!(cfg(r#"{"rules":[{"models":["m"],"tpm":9}]}"#).has_tpm());
         assert!(cfg(r#"{"rules":[{"start_hour":1,"end_hour":2,"tpm":9}]}"#).has_tpm());
         assert!(!cfg(r#"{"rules":[{"models":["m"],"rpm":9}]}"#).has_tpm());
+    }
+
+    #[test]
+    fn rps_sliding_window_and_rule_priority() {
+        let c = cfg(r#"{"rps":2,"rules":[{"models":["m"],"rps":1}]}"#);
+        let rl = Arc::new(RateLimiter::default());
+        let l = c.platform_limits(0);
+        rl.begin(1, &l, 1000, 0).unwrap();
+        rl.begin(1, &l, 1200, 0).unwrap();
+        assert!(!rl.has_room(1, "", &l, 1500, 0));
+        assert_eq!(rl.free_at(1, "", &l, 1500, 0), Some(2000));
+        assert!(rl.begin(1, &l, 1500, 0).is_none());
+        assert!(rl.begin(1, &l, 2000, 0).is_some());
+        let model = c.model_limits("m", 0);
+        let a = rl.begin(2, &Limits::default(), 1000, 0).unwrap();
+        assert!(a.enter_model("m", &model, 1000, 0));
+        let b = rl.begin(2, &Limits::default(), 1001, 0).unwrap();
+        assert!(!b.enter_model("m", &model, 1001, 0));
     }
 
     #[test]

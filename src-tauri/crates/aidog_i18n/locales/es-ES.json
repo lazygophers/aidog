@@ -1909,6 +1909,7 @@
   "platform.rateLimits.title": "Límites de tasa",
   "platform.rateLimits.desc": "Configura RPM/TPM y ventanas de cuota según el plan; la programación excluye la plataforma y bloquea las solicitudes al excederlos.",
   "platform.rateLimits.rpm": "RPM (peticiones/min)",
+  "platform.rateLimits.rps": "Peticiones por segundo (RPS)",
   "platform.rateLimits.tpm": "TPM (tokens/min)",
   "platform.rateLimits.quotaWindows": "Ventanas de cuota (5h=18000 / 7d=604800 s)",
   "platform.rateLimits.windowEnabled": "Activado",

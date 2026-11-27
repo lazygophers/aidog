@@ -1997,6 +1997,7 @@
   "platform.rateLimits.title": "レート制限",
   "platform.rateLimits.desc": "プランに合わせて RPM/TPM とクォータ枠を設定。超過時は候補から除外しリクエストをブロック。",
   "platform.rateLimits.rpm": "RPM（リクエスト/分）",
+  "platform.rateLimits.rps": "秒あたりの呼び出し数（RPS）",
   "platform.rateLimits.tpm": "TPM（トークン/分）",
   "platform.rateLimits.quotaWindows": "クォータ枠（5h=18000 / 7d=604800 秒）",
   "platform.rateLimits.windowEnabled": "有効",

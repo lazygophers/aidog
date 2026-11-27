@@ -2002,6 +2002,7 @@
   "platform.rateLimits.resetModeCalendarDay": "اليوم التقويمي",
   "platform.rateLimits.resetModeCalendarHour": "الساعة التقويمية",
   "platform.rateLimits.rpm": "RPM (طلب/دقيقة)",
+  "platform.rateLimits.rps": "الطلبات في الثانية (RPS)",
   "platform.rateLimits.tpm": "TPM (رمز/دقيقة)",
   "platform.rateLimits.quotaWindows": "نوافذ الحصة (5h=18000 / 7d=604800 ثانية)",
   "platform.rateLimits.windowSec": "ثانية",

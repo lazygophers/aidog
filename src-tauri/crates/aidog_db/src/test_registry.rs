@@ -694,6 +694,7 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     "iceman-free", // opencode_zen
     "jev-1.13-free", // opencode_zen
     "mimo-v2.6-flash-free", // opencode_zen
+    "seaglass-alpha-free", // opencode_zen 暂未披露模型提供方
     "tidepool-alpha-free", // opencode_zen
     // pipellm 视频/图像生成档（官方渠道条目未登记）：
     "image-background-remover",

@@ -1051,6 +1051,7 @@ export function syncProtocolLogo(protocol: Protocol): Promise<void> {
 export interface RateLimitModelOverride {
   concurrency?: number;
   rpm?: number;
+  rps?: number;
   tpm?: number;
 }
 
@@ -1067,6 +1068,7 @@ export interface RateLimitRule {
   timezone?: string;
   concurrency?: number;
   rpm?: number;
+  rps?: number;
   tpm?: number;
   /** 仅平台侧（extra.rate_limits.rules[]）：false = 关掉，网关视为不存在；缺省 = 开。registry 策略不写。 */
   enabled?: boolean;
@@ -1085,6 +1087,7 @@ export function rateLimitRuleError(r: RateLimitRule): "noCondition" | "badWildca
 export interface RateLimitsConfig {
   concurrency?: number;
   rpm?: number;
+  rps?: number;
   tpm?: number;
   rules?: RateLimitRule[];
   /** 导入自 registry 内置策略时记录的来源策略 id（网关只透传不读）。 */
@@ -1120,6 +1123,7 @@ export interface RateLimitsBundle {
 const isRateLimitsEmpty = (r: RateLimitsConfig | undefined) =>
   !r ||
   ((r.rpm ?? 0) === 0 &&
+    (r.rps ?? 0) === 0 &&
     (r.tpm ?? 0) === 0 &&
     (r.concurrency ?? 0) === 0 &&
     (!r.rules || r.rules.length === 0));
@@ -1174,6 +1178,7 @@ export function rateLimitsSummary(b: RateLimitsBundle, windowsLabel: (n: number)
   const r = b.rate_limits;
   if (r?.concurrency) parts.push(`${r.concurrency} CONC`);
   if (r?.rpm) parts.push(`${r.rpm} RPM`);
+  if (r?.rps) parts.push(`${r.rps} RPS`);
   if (r?.tpm) parts.push(`${r.tpm >= 1_000_000 ? `${(r.tpm / 1_000_000).toFixed(1)}M` : formatTpm(r.tpm)} TPM`);
   const w = b.quota_windows?.length ?? 0;
   if (w > 0) parts.push(windowsLabel(w));

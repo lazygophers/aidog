@@ -1,0 +1,29 @@
+{
+  "last_updated": 1795760701,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "kimi-k3.1-pro",
+  "display_name": "Kimi K3.1 Pro",
+  "canonical_model": "kimi-k3.1-pro",
+  "family": "kimi",
+  "version": "3.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "official": false,
+  "price": {
+    "currency": "USD",
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 2e-7,
+    "cache_write": 0.000002
+  }
+}

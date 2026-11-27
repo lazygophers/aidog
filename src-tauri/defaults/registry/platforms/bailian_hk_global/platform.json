@@ -1,0 +1,13 @@
+{
+  "last_updated": 1795772675,
+  "rate_limit_policies": [{"id":"global-static","label":"Global","source_url":"https://www.alibabacloud.com/help/en/model-studio/rate-limit","rules":[{"models":["qwen4-max"],"rpm":30000,"tpm":5000000}]}],
+  "name": {"zh-Hans":"百炼香港（Global）","en-US":"Bailian Hong Kong (Global)","ar-SA":"Bailian Hong Kong (Global)","fr-FR":"Bailian Hong Kong (Global)","de-DE":"Bailian Hong Kong (Global)","ru-RU":"Bailian Hong Kong (Global)","ja-JP":"Bailian Hong Kong (Global)","es-ES":"Bailian Hong Kong (Global)"},
+  "logo_url": "alibabacloud",
+  "color": "#FF6A00",
+  "homepage": "https://www.alibabacloud.com/en/product/modelstudio",
+  "keywords": ["bailian hong kong global", "hong kong global"],
+  "source_urls": {"docs":"https://www.alibabacloud.com/help/en/model-studio/qwen4-max", "pricing":"https://www.alibabacloud.com/help/en/model-studio/model-pricing"},
+  "endpoints": {"default":[{"protocol":"openai","base_url":"https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode/v1"},{"protocol":"anthropic","base_url":"https://cn-hongkong.dashscope.aliyuncs.com/apps/anthropic"}]},
+  "models": {"default":{}},
+  "model_list": {"default":["qwen4-max"]}
+}

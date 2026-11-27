@@ -422,7 +422,7 @@
       ]
     }
   ],
-  "last_updated": 1795488925,
+  "last_updated": 1795773536,
   "holiday_calendar": "SG",
   "endpoints": {
     "default": [
@@ -433,22 +433,6 @@
       {
         "protocol": "anthropic",
         "base_url": "https://dashscope-intl.aliyuncs.com/apps/anthropic"
-      },
-      {
-        "protocol": "openai",
-        "base_url": "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
-      },
-      {
-        "protocol": "anthropic",
-        "base_url": "https://dashscope-us.aliyuncs.com/apps/anthropic"
-      },
-      {
-        "protocol": "openai",
-        "base_url": "https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode/v1"
-      },
-      {
-        "protocol": "anthropic",
-        "base_url": "https://cn-hongkong.dashscope.aliyuncs.com/apps/anthropic"
       }
     ]
   },
