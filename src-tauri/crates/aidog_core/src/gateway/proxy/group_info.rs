@@ -71,36 +71,6 @@ fn coding_tiers(json: &str, extra: &str, is_qianfan: bool, now_ms: i64) -> Vec<C
         .collect()
 }
 
-#[cfg(test)]
-mod calendar_tests {
-    use super::*;
-    #[test]
-    fn qianfan_tiers_reset_without_requests_and_use_short_month() {
-        let ts = |s: &str| {
-            chrono::DateTime::parse_from_rfc3339(s)
-                .unwrap()
-                .timestamp_millis()
-        };
-        let now = ts("2026-02-28T00:00:00+08:00");
-        let json = r#"{"tiers":[{"name":"weekly_limit","est_utilization":80,"window_start":1},{"name":"monthly","est_utilization":90,"window_start":1}]}"#;
-        let tiers = coding_tiers(
-            json,
-            r#"{"subscription_start_date":"2026-01-31"}"#,
-            true,
-            now,
-        );
-        assert_eq!(tiers[0].utilization, 0.0);
-        assert_eq!(tiers[1].utilization, 0.0);
-        assert_eq!(
-            tiers[1].reset_at,
-            Some(ts("2026-03-31T00:00:00+08:00") / 1000)
-        );
-        let tiers = coding_tiers(json, "{}", true, now);
-        assert_eq!(tiers.len(), 1);
-        assert_eq!(tiers[0].name, "weekly_limit");
-    }
-}
-
 /// 分组信息端点 — 仅单平台分组返回本地预估值。
 /// 鉴权：`Authorization: Bearer <group_key>`；localhost-only（非回环连接 403，
 /// bind_lan=true 监听 0.0.0.0 时同样只放行本机）。
@@ -384,4 +354,34 @@ async fn handle_group_info_inner(
     let mut r = (StatusCode::OK, Json(resp)).into_response();
     inject_trace_header(&mut r);
     r
+}
+
+#[cfg(test)]
+mod calendar_tests {
+    use super::*;
+    #[test]
+    fn qianfan_tiers_reset_without_requests_and_use_short_month() {
+        let ts = |s: &str| {
+            chrono::DateTime::parse_from_rfc3339(s)
+                .unwrap()
+                .timestamp_millis()
+        };
+        let now = ts("2026-02-28T00:00:00+08:00");
+        let json = r#"{"tiers":[{"name":"weekly_limit","est_utilization":80,"window_start":1},{"name":"monthly","est_utilization":90,"window_start":1}]}"#;
+        let tiers = coding_tiers(
+            json,
+            r#"{"subscription_start_date":"2026-01-31"}"#,
+            true,
+            now,
+        );
+        assert_eq!(tiers[0].utilization, 0.0);
+        assert_eq!(tiers[1].utilization, 0.0);
+        assert_eq!(
+            tiers[1].reset_at,
+            Some(ts("2026-03-31T00:00:00+08:00") / 1000)
+        );
+        let tiers = coding_tiers(json, "{}", true, now);
+        assert_eq!(tiers.len(), 1);
+        assert_eq!(tiers[0].name, "weekly_limit");
+    }
 }
