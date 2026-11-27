@@ -751,3 +751,25 @@ fn compute_pace_smart_keys_parses_est_plan() {
     assert_eq!(k3.reset_at, None, "no plan → no reset");
     assert_eq!(k3.remaining, None, "no plan → no remaining");
 }
+
+#[test]
+fn qianfan_pace_smart_keys_reset_and_use_calendar_month_end() {
+    let ts = |s: &str| {
+        chrono::DateTime::parse_from_rfc3339(s)
+            .unwrap()
+            .timestamp_millis()
+    };
+    let now = ts("2026-02-28T00:00:00+08:00");
+    let mut gp = mk_gp(1, 1, 0);
+    gp.platform.platform_type = aidog_db::models::Protocol::QianfanCoding;
+    gp.platform.extra = r#"{"subscription_start_date":"2026-01-31"}"#.into();
+    gp.platform.est_coding_plan =
+        r#"{"tiers":[{"name":"monthly","est_utilization":90,"window_start":1}]}"#.into();
+    let keys = compute_pace_smart_keys(&[gp.clone()], now);
+    assert_eq!(keys[&1].remaining, Some(1.0));
+    assert_eq!(keys[&1].reset_at, Some(ts("2026-03-31T00:00:00+08:00")));
+    gp.platform.extra = "{}".into();
+    let keys = compute_pace_smart_keys(&[gp], now);
+    assert_eq!(keys[&1].remaining, None);
+    assert_eq!(keys[&1].reset_at, None);
+}

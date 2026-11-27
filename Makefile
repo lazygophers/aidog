@@ -95,6 +95,7 @@ lint-run:
 	yarn test:money
 	yarn test:registry-slots
 	yarn test:registry-ratelimit
+	yarn test:registry-calendar
 	@printf "$(CYAN)▶ Design token check...$(RESET)\n"
 	yarn check:tokens
 	@printf "$(CYAN)▶ Theme token reference check...$(RESET)\n"

@@ -597,7 +597,12 @@ pub(crate) fn platform_item_parts(
     balance_ccy: Option<&str>,
 ) -> (String, String) {
     let name = platform.name.clone();
-    let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
+    let plan = gateway::estimate::current_plan(
+        &platform.est_coding_plan,
+        &platform.extra,
+        platform.platform_type == db::models::Protocol::QianfanCoding,
+        chrono::Utc::now().timestamp_millis(),
+    );
     let first_tier = plan.tiers.first();
     let is_coding = display == "coding" || first_tier.is_some();
     let value = if is_coding {
@@ -698,7 +703,12 @@ pub(crate) fn platform_item_value(
     };
     let unit = item.unit.as_deref().unwrap_or("");
     let decimals = item.decimals;
-    let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
+    let plan = gateway::estimate::current_plan(
+        &platform.est_coding_plan,
+        &platform.extra,
+        platform.platform_type == db::models::Protocol::QianfanCoding,
+        chrono::Utc::now().timestamp_millis(),
+    );
     // usd 为 USD 金额：按显示币种换算；自定义单位替换币种符号、数值部分不变。
     let money = |usd: f64, default_d: u32| {
         let d = decimals.unwrap_or(default_d) as usize;
@@ -736,11 +746,14 @@ pub(crate) fn platform_item_value(
                 // 重置时刻 = window_start + cycle（与 algo.rs remain 推算同式）；cycle 未知 / 无起点 → 跳过；倒计时已过期 → 跳过。
                 let (kind, name) = m.split_once(':')?;
                 let tier = plan.tiers.iter().find(|t| t.name == name)?;
-                let cycle = gateway::usage_color::cycle_ms_for_tier(&tier.name)?;
                 if tier.window_start <= 0 {
                     return None;
                 }
-                let reset = tier.window_start + cycle;
+                let reset = if tier.window_end > 0 {
+                    tier.window_end
+                } else {
+                    tier.window_start + gateway::usage_color::cycle_ms_for_tier(&tier.name)?
+                };
                 if kind == "reset_at" {
                     Some(format_reset_time(reset, now_ms))
                 } else {
@@ -767,7 +780,12 @@ pub(crate) fn platform_item_level(
     now_ms: i64,
 ) -> Option<&'static str> {
     use gateway::usage_color::UsageLevel;
-    let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
+    let plan = gateway::estimate::current_plan(
+        &platform.est_coding_plan,
+        &platform.extra,
+        platform.platform_type == db::models::Protocol::QianfanCoding,
+        chrono::Utc::now().timestamp_millis(),
+    );
     let tier_level = |t: Option<&gateway::estimate::EstTier>| {
         t.map_or(UsageLevel::Neutral, |t| {
             gateway::estimate::tier_usage_level(t, now_ms)

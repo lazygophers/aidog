@@ -296,16 +296,27 @@ pub(crate) fn compute_pace_smart_keys(
 ) -> HashMap<u64, PaceSmartKey> {
     let mut keys = HashMap::new();
     for gp in platforms {
-        let plan = crate::gateway::estimate::EstCodingPlan::from_json(&gp.platform.est_coding_plan);
+        let plan = crate::gateway::estimate::current_plan(
+            &gp.platform.est_coding_plan,
+            &gp.platform.extra,
+            gp.platform.platform_type == aidog_db::models::Protocol::QianfanCoding,
+            now_ms,
+        );
         let mut reset_at: Option<i64> = None;
         let mut remaining: Option<f64> = None;
         for t in &plan.tiers {
             let rem = (100.0 - t.est_utilization).clamp(0.0, 100.0) / 100.0;
             remaining = Some(remaining.map_or(rem, |m: f64| m.min(rem)));
-            if t.window_start > 0
-                && let Some(cycle) = crate::gateway::usage_color::cycle_ms_for_tier(&t.name)
-            {
-                let r = (t.window_start + cycle).max(now_ms);
+            let end = if t.window_end > 0 {
+                Some(t.window_end)
+            } else if t.window_start > 0 {
+                crate::gateway::usage_color::cycle_ms_for_tier(&t.name)
+                    .map(|cycle| t.window_start + cycle)
+            } else {
+                None
+            };
+            if let Some(end) = end {
+                let r = end.max(now_ms);
                 reset_at = Some(reset_at.map_or(r, |m| m.min(r)));
             }
         }

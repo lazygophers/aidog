@@ -32,6 +32,7 @@
     "test:money": "node --test scripts/check-money-format.test.mjs",
     "test:registry-slots": "node --test scripts/check-registry-slots.test.mjs",
     "test:registry-ratelimit": "node --test scripts/check-registry-ratelimit.test.mjs",
+    "test:registry-calendar": "node --test scripts/check-registry-calendar.test.mjs",
     "test:db-cli-hook": "node --test scripts/test-db-cli-hook.mjs",
     "test:bump-registry": "node --test scripts/bump-registry-last-updated.test.mjs",
     "tokens": "node design/tokens/build-tokens.mjs",

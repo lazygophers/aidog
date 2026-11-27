@@ -8,7 +8,7 @@
 import { useState, useMemo, useEffect } from "react";
 import type { TFunction } from "i18next";
 import {
-  platformApi, groupDetailApi,
+  platformApi, groupDetailApi, parseSubscriptionStartDate, validSubscriptionStartDate,
   parseMockConfig, serializeMockConfig,
   parseDevinConfig, serializeDevinConfig,
   parseQuotaScriptConfig, serializeQuotaScriptConfig, readRequiresValue,
@@ -679,6 +679,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const buildSharedCreateFields = () => {
     if (protocol === "unknown") {
       throw new Error(t("platform.unknownProtocolSave", "Select a valid protocol before saving"));
+    }
+    if (protocol === "qianfan_coding" && !validSubscriptionStartDate(parseSubscriptionStartDate(extra))) {
+      throw new Error(t("platform.subscriptionDateInvalid", "Enter a valid date no later than today in Beijing."));
     }
     const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
     const availablePayload = availableModels.length > 0 ? availableModels : undefined;

@@ -18,6 +18,7 @@
 mod algo;
 mod anchors;
 mod backoff;
+mod calendar;
 mod db_ops;
 mod model;
 mod rate_limit;
@@ -30,6 +31,7 @@ pub use algo::{
 };
 #[allow(unused_imports)]
 pub use anchors::{anchors_in, default_plan_quota_anchors};
+pub(crate) use calendar::current_plan;
 #[allow(unused_imports)]
 pub use db_ops::{
     apply_balance_delta, apply_coding_plan_delta, apply_quota_verdict, build_calibrated_coding_plan,

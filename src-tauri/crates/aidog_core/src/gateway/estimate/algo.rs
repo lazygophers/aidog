@@ -252,9 +252,13 @@ pub fn tier_pace(tier: &EstTier) -> TierPace {
 /// remain = window_start + cycle - now（预估侧）。无 window_start（0）/ 未知 name（无周期）
 /// → 配色中性，不静默走旧利用率阈值（不误报）。
 pub fn tier_usage_level(tier: &EstTier, now_ms: i64) -> crate::gateway::usage_color::UsageLevel {
-    let cycle = match crate::gateway::usage_color::cycle_ms_for_tier(&tier.name) {
-        Some(c) => c,
-        None => return crate::gateway::usage_color::UsageLevel::Neutral,
+    let cycle = if tier.window_end > tier.window_start && tier.window_start > 0 {
+        tier.window_end - tier.window_start
+    } else {
+        match crate::gateway::usage_color::cycle_ms_for_tier(&tier.name) {
+            Some(c) => c,
+            None => return crate::gateway::usage_color::UsageLevel::Neutral,
+        }
     };
     if tier.window_start <= 0 {
         return crate::gateway::usage_color::UsageLevel::Neutral;
@@ -296,6 +300,8 @@ pub fn calibrate_tier(
             has_base: true,
             limit: limit.unwrap_or(0.0),
             window_start,
+            window_end: prev.window_end,
+            reset_mode: prev.reset_mode.clone(),
             unit: unit.to_string(),
         };
     }
@@ -330,6 +336,8 @@ pub fn calibrate_tier(
         has_base: false,
         limit: 0.0,
         window_start,
+        window_end: prev.window_end,
+        reset_mode: prev.reset_mode.clone(),
         unit: unit.to_string(),
     }
 }

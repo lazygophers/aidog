@@ -17,6 +17,7 @@ fn kimi_precise_increment() {
         coef_per_request: 0.0,
         requests_since_real: 0.0,
         unit: String::new(),
+        ..Default::default()
     };
     apply_tier_delta(&mut tier, 0, 1000.0); // 1000 × (100/10000) = 10%
     assert!(
@@ -44,6 +45,7 @@ fn fitted_increment_with_coef() {
         coef_per_request: 0.0,
         requests_since_real: 0.0,
         unit: String::new(),
+        ..Default::default()
     };
     apply_tier_delta(&mut tier, 0, 50_000.0); // 40 + 50000×0.0001 = 45
     assert!(
@@ -69,6 +71,7 @@ fn cold_start_no_estimate() {
         coef_per_request: 0.0,
         requests_since_real: 0.0,
         unit: String::new(),
+        ..Default::default()
     };
     apply_tier_delta(&mut tier, 0, 50_000.0);
     assert!(
@@ -95,6 +98,7 @@ fn calibrate_fits_coef() {
         coef_per_request: 0.0,
         requests_since_real: 0.0,
         unit: String::new(),
+        ..Default::default()
     };
     // 真查得 util_real = 50% → coef = (50-40)/50000 = 0.0002
     let cal = calibrate_tier(&prev, "five_hour", 50.0, false, None, None, now(), "tokens");
@@ -123,6 +127,7 @@ fn calibrate_reset_discards_sample() {
         coef_per_request: 0.0,
         requests_since_real: 0.0,
         unit: String::new(),
+        ..Default::default()
     };
     // 窗口 reset，真值跌到 5%（< 80）→ 丢弃本窗口样本，coef 保留旧值
     let cal = calibrate_tier(&prev, "five_hour", 5.0, false, None, None, now(), "tokens");

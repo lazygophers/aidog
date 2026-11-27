@@ -5392,3 +5392,17 @@ fn resolve_target_chain_keeps_models_with_inferred_supported_protocols() {
         "推断回填值（= 端点并集）不得参与排除"
     );
 }
+
+#[tokio::test]
+async fn qianfan_health_key_uses_current_calendar_window() {
+    let db = mk_test_db().await;
+    let now = chrono::DateTime::parse_from_rfc3339("2026-03-02T00:00:00+08:00")
+        .unwrap()
+        .timestamp_millis();
+    let mut gp = mk_gp_cp(1, 1, 0);
+    gp.platform.platform_type = Protocol::QianfanCoding;
+    gp.platform.est_coding_plan =
+        r#"{"tiers":[{"name":"weekly_limit","est_utilization":90,"window_start":1}]}"#.into();
+    let keys = compute_health_order_keys(&db, &[gp], "", &Default::default(), now).await;
+    assert_eq!(keys.get(&1), Some(&HealthOrderKey::CodingRemaining(1.0)));
+}
