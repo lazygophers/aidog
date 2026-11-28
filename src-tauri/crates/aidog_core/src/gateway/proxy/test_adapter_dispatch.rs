@@ -5226,3 +5226,32 @@ async fn stepfun_anthropic_endpoint_error_body() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
     assert!(resp.contains("max_tokens: Field required"), "{resp}");
 }
+
+// issue 137：Coding Plan 的注入保持原有 no-op，两个端点均不新增套餐字段。
+#[test]
+fn tencent_coding_injection_preserves_body() {
+    let adapter = aidog_adapter::platform::adapter_for("tencent_coding");
+    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+        let original = serde_json::json!({"model": "test-model", "messages": []});
+        let mut body = original.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::TencentCoding, &wire);
+        assert_eq!(body, original, "{wire:?}");
+    }
+}
+
+#[tokio::test]
+async fn tencent_coding_anthropic_endpoint_error_body() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::TencentCoding,
+        Protocol::Anthropic,
+        "gk137ae",
+        "/chat/completions",
+        GLM_OPENAI_IN,
+        (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"invalid request"}}"#),
+    )
+    .await;
+    assert!(!hits.is_empty());
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("invalid request"), "{resp}");
+}
