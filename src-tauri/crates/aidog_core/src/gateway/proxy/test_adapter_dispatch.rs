@@ -4963,3 +4963,69 @@ async fn sensenova_en_anthropic_endpoint_dispatch() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
     assert!(resp.contains("model is empty"), "{resp}");
 }
+
+// ══ issue 135：StepFun 成员 `stepfun`（官方复核 2026-11-28，本地假上游）══
+// 补差额形态：`stepfun` 已随 issue 83 家族基座注册并覆盖两 wire 端点协议护栏（见上
+// issue 83 区段），本组只补四类基线缺口：注入 no-op、usage 抽取官方形状（cached_tokens
+// 扣减）、流式 usage 终块、anthropic 端点错误透传。官方复核结论见
+// aidog_adapter platform::registry `StepFunFamilyAdapter` 模块注释。
+
+/// 注入不透传：stepfun 非编码套餐（`step_plan` 通道路径非 `*_coding` 平台 code），
+/// `inject_coding_plan` 对两种 wire 均不改请求体。
+#[test]
+fn stepfun_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("stepfun");
+    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+        let mut body = serde_json::json!({"model": "step-5-preview", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::StepFun, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
+
+/// usage 抽取按官方形状（chat-completion-create.md usage 表，复核 2026-11-28）：
+/// `prompt_tokens_details.cached_tokens` 在 prompt_tokens 内，抽取时扣减。
+#[test]
+fn stepfun_usage_extraction_follows_official_shape() {
+    let adapter = aidog_adapter::platform::adapter_for("stepfun");
+    let body = r#"{"usage":{"prompt_tokens":19,"completion_tokens":10,"total_tokens":29,"prompt_tokens_details":{"cached_tokens":6}}}"#;
+    let (input, output, cache_read, cache_write, cache_write_1h, _) = adapter.extract_usage(body);
+    assert_eq!((input, output, cache_read, cache_write, cache_write_1h), (13, 10, 6, 0, 0), "cached_tokens 在 prompt_tokens 内须扣减");
+}
+
+/// 流式 usage 终块：`choices: []` 独立 usage 帧（`data: [DONE]` 前）经 openai wire
+/// `parse_sse_frame` 产出 Usage 事件，含 cached_tokens 缓存读。
+#[test]
+fn stepfun_stream_usage_terminal_chunk() {
+    use aidog_adapter::types::ChatStreamEvent;
+    let adapter = aidog_adapter::platform::adapter_for("stepfun");
+    let frame = serde_json::json!({
+        "id": "chatcmpl-step1", "object": "chat.completion.chunk", "choices": [],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12,
+                   "prompt_tokens_details": {"cached_tokens": 4}},
+    });
+    let events = adapter.parse_sse_frame(&frame, &Protocol::OpenAI);
+    let Some(ChatStreamEvent::Usage { usage }) = events.iter().find(|e| matches!(e, ChatStreamEvent::Usage { .. })) else {
+        panic!("usage 终块须产出 Usage 事件: {events:?}");
+    };
+    assert_eq!(usage.prompt_tokens, Some(10), "{usage:?}");
+    assert_eq!(usage.completion_tokens, Some(2), "{usage:?}");
+    assert_eq!(usage.cache_read_tokens, Some(4), "{usage:?}");
+}
+
+/// anthropic 端点错误透传：上游 400 anthropic 形状错误体原样回客户端，状态码不吞。
+#[tokio::test]
+async fn stepfun_anthropic_endpoint_error_body() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFun,
+        Protocol::Anthropic,
+        "gk135ae",
+        "/chat/completions",
+        GLM_OPENAI_IN,
+        (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: Field required"}}"#),
+    )
+    .await;
+    assert!(!hits.is_empty());
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("max_tokens: Field required"), "{resp}");
+}
