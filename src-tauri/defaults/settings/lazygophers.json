@@ -642,7 +642,7 @@
                 ]
             }
         ],
-        "SessionStart": [
+        "InstructionsLoaded": [
             {
                 "hooks": [
                     {
@@ -651,7 +651,9 @@
                         "async": true
                     }
                 ]
-            },
+            }
+        ],
+        "SessionStart": [
             {
                 "matcher": "startup",
                 "hooks": [
