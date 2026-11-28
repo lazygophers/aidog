@@ -1722,9 +1722,12 @@ impl PlatformAdapter for TencentFamilyAdapter {
 ///   评估换名）、`stream_options.include_usage` 认受性、anthropic 端点 signature 回传校验
 ///   强度、max_tokens 统一上限。
 ///
-/// 成员 `xiaomi_mimo`（小米 MiMo，api.xiaomimimo.com 标准平台；成员 issue 待建）：
+/// 成员 `xiaomi_mimo`（小米 MiMo，api.xiaomimimo.com 标准平台；成员票 issue 140）：
 /// 本成员官方文档即家族取证来源，登记为 [`MimoFamilyAdapter`] 全量开启家族覆写
 /// （`official_openai_thinking` / `carry_history_reasoning_openai` 均 true）。
+/// 成员复核（2026-11-28）：官方 `.md` 原文页五份重抓比对（openai-api-post /
+/// anthropic-api-post / deep-thinking / error-codes / model-hyperparameters，
+/// https://mimo.mi.com/static/docs/ ），家族取证各项均维持原判、无新差异。
 ///
 /// 成员 `xiaomi_mimo_coding`（小米 MiMo 套餐（小米），token-plan-cn/sgp/ams；成员 issue 待建）、
 /// `xiaomi_mimo_coding_en`（小米 MiMo 套餐国际版，token-plan-sgp/ams；成员 issue 待建）：
@@ -3578,5 +3581,34 @@ mod siliconflow_family_tests {
         assert!(!std::ptr::eq(cn, adapter_for("devin")));
         assert!(!std::ptr::eq(en, adapter_for("devin")));
         assert!(!std::ptr::eq(cn, adapter_for("openai")));
+    }
+}
+
+#[cfg(test)]
+mod mimo_family_tests {
+    use super::*;
+
+    /// 三成员注册家族基座（issue 85/140；标准成员与两套餐成员分档，非同一单例）。
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let mimo = lookup("xiaomi_mimo").expect("MiMo adapter must be registered");
+        let coding = lookup("xiaomi_mimo_coding").expect("MiMo coding adapter must be registered");
+        let coding_en =
+            lookup("xiaomi_mimo_coding_en").expect("MiMo coding En adapter must be registered");
+
+        assert!(std::ptr::eq(mimo, adapter_for("xiaomi_mimo")));
+        assert!(std::ptr::eq(coding, coding_en));
+        // 标准成员官方证实 API 行为，套餐成员保持框架默认——两档非同一单例。
+        assert!(!std::ptr::eq(mimo, coding));
+        assert!(!std::ptr::eq(mimo, adapter_for("openai")));
+    }
+
+    /// issue 140：标准成员全量开启家族覆写（官方证实），套餐成员保持框架默认。
+    #[test]
+    fn xiaomi_mimo_enables_family_overrides_coding_members_framework_default() {
+        assert!(MIMO.official_openai_thinking, "标准成员 openai 禁思考写官方 thinking 参数");
+        assert!(MIMO.carry_history_reasoning_openai, "标准成员多轮工具历史携带 reasoning_content");
+        assert!(!MIMO_CODING.official_openai_thinking);
+        assert!(!MIMO_CODING.carry_history_reasoning_openai);
     }
 }
