@@ -482,7 +482,16 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setCodingPlan(hasCodingPlan);
     setModels(slotsToForm(p.models));
     setAvailableModels(p.available_models ?? []);
-    setEndpoints(p.endpoints ?? []);
+    // 透传回填与 handleEdit 同款（票 03 D1）：Base URL 输入框绑定 endpoints[0]?.base_url。
+    const eps = [...(p.endpoints ?? [])];
+    if (p.platform_type === "passthrough" && p.base_url) {
+      if (eps.length === 0) {
+        eps.push({ protocol: "passthrough", base_url: p.base_url, client_type: "default", coding_plan: false });
+      } else if (!eps[0].base_url) {
+        eps[0] = { ...eps[0], base_url: p.base_url };
+      }
+    }
+    setEndpoints(eps);
     setEditing(null); setShowForm(true); setFetchError(""); setSaveError("");
     setExtra(p.extra ?? "");
     setMockConfig(parseMockConfig(p.extra ?? ""));
@@ -492,6 +501,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setQuotaCustomScript(qs.customScript);
       setQuotaRequires({});
     }
+    // 配额方式与 handleEdit 一致（票 03 D2）：取源平台值并停用自动落位。
+    setQuotaSource(p.quota_source === "manual" ? "manual" : "auto");
+    setQuotaSourcePristine(false);
     setManualBudgets(p.manual_budgets ?? []);
     // 老平台 expires_at>0 → toggle 默认 ON；=0/未设 → OFF。
     setExpiresAt(p.expires_at ?? 0);
