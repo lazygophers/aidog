@@ -1731,14 +1731,17 @@ impl PlatformAdapter for TencentFamilyAdapter {
 ///
 /// 成员 `xiaomi_mimo_coding`（小米 MiMo 套餐，token-plan-cn/sgp/ams；成员 issue #141，
 /// 成员取证 2026-11-28）、`xiaomi_mimo_coding_en`（小米 MiMo 套餐国际版，token-plan-sgp/ams；
-/// 成员 issue 待建）：官方订阅页
+/// 成员 issue #142）：官方订阅页
 /// https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/subscription 与快速接入页
 /// https://mimo.mi.com/docs/zh-CN/tokenplan/Token%20Plan/quick-access （均核对 2026-11-28）
 /// 只给套餐专属 Key、三集群 Base URL 与 OpenAI 兼容（`/chat/completions`）/ Anthropic 兼容
 /// （`/v1/messages`）验证样例，未列超出家族基座的请求参数或行为差异——未证实范围按票面
 /// 保持框架默认（`official_openai_thinking: false` → openai wire 禁思考走基座 vLLM 式
 /// `chat_template_kwargs.enable_thinking=false`；`carry_history_reasoning_openai: false`），
-/// 成员 issue 取证后收窄。快速接入页 openai 样例写 `max_completion_tokens`（家族未证实项
+/// 成员票 #141/#142 取证后收窄（#142：国际站官方页
+/// https://platform.xiaomimimo.com/docs/welcome 与 https://platform.xiaomimimo.com/token-plan
+/// 均为 SPA 壳无正文，curl raw 核对 2026-11-28，国际版差异未证实，维持家族基座默认）。
+/// 快速接入页 openai 样例写 `max_completion_tokens`（家族未证实项
 /// 已记基座出站统一 `max_tokens` 第三方通行写法，复活条件同家族条目）。腾讯 Coding Plan
 /// （issue 84 同口径先例）。registry 端点标 `coding_plan: true`，基座注入对两协议为 no-op
 /// （issue 141 成员测试锁定）。
