@@ -10,7 +10,7 @@ import { platformApi, type Platform, type PurgeCandidate } from "../../services/
 import { IconClose, IconCheck } from "../../components/icons";
 import { ModelTestPanel } from "../ModelTestPanel";
 import { GroupsEmbedded } from "../Groups";
-import type { PlatformCardService } from "../../components/platforms/PlatformCard";
+import type { PlatformCardService } from "../../components/platforms/usePlatformCards";
 import { PlatformRow, PlatformRowCols } from "./PlatformRow";
 import { ShareModal } from "../../components/platforms/ShareModal";
 import { useProtocolColorMap, useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";

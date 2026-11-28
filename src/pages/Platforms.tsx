@@ -8,7 +8,7 @@
 // App.tsx import 路径 `./pages/Platforms` 保持不变。
 import { useRef, useMemo } from "react";
 
-import type { PlatformCardService } from "../components/platforms/PlatformCard";
+import type { PlatformCardService } from "../components/platforms/usePlatformCards";
 import { usePlatformsState } from "./platforms/usePlatformsState";
 import { PlatformEditForm } from "./platforms/PlatformEditForm";
 import { PlatformListView } from "./platforms/PlatformListView";

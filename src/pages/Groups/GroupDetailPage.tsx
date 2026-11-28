@@ -103,7 +103,7 @@ function MembersCard(props: {
   detail: GroupDetail;
   platforms: Platform[];
   cards: CardsSnapshot;
-  cardService: import("../../components/platforms/PlatformCard").PlatformCardService;
+  cardService: import("../../components/platforms/usePlatformCards").PlatformCardService;
   lang: string;
   t: TFunction;
   onEditPlatform: (p: Platform) => void;
@@ -346,7 +346,7 @@ export function GroupDetailPage(props: {
   groupLast: Record<string, GroupLastRequest>;
   onNavigate?: (id: string, context?: { groupKey?: string; logId?: string }) => void;
   cards: CardsSnapshot;
-  cardService: import("../../components/platforms/PlatformCard").PlatformCardService;
+  cardService: import("../../components/platforms/usePlatformCards").PlatformCardService;
   groupTestRunning: boolean;
   onSelectGroup: (id: number) => void;
   onClose: () => void;

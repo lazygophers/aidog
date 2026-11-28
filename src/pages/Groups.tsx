@@ -6,7 +6,7 @@ import type {
 import { groupApi, groupDetailApi, platformApi } from "../services/api";
 import { setUiExtra } from "../services/api/ui_extra";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
-import type { PlatformCardActions, PlatformCardService } from "../components/platforms/PlatformCard";
+import type { PlatformCardActions, PlatformCardService } from "../components/platforms/usePlatformCards";
 import { usePlatformCards } from "../components/platforms/usePlatformCards";
 import {
   editReducer, EMPTY_EDIT,

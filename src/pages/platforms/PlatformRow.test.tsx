@@ -4,8 +4,10 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { fireEvent, act } from "@testing-library/react";
 import { render, screen } from "../../test/render";
 
-vi.mock("../../../domains/platforms/useProtocolMeta", () => ({
-  useProtocolMeta: () => ({ color: "#123", isCpProtocol: false, defaultModels: ["preset-model"], homepage: "", sourceUrls: { docs: "", pricing: "" }, protocolLabel: "", labelMap: {}, peakWindows: [] }),
+const metaCfg = vi.hoisted(() => ({ v: () => ({ color: "#123", isCpProtocol: false, defaultModels: ["preset-model"], homepage: "", sourceUrls: { docs: "", pricing: "" }, protocolLabel: "", labelMap: {}, peakWindows: [] as never }) }));
+vi.mock("../../domains/platforms/useProtocolMeta", async (importOriginal) => ({
+  ...(await importOriginal()),
+  useProtocolMeta: () => metaCfg.v(),
 }));
 
 // 显示币种 store 首次订阅会 refresh 拉 display_currency_get：mock 成 USD（与默认一致，refresh 恒为空操作），
@@ -127,6 +129,28 @@ describe("PlatformRow", () => {
     const disabled = { ...platform, status: "auto_disabled" } as never as Platform;
     render(<PlatformRow {...base} platform={disabled} lastTest={undefined} />);
     expect(screen.getByTestId("row-status-dot").getAttribute("title")).toBe("auto_disabled");
+  });
+
+  describe("徽标（自 PlatformCard.test.tsx 迁入，票 02）", () => {
+    it("高峰徽标: 时段来自 preset 默认（用户没自配也要显）", () => {
+      const prev = metaCfg.v;
+      metaCfg.v = () => ({ color: "#123", isCpProtocol: false, defaultModels: [], homepage: "", sourceUrls: { docs: "", pricing: "" }, protocolLabel: "", labelMap: {},
+        // start_hour == end_hour → 退化为全天命中，断言不随运行时刻波动
+        peakWindows: [{ start_hour: 0, end_hour: 0, multiplier: 2 }] } as never);
+      try {
+        render(<PlatformRow {...base} />);
+        // base 的 t 不做插值，fallback 原样返回
+        expect(screen.getByTestId("platform-row").textContent).toContain("Peak ×");
+      } finally { metaCfg.v = prev; }
+    });
+
+    it("订阅徽标: claude_code 协议显示、其它不显示", () => {
+      const { unmount } = render(<PlatformRow {...base} platform={{ ...platform, platform_type: "claude_code" } as never as Platform} />);
+      expect(screen.getByText("Subscription")).toBeTruthy();
+      unmount();
+      render(<PlatformRow {...base} />);
+      expect(screen.queryByText("Subscription")).toBeNull();
+    });
   });
 
   describe("「代理」徽标显隐（开关 × 全局代理地址，issue #64 T03）", () => {

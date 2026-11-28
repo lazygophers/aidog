@@ -12,7 +12,7 @@ import { useProtocolMeta } from "../../../domains/platforms/useProtocolMeta";
 import { useProtocolLogo } from "../../../domains/platforms/useProtocolLogo";
 import { getPrimaryBaseUrl } from "../../../pages/platforms/usePlatformQuota";
 import { formatDateTime } from "../../../utils/formatters";
-import type { PlatformCardService } from "../PlatformCard";
+import type { PlatformCardService } from "../usePlatformCards";
 
 export function DetailHeader({ platform: p, membership, onBack, service }: {
   platform: Platform;

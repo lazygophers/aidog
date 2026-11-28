@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { TFunction } from "i18next";
 import type { GroupDetail, GroupLastRequest, Platform, PlatformUsageStats } from "../../services/api";
-import type { PlatformCardActions, PlatformCardService } from "../../components/platforms/PlatformCard";
+import type { PlatformCardActions, PlatformCardService } from "../../components/platforms/usePlatformCards";
 import type { usePlatformCards } from "../../components/platforms/usePlatformCards";
 import { SortableList } from "../../components/SortableList";
 import { CopyButton, StatChip, successRateLevel, costLevel } from "../../components/shared";
