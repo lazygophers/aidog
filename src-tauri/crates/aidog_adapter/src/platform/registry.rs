@@ -1814,7 +1814,8 @@ impl PlatformAdapter for MimoFamilyAdapter {
 ///   https://opencode.ai/docs/console/go/ https://opencode.ai/docs/zen/
 /// - `opencode`（OpenCode Go 订阅）成员级核对（issue 145，核对日期 2026-11-28，
 ///   依据官方 raw markdown 直取，出处 URL 见段末）：Go / Go Plus / Go Teams 月费
-///   订阅（$10 / $40 / $20 每成员），配额内请求 `cost` 计 0，超额走 Extra Usage；
+///   订阅（$10 / $40 / $20 每成员——前两档整账户、Teams 按成员计），配额内请求
+///   `cost` 计 0，超额走 Extra Usage；
 ///   出站 API 面与家族基座完全一致：OpenAI Chat Completions `POST {base}/chat/completions`、
 ///   Bearer 鉴权、`model` 填模型 id（官方模型清单端点 `GET /v1/models`，Go 的完整
 ///   base URL 集 https://opencode.ai/docs/console/harnesses#base-urls）；文本模型
