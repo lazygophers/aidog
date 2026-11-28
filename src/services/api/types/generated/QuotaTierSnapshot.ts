@@ -4,23 +4,23 @@
  * 单档配额快照（订阅消耗曲线分档改版）：某平台某档位一次 quota 查询的解析值。
  * `platform_quota_tier_snapshots` 返回 queried_at 升序序列，前端按 tier_name 分组画剩余%轨迹。
  */
-export type QuotaTierSnapshot = {
+export type QuotaTierSnapshot = { 
 /**
  * 档位名（five_hour / weekly_limit / mcp_monthly …）。
  */
-tier_name: string,
+tier_name: string, 
 /**
  * 计费单位（tokens / prompt_count / mcp_time）。
  */
-unit: string,
+unit: string, 
 /**
  * 已用百分比（0-100）。
  */
-utilization: number, limit_value: number | null, remaining: number | null,
+utilization: number, limit_value: number | null, remaining: number | null, 
 /**
  * 重置时间 ISO 8601；空串 = 未知。
  */
-resets_at: string,
+resets_at: string, 
 /**
  * 毫秒 Unix 时间戳（= 查询时刻 PlatformQuota.queried_at）。
  */
