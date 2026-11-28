@@ -6,9 +6,10 @@ import type { QuotaSnapshot, QuotaSnapshotsQuery, ScatterHistogram, ScatterHisto
 export const statsApi = {
   query: (query: StatsQuery) =>
     invoke<StatsResult>("stats_query", { query }),
-  /** 会话归组聚合（magpie 票 08/09）：近 `days` 天按 session_key 聚合，缺省 7（后端 clamp 1..=90）。 */
-  sessionStats: (days?: number) =>
-    invoke<SessionStats[]>("session_stats", { days }),
+  /** 会话归组聚合（magpie 票 08/09）：近 `days` 天按 session_key 聚合，缺省 7（后端 clamp 1..=90）。
+   *  `clients`（issue #66）：客户端码过滤，空 / 省略 = 全部。 */
+  sessionStats: (days?: number, clients?: string[]) =>
+    invoke<SessionStats[]>("session_stats", { days, clients: clients?.length ? clients : undefined }),
   /** 批量查询：一次 IPC 拉多卡数据，结果顺序与 queries 一一对应。浮窗 N 卡用，消除 fan-out。 */
   queryBatch: (queries: StatsQuery[]) =>
     invoke<StatsResult[]>("stats_query_batch", { queries }),

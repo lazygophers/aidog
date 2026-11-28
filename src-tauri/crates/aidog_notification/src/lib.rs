@@ -20,7 +20,7 @@ pub mod semantic;
 mod action;
 mod dispatch;
 mod render;
-mod session_name;
+pub mod session_name;
 mod tts;
 mod vars;
 

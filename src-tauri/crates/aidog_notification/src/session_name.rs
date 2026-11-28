@@ -139,6 +139,101 @@ fn codex_home() -> Option<std::path::PathBuf> {
         .or_else(|| dirs::home_dir().map(|h| h.join(".codex")))
 }
 
+/// 统计页会话标题（issue #66）：先查主库 `session_name_cache`（键 = 客户端 + 会话 id），
+/// 未命中按需读一次来源（Claude transcript / Codex session_index + threads.title）并回写缓存；
+/// 任何一步失败静默回落空串。未知客户端 / 空 session_id → 空串。
+pub async fn resolve_cached(db: &Db, client: &str, session_id: &str) -> String {
+    let sid = session_id.trim();
+    if sid.is_empty() {
+        return String::new();
+    }
+    let root = projects_root();
+    let home = codex_home().unwrap_or_default();
+    resolve_cached_in(db, client, sid, &root, &home).await
+}
+
+/// `root` = 允许读取的 Claude transcript 根目录，`home` = Codex 家目录（测试注入 tempdir）。
+pub(crate) async fn resolve_cached_in(
+    db: &Db,
+    client: &str,
+    session_id: &str,
+    claude_root: &Path,
+    codex_home: &Path,
+) -> String {
+    let sid = session_id.trim();
+    if sid.is_empty() {
+        return String::new();
+    }
+    // 缓存优先（主库读 handle，键 = 客户端 + 会话 id；value JSON 里取 name 字段，
+    // 兼容 Claude / Codex 两写法）。读取失败静默当未命中。
+    let cached = aidog_db::get_session_name_cache(db, client, sid)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|j| serde_json::from_str::<serde_json::Value>(&j).ok())
+        .and_then(|v| {
+            v.get("name")
+                .and_then(|n| n.as_str())
+                .map(|s| s.to_string())
+        });
+    if let Some(name) = cached.filter(|n| !n.is_empty()) {
+        return name;
+    }
+    // 未命中：按需读一次来源
+    let name = match client {
+        CLIENT_CLAUDE => {
+            // transcript 路径无法从会话 id 唯一反推（projects/<proj>/<sid>.jsonl），
+            // 按 sid 在 root 下找 <sid>.jsonl；找不到 = 无名（静默回落）。
+            let path = found_claude_path(claude_root, sid);
+            if path.as_os_str().is_empty() {
+                tracing::debug!("session_name: cached miss, transcript for {sid} not found");
+                return String::new();
+            }
+            let scanned = tokio::task::spawn_blocking(move || scan_transcript(&path, ClaudeCache::default())).await;
+            match scanned {
+                Ok(Ok(c)) => c.name,
+                _ => {
+                    tracing::debug!("session_name: cached miss, transcript scan failed for {sid}");
+                    String::new()
+                }
+            }
+        }
+        CLIENT_CODEX => {
+            let vars: HashMap<String, String> =
+                [("thread_id".to_string(), sid.to_string())].into_iter().collect();
+            resolve_codex(db, &vars, codex_home).await
+        }
+        _ => String::new(),
+    };
+    // resolve_codex 已自行回写缓存；Claude 分支在此回写（resolve 未写，因其以为通知路径写过）。
+    if client == CLIENT_CLAUDE && !name.is_empty() {
+        let c = ClaudeCache { name: name.clone(), source: String::new(), offset: 0 };
+        if let Ok(json) = serde_json::to_string(&c)
+            && let Err(e) = aidog_db::put_session_name_cache(db, client, sid, &json).await
+        {
+            tracing::debug!(error = %e, "session_name: write cache failed");
+        }
+    }
+    name
+}
+
+/// `root/<proj>/<sid>.jsonl` 查找：root 直接命中或 root 下一层目录里找同名 transcript；
+/// 找不到返回空路径。
+fn found_claude_path(root: &Path, sid: &str) -> std::path::PathBuf {
+    let direct = root.join(format!("{sid}.jsonl"));
+    if direct.is_file() {
+        return direct;
+    }
+    std::fs::read_dir(root)
+        .ok()
+        .and_then(|rd| {
+            rd.filter_map(|e| e.ok())
+                .map(|e| e.path().join(format!("{sid}.jsonl")))
+                .find(|p| p.is_file())
+        })
+        .unwrap_or_default()
+}
+
 /// `session_index.jsonl`（追加写，字段 `id` / `thread_name`）里该线程最后一条非空名；坏行跳过。
 fn codex_rename(home: &Path, tid: &str) -> Option<String> {
     let text = std::fs::read_to_string(home.join("session_index.jsonl")).ok()?;

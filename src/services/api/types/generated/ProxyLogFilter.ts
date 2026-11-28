@@ -45,4 +45,8 @@ prompt_id?: string,
 /**
  * Claude Code `x-claude-code-session-id` 精确匹配
  */
-session_id?: string, };
+session_id?: string, 
+/**
+ * 客户端码过滤（issue #66）：Some(non-empty) = client IN (...)；空 / None = 全部
+ */
+clients?: Array<string>, };
