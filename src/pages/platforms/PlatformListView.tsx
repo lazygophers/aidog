@@ -138,7 +138,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
       </header>)}
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onPlatformDeleted={(ids: number[]) => removePlatformsByIds(ids)} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onDuplicatePlatform={handleDuplicate} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={s.groupsReloadRef} onCountChange={setProgressiveCount} searchQuery={searchQuery} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onPlatformDeleted={(ids: number[]) => removePlatformsByIds(ids)} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onDuplicatePlatform={handleDuplicate} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} onCountChange={setProgressiveCount} searchQuery={searchQuery} />
 
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {/* 未分组段（稿 5：分隔标题 + 列头 + 行式列表；全屏视图态隐藏） */}

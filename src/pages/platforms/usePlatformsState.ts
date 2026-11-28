@@ -5,17 +5,12 @@
 //
 // 子组件消费：PlatformEditForm（编辑态）+ PlatformListView（列表态）通过 props 拿本 hook 返回值。
 //
-// ── platform mutation 一致性规则（arch-deepen/c6-event-bus） ──────────────────────────
-// 影响分组归属且改平台行的写路径必须三连：handleGroupsChanged() + groupsReloadRef.current?.()
-//   + window.dispatchEvent(new Event("aidog-groups-changed"))。
-//   - handleGroupsChanged: 刷新本 hook 的 groupDetails/membership（chips + 已分组/未分组派生）
-//   - groupsReloadRef: 命令式触发 GroupsEmbedded 重建（其 platforms state 独立，父级 setPlatforms 触达不到）
-//   - aidog-groups-changed 事件: 跨组件广播（其他监听者按需响应）
+// ── platform mutation 一致性规则（arch-deepen/c6-event-bus；票 09 收口） ─────────────
+// 影响分组归属的写路径调用单一入口 notifyPlatformMembershipChanged(opts)（groupsChanged.ts）
+//   广播一次 aidog-groups-changed；分组页监听端（Groups.tsx）统一执行行重载 + onGroupsChanged
+//   （groupDetails 重建 membership）。rowsChanged:false = 拖入特例（平台行不变，不重载行）。
 // 对齐位置：handleDelete / handlePurgeDisabled（本文件）+ handleSave
 //   （usePlatformForm.ts）+ runBatchCreateFromPaste（platformPasteApply.ts）。
-//
-// 故意漏 reloadRef 的特例：拖入分组（onStandaloneGroupPointerUp）—平台行不变，仅 setGroupDetails
-//   + 事件广播即足够，跳过 reloadRef（见 :343-344 注释）。
 //
 // 不发 groups-changed 的路径：handleToggle（status 切换不改归属）/ handleQuickTest（仅测试信号）。
 //
@@ -36,6 +31,7 @@ import { platformMatchesQuery } from "../../domains/groups";
 import { getProtocolSearchTermsMap, ensureQuotaScriptIndex } from "../../domains/platforms/defaults";
 import { usePlatformQuota, getPrimaryBaseUrl } from "./usePlatformQuota";
 import { usePlatformForm, type PlatformFormState } from "./usePlatformForm";
+import { notifyPlatformMembershipChanged } from "./groupsChanged";
 import { setUiExtra } from "../../services/api/ui_extra";
 
 // ponytail: 读 platform.extra JSON 内 _ui_expand_plat bool（缺/解析失败→false）。跨会话展开态持久化。
@@ -47,8 +43,6 @@ function readExtraExpanded(extra: string | undefined | null): boolean {
 export interface PlatformsStateParams {
   onNavigate?: (id: string, context?: { platformId?: number; platformName?: string; duplicate?: boolean; detail?: boolean }) => void;
   initialFilter?: { platformId?: number; platformName?: string; duplicate?: boolean; detail?: boolean };
-  /** GroupsEmbedded reload 命令入口（保存/删除/清理后调用，确定性重建分组卡 platforms 态）。 */
-  groupsReloadRef: React.MutableRefObject<(() => void) | null>;
 }
 
 // ════════════ STATE SLICES (arch-deepen/c7-god-surface reducer 化) ════════════
@@ -165,7 +159,7 @@ export function shouldSkipStandaloneDrag(e: { currentTarget: EventTarget; target
 
 export function usePlatformsState(params: PlatformsStateParams): PlatformsState {
   const { t } = useTranslation();
-  const { onNavigate, initialFilter, groupsReloadRef } = params;
+  const { onNavigate, initialFilter } = params;
 
   // ════════════ LIST STATE ════════════
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -316,10 +310,9 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     groupDetailApi.movePlatform(pid, 0, found.gid)
       .then(() => {
         setToast({ text: t("group.addedToGroupNoName", "Added to group"), ok: true });
-        // 拖到分组特例（见顶部「一致性规则」— 故意漏 reloadRef）：平台行本身不变，仅刷 groupDetails
-        //   重建 membership（卡片即移到目标组）+ 事件广播供 GroupsEmbedded 等跨组件同步，无需整页 load()。
-        handleGroupsChanged();
-        window.dispatchEvent(new Event("aidog-groups-changed"));
+        // 拖入特例（rowsChanged:false）：平台行不变，仅刷 groupDetails 重建 membership + 广播，
+        // 分组页不整页重载行（票 09 单一入口）。
+        notifyPlatformMembershipChanged({ rowsChanged: false });
       })
       .catch(err => setToast({ text: t("group.addToGroupFailed", "Failed to add to group: {{error}}", { error: String(err) }), ok: false }));
   };
@@ -348,9 +341,8 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     }
     return m;
   }
-  /** 分组变更：refetch groupDetails，effect 自动重建 membership。
-   *  本函数是 platform mutation 三连之一（见顶部「一致性规则」）；各 mutation 点调用方负责按序补齐
-   *  groupsReloadRef.current?.() + window.dispatchEvent(aidog-groups-changed)。 */
+  /** 分组变更：refetch groupDetails，effect 自动重建 membership（拖入特例路径直接调用；
+   *  其余写路径经 notifyPlatformMembershipChanged 由分组页监听端统一调用）。 */
   const handleGroupsChanged = async () => {
     try {
       setGroupDetails(await groupDetailApi.list());
@@ -395,7 +387,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
   //   quota/handleGroupsChanged 等）经 listDeps 注入，保持闭包共享正确。
   const form = usePlatformForm({
     t, platforms, setPlatforms, platformsEpochRef, quota,
-    groupDetails, setGroupDetails, handleGroupsChanged, groupsReloadRef,
+    groupDetails, setGroupDetails,
     setToast, breakerDefaults, setUsageMap, setLastTestMap,
     onNavigate, consumedEditPidRef,
   });
@@ -511,13 +503,9 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     });
     try {
       await platformApi.delete(id);
-      // platform mutation 三连（见顶部「一致性规则」）：对齐 handleSave /
-      //   runBatchCreateFromPaste / handlePurgeDisabled。删平台会 cascade 清 group_platform 关联，
-      //   GroupsEmbedded 分组卡内的该平台行必须由专用 reload 移除，仅靠父级 setPlatforms(filter) 无法触达
-      //   （GroupsEmbedded 渲染门控在其自身 platforms state）。
-      handleGroupsChanged();
-      groupsReloadRef.current?.();
-      window.dispatchEvent(new Event("aidog-groups-changed"));
+      // 删平台 cascade 清 group_platform 关联：单一入口广播一次，分组页统一重载行 + 重建
+      // membership（票 09，取代旧「三连」；GroupsEmbedded 渲染门控在其自身 platforms state）。
+      notifyPlatformMembershipChanged();
     } catch (e) {
       console.error(e);
       // 回滚：把被删平台插回原位。
@@ -542,8 +530,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     // epoch 自增：refreshStats 现已 merge status（后端 auto_disabled 恢复通知），在途 refreshStats
     //   的旧快照不得回弹覆盖本次乐观切换（同 handleDelete 的 epoch 守卫语义）。
     platformsEpochRef.current++;
-    // status 切换不改分组归属（membership 由 groupDetails 决定），故豁免 platform mutation 三连
-    //   （见顶部「一致性规则」— 不发 aidog-groups-changed / 不调 groupsReloadRef / 不调 handleGroupsChanged）。
+    // status 切换不改分组归属（membership 由 groupDetails 决定），不发 aidog-groups-changed（顶部「一致性规则」）。
     setPlatforms(prev => prev.map(x =>
       x.id === p.id ? { ...x, status: nextStatus, enabled: nextStatus === "enabled" } : x));
     try {
@@ -623,12 +610,8 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
         platformsEpochRef.current++;
         setPlatforms(prev => prev.filter(x => !del.has(x.id)));
       }
-      // platform mutation 三连（见顶部「一致性规则」）：对齐 handleSave /
-      //   runBatchCreateFromPaste / handleDelete。purge 会移除分组关联（unassignedIds）+ 永久删除部分平台
-      //   （deletedIds），跨组件需感知成员变更。
-      handleGroupsChanged();
-      groupsReloadRef.current?.();
-      window.dispatchEvent(new Event("aidog-groups-changed"));
+      // purge 移除分组关联（unassignedIds）+ 永久删除（deletedIds）：单一入口广播一次（票 09）。
+      notifyPlatformMembershipChanged();
     } catch (err) {
       setToast({ text: `${t("platform.purgeDisabled", "Purge disabled platforms")}: ${err}`, ok: false });
       setTimeout(() => setToast(null), 3000);
@@ -799,7 +782,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
   };
 
   return {
-    t, onNavigate, initialFilter, groupsReloadRef,
+    t, onNavigate, initialFilter,
     list: listSlice,
     drag: dragSlice,
     form,

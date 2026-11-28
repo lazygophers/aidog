@@ -18,6 +18,7 @@ import {
   getDefaultEndpoints, defaultClientForProtocol,
 } from "../../domains/platforms";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
+import { notifyPlatformMembershipChanged } from "./groupsChanged";
 import { slotsToForm } from "../../domains/platforms/slotValue";
 
 /** ctx = applyPaste / runBatchCreateFromPaste 需要的全部 form state + list 依赖。
@@ -85,8 +86,6 @@ export interface PlatformPasteCtx {
   setPlatforms: React.Dispatch<React.SetStateAction<Platform[]>>;
   platformsEpochRef: React.MutableRefObject<number>;
   quota: { scheduleQuotaFor: (p: Platform) => void };
-  handleGroupsChanged: () => Promise<void>;
-  groupsReloadRef: React.MutableRefObject<(() => void) | null>;
   setToast: React.Dispatch<React.SetStateAction<{ text: string; ok: boolean } | null>>;
 }
 
@@ -330,7 +329,7 @@ export async function runBatchCreateFromPaste(
 ): Promise<void> {
   const {
     t, name, protocol, endpoints, lockedGroupId, joinGroupIds, autoGroup,
-    setPlatforms, platformsEpochRef, quota, handleGroupsChanged, groupsReloadRef,
+    setPlatforms, platformsEpochRef, quota,
     resetForm, setToast,
   } = ctx;
   const prefix = (baseName || name || "Platform").trim();
@@ -380,10 +379,8 @@ export async function runBatchCreateFromPaste(
     }
   }
   // 末尾汇总：成功 X / 失败 Y + 失败 key 列表（失败不静默吞）。
-  // platform mutation 三连（见 usePlatformsState.ts 顶部「一致性规则」）：批量创建后整体刷 membership。
-  handleGroupsChanged();
-  groupsReloadRef.current?.();
-  window.dispatchEvent(new Event("aidog-groups-changed"));
+  // 批量创建改变分组归属：单一入口广播一次（票 09，取代旧「三连」）。
+  notifyPlatformMembershipChanged();
   resetForm();
   if (failures.length === 0) {
     setToast({ text: t("platform.batch.allOk", "Batch create done: {{n}} succeeded", { n: okCount }), ok: true });

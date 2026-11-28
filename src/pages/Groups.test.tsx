@@ -262,3 +262,31 @@ describe("批量操作四流程行为锁定（票 08）", () => {
     expect(listMock.mock.calls.length).toBe(reloads);
   });
 });
+
+// ── 分组页刷新去重（票 09）：写路径广播恰好一次行重载 + 一次 groupDetails 刷新；拖入特例不重载行。
+describe("分组页刷新去重（票 09）", () => {
+  it("写路径广播：分组页恰好一次刷新", async () => {
+    const onGroupsChanged = vi.fn();
+    const ref: { current: (() => void) | null } = { current: null };
+    render(<GroupsEmbedded onToast={() => {}} onGroupsChanged={onGroupsChanged} reloadRef={ref} />);
+    await waitFor(() => expect(screen.getAllByTestId("group-section-detail").length).toBe(12));
+    const before = listMock.mock.calls.length;
+    // 现行写路径（save/delete/purge/批量创建）原样广播：reloadRef + 无 detail 事件。
+    ref.current?.();
+    window.dispatchEvent(new Event("aidog-groups-changed"));
+    await waitFor(() => expect(listMock.mock.calls.length).toBeGreaterThan(before));
+    expect(listMock.mock.calls.length - before).toBe(1);
+    expect(onGroupsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("拖入特例（rowsChanged:false）：不触发整页行重载", async () => {
+    const onGroupsChanged = vi.fn();
+    render(<GroupsEmbedded onToast={() => {}} onGroupsChanged={onGroupsChanged} />);
+    await waitFor(() => expect(screen.getAllByTestId("group-section-detail").length).toBe(12));
+    const before = listMock.mock.calls.length;
+    window.dispatchEvent(new CustomEvent("aidog-groups-changed", { detail: { rowsChanged: false } }));
+    await new Promise(r => setTimeout(r, 50));
+    expect(listMock.mock.calls.length).toBe(before);
+    expect(onGroupsChanged).toHaveBeenCalledTimes(1);
+  });
+});

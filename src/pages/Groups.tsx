@@ -38,7 +38,7 @@ import { useGroupTest } from "./Groups/useGroupTest";
 import { usePlatformDrag } from "./Groups/usePlatformDrag";
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange, searchQuery }: {
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, onCountChange, searchQuery }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean; detail?: boolean; logId?: string }) => void;
   onGroupsChanged?: () => void;
   /** 平台被删后触发父级（Platforms 页 usePlatformsState.removePlatformsByIds）局部移除 platforms state。
@@ -61,9 +61,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   /** 父级(Platforms)页头「添加分组」按钮经此 ref 触发本组件创建弹窗（按钮已上移到 Platforms 页头）。
    *  结构型 { current: fn | null } 免 import，与 useRef<fn|null> 兼容。 */
   openCreateGroupRef?: { current: (() => void) | null };
-  /** 父级(Platforms)跨组件刷新入口（如全局 purge 删平台后），触发本组件静默刷新分组/平台状态。
-   *  本组件只在 mount 拉一次全量，父级 groupDetails 更新不会自动同步到内部 details/platforms。 */
-  reloadRef?: { current: (() => void) | null };
   /** 渐进加载计数回传：随各组平台逐组流入而递增/校正（{total, active}），供父级页头
    *  「N / M active」徽章增量更新。null = 尚未开始/重置回退父级自身列表。 */
   onCountChange?: (counts: { total: number; active: number } | null) => void;
@@ -113,13 +110,19 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     onViewModeChange?.(fullscreenView);
   }, [fullscreenView, onViewModeChange]);
 
-  // 父级跨组件刷新入口（全局 purge 后触发），绑定本组件静默刷新分组卡内平台状态。
+  // 平台成员变更单一入口（票 09）：写路径广播一次 aidog-groups-changed，本监听端统一执行
+  // 行重载（silentReload）+ groupDetails 重建（onGroupsChanged）；rowsChanged=false（拖入特例）
+  // 平台行不变，跳过行重载。
   useEffect(() => {
-    if (!reloadRef) return;
-    reloadRef.current = () => { silentReload(); onGroupsChanged?.(); };
-    return () => { reloadRef.current = null; };
+    const h = (e: Event) => {
+      const rowsChanged = (e as CustomEvent).detail?.rowsChanged !== false;
+      if (rowsChanged) void silentReload();
+      onGroupsChanged?.();
+    };
+    window.addEventListener("aidog-groups-changed", h);
+    return () => window.removeEventListener("aidog-groups-changed", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reloadRef, onGroupsChanged]);
+  }, []);
 
   // ── 分组展开区平台卡片：复用 PlatformCard + usePlatformCards（与 Platforms 主列表同款） ──
   const cards = usePlatformCards({ onNavigate, onEdit: onEditPlatform, setToast: onToast });

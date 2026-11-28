@@ -39,6 +39,7 @@ import { usePlatformTimeModels } from "./usePlatformTimeModels";
 import { QUOTA_CUSTOM_VARIANT } from "./formSections";
 import { slotsToForm, slotList } from "../../domains/platforms/slotValue";
 import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, previewBatchNames, type PlatformPasteCtx } from "./platformPasteApply";
+import { notifyPlatformMembershipChanged } from "./groupsChanged";
 import { getProxyHostConfigured } from "../../domains/platforms/proxyConfig";
 
 /** owner（usePlatformsState）注入的 list 侧依赖。所有 form handler 需要的 list state/setters 走此通道。 */
@@ -53,8 +54,6 @@ export interface PlatformFormListDeps {
   };
   groupDetails: GroupDetail[];
   setGroupDetails: React.Dispatch<React.SetStateAction<GroupDetail[]>>;
-  handleGroupsChanged: () => Promise<void>;
-  groupsReloadRef: React.MutableRefObject<(() => void) | null>;
   /** 全局 toast setter（保存/批量/错误共用）。 */
   setToast: React.Dispatch<React.SetStateAction<{ text: string; ok: boolean } | null>>;
   /** 全局调度+熔断默认（展示「继承默认 N」用），owner effect 异步拉取后 setBreakerDefaults 注入。 */
@@ -177,7 +176,7 @@ export interface PlatformFormState {
 export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormState {
   const {
     t, platforms, setPlatforms, platformsEpochRef, quota,
-    setGroupDetails, handleGroupsChanged, groupsReloadRef,
+    setGroupDetails,
     setToast, breakerDefaults, setUsageMap, setLastTestMap,
     onNavigate, consumedEditPidRef,
   } = listDeps;
@@ -663,7 +662,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setBatchPreviewKeys,
     handleProtocolChange, resetForm,
     platforms, setPlatforms, platformsEpochRef, quota,
-    handleGroupsChanged, groupsReloadRef, setToast,
+    setToast,
   });
 
   /** apiKey input onChange 包装：创建态 + 非 keyOptional + 多 key → setBatchPreviewKeys 触发实时预览（D1）。
@@ -835,16 +834,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
           .then(r => { if (r) setLastTestMap(prev => ({ ...prev, [savedPlatform.id]: r })); })
           .catch(() => {});
       }
-      // 保存可能改变分组归属（join_group_ids / auto_group 建默认组），
-      // 必须刷新 groupDetails 重建 membership，否则已分组平台漏判为未分组、误现于底部未分配区。
-      // platform mutation 三连（见 usePlatformsState.ts 顶部「一致性规则」）：本 handleSave 与
-      //   handleDelete / handlePurgeDisabled / runBatchCreateFromPaste 对齐。
-      handleGroupsChanged();
-      // 已分组平台（join_group_ids / auto_group）只在 <GroupsEmbedded> 的分组卡内渲染，而该组件渲染门控在
-      // 其**自身** platforms state（Groups.tsx 分组卡 platforms.find），父级乐观 setPlatforms 不会注入。
-      // 故与 purge 路径一致，显式调用专用命令式重载入口，确定性重建 GroupsEmbedded 平台态。
-      groupsReloadRef.current?.();
-      window.dispatchEvent(new Event("aidog-groups-changed"));
+      // 保存可能改变分组归属（join_group_ids / auto_group 建默认组）：单一入口广播一次，
+      // 分组页监听端统一重载行 + 重建 membership（票 09，取代旧「三连」）。
+      notifyPlatformMembershipChanged();
     } catch (e: any) {
       const msg = e?.toString() || "Unknown error";
       console.error(msg);
