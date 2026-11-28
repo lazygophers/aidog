@@ -68,7 +68,7 @@ pub enum Protocol {
     #[serde(rename = "cline")]
     Cline,
     /// ClinePass 订阅（$9.99/月，open 编码模型 2-5x 配额）：与 cline 同端点同协议，
-    /// 模型走 `cline-pass/*` namespace（8 个，docs.cline.bot/getting-started/clinepass）。
+    /// 模型走 `cline-pass/*` namespace（15 个，docs.cline.bot/getting-started/clinepass）。
     /// 无公开配额查询端点，余额走手动预算（quota-ia manual 模式）。
     #[serde(rename = "cline_pass")]
     ClinePass,

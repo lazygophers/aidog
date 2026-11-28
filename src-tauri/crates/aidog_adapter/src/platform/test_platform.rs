@@ -2496,3 +2496,28 @@ fn xiaomi_mimo_coding_registry_semantics_and_coding_plan_noop() {
         assert_eq!(body, original, "{wire:?} coding_plan 注入必须 no-op");
     }
 }
+
+// ── issue 144：cline_pass 成员（订阅）——官方订阅页 raw 核对 2026-11-28（URL 见 registry
+// `ClineFamilyAdapter` 成员注释）：出站 API 面与家族基座一致，仅非流式 openai 请求加
+// `X-Response-Format: openai` 头，流式不加。
+
+/// registry 语义与响应头：订阅成员与 `cline`（usage-billing）共用 Cline 家族基座单例，
+/// 且不复用其他家族实例；官方明示非流式须带该头（否则 completion 嵌 `data` 下）、流式不受影响。
+#[test]
+fn cline_pass_registry_semantics_and_response_format_header() {
+    let pass = super::adapter_for("cline_pass");
+    let billing = super::adapter_for("cline");
+    assert!(
+        std::ptr::eq(pass, billing),
+        "订阅成员必须共用 Cline 家族基座单例"
+    );
+    assert!(
+        !std::ptr::eq(pass, super::adapter_for("anthropic")),
+        "cline_pass 不得复用其他家族实例"
+    );
+    assert_eq!(
+        pass.additional_request_headers(&Protocol::OpenAI, false),
+        &[("x-response-format", "openai")]
+    );
+    assert!(pass.additional_request_headers(&Protocol::OpenAI, true).is_empty());
+}
