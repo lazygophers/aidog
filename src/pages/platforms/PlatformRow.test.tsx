@@ -89,6 +89,12 @@ describe("PlatformRow", () => {
     expect(onDetail).toHaveBeenCalledWith(platform);
   });
 
+  it("coding plan 平台带 usage：不显示 ⚡ 预估（票 01，对齐 5a5304129 意图）", () => {
+    const cp = { ...platform, endpoints: [{ base_url: "https://x/v1", protocol: "openai", coding_plan: true }] } as never as Platform;
+    render(<PlatformRow {...base} platform={cp} />);
+    expect(screen.queryByTestId("row-coding-usage")).toBeNull();
+  });
+
   it("未传 onDetail：不渲染详情按钮", () => {
     render(<PlatformRow {...base} />);
     expect(screen.queryByTestId("row-detail-button")).toBeNull();

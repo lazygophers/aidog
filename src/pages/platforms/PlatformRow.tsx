@@ -387,13 +387,6 @@ export function PlatformRow({
           ) : (
             <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>—</span>
           )}
-          {/* Coding plan 使用情况（对齐 PlatformCard：累计 tokens + 预估金额） */}
-          {(isCpProtocol || hasCodingEndpoint) && u && (
-            <span data-testid="row-coding-usage" title={t("platform.codingUsedHint", "Cumulative tokens used and estimated cost for this platform (based on actual requests)")}
-              style={{ fontSize: 14, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap" }}>
-              ⚡ {formatNumber(u.total_input_tokens + u.total_output_tokens)} · {formatMoney(u.total_cost)}
-            </span>
-          )}
         </span>
         {/* 列 5-8：今日 / 成功率 / 延迟 / 模型 */}
         <StatCell testId="row-today-cost" v={u ? formatMoney(u.today_cost) : "—"} l={t("platform.col.today", "Today")} tone={u ? undefined : "dim"} />
