@@ -23,6 +23,7 @@ async fn query_stats_platform_dim_and_filter() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -38,6 +39,7 @@ async fn query_stats_platform_dim_and_filter() {
         filter_model: None,
         filter_platform: Some(p.to_string()),
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -73,6 +75,7 @@ async fn dimension_cache_rate_matches_input_plus_cache_tokens() {
             filter_model: None,
             filter_platform: None,
             filter_coding_plan: None,
+            filter_clients: None,
             series_by: None,
             limit: None,
         };
@@ -127,6 +130,7 @@ async fn query_stats_batch_matches_per_query() {
             filter_model: None,
             filter_platform: None,
             filter_coding_plan: None,
+            filter_clients: None,
             series_by: None,
             limit: None,
         },
@@ -140,6 +144,7 @@ async fn query_stats_batch_matches_per_query() {
             filter_model: None,
             filter_platform: None,
             filter_coding_plan: None,
+            filter_clients: None,
             series_by: None,
             limit: None,
         },
@@ -153,6 +158,7 @@ async fn query_stats_batch_matches_per_query() {
             filter_model: None,
             filter_platform: Some(p.to_string()),
             filter_coding_plan: None,
+            filter_clients: None,
             series_by: None,
             limit: None,
         },
@@ -166,6 +172,7 @@ async fn query_stats_batch_matches_per_query() {
             filter_model: None,
             filter_platform: None,
             filter_coding_plan: None,
+            filter_clients: None,
             series_by: None,
             limit: None,
         },
@@ -263,6 +270,7 @@ async fn bucket_daily_splits_on_local_midnight() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -310,6 +318,7 @@ async fn stats_available_models_only_recorded() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -347,6 +356,7 @@ async fn stats_available_models_only_recorded() {
         filter_model: Some("glm-4-plus".into()),
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -391,6 +401,7 @@ async fn stats_minute_and_5min_buckets() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -416,6 +427,7 @@ async fn stats_minute_and_5min_buckets() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -443,6 +455,7 @@ async fn stats_minute_and_5min_buckets() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -512,6 +525,7 @@ async fn stats_group_by_model_dimension() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -561,6 +575,7 @@ async fn stats_group_by_model_dimension_excludes_empty_model() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -597,6 +612,7 @@ async fn stats_series_by_model_excludes_empty_model() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: Some("model".into()),
         limit: None,
     };
@@ -632,6 +648,7 @@ async fn stats_group_by_model_minute_excludes_empty_model() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -666,6 +683,7 @@ async fn stats_group_by_group_dimension() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -707,6 +725,7 @@ async fn stats_minute_filter_model() {
         filter_model: Some("gpt-4o".into()),
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -745,6 +764,7 @@ async fn stats_minute_filter_group_and_platform() {
         filter_model: None,
         filter_platform: Some(p.to_string()),
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -778,6 +798,7 @@ async fn stats_group_by_platform_dimension() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -805,6 +826,7 @@ async fn stats_empty_db_returns_zero_overview() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -834,6 +856,7 @@ async fn stats_granularity_hourly_produces_hourly_buckets() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -880,6 +903,7 @@ async fn stats_filter_model_isolates_model() {
         filter_model: Some("unique-model-xyz".into()),
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -911,6 +935,7 @@ async fn stats_group_by_model_dimension_extra() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -969,6 +994,7 @@ async fn stats_filter_coding_plan_both_paths() {
             filter_model: None,
             filter_platform: None,
             filter_coding_plan: Some(true),
+            filter_clients: None,
             series_by: None,
             limit: None,
         };
@@ -988,6 +1014,7 @@ async fn stats_filter_coding_plan_both_paths() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: Some(false),
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -1026,6 +1053,7 @@ async fn stats_series_by_platform_agg() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: Some("platform".into()),
         limit: None,
     };
@@ -1075,6 +1103,7 @@ async fn stats_series_by_model_minute() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: Some("model".into()),
         limit: None,
     };
@@ -1124,6 +1153,7 @@ async fn stats_limit_caps_dimension_and_series() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: Some(2),
     };
@@ -1165,6 +1195,7 @@ async fn stats_no_series_by_empty_series() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
@@ -1173,4 +1204,65 @@ async fn stats_no_series_by_empty_series() {
         res.series.is_empty(),
         "未传 series_by 时 series 须为空数组（向后兼容）"
     );
+}
+
+/// 客户端过滤 + 按客户端分组维度（issue #66）：
+/// filter_clients 只留命中客户端行；group_by="client" 出各客户端维度；
+/// available_clients 列窗口内实际出现的客户端码（不受 filter_clients 影响）。
+#[tokio::test]
+async fn client_filter_dimension_and_available_clients() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut a = sample_log("ca", "g1", now - 100);
+    a.client = "claude_code".into();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    let mut b = sample_log("cb", "g1", now - 50);
+    b.client = "codex".into();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    let mk = |gran: &str, clients: Option<Vec<String>>| StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some(gran.into()),
+        group_by: Some("client".into()),
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+        filter_coding_plan: None,
+        filter_clients: clients,
+        series_by: None,
+        limit: None,
+    };
+
+    // 聚合表路径（daily）：无过滤 → 两个客户端维度 + available_clients 双码
+    let all = query_stats(&db, &mk("daily", None)).await.unwrap();
+    assert_eq!(all.overview.total_requests, 2);
+    assert_eq!(all.dimension_data.len(), 2, "group_by=client 两维度");
+    let names: Vec<&str> = all.dimension_data.iter().map(|d| d.name.as_str()).collect();
+    assert!(names.contains(&"claude_code") && names.contains(&"codex"));
+    assert!(
+        all.available_clients.contains(&"claude_code".to_string())
+            && all.available_clients.contains(&"codex".to_string()),
+        "available_clients = {:?}",
+        all.available_clients
+    );
+
+    // 过滤 codex → 只剩 1 条，维度只剩 codex；available_clients 仍双码（不受过滤影响）
+    let codex_only = query_stats(&db, &mk("daily", Some(vec!["codex".into()]))).await.unwrap();
+    assert_eq!(codex_only.overview.total_requests, 1);
+    assert_eq!(codex_only.dimension_data.len(), 1);
+    assert_eq!(codex_only.dimension_data[0].name, "codex");
+    assert_eq!(codex_only.available_clients.len(), 2);
+
+    // minute 路径（proxy_log 内存聚合）：同样按 client 过滤
+    let m = query_stats(&db, &mk("minute", Some(vec!["codex".into()]))).await.unwrap();
+    assert_eq!(m.overview.total_requests, 1, "minute 路径 client 过滤");
+    assert_eq!(m.dimension_data.len(), 1);
+    assert_eq!(m.dimension_data[0].name, "codex");
+    assert_eq!(m.available_clients.len(), 2, "minute 路径 available_clients");
 }

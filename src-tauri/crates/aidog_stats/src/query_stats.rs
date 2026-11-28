@@ -221,6 +221,17 @@ fn in_clause(ids: &HashSet<i64>, next_idx: usize) -> (String, Vec<i64>) {
     )
 }
 
+/// `client IN (?N,?N+1,...)` 片段（issue #66 客户端筛选）。调用方保证列表非空
+/// （空列表 = 不过滤，语义在调用处分流）。返回 (SQL 片段, 绑定值)。
+fn client_in_clause(clients: &[String], next_idx: usize) -> (String, Vec<String>) {
+    let placeholders: Vec<String> =
+        (0..clients.len()).map(|i| format!("?{}", next_idx + i)).collect();
+    (
+        format!("client IN ({})", placeholders.join(",")),
+        clients.to_vec(),
+    )
+}
+
 /// `series_by` 归一（chart-engine D1）：已知维度（platform/model/group）原样返回，
 /// None / 未识别值 → None（`series` 为空，向后兼容）。
 fn series_dim(query: &StatsQuery) -> Option<&'static str> {
@@ -321,6 +332,14 @@ fn query_stats_inner_agg(
     }
     if let Some(set) = coding_set {
         let (sql, vals) = in_clause(set, binds.len() + 1);
+        for v in vals {
+            binds.push(Box::new(v));
+        }
+        where_parts.push(sql);
+    }
+    // 客户端过滤（issue #66）：client 是聚合表普通列，SQL IN 下推；空列表 = 不过滤。
+    if let Some(cl) = query.filter_clients.as_ref().filter(|c| !c.is_empty()) {
+        let (sql, vals) = client_in_clause(cl, binds.len() + 1);
         for v in vals {
             binds.push(Box::new(v));
         }
@@ -447,6 +466,7 @@ fn query_stats_inner_agg(
         } else {
             let dim_col = match gb.as_str() {
                 "model" => "model",
+                "client" => "client", // issue #66：按客户端分组维度
                 _ => "group_key",
             };
             // model 维度排除空串行：/models 探测、statusline 等无模型请求落聚合表时
@@ -599,7 +619,17 @@ fn query_stats_inner_agg(
         .prepare(&format!(
             "SELECT DISTINCT model FROM stats_agg_hourly WHERE {am_where} AND model != '' ORDER BY model"
         ))?
-        
+
+        .query_map(am_refs.as_slice(), |row| row.get::<_, String>(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    // available_clients（issue #66）：同窗口（时间 / 分组 / 平台，不受客户端过滤影响）
+    // 实际出现的客户端码，供前端筛选下拉。空串（无 UA 识别的行）不进选项。
+    let available_clients: Vec<String> = conn
+        .prepare(&format!(
+            "SELECT DISTINCT client FROM stats_agg_hourly WHERE {am_where} AND client != '' ORDER BY client"
+        ))?
         .query_map(am_refs.as_slice(), |row| row.get::<_, String>(0))?
         .filter_map(|r| r.ok())
         .collect();
@@ -610,6 +640,7 @@ fn query_stats_inner_agg(
         dimension_data,
         available_models,
         series,
+        available_clients,
     })
 }
 
@@ -665,9 +696,15 @@ pub(crate) fn query_stats_inner(
     let coding_set = coding_effective_set(query, coding_ids);
     // 维度基数上限（D3）：dimension_data 与 series 共用，缺省 50（原硬编码值）。
     let limit = query.limit.unwrap_or(50) as usize;
-    let keep = |eff_pid: i64| {
+    // 客户端过滤（issue #66）：proxy_log client 列内存过滤；空 / None = 不过滤。
+    let filter_clients = query.filter_clients.clone().filter(|c| !c.is_empty());
+    let keep_base = |eff_pid: i64| {
         want_pid.is_none_or(|w| eff_pid == w)
             && coding_set.is_none_or(|cs| cs.contains(&eff_pid))
+    };
+    let keep = |eff_pid: i64, client: &str| {
+        keep_base(eff_pid)
+            && filter_clients.as_ref().is_none_or(|fc| fc.iter().any(|c| c == client))
     };
 
     // SQL 仅下推 time/group/model 过滤（eff_pid 过滤搬内存）。
@@ -706,15 +743,16 @@ pub(crate) fn query_stats_inner(
         eff_pid: i64,
         group_key: String,
         actual_model: String,
+        client: String,
     }
     let rows: Vec<Row> = conn
         .prepare(&format!(
             "SELECT created_at, status_code, \
              COALESCE(input_tokens,0), COALESCE(output_tokens,0), COALESCE(cache_tokens,0), \
-             COALESCE(duration_ms,0), COALESCE(est_cost,0.0), platform_id, group_key, actual_model \
+             COALESCE(duration_ms,0), COALESCE(est_cost,0.0), platform_id, group_key, actual_model, client \
              FROM proxy_log WHERE {where_sql}"
         ))?
-        
+
         .query_map(refs.as_slice(), |r| {
             let platform_id: i64 = r.get(7)?;
             let group_key: String = r.get(8)?;
@@ -730,6 +768,7 @@ pub(crate) fn query_stats_inner(
                 eff_pid,
                 group_key,
                 actual_model: r.get(9)?,
+                client: r.get(10)?,
             })
         })?
         
@@ -747,7 +786,7 @@ pub(crate) fn query_stats_inner(
     let mut ov_dur = 0i64;
     let mut ov_cost = 0.0f64;
     for r in &rows {
-        if !keep(r.eff_pid) {
+        if !keep(r.eff_pid, r.client.as_str()) {
             continue;
         }
         ov_total += 1;
@@ -798,7 +837,7 @@ pub(crate) fn query_stats_inner(
     }
     let mut bmap: std::collections::HashMap<String, Bkt> = std::collections::HashMap::new();
     for r in &rows {
-        if !keep(r.eff_pid) {
+        if !keep(r.eff_pid, r.client.as_str()) {
             continue;
         }
         let key = utc_ms_to_local_minute_key(r.created_at, five_min);
@@ -855,7 +894,7 @@ pub(crate) fn query_stats_inner(
         let mut smap: std::collections::HashMap<String, Dim> = std::collections::HashMap::new();
         let is_platform = gb == "platform";
         for r in &rows {
-            if !keep(r.eff_pid) {
+            if !keep(r.eff_pid, r.client.as_str()) {
                 continue;
             }
             let d = if is_platform {
@@ -863,11 +902,14 @@ pub(crate) fn query_stats_inner(
             } else {
                 // model 维度用 actual_model（与旧 SQL GROUP BY actual_model 一致）；否则 group_key。
                 // 空串 model（无模型请求）不构成一个维度值——与聚合表路径同口径排除。
+                // client 维度（issue #66）：空串保留（无 UA 识别 = 未知客户端，前端归 Unknown）。
                 let k = if gb == "model" {
                     if r.actual_model.is_empty() {
                         continue;
                     }
                     r.actual_model.clone()
+                } else if gb == "client" {
+                    r.client.clone()
                 } else {
                     r.group_key.clone()
                 };
@@ -945,7 +987,7 @@ pub(crate) fn query_stats_inner(
         let is_pid = dim == "platform";
         let mut smap: HashMap<String, HashMap<String, Bkt>> = HashMap::new();
         for r in &rows {
-            if !keep(r.eff_pid) {
+            if !keep(r.eff_pid, r.client.as_str()) {
                 continue;
             }
             let dk = match dim {
@@ -1010,17 +1052,22 @@ pub(crate) fn query_stats_inner(
     }
     let am_refs: Vec<&dyn rusqlite::types::ToSql> = am_binds.iter().map(|b| b.as_ref()).collect();
     let mut model_set: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    // available_clients（issue #66）：同窗口实际出现的客户端码，keep_base 口径
+    // （不受客户端过滤影响，与 available_models 不受 filter_model 影响同型）。
+    let mut client_set: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     conn.prepare(&format!(
-        "SELECT platform_id, group_key, actual_model, model FROM proxy_log WHERE {am_where}"
+        "SELECT platform_id, group_key, actual_model, model, client FROM proxy_log WHERE {am_where}"
     ))?
-    
+
     .query_map(am_refs.as_slice(), |r| {
         let platform_id: i64 = r.get(0)?;
         let group_key: String = r.get(1)?;
         let actual_model: String = r.get(2)?;
         let model: String = r.get(3)?;
+        let client: String = r.get(4)?;
         Ok((
             resolve_eff_pid(platform_id, group_key.as_str(), auto_map),
+            client,
             if !actual_model.is_empty() {
                 actual_model
             } else {
@@ -1029,13 +1076,20 @@ pub(crate) fn query_stats_inner(
         ))
     })?
     .filter_map(|r| r.ok())
-    .for_each(|(eff_pid, m)| {
-        if !keep(eff_pid) {
+    .for_each(|(eff_pid, client, m)| {
+        if !keep_base(eff_pid) {
+            return;
+        }
+        if !client.is_empty() {
+            client_set.insert(client.clone());
+        }
+        if !keep(eff_pid, client.as_str()) {
             return;
         }
         model_set.insert(m);
     });
     let available_models: Vec<String> = model_set.into_iter().collect();
+    let available_clients: Vec<String> = client_set.into_iter().collect();
 
     Ok(StatsResult {
         overview,
@@ -1043,6 +1097,7 @@ pub(crate) fn query_stats_inner(
         dimension_data,
         available_models,
         series,
+        available_clients,
     })
 }
 

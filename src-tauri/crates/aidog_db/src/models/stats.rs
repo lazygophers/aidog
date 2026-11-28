@@ -75,6 +75,9 @@ pub struct StatsQuery {
     /// true = 过滤；false / None = 不过滤。
     #[ts(optional)]
     pub filter_coding_plan: Option<bool>,
+    /// 客户端码过滤（issue #66）：列表空 / None = 全部客户端。
+    #[ts(optional)]
+    pub filter_clients: Option<Vec<String>>,
     /// 交叉聚合维度（chart-engine D1 / #32）：值 = `platform` / `model` / `group`。
     /// Some → `series` 按该维度拆分返回；None / 未识别值 → `series` 空数组（向后兼容）。
     /// 字段名与既有 `group_by` / `filter_*` 一致走 snake_case（前端 StatsQuery 同名）。
@@ -157,6 +160,10 @@ pub struct StatsResult {
     /// 未传 → 空数组（向后兼容）。serde default 容忍旧 JSON 无该键。
     #[serde(default)]
     pub series: Vec<StatsSeries>,
+    /// 窗口内实际出现的客户端码（issue #66）：受时间 / 分组 / 平台过滤、不受客户端过滤，
+    /// 供前端客户端筛选下拉（与 available_models 同口径）。serde default 容忍旧 JSON。
+    #[serde(default)]
+    pub available_clients: Vec<String>,
 }
 
 /// 散点直方图查询（chart-engine D2 / #33）：时间窗 + 可选 filter，
@@ -178,6 +185,9 @@ pub struct ScatterHistogramQuery {
     /// 仅统计 coding plan 平台（语义同 `StatsQuery.filter_coding_plan`）。
     #[ts(optional)]
     pub filter_coding_plan: Option<bool>,
+    /// 客户端码过滤（issue #66）：列表空 / None = 全部客户端。
+    #[ts(optional)]
+    pub filter_clients: Option<Vec<String>>,
 }
 
 /// 散点直方图（chart-engine D2 / #33）：服务端 bin 化的 `(duration_bin × cost_bin)` 矩阵。

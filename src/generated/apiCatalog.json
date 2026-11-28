@@ -3528,6 +3528,10 @@
         {
           "name": "days",
           "type": "Option<u32>"
+        },
+        {
+          "name": "clients",
+          "type": "Option<Vec<String>>"
         }
       ],
       "returns": "Vec<gateway::models::SessionStats>"
