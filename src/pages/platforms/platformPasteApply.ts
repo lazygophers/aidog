@@ -6,8 +6,11 @@ import type { TFunction } from "i18next";
 import {
   platformApi,
   parseMockConfig, parseDevinConfig, parseQuotaScriptConfig, parsePlatformBreaker,
+  parseRateLimitsBundle, parseMitmStats, parsePassthroughAuth, parseAppbuilderKey,
+  parseCustomSlots, parseDisabledSlots, parseProxyEnabled,
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type MockConfig, type DevinConfig,
+  type RateLimitsBundle, type PassthroughAuth,
 } from "../../services/api";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
 import type { ParsedBaseUrl } from "../../utils/platformPaste";
@@ -50,6 +53,16 @@ export interface PlatformPasteCtx {
   setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
   setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
   setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
+  // fullShare 补水合（票 04 D3）：限频 / 时段档 / mitm / passthrough 认证 / appbuilder / 自定义槽 / 槽位开关
+  setRateLimits: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
+  setMitmStats: React.Dispatch<React.SetStateAction<boolean>>;
+  setPassAuth: React.Dispatch<React.SetStateAction<PassthroughAuth>>;
+  setAppbuilderKey: React.Dispatch<React.SetStateAction<string>>;
+  setCustomSlotValues: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
+  setDisabledSlots: React.Dispatch<React.SetStateAction<string[]>>;
+  setProxyEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  /** 时段档 6 键（time_windows / peak / direct_models / allowed_clients / client_ua_rules / disable_during_peak） */
+  timemodels: { hydrate: (extra: string) => void };
   setEditing: React.Dispatch<React.SetStateAction<Platform | null>>;
   setLockedGroupId: React.Dispatch<React.SetStateAction<number | null>>;
   setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
@@ -115,6 +128,15 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
       setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
+    // 票 04（D3）：分享串 12 类配置原样水合，保存后落新平台（serialize 空值删键 → 漏水合即丢数据）。
+    ctx.setRateLimits(parseRateLimitsBundle(ex));
+    ctx.timemodels.hydrate(ex);
+    ctx.setMitmStats(parseMitmStats(ex));
+    ctx.setPassAuth(parsePassthroughAuth(ex));
+    ctx.setAppbuilderKey(parseAppbuilderKey(ex));
+    ctx.setCustomSlotValues(parseCustomSlots(ex));
+    ctx.setDisabledSlots(parseDisabledSlots(ex));
+    ctx.setProxyEnabled(parseProxyEnabled(ex));
     setEditing(null);
     setLockedGroupId(null);
     setJoinGroupIds([]);

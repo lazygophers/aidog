@@ -655,6 +655,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setEndpoints, setManualBudgets, setExtra, setMockConfig, setDevinConfig,
     setQuotaVariantId, setQuotaCustomScript, setQuotaRequires,
     setBreakerFailureThreshold, setBreakerHalfOpenMax,
+    setRateLimits, setMitmStats, setPassAuth, setAppbuilderKey,
+    setCustomSlotValues, setDisabledSlots, setProxyEnabled, timemodels,
     setEditing, setLockedGroupId, setJoinGroupIds,
     setFetchError, setSaveError,
     setShowPaste, setShowForm, setExpiresAt, setExpiryEnabled,
