@@ -13001,8 +13001,9 @@ async fn compshare_family_members_forward_stream_and_nonstream_on_openai_wire() 
     }
 }
 
-/// 家族覆盖全部内置端点协议：anthropic wire（Messages SSE）两成员各走一轮、gemini wire
-/// （usageMetadata SSE）标准成员走一轮，真实代理 + 本地假上游，usage 记账进 proxy_log。
+/// 家族覆盖全部内置端点协议：anthropic wire（Messages SSE/JSON）两成员各走流式 + 非流式
+/// 两轮、gemini wire（usageMetadata SSE/JSON）标准成员走流式 + 非流式两轮（issue 147 补
+/// 非流式半边），真实代理 + 本地假上游，usage 记账进 proxy_log。
 #[tokio::test]
 async fn compshare_family_anthropic_and_gemini_wires_forward_with_usage() {
     let anthropic_sse = concat!(
@@ -13015,14 +13016,17 @@ async fn compshare_family_anthropic_and_gemini_wires_forward_with_usage() {
         "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hi\"}]}}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":2,\"thoughtsTokenCount\":1}}\n\n",
         "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"!\"}]},\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":5,\"candidatesTokenCount\":3,\"thoughtsTokenCount\":1}}\n\n",
     );
+    let anthropic_json = r#"{"id":"m1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":2}}"#;
+    let gemini_json = r#"{"candidates":[{"content":{"parts":[{"text":"hi"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":2,"thoughtsTokenCount":1}}"#;
 
-    for (label, platform, wire, sse, expect_input, expect_output) in [
+    for (label, platform, wire, sse, sse_output, json_body, json_output) in [
         (
             "anthropic-standard",
             Protocol::Compshare,
             Protocol::Anthropic,
             anthropic_sse,
-            5,
+            2,
+            anthropic_json,
             2,
         ),
         (
@@ -13030,7 +13034,8 @@ async fn compshare_family_anthropic_and_gemini_wires_forward_with_usage() {
             Protocol::CompshareCoding,
             Protocol::Anthropic,
             anthropic_sse,
-            5,
+            2,
+            anthropic_json,
             2,
         ),
         (
@@ -13038,93 +13043,135 @@ async fn compshare_family_anthropic_and_gemini_wires_forward_with_usage() {
             Protocol::Compshare,
             Protocol::Gemini,
             gemini_sse,
-            5,
             4,
+            gemini_json,
+            3,
         ),
     ] {
-        let upstream = spawn_unified_upstream(200, "text/event-stream", sse).await;
-        let state = make_state(test_db().await).await;
-        let gk = format!("gkcompsharewire{label}");
-        setup_compshare_wire_group(&state, &gk, platform, wire.clone(), &upstream).await;
-        let request = HttpRequest::builder()
-            .method("POST")
-            .uri("/v1/messages")
-            .header("authorization", format!("Bearer {gk}"))
-            .header("content-type", "application/json")
-            .body(Body::from(
-                r#"{"model":"claude-3","max_tokens":10,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
-            ))
-            .unwrap();
-        let response = handle_proxy(AxumState(state.clone()), request).await;
-        assert_eq!(response.status(), StatusCode::OK, "{label}");
-        let bytes = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
-        assert!(
-            String::from_utf8_lossy(&bytes).contains("hi"),
-            "{label}: response must reach client"
-        );
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-        let log = only_log_of(&state, &gk).await;
-        assert_eq!(
-            (log.input_tokens, log.output_tokens),
-            (expect_input, expect_output),
-            "{label}"
-        );
+        for streaming in [false, true] {
+            let (content_type, upstream_body, expect_output) = if streaming {
+                ("text/event-stream", sse, sse_output)
+            } else {
+                ("application/json", json_body, json_output)
+            };
+            let upstream = spawn_unified_upstream(200, content_type, upstream_body).await;
+            let state = make_state(test_db().await).await;
+            let gk = format!("gkcompsharewire{label}");
+            setup_compshare_wire_group(&state, &gk, platform.clone(), wire.clone(), &upstream).await;
+            let request_body = format!(
+                r#"{{"model":"claude-3","max_tokens":10,"stream":{streaming},"messages":[{{"role":"user","content":"hi"}}]}}"#
+            );
+            let request = HttpRequest::builder()
+                .method("POST")
+                .uri("/v1/messages")
+                .header("authorization", format!("Bearer {gk}"))
+                .header("content-type", "application/json")
+                .body(Body::from(request_body))
+                .unwrap();
+            let response = handle_proxy(AxumState(state.clone()), request).await;
+            assert_eq!(response.status(), StatusCode::OK, "{label} streaming={streaming}");
+            let bytes = axum::body::to_bytes(response.into_body(), 1 << 20).await.unwrap();
+            assert!(
+                String::from_utf8_lossy(&bytes).contains("hi"),
+                "{label}: response must reach client"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            let log = only_log_of(&state, &gk).await;
+            assert_eq!(
+                (log.input_tokens, log.output_tokens),
+                (5, expect_output),
+                "{label} streaming={streaming}"
+            );
+        }
     }
 }
 
-/// 上游 400 错误原样透传客户端（两成员 × openai wire）：状态码、错误体、到达上游、
-/// proxy_log 终态记账（本地假上游，禁真实外呼）。
+/// 上游 400 错误原样透传客户端：openai wire 两成员 + anthropic / gemini wire 标准成员
+/// （issue 147 补全三协议错误半边）：状态码、错误体、到达上游、proxy_log 终态记账
+/// （本地假上游，禁真实外呼）。
 #[tokio::test]
 async fn compshare_family_forwards_upstream_errors_to_client() {
     const UPSTREAM_ERROR: &str =
         r#"{"error":{"type":"invalid_request_error","message":"compshare-family-error"}}"#;
 
-    for (member, platform) in [
-        ("standard", Protocol::Compshare),
-        ("coding", Protocol::CompshareCoding),
+    for (label, platform, wire, uri, request_body, expect_path_suffix) in [
+        (
+            "standard",
+            Protocol::Compshare,
+            Protocol::OpenAI,
+            "/v1/chat/completions",
+            r#"{"model":"glm-5.3","messages":[{"role":"user","content":"family error"}]}"#,
+            "/chat/completions",
+        ),
+        (
+            "coding",
+            Protocol::CompshareCoding,
+            Protocol::OpenAI,
+            "/v1/chat/completions",
+            r#"{"model":"glm-5.3","messages":[{"role":"user","content":"family error"}]}"#,
+            "/chat/completions",
+        ),
+        (
+            "anthropic",
+            Protocol::Compshare,
+            Protocol::Anthropic,
+            "/v1/messages",
+            r#"{"model":"claude-3","max_tokens":8,"messages":[{"role":"user","content":"family error"}]}"#,
+            "/messages",
+        ),
+        (
+            "gemini",
+            Protocol::Compshare,
+            Protocol::Gemini,
+            "/v1/messages",
+            r#"{"model":"claude-3","max_tokens":8,"messages":[{"role":"user","content":"family error"}]}"#,
+            ":generateContent",
+        ),
     ] {
         let (error_upstream, error_requests) =
             spawn_recording_response_upstream(400, UPSTREAM_ERROR).await;
         let state = make_state(test_db().await).await;
-        let gk = format!("gkcompshare{member}error");
-        setup_compshare_wire_group(&state, &gk, platform, Protocol::OpenAI, &error_upstream).await;
-        let request_body =
-            r#"{"model":"glm-5.3","messages":[{"role":"user","content":"family error"}]}"#;
+        let gk = format!("gkcompshare{label}error");
+        setup_compshare_wire_group(&state, &gk, platform, wire.clone(), &error_upstream).await;
         let response = handle_proxy(
             AxumState(state.clone()),
             HttpRequest::builder()
                 .method("POST")
-                .uri("/v1/chat/completions")
+                .uri(uri)
                 .header("content-type", "application/json")
                 .header("authorization", format!("Bearer {gk}"))
                 .body(Body::from(request_body))
                 .unwrap(),
         )
         .await;
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{member}");
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{label}");
         let response_body = axum::body::to_bytes(response.into_body(), 1 << 20)
             .await
             .unwrap();
         assert!(
             String::from_utf8_lossy(&response_body).contains("compshare-family-error"),
-            "{member}"
+            "{label}"
         );
         let captured = error_requests.lock().unwrap().clone();
         assert_eq!(
             captured.len(),
             1,
-            "{member}: error request must reach fake upstream"
+            "{label}: error request must reach fake upstream"
         );
-        assert!(captured[0].0.ends_with("/chat/completions"), "{member}: {}", captured[0].0);
+        assert!(
+            captured[0].0.ends_with(expect_path_suffix),
+            "{label}: {}",
+            captured[0].0
+        );
         let error_log = only_log_of(&state, &gk).await;
         assert_eq!(
             error_log.status_code,
             StatusCode::BAD_REQUEST.as_u16() as i32,
-            "{member}"
+            "{label}"
         );
         assert!(
             error_log.done,
-            "{member}: upstream error must be recorded as terminal"
+            "{label}: upstream error must be recorded as terminal"
         );
     }
 }
