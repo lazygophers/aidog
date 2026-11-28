@@ -167,6 +167,7 @@ fn empty_share() -> SharePlatform {
         available_models: vec![],
         endpoints: vec![],
         manual_budgets: vec![],
+        expires_at: 0,
     }
 }
 
@@ -368,4 +369,46 @@ fn share_full_yaml_roundtrip_is_lossless() {
         emitted.contains("'1.5'") || emitted.contains("\"1.5\""),
         "{emitted}"
     );
+}
+
+#[tokio::test]
+async fn share_export_roundtrip_expires_at() {
+    let db = test_db().await;
+    let mut input = sample_create("P-exp", None, None);
+    input.expires_at = Some(1_799_000_000_000);
+    let p = db::create_platform(&db, input).await.unwrap();
+    let fresh = db::get_platform(&db, p.id).await.unwrap().unwrap();
+    assert_eq!(fresh.expires_at, 1_799_000_000_000);
+    let s = share_from_platform(fresh);
+    let yaml = serde_norway::to_string(&s).expect("serialize");
+    let parsed = platform_share_parse(yaml).await.expect("parse");
+    assert_eq!(
+        parsed.expires_at, 1_799_000_000_000,
+        "expires_at must survive export->parse roundtrip"
+    );
+}
+
+#[tokio::test]
+async fn share_export_zero_expires_at_not_serialized() {
+    let db = test_db().await;
+    let p = db::create_platform(&db, sample_create("P-nexp", None, None))
+        .await
+        .unwrap();
+    let fresh = db::get_platform(&db, p.id).await.unwrap().unwrap();
+    assert_eq!(fresh.expires_at, 0);
+    let yaml = serde_norway::to_string(&share_from_platform(fresh)).expect("serialize");
+    assert!(!yaml.contains("expires_at"), "zero must be skipped: {yaml}");
+}
+
+#[test]
+fn share_parse_missing_expires_at_defaults_zero() {
+    let minimal = r#"
+aidog_platform_share: 1
+name: P2
+platform_type: anthropic
+base_url: https://example.invalid/v1
+api_key: k2
+"#;
+    let parsed: SharePlatform = serde_norway::from_str(minimal).expect("parse minimal");
+    assert_eq!(parsed.expires_at, 0, "old share strings stay compatible");
 }

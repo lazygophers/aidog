@@ -124,8 +124,8 @@ describe("extra 全键往返（17 对 + 未知键）", () => {
 
 describe("三入口非 extra 字段水合等价", () => {
   // 源平台：透传存量形态（endpoints 空、仅顶层 base_url）+ 手动配额 + 手动预算 + 过期时间。
-  // SharePlatform 不携带 quota_source / expires_at（Rust platform_share_export 无此字段）：
-  // fullShare 入口的 quota_source 由 manual_budgets 非空推导，expires_at 无法水合（协调人缺口，见票 05 回报）。
+  // SharePlatform 不携带 quota_source：fullShare 入口的 quota_source 由 manual_budgets 非空推导；
+  // expires_at 自 issue #309 起随分享串携带（旧串缺字段回落 0）。
   const src: Platform = {
     id: 33, name: "Relay", platform_type: "passthrough", base_url: "https://relay.example/v1",
     api_key: "sk-src", extra: "{}", models: {}, available_models: [],
@@ -135,7 +135,7 @@ describe("三入口非 extra 字段水合等价", () => {
   } as never as Platform;
   const share = {
     ...fullShareOf("{}", "https://relay.example/v1"), platform_type: "passthrough",
-    endpoints: [], manual_budgets: src.manual_budgets,
+    endpoints: [], manual_budgets: src.manual_budgets, expires_at: 1790000000000,
   } as unknown as SharePlatform;
 
   it("edit 与 duplicate：endpoints 透传回填 / quota_source / manual_budgets / expires_at 一致，仅 editing 不同", async () => {
@@ -153,12 +153,13 @@ describe("三入口非 extra 字段水合等价", () => {
     expect(rb.result.current.editing).toBeNull();
   });
 
-  it("fullShare：endpoints 透传回填 / manual_budgets / quota_source(manual) 一致", async () => {
+  it("fullShare：endpoints 透传回填 / manual_budgets / quota_source(manual) / expires_at 一致", async () => {
     const { result } = renderHook(() => useForm());
     await act(() => result.current.applyPaste({ fullShare: share } as never));
     expect(result.current.draft.endpoints[0]?.base_url).toBe("https://relay.example/v1");
     expect(result.current.draft.manualBudgets).toEqual(src.manual_budgets);
     expect(result.current.draft.quotaSource).toBe("manual");
+    expect(result.current.draft.expiresAt).toBe(1790000000000);
   });
 });
 

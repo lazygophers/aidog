@@ -233,8 +233,9 @@ export function draftFromPlatform(p: Platform, mode: "edit" | "duplicate"): Plat
   };
 }
 
-/** 分享串 → 草稿。SharePlatform 不携带 quota_source / expires_at：quota_source 由
- *  manual_budgets 非空推导（Rust 保存侧 source=auto 会清 manual_budgets）；expires_at 恒 0。 */
+/** 分享串 → 草稿。SharePlatform 不携带 quota_source：quota_source 由
+ *  manual_budgets 非空推导（Rust 保存侧 source=auto 会清 manual_budgets）；expires_at
+ *  由分享串携带（旧串缺字段时回落 0 = 永不过期）。 */
 export function draftFromShare(s: SharePlatform): PlatformDraft {
   const ex = s.extra ?? "";
   return {
@@ -250,7 +251,7 @@ export function draftFromShare(s: SharePlatform): PlatformDraft {
     ...hydrateExtra(ex),
     quotaSource: (s.manual_budgets ?? []).length > 0 ? "manual" : "auto",
     manualBudgets: s.manual_budgets ?? [],
-    expiresAt: 0,
+    expiresAt: s.expires_at ?? 0,
     autoGroup: true,
     joinGroupIds: [],
     lockedGroupId: null,

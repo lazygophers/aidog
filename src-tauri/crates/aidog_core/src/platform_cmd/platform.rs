@@ -151,6 +151,30 @@ pub struct SharePlatform {
     pub endpoints: Vec<PlatformEndpoint>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub manual_budgets: Vec<ManualBudget>,
+    /// 平台过期时间（毫秒 unix 时间戳，0 = 永不过期）。零值跳过序列化，旧分享串兼容。
+    #[serde(default, skip_serializing_if = "expires_at_is_zero")]
+    pub expires_at: i64,
+}
+
+fn expires_at_is_zero(v: &i64) -> bool {
+    *v == 0
+}
+
+/// 平台行 → 分享对象（platform_share_export 与测试共用）。
+pub(crate) fn share_from_platform(p: Platform) -> SharePlatform {
+    SharePlatform {
+        aidog_platform_share: 1,
+        name: p.name,
+        platform_type: p.platform_type,
+        base_url: p.base_url,
+        api_key: p.api_key,
+        extra: p.extra,
+        models: p.models,
+        available_models: p.available_models,
+        endpoints: p.endpoints,
+        manual_budgets: p.manual_budgets,
+        expires_at: p.expires_at,
+    }
 }
 
 crate::tauri_command! {
@@ -164,18 +188,7 @@ pub async fn platform_share_export(platform_id: u64) -> Result<SharePlatform, St
         Some(p) => p,
         None => return Err(format!("platform {platform_id} not found")),
     };
-    Ok(SharePlatform {
-        aidog_platform_share: 1,
-        name: p.name,
-        platform_type: p.platform_type,
-        base_url: p.base_url,
-        api_key: p.api_key,
-        extra: p.extra,
-        models: p.models,
-        available_models: p.available_models,
-        endpoints: p.endpoints,
-        manual_budgets: p.manual_budgets,
-    })
+    Ok(share_from_platform(p))
 }
 }
 

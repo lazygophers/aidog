@@ -253,6 +253,8 @@ export interface SharePlatform {
   available_models: string[];
   endpoints: import("./generated/PlatformEndpoint").PlatformEndpoint[];
   manual_budgets: import("./generated/ManualBudget").ManualBudget[];
+  /** 毫秒 unix 时间戳，0 = 永不过期；Rust 侧零值跳过序列化，旧分享串无此字段。 */
+  expires_at?: number;
 }
 
 /**
