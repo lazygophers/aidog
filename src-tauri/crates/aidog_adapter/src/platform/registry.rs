@@ -1591,7 +1591,8 @@ impl PlatformAdapter for StepFunFamilyAdapter {
 pub struct TencentFamilyAdapter {
     /// TokenHub 两成员（官方 135872 取证 `thinking.type` 标准形态）openai wire 禁思考写
     /// `thinking: {"type":"disabled"}`；Coding Plan 官方文档（130092）未列思考参数、模型库
-    /// 动态——未证实范围保持框架默认（false），成员 issue 137 取证后再收窄。
+    /// 动态——未证实范围保持框架默认（false）；issue 137 复核（2026-11-28）确认成员
+    /// 官方未列思考参数，维持框架默认不收窄。
     official_openai_thinking: bool,
 }
 
@@ -2727,6 +2728,12 @@ static STEPFUN: StepFunFamilyAdapter = StepFunFamilyAdapter;
 static TENCENT: TencentFamilyAdapter = TencentFamilyAdapter {
     official_openai_thinking: true,
 };
+/// 腾讯云 Coding Plan（issue 137）：套餐专属端点 `coding/v3`（openai）与
+/// `coding/anthropic`，预付费 `sk-` Key 不互通、套餐专属 `sk-sp-` Key（130092 套餐页，
+/// 复核日期 2026-11-28，两默认端点与家族取证一致）；官方未列思考参数，禁思考走框架
+/// 默认 `chat_template_kwargs.enable_thinking=false`（135872 简化开关）；套餐无
+/// prompt_cache_key 类要求，`inject_coding_plan` 对本成员 no-op（130092）。
+/// https://cloud.tencent.com/document/product/1823/130092
 static TENCENT_CODING: TencentFamilyAdapter = TencentFamilyAdapter {
     official_openai_thinking: false,
 };
