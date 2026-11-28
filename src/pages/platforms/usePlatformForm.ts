@@ -11,8 +11,6 @@ import {
   platformApi, groupDetailApi, parseSubscriptionStartDate, validSubscriptionStartDate,
   parseMockConfig, parseDevinConfig, parsePassthroughAuth, readRequiresValue,
   validateClientUaRule, rateLimitRuleError,
-  parsePlatformPeak, parseDisableDuringPeak, parseDirectModels, parseAllowedClients,
-  parseClientUaRules, parsePlatformTimeWindows,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
   type PlatformUsageStats, type LastTestResult, type MockConfig, type DevinConfig, type PassthroughAuth,
   type RateLimitsBundle,
@@ -556,31 +554,17 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     return result;
   };
 
-  /** fullShare 时段档 6 键补水合适配（票 04 ctx 形态兼容；票 13 换 draftFromShare + load 后删除）。 */
-  const hydrateTimeModels = (ex: string) => dispatch({ type: "patch", patch: {
-    peak: parsePlatformPeak(ex),
-    disableDuringPeak: parseDisableDuringPeak(ex),
-    timeModels: parsePlatformTimeWindows(ex),
-    directModels: parseDirectModels(ex),
-    allowedClients: parseAllowedClients(ex),
-    uaRules: parseClientUaRules(ex),
-  } });
-
   /** 构建 applyPaste/runBatchCreateFromPaste 的 ctx（每次调用刷新引用最新闭包值）。
-   *  ponytail: 字段虽多但全是直传，无逻辑；保持与抽前闭包语义一致。 */
+   *  ponytail: 字段虽多但全是直传，无逻辑；保持与抽前闭包语义一致。
+   *  票 13：fullShare 专用 setter 随 draftFromShare + load 落地删除（44 → 26 字段）。 */
   const buildPasteCtx = (): PlatformPasteCtx => ({
     t,
     buildSharedCreateFields,
     name, protocol, endpoints, lockedGroupId, joinGroupIds, autoGroup, expiresAt,
-    setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
-    setEndpoints, setManualBudgets, setExtra, setMockConfig, setDevinConfig,
-    setQuotaVariantId, setQuotaCustomScript, setQuotaRequires, setQuotaSource,
-    setBreakerFailureThreshold, setBreakerHalfOpenMax,
-    setRateLimits, setMitmStats, setPassAuth, setAppbuilderKey,
-    setCustomSlotValues, setDisabledSlots, setProxyEnabled, timemodels: { hydrate: hydrateTimeModels },
-    setEditing, setLockedGroupId, setJoinGroupIds,
-    setFetchError, setSaveError,
+    setApiKey, setModels, setEndpoints,
+    setEditing, setFetchError, setSaveError,
     setShowPaste, setShowForm, setExpiresAt, setExpiryEnabled,
+    dispatch,
     setBatchPreviewKeys,
     handleProtocolChange, resetForm,
     platforms, setPlatforms, platformsEpochRef, quota,

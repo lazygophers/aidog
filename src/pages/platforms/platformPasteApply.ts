@@ -5,12 +5,7 @@
 import type { TFunction } from "i18next";
 import {
   platformApi,
-  parseMockConfig, parseDevinConfig, parseQuotaScriptConfig, parsePlatformBreaker,
-  parseRateLimitsBundle, parseMitmStats, parsePassthroughAuth, parseAppbuilderKey,
-  parseCustomSlots, parseDisabledSlots, parseProxyEnabled,
   type Platform, type Protocol, type PlatformEndpoint,
-  type ManualBudget, type MockConfig, type DevinConfig,
-  type RateLimitsBundle, type PassthroughAuth,
 } from "../../services/api";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
 import type { ParsedBaseUrl } from "../../utils/platformPaste";
@@ -19,8 +14,7 @@ import {
 } from "../../domains/platforms";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
 import { notifyPlatformMembershipChanged } from "./groupsChanged";
-import { slotsToForm } from "../../domains/platforms/slotValue";
-import type { SharedCreateFields } from "../../domains/platforms/platformDraft";
+import { draftFromShare, type SharedCreateFields, type DraftAction } from "../../domains/platforms/platformDraft";
 
 /** ctx = applyPaste / runBatchCreateFromPaste 需要的全部 form state + list 依赖。
  *  字段引用 usePlatformForm 调用时刻闭包值（与抽前一致）。 */
@@ -37,45 +31,19 @@ export interface PlatformPasteCtx {
   joinGroupIds: number[];
   autoGroup: boolean;
   expiresAt: number;
-  // form setters
-  setName: React.Dispatch<React.SetStateAction<string>>;
-  setProtocol: React.Dispatch<React.SetStateAction<Protocol>>;
+  // form setters（零散粘贴路径仍逐字段写；fullShare 整体灌入走 dispatch load，票 13）
   setApiKey: React.Dispatch<React.SetStateAction<string>>;
-  setCodingPlan: React.Dispatch<React.SetStateAction<boolean>>;
   setModels: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
-  setAvailableModels: React.Dispatch<React.SetStateAction<string[]>>;
   setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
-  setManualBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
-  setExtra: React.Dispatch<React.SetStateAction<string>>;
-  setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
-  /** quota 脚本变体选择（fullShare 路径回填；requires 初值由 usePlatformForm effect 从 extra 补）。 */
-  setQuotaVariantId: React.Dispatch<React.SetStateAction<string>>;
-  setQuotaCustomScript: React.Dispatch<React.SetStateAction<string>>;
-  setQuotaRequires: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  /** fullShare 推导 quota_source（manual_budgets 非空 → manual）：显式包装（同时关 pristine）。 */
-  setQuotaSource: (v: "auto" | "manual") => void;
-  setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
-  setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
-  setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
-  // fullShare 补水合（票 04 D3）：限频 / 时段档 / mitm / passthrough 认证 / appbuilder / 自定义槽 / 槽位开关
-  setRateLimits: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
-  setMitmStats: React.Dispatch<React.SetStateAction<boolean>>;
-  setPassAuth: React.Dispatch<React.SetStateAction<PassthroughAuth>>;
-  setAppbuilderKey: React.Dispatch<React.SetStateAction<string>>;
-  setCustomSlotValues: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
-  setDisabledSlots: React.Dispatch<React.SetStateAction<string[]>>;
-  setProxyEnabled: React.Dispatch<React.SetStateAction<boolean>>;
-  /** 时段档 6 键（time_windows / peak / direct_models / allowed_clients / client_ua_rules / disable_during_peak） */
-  timemodels: { hydrate: (extra: string) => void };
   setEditing: React.Dispatch<React.SetStateAction<Platform | null>>;
-  setLockedGroupId: React.Dispatch<React.SetStateAction<number | null>>;
-  setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
   setFetchError: React.Dispatch<React.SetStateAction<string>>;
   setSaveError: React.Dispatch<React.SetStateAction<string>>;
   setShowPaste: React.Dispatch<React.SetStateAction<boolean>>;
   setShowForm: React.Dispatch<React.SetStateAction<boolean>>;
   setExpiresAt: React.Dispatch<React.SetStateAction<number>>;
   setExpiryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  // draft 整体灌入（fullShare 分支：draftFromShare + load；票 13 取代 ~24 个逐字段 setter）
+  dispatch: React.Dispatch<DraftAction>;
   // 多 key 预览态 setter（applyPaste 多 key 分支灌表单后 setBatchPreviewKeys 触发实时预览，
   // 不再立刻批量创建；由 MultiKeyPreview 确认按钮调 confirmBatchCreate → runBatchCreateFromPaste）。
   setBatchPreviewKeys: React.Dispatch<React.SetStateAction<string[] | null>>;
@@ -93,12 +61,8 @@ export interface PlatformPasteCtx {
 /** 智能识别弹窗确认后，将解析结果填入添加表单。 */
 export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): Promise<void> {
   const {
-    setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
-    setEndpoints, setManualBudgets, setExtra, setMockConfig,
-    setQuotaVariantId, setQuotaCustomScript, setQuotaRequires, setDevinConfig,
-    setBreakerFailureThreshold, setBreakerHalfOpenMax,
-    setEditing, setLockedGroupId, setJoinGroupIds,
-    setFetchError, setSaveError,
+    setModels,
+    setEditing, setFetchError, setSaveError,
     setShowPaste, setShowForm,
     handleProtocolChange,
     endpoints,
@@ -106,55 +70,11 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
   // 命中 aidog 平台分享串 → 整体灌表单（含 api_key / models / endpoints / extra / 手动预算）。
   // 以「新建态」打开（editing=null）：保存才新建平台。优先于零散杂乱解析。
   if (r.fullShare) {
-    const s = r.fullShare;
-    setName(s.name);
-    setProtocol(s.platform_type);
-    setApiKey(s.api_key);  // fullShare 路径仍是单 key（分享串只含 1 个 api_key），保留单平台行为
-    setCodingPlan((s.endpoints || []).some(ep => ep.coding_plan));
-    setModels(slotsToForm(s.models));
-    setAvailableModels(s.available_models ?? []);
-    // 透传回填与 handleEdit / handleDuplicate 同款（票 05 契约测试暴露的 03/04 漏修）：
-    // 分享串与存量平台同形（endpoints 空、仅顶层 base_url），不回填则 Base URL 输入框为空、保存丢 base_url。
-    const eps = [...(s.endpoints ?? [])];
-    if (s.platform_type === "passthrough" && s.base_url) {
-      if (eps.length === 0) {
-        eps.push({ protocol: "passthrough", base_url: s.base_url, client_type: "default", coding_plan: false });
-      } else if (!eps[0].base_url) {
-        eps[0] = { ...eps[0], base_url: s.base_url };
-      }
-    }
-    setEndpoints(eps);
-    setManualBudgets(s.manual_budgets ?? []);
-    // 配额方式推导（D2 同类漏修）：SharePlatform 不携带 quota_source；manual_budgets 非空是 manual 的
-    // 唯一信号（Rust 保存侧 source=auto 会清 manual_budgets），不推导则导入保存即丢预算。
-    if ((s.manual_budgets ?? []).length > 0) ctx.setQuotaSource("manual");
-    const ex = s.extra ?? "";
-    setExtra(ex);
-    setMockConfig(parseMockConfig(ex));
-    {
-      const qs = parseQuotaScriptConfig(ex);
-      setQuotaVariantId(qs.variantId);
-      setQuotaCustomScript(qs.customScript);
-      setQuotaRequires({});
-    }
-    setDevinConfig(parseDevinConfig(ex));
-    {
-      const brk = parsePlatformBreaker(ex);
-      setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
-      setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
-    }
-    // 票 04（D3）：分享串 12 类配置原样水合，保存后落新平台（serialize 空值删键 → 漏水合即丢数据）。
-    ctx.setRateLimits(parseRateLimitsBundle(ex));
-    ctx.timemodels.hydrate(ex);
-    ctx.setMitmStats(parseMitmStats(ex));
-    ctx.setPassAuth(parsePassthroughAuth(ex));
-    ctx.setAppbuilderKey(parseAppbuilderKey(ex));
-    ctx.setCustomSlotValues(parseCustomSlots(ex));
-    ctx.setDisabledSlots(parseDisabledSlots(ex));
-    ctx.setProxyEnabled(parseProxyEnabled(ex));
+    // 票 13：三入口水合单一实现 draftFromShare + load（取代 ~24 个逐字段 setter）。
+    // 配置范围与票 04 修后逐字段路径完全一致（透传 endpoints 回填 / 12 类 extra 水合 /
+    // quota_source 由 manual_budgets 非空推导；expires_at 分享串不携带 → 恒 0）。
+    ctx.dispatch({ type: "load", draft: draftFromShare(r.fullShare) });
     setEditing(null);
-    setLockedGroupId(null);
-    setJoinGroupIds([]);
     setFetchError("");
     setSaveError("");
     setShowPaste(false);
