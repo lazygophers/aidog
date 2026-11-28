@@ -4746,6 +4746,60 @@ fn openai_injection_is_noop() {
     assert_eq!(body["prompt_cache_key"], serde_json::Value::Null, "openai 非 coding plan，不应注入 prompt_cache_key: {body}");
 }
 
+/// issue 155：passthrough 平台（ADR 0008）端点护栏。透传不经 PlatformAdapter 转换链
+/// （handler.rs 拦截，passthrough.rs 1:1 relay）：用户配置上游接收原始请求，
+/// 认证替换，响应（非流式 / 流式 / 错误）逐字节原样回客户端，usage 尽力落库。
+#[tokio::test]
+async fn passthrough_platform_endpoint_dispatch() {
+    const REQUEST: &str = r#"{ "model":"client-model", "messages":[{"role":"user","content":"hello"}], "custom":true }"#;
+    const RESPONSE: &str = r#"{"model":"upstream-model","usage":{"prompt_tokens":7,"completion_tokens":4,"prompt_tokens_details":{"cached_tokens":2}}}"#;
+    const STREAM: &str = "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":4}}\n\ndata: [DONE]\n\n";
+    const ERROR: &str = r#"{"error":{"message":"upstream rejected","custom":true}}"#;
+    for (i, (code, content_type, body)) in [
+        (200, "application/json", RESPONSE),
+        (200, "text/event-stream", STREAM),
+        (429, "application/json", ERROR),
+    ].into_iter().enumerate() {
+        let (base, hits) = spawn_cc_upstream(code, content_type, body).await;
+        let state = make_state(test_db().await).await;
+        let key = format!("gk155-{i}");
+        let platform = aidog_db::create_platform(&state.db, CreatePlatform {
+            name: "passthrough-stub".into(),
+            platform_type: Protocol::Passthrough,
+            base_url: base,
+            api_key: "upstream-key".into(),
+            extra: String::new(),
+            models: None, available_models: None, endpoints: None, manual_budgets: None,
+            auto_group: None, join_group_ids: None, expires_at: None, quota_source: None,
+        }).await.unwrap();
+        let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(&key, vec![])).await.unwrap();
+        aidog_db::set_group_platforms(&state.db, group.id, &[GroupPlatformInput {
+            platform_id: platform.id, priority: Some(0), weight: Some(1), level_priority: Some(0),
+        }]).await.unwrap();
+        let req = HttpRequest::builder().method("POST").uri("/v1/chat/completions")
+            .header("authorization", format!("Bearer {key}"))
+            .header("content-type", "application/json")
+            .body(Body::from(REQUEST)).unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), req).await;
+        assert_eq!(resp.status().as_u16(), code);
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(bytes.as_ref(), body.as_bytes());
+        flush_log_queue(&state).await;
+        let hits = hits.lock().unwrap().clone();
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].0, "/v1/chat/completions");
+        assert_eq!(hits[0].1, REQUEST);
+        assert_eq!(hits[0].2, "Bearer upstream-key");
+        if i == 0 {
+            let tokens: (i32, i32) = state.db.call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+                c.query_row("SELECT input_tokens, output_tokens FROM proxy_log WHERE group_key = 'gk155-0'", [], |r| Ok((r.get(0)?, r.get(1)?)))
+            }).await.unwrap();
+            // usage 抽取口径：input = prompt_tokens − cached_tokens（7−2=5），与 anthropic 臂同
+            assert_eq!(tokens, (5, 4));
+        }
+    }
+}
+
 // ══ issue 154：newapi 聚合网关逐端点协议护栏（本地假上游）══
 // 官方 API 参考（https://docs.newapi.pro/en/docs/api，核对 2026-11-28）：聚合网关按
 // wire 协议原样中转——openai `/v1/chat/completions`（「Compatible with OpenAI Chat
