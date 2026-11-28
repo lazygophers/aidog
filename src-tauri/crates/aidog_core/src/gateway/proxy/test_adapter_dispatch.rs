@@ -3518,6 +3518,48 @@ async fn cline_family_openai_endpoint_stream() {
     }
 }
 
+/// issue 144：cline_pass 成员非流式 usage 透传 + 错误体透传护栏（header / 流式两测已
+/// 双成员覆盖，这里补 ClinePass 自己的非流式响应、usage 抽取与 400 错误路径；本地假上游）。
+#[tokio::test]
+async fn cline_pass_openai_endpoint_non_stream_and_error() {
+    use aidog_adapter::platform::adapter_for;
+    let (status, resp, hits) = glm_member_call(
+        Protocol::ClinePass,
+        Protocol::OpenAI,
+        "gk144nonstream",
+        "/chat/completions",
+        r#"{"model":"cline-pass/qwen3.8-max","messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", CLINE_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let request: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(request["model"], "cline-pass/qwen3.8-max");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    assert_eq!(response["usage"]["prompt_tokens_details"]["cached_tokens"], 3);
+    assert_eq!(response["usage"]["cost"], 0.00012);
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("cline_pass").extract_usage(CLINE_OPENAI_RESP);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (7, 2, 3, 0, 0)
+    );
+
+    let (status, resp, _) = glm_member_call(
+        Protocol::ClinePass,
+        Protocol::OpenAI,
+        "gk144error",
+        "/chat/completions",
+        r#"{"model":"cline-pass/gone","messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", r#"{"error":{"code":"model_not_found","message":"model not found"}}"#),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model not found"), "{resp}");
+}
+
 // ══ issue 93：Command Code（commandcode）Provider API 四端点协议 ══
 // Official docs checked 2026-11-24: https://commandcode.ai/docs/provider
 // 三 chat 协议「request and response bodies follow the」官方 schema（基座构件即官方形状）；

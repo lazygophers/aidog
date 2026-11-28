@@ -1914,6 +1914,22 @@ impl PlatformAdapter for OpenAIFamilyAdapter {}
 ///   completion 嵌在 `data` 中。流式响应始终为标准形状。基座只在非流式 OpenAI 请求添加该头。
 ///   https://docs.cline.bot/api/chat-completions
 ///   https://docs.cline.bot/getting-started/clinepass
+/// - `cline_pass`（ClinePass 订阅）成员级核对（issue 144，核对日期 2026-11-28，
+///   依据官方订阅页 raw markdown 直取，出处 URL 见段末）：$9.99/月固定订阅（非按量
+///   计费），提供 15 个 `cline-pass/*` 开源编码模型、2-5x 标准 API 限配额。出站 API
+///   面与家族基座完全一致：同一 OpenAI 兼容 `POST /api/v1/chat/completions`、Bearer
+///   鉴权、`model` 填完整 `cline-pass/*` slug；官方对 ClinePass 明示「非流式须带
+///   `X-Response-Format: openai` 头（否则 completion 嵌在 `data` 字段下，期望顶层
+///   `choices` 的客户端解析失败），流式不受影响」——与基座 `additional_request_headers`
+///   仅非流式 OpenAI 请求加头的既有行为一致，无成员覆写。订阅配额由 Cline 侧按
+///   5 小时滚动 / 周 / 月三窗口计量，无请求面参数；官方另列 per-1M 参考价仅用于度量
+///   配额消耗，订阅用户不按 token 计费（usage / cost 字段照基座原样透传）。模型目录
+///   与 registry `model_list` 15 条一致（GLM-5.2 / Kimi K2.6 / K2.7 Code / DeepSeek
+///   V4 Flash 官方弃用下线，未收录）。未证实（保持基座默认）：订阅侧专用请求头或
+///   响应字段之外的成员级差异。
+///   官方出处（raw 取证日期 2026-11-28）：
+///   https://docs.cline.bot/getting-started/clinepass
+///   https://cline.bot/cline-pass
 ///
 /// 官方未证实的请求行为保持协议构件默认值；基座不增加其他协议覆写。
 pub struct ClineFamilyAdapter;
