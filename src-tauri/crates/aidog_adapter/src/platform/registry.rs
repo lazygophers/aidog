@@ -2805,9 +2805,16 @@ static OPENROUTER: OpenrouterAdapter = OpenrouterAdapter;
 /// true 才在 `data: [DONE]` 前发独立的 usage 终块（choices 为空数组）。错误体：
 /// 标准 `{error: {message, type, code, param}}`；402 扩展带 `error.balance` 与
 /// `error.actions`，语义码 `insufficient_credits`；404 `model_not_found` 带
-/// did_you_mean/suggestions/docs/trace_id。错误码：400/401/402/404/429/500/502/503。
+/// did_you_mean/suggestions/docs/trace_id；同 404 在 `/v1/messages` 用 Anthropic 形状
+/// （`error.type: "not_found_error"`，建议名单进 `error.message` 与 `error.suggestions`）。
+/// 错误码：400/401/402/404/429/500/502/503。参数页只列标准 OpenAI 参数
+/// （temperature/top_p/max_tokens/frequency·presence_penalty/stop/seed），无思考参数。
+/// 网关层：限频响应头 `X-RateLimit-*`，请求体上限 1 MB（超限 400）。
 /// https://therouter.ai/docs/api/reference/streaming/
 /// https://therouter.ai/docs/api/reference/errors-and-debugging/
+/// 复核日期 2026-11-28（parameters / limits 页同轮核对），上述结论与 2026-11-25 首核一致。
+/// https://therouter.ai/docs/api/reference/parameters/
+/// https://therouter.ai/docs/api/reference/limits/
 /// 未证实：usage 缓存 token 字段、思考开关/档位、工具与媒体细节、max_tokens 上限、
 /// Anthropic/Responses 端点的完整事件与错误形状；保持协议构件默认行为。官方未列其他
 /// wire 协议端点；对用户配置其他协议仅做合成假上游兼容性测试，不表示 TheRouter 官方支持。

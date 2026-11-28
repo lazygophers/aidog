@@ -4843,3 +4843,59 @@ fn newapi_injection_is_noop() {
         assert_eq!(body, before, "{wire:?}");
     }
 }
+
+// ══ issue 109：TheRouter ══
+
+/// usage 抽取按官方形状：标准 `{message, type, code, param}` 错误外的 usage 沿 openai
+/// chat completions 形状（`prompt_tokens_details.cached_tokens` 缓存臂扣减）。
+#[test]
+fn therouter_usage_extraction_follows_official_shape() {
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    let body = r#"{"usage":{"prompt_tokens":19,"completion_tokens":10,"total_tokens":29,"prompt_tokens_details":{"cached_tokens":6}}}"#;
+    let (input, output, cache_read, cache_write, cache_write_1h, _) = adapter.extract_usage(body);
+    assert_eq!((input, output, cache_read, cache_write, cache_write_1h), (13, 10, 6, 0, 0), "cached_tokens 在 prompt_tokens 内须扣减");
+}
+
+/// 流式 usage 终块（官方 SSE Event Flow：`choices: []` 的独立 usage 块在 `data: [DONE]` 前），
+/// 经 `parse_sse_frame` 产出 Usage 事件（含 cached_tokens 缓存读）。
+#[test]
+fn therouter_stream_usage_terminal_chunk() {
+    use aidog_adapter::types::ChatStreamEvent;
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    let frame = serde_json::json!({
+        "id": "req_123", "object": "chat.completion.chunk", "choices": [],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12,
+                   "prompt_tokens_details": {"cached_tokens": 4}},
+    });
+    let events = adapter.parse_sse_frame(&frame, &Protocol::OpenAI);
+    let Some(ChatStreamEvent::Usage { usage }) = events.iter().find(|e| matches!(e, ChatStreamEvent::Usage { .. })) else {
+        panic!("usage 终块须产出 Usage 事件: {events:?}");
+    };
+    assert_eq!(usage.prompt_tokens, Some(10), "{usage:?}");
+    assert_eq!(usage.completion_tokens, Some(2), "{usage:?}");
+    assert_eq!(usage.cache_read_tokens, Some(4), "{usage:?}");
+}
+
+/// 402 扩展错误体（`error.balance` / `error.actions`，语义码 `insufficient_credits`）
+/// 按余额类归服务类分类，透传给客户端。
+#[test]
+fn therouter_402_insufficient_credits_classified_service() {
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    let body = r#"{"error":{"type":"insufficient_credits","message":"Insufficient balance — top up to continue","code":"insufficient_credits","balance":{"current":250,"current_usd":2.5,"threshold":0,"currency":"cr"},"actions":{"top_up_url":"/v1/customer/credits/packages","support_url":"/support"}}}"#;
+    assert!(matches!(
+        adapter.classify_error(402, body),
+        aidog_adapter::platform::error::UpstreamErrorClass::Service
+    ));
+}
+
+/// 注入不透传：therouter 无 coding plan（非编码套餐平台），`inject_coding_plan` 对各 wire 不改请求体。
+#[test]
+fn therouter_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    for wire in [Protocol::OpenAI, Protocol::OpenAIResponses, Protocol::Anthropic, Protocol::Gemini] {
+        let mut body = serde_json::json!({"model": "tr-test", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::TheRouter, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
