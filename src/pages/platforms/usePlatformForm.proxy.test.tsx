@@ -56,9 +56,9 @@ describe("usePlatformForm 使用代理（extra.proxy_enabled）", () => {
     const fetchModels = vi.spyOn(platformApi, "fetchModels").mockResolvedValue(["gpt-4"]);
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setApiKey("k");
-      result.current.setEndpoints([{ protocol: "openai", base_url: "https://x.test/v1" }] as any);
-      result.current.setProxyEnabled(true);
+      result.current.patch({ apiKey: "k" });
+      result.current.patch({ endpoints: [{ protocol: "openai", base_url: "https://x.test/v1" }] as any });
+      result.current.patch({ proxyEnabled: true });
     });
     await act(() => result.current.handleFetchModels());
     expect(fetchModels).toHaveBeenCalledWith("openai", "https://x.test/v1", "k", true);
@@ -67,9 +67,9 @@ describe("usePlatformForm 使用代理（extra.proxy_enabled）", () => {
   it("编辑回填：extra.proxy_enabled=true → 表单开关 true；缺失 → false", async () => {
     const { result } = renderHook(() => useForm());
     await act(() => result.current.handleEdit(plat(JSON.stringify({ keep: 1, proxy_enabled: true }))));
-    expect(result.current.proxyEnabled).toBe(true);
+    expect(result.current.draft.proxyEnabled).toBe(true);
     await act(() => result.current.handleEdit(plat("{}")));
-    expect(result.current.proxyEnabled).toBe(false);
+    expect(result.current.draft.proxyEnabled).toBe(false);
   });
 
   it("保存写回：编辑态保存把 proxy_enabled 序列化进 extra（保留其余键）", async () => {
@@ -85,7 +85,7 @@ describe("usePlatformForm 使用代理（extra.proxy_enabled）", () => {
   it("保存写回：关闭开关保存 → extra 落显式 false", async () => {
     const { result } = renderHook(() => useForm());
     await act(() => result.current.handleEdit(plat(JSON.stringify({ proxy_enabled: true }))));
-    act(() => result.current.setProxyEnabled(false));
+    act(() => result.current.patch({ proxyEnabled: false }));
     await act(() => result.current.handleSave());
     const saved = JSON.parse(vi.mocked(platformApi.update).mock.calls[0][0].extra!);
     expect(saved.proxy_enabled).toBe(false);
@@ -95,13 +95,13 @@ describe("usePlatformForm 使用代理（extra.proxy_enabled）", () => {
     proxyHost.configured = true;
     const a = renderHook(() => useForm());
     await act(() => a.result.current.openCreatePlatform());
-    expect(a.result.current.proxyEnabled).toBe(true);
+    expect(a.result.current.draft.proxyEnabled).toBe(true);
     a.unmount();
 
     proxyHost.configured = false;
     const b = renderHook(() => useForm());
     await act(() => b.result.current.openCreatePlatform());
-    expect(b.result.current.proxyEnabled).toBe(false);
+    expect(b.result.current.draft.proxyEnabled).toBe(false);
     b.unmount();
   });
 
@@ -109,7 +109,7 @@ describe("usePlatformForm 使用代理（extra.proxy_enabled）", () => {
     proxyHost.configured = true;
     const { result } = renderHook(() => useForm());
     await act(() => result.current.openCreatePlatform());
-    act(() => result.current.setName("New"));
+    act(() => result.current.patch({ name: "New" }));
     await act(() => result.current.handleSave());
     expect(platformApi.create).toHaveBeenCalledOnce();
     const saved = JSON.parse(vi.mocked(platformApi.create).mock.calls[0][0].extra ?? "{}");

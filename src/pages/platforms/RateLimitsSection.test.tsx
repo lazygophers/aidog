@@ -11,6 +11,7 @@ vi.mock("../../domains/platforms", async (orig) => ({
 }));
 import { RateLimitsSection } from "./formSections";
 import { rateLimitRuleError, type RateLimitsBundle } from "../../services/api";
+import { emptyDraft } from "../../domains/platforms/platformDraft";
 
 const t = ((key: string, fallback?: string) => fallback ?? key) as never;
 const RULES = [{ models: ["glm-4"], rpm: 10 }, { start_hour: 14, end_hour: 18, rpm: 5 }];
@@ -20,8 +21,8 @@ describe("RateLimitsSection rules", () => {
     vi.mocked(getDefaultRateLimitPolicies).mockResolvedValueOnce({ policies: [{ id: "test", label: "Test", source_url: "https://example.com", rules: [{ models: ["test-model"], rpm: 12 }] }], lastUpdated: 1 })
       .mockResolvedValueOnce({ policies: [{ id: "test", label: "Test", source_url: "https://example.com", rules: [{ models: ["test-model"], rpm: 12 }] }], lastUpdated: 1 });
     function Example() {
-      const [bundle, setBundle] = useState<RateLimitsBundle>({});
-      return <RateLimitsSection bundle={bundle} setBundle={setBundle} protocol={"glm" as never} modelOptions={[]} t={t} />;
+      const [dd, setDd] = useState(() => emptyDraft());
+      return <RateLimitsSection draft={dd} patch={(p) => setDd((prev) => ({ ...prev, ...p }))} protocol={"glm" as never} modelOptions={[]} t={t} />;
     }
     const r = render(<Example />);
     await waitFor(() => expect(document.getElementById("rl-policy-header")).not.toBeNull());
@@ -33,17 +34,17 @@ describe("RateLimitsSection rules", () => {
   });
 
   it("改平台级 RPM 后 setBundle 带回原 rules", () => {
-    const setBundle = vi.fn();
-    const { container } = render(<RateLimitsSection bundle={{ rate_limits: { rpm: 5, rules: RULES } }} setBundle={setBundle} protocol={"glm" as never} modelOptions={[]} t={t} />);
+    const patch = vi.fn();
+    const { container } = render(<RateLimitsSection draft={{ ...emptyDraft(), rateLimits: { rate_limits: { rpm: 5, rules: RULES } } }} patch={patch} protocol={"glm" as never} modelOptions={[]} t={t} />);
     fireEvent.change(container.querySelector("#rl-rpm")!, { target: { value: "7" } });
-    expect(setBundle.mock.calls.at(-1)![0].rate_limits).toEqual({ rpm: 7, rules: RULES });
+    expect(patch.mock.calls.at(-1)![0].rateLimits.rate_limits).toEqual({ rpm: 7, rules: RULES });
   });
 
   it("外部 bundle 换成导入的 rules → 列表显示同一份", () => {
-    const r = render(<RateLimitsSection bundle={{}} setBundle={vi.fn()} protocol={"glm" as never} modelOptions={[]} t={t} />);
+    const r = render(<RateLimitsSection draft={emptyDraft()} patch={vi.fn()} protocol={"glm" as never} modelOptions={[]} t={t} />);
     expect(r.container.querySelector('[data-testid="rl-rule-0"]')).toBeNull();
-    const b: RateLimitsBundle = { rate_limits: { rules: RULES, source_policy_id: "v0" } };
-    r.rerender(<RateLimitsSection bundle={b} setBundle={vi.fn()} protocol={"glm" as never} modelOptions={[]} t={t} />);
+    const b = { ...emptyDraft(), rateLimits: { rate_limits: { rules: RULES, source_policy_id: "v0" } } };
+    r.rerender(<RateLimitsSection draft={b} patch={vi.fn()} protocol={"glm" as never} modelOptions={[]} t={t} />);
     expect((r.container.querySelector('[data-testid="rl-rule-1-start"]') as HTMLInputElement).value).toBe("14");
     expect(r.container.querySelector('[data-testid="rl-rule-0-chip-glm-4"]')).not.toBeNull();
   });

@@ -56,15 +56,15 @@ describe("handleDuplicate 水合与 handleEdit 一致（票 03）", () => {
   it("D1: 复制仅顶层 base_url 的透传平台 → endpoints[0].base_url 回填", async () => {
     const { result } = renderHook(() => useForm());
     await act(() => result.current.handleDuplicate(passthroughPlatform));
-    expect(result.current.endpoints[0]?.base_url).toBe("https://x.example/v1");
+    expect(result.current.draft.endpoints[0]?.base_url).toBe("https://x.example/v1");
   });
 
   it("D2: 复制 quota_source=manual 平台 → quotaSource=manual 且不再自动落位", async () => {
     const { result } = renderHook(() => useForm());
     await act(() => result.current.handleDuplicate(manualQuotaPlatform));
-    expect(result.current.quotaSource).toBe("manual");
+    expect(result.current.draft.quotaSource).toBe("manual");
     // 不再自动落位：协议重选触发变体 effect 后仍保持 manual（prestine 已关）
     await act(() => result.current.handleProtocolChange("deepseek"));
-    expect(result.current.quotaSource).toBe("manual");
+    expect(result.current.draft.quotaSource).toBe("manual");
   });
 });

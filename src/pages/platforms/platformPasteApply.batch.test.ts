@@ -46,9 +46,9 @@ describe("runBatchCreateFromPaste — 共享草稿批量创建（票 13 回归�
   it("两个 key → 两个平台共享表单草稿配置（extra 含草稿键），仅 name/api_key 不同", async () => {
     const { result } = renderHook(() => useForm());
     await act(async () => {
-      result.current.setName("Base");
-      result.current.setEndpoints([{ protocol: "openai", base_url: "https://api.example/v1", client_type: "default", coding_plan: false }]);
-      result.current.setExtra(JSON.stringify({ keep: "x", peak: [{ start_hour: 1, end_hour: 2, multiplier: 2 }] }));
+      result.current.patch({ name: "Base" });
+      result.current.patch({ endpoints: [{ protocol: "openai", base_url: "https://api.example/v1", client_type: "default", coding_plan: false }] });
+      result.current.patch({ extra: JSON.stringify({ keep: "x", peak: [{ start_hour: 1, end_hour: 2, multiplier: 2 }] }) });
     });
     await act(() => result.current.runBatchCreateFromPaste(["abcd1234", "efgh5678"]));
     expect(platformApi.create).toHaveBeenCalledTimes(2);

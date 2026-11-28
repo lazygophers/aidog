@@ -6,6 +6,7 @@ import { render, cleanup } from "../../test/render";
 import { QuotaScriptFields, QuotaSection, QUOTA_CUSTOM_VARIANT } from "./formSections";
 import type { QuotaScriptVariant } from "../../domains/platforms";
 import { QUOTA_SCRIPT_SAMPLE, resolveQuotaSelection } from "../../services/api";
+import { emptyDraft } from "../../domains/platforms/platformDraft";
 
 vi.mock("../../domains/platforms", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../domains/platforms")>()),
@@ -64,14 +65,13 @@ describe("QuotaScriptFields", () => {
 
   it("自定义编辑器空内容时预填样例进表单态；清空后保持为空；已有内容显示原文", () => {
     const Harness = () => {
-      const [script, setScript] = useState("");
+      const [dd, setDd] = useState(() => emptyDraft());
       return (
         <QuotaSection
-          quotaSource="auto" onSourceChange={vi.fn()} protocol="bailian_coding"
-          variants={[]} variantId="" onVariantChange={vi.fn()}
-          customScript={script} onCustomScriptChange={setScript}
-          requires={{}} onRequiresChange={vi.fn()}
-          budgets={[]} setBudgets={vi.fn()} editing={true} t={t as never}
+          onSourceChange={vi.fn()} protocol="bailian_coding"
+          variants={[]} onVariantChange={vi.fn()}
+          draft={dd} patch={(p) => setDd((prev) => ({ ...prev, ...p }))}
+          editing={true} t={t as never}
         />
       );
     };
@@ -88,11 +88,11 @@ describe("QuotaScriptFields", () => {
   // 渲染真实 QuotaSection（选择判断在其内部），不复制选择逻辑。
   const renderReal = (customScript: string) => render(
     <QuotaSection
-      quotaSource="auto" onSourceChange={vi.fn()} protocol="bailian_coding"
-      variants={[VARIANT]} variantId="default" onVariantChange={vi.fn()}
-      customScript={customScript} onCustomScriptChange={vi.fn()}
-      requires={{}} onRequiresChange={vi.fn()}
-      budgets={[]} setBudgets={vi.fn()} editing={true} t={t as never}
+      onSourceChange={vi.fn()} protocol="bailian_coding"
+      variants={[VARIANT]} onVariantChange={vi.fn()}
+      draft={{ ...emptyDraft(), quotaCustomScript: customScript, quotaVariantId: "default" }}
+      patch={vi.fn()}
+      editing={true} t={t as never}
     />
   ).container;
 

@@ -12,9 +12,8 @@ import {
   parseMockConfig, parseDevinConfig, parsePassthroughAuth, readRequiresValue,
   validateClientUaRule, rateLimitRuleError,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
-  type PlatformUsageStats, type LastTestResult, type MockConfig, type DevinConfig, type PassthroughAuth,
-  type RateLimitsBundle,
-  type ManualBudget, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
+  type PlatformUsageStats, type LastTestResult,
+  type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
   type FetchModelsError,
 } from "../../services/api";
 import { customSlotsApi, type CustomSlotDef } from "../../services/api/customSlots";
@@ -27,7 +26,6 @@ import {
 } from "../../domains/platforms";
 import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
-import { usePlatformTimeModels } from "./usePlatformTimeModels";
 import { QUOTA_CUSTOM_VARIANT } from "./formSections";
 import { slotsToForm, slotList } from "../../domains/platforms/slotValue";
 import {
@@ -87,10 +85,10 @@ export interface PlatformFormState {
   fetchInfo: string;
   saveError: string;
   setSaveError: React.Dispatch<React.SetStateAction<string>>;
-  name: string; setName: React.Dispatch<React.SetStateAction<string>>;
-  protocol: Protocol; setProtocol: React.Dispatch<React.SetStateAction<Protocol>>;
-  codingPlan: boolean; setCodingPlan: React.Dispatch<React.SetStateAction<boolean>>;
-  apiKey: string; setApiKey: React.Dispatch<React.SetStateAction<string>>;
+  // ── 草稿单一入口（票 14 终局）：控件读 draft.xxx、写 patch({xxx})，兼容 setter 层已删 ──
+  draft: PlatformDraft;
+  /** 草稿部分更新（patch 只覆盖给出的键；reducer 纯函数）。 */
+  patch: (p: Partial<PlatformDraft>) => void;
   /** 多 key 预览态：null = 非批量；string[] = 待确认的批量 key 列表（触发 MultiKeyPreview 渲染）。
    *  创建态 + 非 keyOptional + splitApiKeys(apiKey).length>1 时由 handleApiKeyChange 设置；
    *  编辑态 / keyOptional / 单 key 均 null（不触发预览）。 */
@@ -98,60 +96,27 @@ export interface PlatformFormState {
   setBatchPreviewKeys: React.Dispatch<React.SetStateAction<string[] | null>>;
   /** apiKey input onChange 包装：创建态多 key → setBatchPreviewKeys 触发实时预览（D1）。 */
   handleApiKeyChange: (v: string) => void;
-  /** 确认批量创建（MultiKeyPreview 确认按钮）：调 runBatchCreateFromPaste → 成功后 resetForm + 关表单。 */
-  /** 取消批量预览：清 batchPreviewKeys 并把 apiKey 清回单值（用户可重新输入）。 */
   /** 预览 name 列表（batchPreviewKeys 派生，供 MultiKeyPreview 渲染；null 时空数组）。 */
   previewNames: string[];
-  models: Record<ModelSlot, string[]>; setModels: React.Dispatch<React.SetStateAction<Record<ModelSlot, string[]>>>;
-  availableModels: string[]; setAvailableModels: React.Dispatch<React.SetStateAction<string[]>>;
-  endpoints: PlatformEndpoint[]; setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
   activeDropdown: ModelSlot | null; setActiveDropdown: React.Dispatch<React.SetStateAction<ModelSlot | null>>;
-  extra: string; setExtra: React.Dispatch<React.SetStateAction<string>>;
-  mockConfig: MockConfig; setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
   /** 配额查询脚本（quota-scripts T6）：registry 变体列表（protocol 派生异步拉取）。 */
   quotaVariants: QuotaScriptVariant[];
-  /** 选中变体 id（""=缺省回落首条；QUOTA_CUSTOM_VARIANT=自定义伪变体，哨兵见 formSections）。 */
-  quotaVariantId: string; setQuotaVariantId: React.Dispatch<React.SetStateAction<string>>;
-  /** 自定义脚本正文（非空 = 自定义伪变体，序列化时覆盖 id 选择）。 */
-  quotaCustomScript: string; setQuotaCustomScript: React.Dispatch<React.SetStateAction<string>>;
-  /** 配额方式 + 显式切换器（自动落位只发生在 pristine 新建态）。 */
-  quotaSource: "auto" | "manual"; setQuotaSource: (v: "auto" | "manual") => void;
-  /** requires 参数值（key → 输入；含 newapi user_id 附加键）。 */
-  quotaRequires: Record<string, string>; setQuotaRequires: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   /** 变体下拉切换（切回 registry 变体时清自定义正文，保持互斥）。 */
   handleQuotaVariantChange: (v: string) => void;
-  /** Devin 配置（devin_timeout / devin_mode，存 platform.extra.devin 子对象）。
-   *  org_id 编辑已移交配额脚本 requires 表单。 */
-  devinConfig: DevinConfig; setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
-  manualBudgets: ManualBudget[]; setManualBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
-  breakerFailureThreshold: string; setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
-  breakerHalfOpenMax: string; setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
+  /** 配额方式显式切换器：patch quotaSource + 关 pristine（自动落位只发生在 pristine 新建态）。 */
+  setQuotaSourceExplicit: (v: "auto" | "manual") => void;
   breakerDefaults: SchedulingBreakerSettings | null;
-  timemodels: ReturnType<typeof usePlatformTimeModels>;
-  /** mitm_stats 开关（cc-sub-mitm 票 12：Claude Code 订阅平台 MITM 接入形态标记，存 platform.extra.mitm_stats）。 */
-  mitmStats: boolean; setMitmStats: React.Dispatch<React.SetStateAction<boolean>>;
-  /** 使用代理开关（issue #64 T03，存 platform.extra.proxy_enabled；显式 bool）。 */
-  proxyEnabled: boolean; setProxyEnabled: React.Dispatch<React.SetStateAction<boolean>>;
-  /** 限频配置（rate-limit-aware 票 04：extra.rate_limits + extra.quota_windows，弹窗编辑）。 */
-  rateLimits: RateLimitsBundle; setRateLimits: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
-  autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
-  joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
-  expiresAt: number; setExpiresAt: React.Dispatch<React.SetStateAction<number>>;
+  /** windowsTz：时段档展示态（local/utc），只影响表单展示、不写 extra。 */
+  windowsTz: "local" | "utc";
+  setWindowsTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
+  /** 「启用过期」toggle（展示态；expiresAt 在 draft）。 */
   expiryEnabled: boolean; setExpiryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
-  lockedGroupId: number | null; setLockedGroupId: React.Dispatch<React.SetStateAction<number | null>>;
+  /** 全局自定义槽位定义（null = 未加载，此时保存不清孤儿键）。 */
+  customSlotDefs: CustomSlotDef[] | null;
   isMock: boolean;
   isPassthrough: boolean;
   /** 自定义透传协议（passthrough，非 claude_code 订阅透传）：专属编辑器门 + 模型槽/测试全隐藏。 */
   isPassThrough: boolean;
-  /** passthrough 认证配置（extra 顶层 auth_header/auth_template；见 parsePassthroughAuth）。 */
-  passAuth: PassthroughAuth; setPassAuth: React.Dispatch<React.SetStateAction<PassthroughAuth>>;
-  /** qianfan AppBuilder key（独立搜索转发凭据，票 20；持久化 extra 顶层 appbuilder_key，空删键）。 */
-  appbuilderKey: string; setAppbuilderKey: React.Dispatch<React.SetStateAction<string>>;
-  /** 全局自定义槽位定义（null = 未加载，此时保存不清孤儿键）与本平台各槽值（extra.custom_slots）。 */
-  customSlotDefs: CustomSlotDef[] | null;
-  customSlotValues: Record<string, string[]>; setCustomSlotValues: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
-  /** 关闭的槽位名（extra.disabled_slots，内置 + 自定义）。 */
-  disabledSlots: string[]; setDisabledSlots: React.Dispatch<React.SetStateAction<string[]>>;
   keyOptional: boolean;
   apiKeyMissing: boolean;
   resetForm: () => void;
@@ -194,15 +159,13 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [showKey, setShowKey] = useState(false);
   const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
-  // ── 表单纯数据 state：单一 draft + reducer（票 12，形状 B） ─────────────────
-  // 原数据类 useState（name/protocol/.../lockedGroupId 共 27 个）收进 PlatformDraft，
-  // 经 draftReducer 更新；UI 瞬时态（batchPreviewKeys / activeDropdown / quotaVariants /
-  // quotaSourcePristine / customSlotDefs / expiryEnabled / windowsTz）仍是 useState。
-  // 兼容层：s.form 对外的值标识符与 setXxx 保持原名，setXxx = patch 薄包装（支持函数式
-  // updater）；集中在本文件一处，票 14 迁控件后整体删除。
+  // ── 表单纯数据 state：单一 draft + reducer（票 12 形状 B；票 14 终局对外 draft + patch） ──
   const [draft, dispatch] = useReducer(draftReducer, undefined, emptyDraft);
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  /** 草稿部分更新：s.form 对草稿的唯一写入口（patch 只覆盖给出的键）。 */
+  const patch = (p: Partial<PlatformDraft>) => dispatch({ type: "patch", patch: p });
+  // hook 内部 handler 的单字段函数式更新助手（不对外暴露；控件一律走 patch）。
   const patchOf = <K extends keyof PlatformDraft>(k: K) => (v: React.SetStateAction<PlatformDraft[K]>) =>
     dispatch({ type: "patch", patch: { [k]: typeof v === "function" ? (v as (prev: PlatformDraft[K]) => PlatformDraft[K])(draftRef.current[k]) : v } });
   const setName = patchOf("name");
@@ -212,36 +175,23 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const setModels = patchOf("models");
   const setAvailableModels = patchOf("availableModels");
   const setEndpoints = patchOf("endpoints");
-  const setExtra = patchOf("extra");
   const setMockConfig = patchOf("mockConfig");
   const setDevinConfig = patchOf("devinConfig");
+  const setPassAuth = patchOf("passAuth");
   const setQuotaVariantId = patchOf("quotaVariantId");
   const setQuotaCustomScript = patchOf("quotaCustomScript");
-  // 原始 patch setter（不关 pristine）：effect 自动落位与 paste ctx（fullShare 推导）沿用原语义；
-  // 用户显式切换走 setQuotaSourceExplicit（return 里仍以 setQuotaSource 名暴露）。
-  const setQuotaSource = patchOf("quotaSource");
   const setQuotaRequires = patchOf("quotaRequires");
-  const setManualBudgets = patchOf("manualBudgets");
-  const setBreakerFailureThreshold = patchOf("breakerFailureThreshold");
-  const setBreakerHalfOpenMax = patchOf("breakerHalfOpenMax");
-  const setMitmStats = patchOf("mitmStats");
-  const setProxyEnabled = patchOf("proxyEnabled");
-  const setRateLimits = patchOf("rateLimits");
-  const setAutoGroup = patchOf("autoGroup");
+  const setQuotaSource = patchOf("quotaSource");
   const setJoinGroupIds = patchOf("joinGroupIds");
-  const setExpiresAt = patchOf("expiresAt");
+  const setAutoGroup = patchOf("autoGroup");
   const setLockedGroupId = patchOf("lockedGroupId");
-  const setPassAuth = patchOf("passAuth");
-  const setAppbuilderKey = patchOf("appbuilderKey");
-  const setCustomSlotValues = patchOf("customSlotValues");
-  const setDisabledSlots = patchOf("disabledSlots");
-  // 草稿值解构：s.form 值标识符原名不变（PlatformEditForm 的 ~103 个解构不动，票 14 迁）。
+  const setExpiresAt = patchOf("expiresAt");
+  const setProxyEnabled = patchOf("proxyEnabled");
+  // handler 内读取的草稿值（解构自当前 draft；handler 每轮渲染重建，闭包即最新值）。
   const {
-    name, protocol, codingPlan, apiKey, models, availableModels, endpoints, extra,
-    mockConfig, quotaVariantId, quotaCustomScript, quotaRequires, quotaSource, devinConfig,
-    manualBudgets, breakerFailureThreshold, breakerHalfOpenMax, mitmStats, proxyEnabled,
-    rateLimits, autoGroup, joinGroupIds, expiresAt, lockedGroupId, passAuth,
-    appbuilderKey, customSlotValues, disabledSlots,
+    name, protocol, apiKey, models, endpoints, extra,
+    quotaVariantId,
+    proxyEnabled, autoGroup, joinGroupIds, lockedGroupId, expiresAt,
   } = draft;
   // 协议 label 全表（共享 hook）；首帧 {} 用 key fallback。lang 省略 = 沿用原非本地化
   // 行为（表单挂载即定型，无 locale 重拉）。DEFAULT_NAMES 运行时并入此 map 的 value 集合。
@@ -268,7 +218,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     customSlotsApi.get().then((d) => { if (alive) setCustomSlotDefs(d); }).catch((e) => console.error("custom slots definitions load failed:", e));
     return () => { alive = false; };
   }, [showForm]);
-  const timemodels = usePlatformTimeModels(draft, dispatch);
+  // windowsTz：时段档展示态（local/utc），只影响表单展示、不写 extra（不进 draft）。
+  const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
   // 「启用过期」toggle：默认 OFF（隐藏 datetime-local）。仅当用户勾选 toggle 才显示日期选择器；
   // 老平台 expires_at>0 加载时置 ON；粘贴识别填入 expiresAt 但 **保持 toggle OFF**（用户手动启用）。
   const [expiryEnabled, setExpiryEnabled] = useState(false);
@@ -374,7 +325,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const resetForm = () => {
     // 数据面：draft 整体复位（= load(emptyDraft())）；windowsTz 是展示态，单独复位。
     dispatch({ type: "reset" });
-    timemodels.setWindowsTz("local");
+    setWindowsTz("local");
     setBatchPreviewKeys(null);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
     setQuotaSourcePristine(true);
@@ -563,7 +514,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     name, protocol, endpoints, lockedGroupId, joinGroupIds, autoGroup, expiresAt,
     setApiKey, setModels, setEndpoints,
     setEditing, setFetchError, setSaveError,
-    setShowPaste, setShowForm, setExpiresAt, setExpiryEnabled,
+    setShowPaste, setShowForm, setExpiresAt, setExpiryEnabled, // setExpiresAt = patchOf("expiresAt") 私有助手
     dispatch,
     setBatchPreviewKeys,
     handleProtocolChange, resetForm,
@@ -712,33 +663,17 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     groupFullscreen, setGroupFullscreen, showKey, setShowKey,
     testingPlatform, setTestingPlatform,
     fetching, setFetching, fetchError, setFetchError, fetchInfo, saveError, setSaveError,
-    name, setName, protocol, setProtocol, codingPlan, setCodingPlan,
-    apiKey, setApiKey,
+    // 草稿单一入口（票 14 终局）：控件读 draft.xxx、写 patch({xxx})，兼容 setter 层已删。
+    draft, patch,
     batchPreviewKeys, setBatchPreviewKeys,
     handleApiKeyChange, previewNames,
-    models, setModels, availableModels, setAvailableModels,
-    endpoints, setEndpoints, activeDropdown, setActiveDropdown,
-    extra, setExtra,
-    mockConfig, setMockConfig,
-    quotaVariants, quotaVariantId, setQuotaVariantId,
-    quotaSource, setQuotaSource: setQuotaSourceExplicit,
-    quotaCustomScript, setQuotaCustomScript,
-    quotaRequires, setQuotaRequires,
-    handleQuotaVariantChange,
-    devinConfig, setDevinConfig,
-    manualBudgets, setManualBudgets,
-    breakerFailureThreshold, setBreakerFailureThreshold,
-    breakerHalfOpenMax, setBreakerHalfOpenMax,
+    activeDropdown, setActiveDropdown,
+    quotaVariants, handleQuotaVariantChange, setQuotaSourceExplicit,
     breakerDefaults,
-    timemodels,
-    mitmStats, setMitmStats,
-    proxyEnabled, setProxyEnabled,
-    rateLimits, setRateLimits,
-    autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
-    expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
-    lockedGroupId, setLockedGroupId,
-    isMock, isPassthrough, isPassThrough, passAuth, setPassAuth,
-    appbuilderKey, setAppbuilderKey, customSlotDefs, customSlotValues, setCustomSlotValues, disabledSlots, setDisabledSlots, keyOptional, apiKeyMissing,
+    windowsTz, setWindowsTz,
+    expiryEnabled, setExpiryEnabled,
+    customSlotDefs,
+    isMock, isPassthrough, isPassThrough, keyOptional, apiKeyMissing,
     resetForm, openCreatePlatform, handleEdit, handleDuplicate, handleProtocolChange,
     handleModelsChange, handleFetchModels, handleFillAll, buildModelsPayload,
     handleSave, handleViewLogs, applyPaste, runBatchCreateFromPaste,

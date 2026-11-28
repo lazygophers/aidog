@@ -144,10 +144,10 @@ describe("三入口非 extra 字段水合等价", () => {
     const rb = renderHook(() => useForm());
     await act(() => rb.result.current.handleDuplicate(src));
     for (const r of [ra.result.current, rb.result.current]) {
-      expect(r.endpoints[0]?.base_url).toBe("https://relay.example/v1");
-      expect(r.quotaSource).toBe("manual");
-      expect(r.manualBudgets).toEqual(src.manual_budgets);
-      expect(r.expiresAt).toBe(1790000000000);
+      expect(r.draft.endpoints[0]?.base_url).toBe("https://relay.example/v1");
+      expect(r.draft.quotaSource).toBe("manual");
+      expect(r.draft.manualBudgets).toEqual(src.manual_budgets);
+      expect(r.draft.expiresAt).toBe(1790000000000);
     }
     expect(ra.result.current.editing).not.toBeNull();
     expect(rb.result.current.editing).toBeNull();
@@ -156,9 +156,9 @@ describe("三入口非 extra 字段水合等价", () => {
   it("fullShare：endpoints 透传回填 / manual_budgets / quota_source(manual) 一致", async () => {
     const { result } = renderHook(() => useForm());
     await act(() => result.current.applyPaste({ fullShare: share } as never));
-    expect(result.current.endpoints[0]?.base_url).toBe("https://relay.example/v1");
-    expect(result.current.manualBudgets).toEqual(src.manual_budgets);
-    expect(result.current.quotaSource).toBe("manual");
+    expect(result.current.draft.endpoints[0]?.base_url).toBe("https://relay.example/v1");
+    expect(result.current.draft.manualBudgets).toEqual(src.manual_budgets);
+    expect(result.current.draft.quotaSource).toBe("manual");
   });
 });
 
@@ -171,6 +171,6 @@ describe("非法 JSON extra：三入口不抛错，原串保留", () => {
   ])("%s：extra 原串保留", async (_name, entry) => {
     const { result } = renderHook(() => useForm());
     await act(() => entry(result.current));
-    expect(result.current.extra).toBe(bad);
+    expect(result.current.draft.extra).toBe(bad);
   });
 });
