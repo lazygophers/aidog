@@ -4844,6 +4844,126 @@ fn newapi_injection_is_noop() {
     }
 }
 
+// ══ issue 109：TheRouter ══
+
+/// usage 抽取按官方形状：标准 `{message, type, code, param}` 错误外的 usage 沿 openai
+/// chat completions 形状（`prompt_tokens_details.cached_tokens` 缓存臂扣减）。
+#[test]
+fn therouter_usage_extraction_follows_official_shape() {
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    let body = r#"{"usage":{"prompt_tokens":19,"completion_tokens":10,"total_tokens":29,"prompt_tokens_details":{"cached_tokens":6}}}"#;
+    let (input, output, cache_read, cache_write, cache_write_1h, _) = adapter.extract_usage(body);
+    assert_eq!((input, output, cache_read, cache_write, cache_write_1h), (13, 10, 6, 0, 0), "cached_tokens 在 prompt_tokens 内须扣减");
+}
+
+/// 流式 usage 终块（官方 SSE Event Flow：`choices: []` 的独立 usage 块在 `data: [DONE]` 前），
+/// 经 `parse_sse_frame` 产出 Usage 事件（含 cached_tokens 缓存读）。
+#[test]
+fn therouter_stream_usage_terminal_chunk() {
+    use aidog_adapter::types::ChatStreamEvent;
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    let frame = serde_json::json!({
+        "id": "req_123", "object": "chat.completion.chunk", "choices": [],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12,
+                   "prompt_tokens_details": {"cached_tokens": 4}},
+    });
+    let events = adapter.parse_sse_frame(&frame, &Protocol::OpenAI);
+    let Some(ChatStreamEvent::Usage { usage }) = events.iter().find(|e| matches!(e, ChatStreamEvent::Usage { .. })) else {
+        panic!("usage 终块须产出 Usage 事件: {events:?}");
+    };
+    assert_eq!(usage.prompt_tokens, Some(10), "{usage:?}");
+    assert_eq!(usage.completion_tokens, Some(2), "{usage:?}");
+    assert_eq!(usage.cache_read_tokens, Some(4), "{usage:?}");
+}
+
+/// 402 扩展错误体（`error.balance` / `error.actions`，语义码 `insufficient_credits`）
+/// 按余额类归服务类分类，透传给客户端。
+#[test]
+fn therouter_402_insufficient_credits_classified_service() {
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    let body = r#"{"error":{"type":"insufficient_credits","message":"Insufficient balance — top up to continue","code":"insufficient_credits","balance":{"current":250,"current_usd":2.5,"threshold":0,"currency":"cr"},"actions":{"top_up_url":"/v1/customer/credits/packages","support_url":"/support"}}}"#;
+    assert!(matches!(
+        adapter.classify_error(402, body),
+        aidog_adapter::platform::error::UpstreamErrorClass::Service
+    ));
+}
+
+/// 注入不透传：therouter 无 coding plan（非编码套餐平台），`inject_coding_plan` 对各 wire 不改请求体。
+#[test]
+fn therouter_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    for wire in [Protocol::OpenAI, Protocol::OpenAIResponses, Protocol::Anthropic, Protocol::Gemini] {
+        let mut body = serde_json::json!({"model": "tr-test", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::TheRouter, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
+// ══ issue 132：商汤国际版成员 `sensenova_en` 逐端点协议护栏（本地假上游）══
+// 形态与 #131 对称：与 cn 成员共用 SenseNovaFamilyAdapter 基座，官方文档 SPA 抓不到，
+// 可证实差异仅内置默认端点域名（token.sensenova.ai，见 platform.sensenova.ai）；
+// 其余请求字段 / 流式事件 / 错误体 / usage 语义均未证实，继承基座默认——
+// 本组测试锁的是「en 成员经 adapter_for 正确派发到家族基座、两 wire 端点协议转换不回落」，
+// fixture 复用 #131 的 SENSENOVA_* 常量。
+
+/// 注入不透传：sensenova_en 非 coding plan 成员，`inject_coding_plan` 对两种 wire 均不改请求体。
+#[test]
+fn sensenova_en_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("sensenova_en");
+    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+        let mut body = serde_json::json!({"model": "sensenova-6.8-flash-lite", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::SenseNovaEn, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic（usage 10/3 全额计）；
+/// 流式上游 `[DONE]` 不漏进 anthropic 输出、末帧 usage 转换；401 原状态透传。
+#[tokio::test]
+async fn sensenova_en_openai_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::SenseNovaEn, Protocol::OpenAI, "gk132oa", "/v1/messages", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", SENSENOVA_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "sensenova-6.8-flash-lite", "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi");
+    assert_eq!(response["usage"]["input_tokens"], 10, "{response}");
+    assert_eq!(response["usage"]["output_tokens"], 3, "{response}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNovaEn, Protocol::OpenAI, "gk132oas", "/v1/messages", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", SENSENOVA_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    assert!(!resp.contains("[DONE]"), "OpenAI upstream terminator must not leak into Anthropic output: {resp}");
+    assert!(resp.contains("\"input_tokens\":10") && resp.contains("\"output_tokens\":3"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNovaEn, Protocol::OpenAI, "gk132oae", "/v1/messages", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", r#"{"error":{"message":"Invalid API key provided","type":"invalid_request_error"}}"#)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("Invalid API key"), "{resp}");
+}
+
+/// anthropic 端点（registry 内置第二端点）：出站打 `/v1/messages`；非流式回 openai 形状；
+/// 流式透传标准事件链；400 错误体原样透传；usage 按基座 anthropic 臂（input 6 − cache 0）。
+#[tokio::test]
+async fn sensenova_en_anthropic_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::SenseNovaEn, Protocol::Anthropic, "gk132an", "/chat/completions", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", SENSENOVA_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "sensenova-6.8-flash-lite", "{req}");
+    assert_eq!(req["messages"][0]["content"], "hi", "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    assert_eq!(response["usage"]["prompt_tokens"], 6, "{response}");
+    assert_eq!(response["usage"]["completion_tokens"], 3, "{response}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNovaEn, Protocol::Anthropic, "gk132ans", "/chat/completions", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"stream":true,"stream_options":{"include_usage":true},"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", SENSENOVA_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    assert!(resp.contains("\"prompt_tokens\":6") && resp.contains("\"completion_tokens\":3"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNovaEn, Protocol::Anthropic, "gk132ane", "/chat/completions", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"model is empty"}}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model is empty"), "{resp}");
+}
+
 // ══ issue 133：SiliconFlow（硅基流动）成员 `siliconflow` 逐端点协议护栏（本地假上游）══
 // 成员级核对与未证实项（官方文档 https://docs.siliconflow.cn，核对日期 2026-11-28）见
 // SiliconFlowFamilyAdapter 文档注释（aidog_adapter/src/platform/registry.rs）。
