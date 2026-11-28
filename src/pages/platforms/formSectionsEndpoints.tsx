@@ -1,10 +1,9 @@
 // formSectionsEndpoints — 编辑页 Endpoints 大分区，从 formSections.tsx 拆出控制行数。
 // ponytail: ModelsSection 已被 ModelsMatrixSection 取代（PRD 07-09 合并矩阵 card）。
-import React from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
-  type Protocol, type PlatformEndpoint, type ClientType,
+  type Protocol, type ClientType,
 } from "../../services/api";
 import {
   ENDPOINT_PROTOCOLS,
@@ -12,20 +11,23 @@ import {
   defaultClientForProtocol,
 } from "../../domains/platforms";
 import { useClientTypeOptions } from "../../domains/platforms/useProtocolMeta";
-import { FormSection } from "./formSections";
+import { FormSection, draftSetter } from "./formSections";
+import type { PlatformDraft } from "../../domains/platforms/platformDraft";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
-  endpoints: PlatformEndpoint[];
-  setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
+export function EndpointsSection({ draft, patch, protocol, t }: {
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
   /** 平台主协议：厂商直连平台（ENDPOINTS_LOCKED_PROTOCOLS）端点锁死只读 */
   protocol: Protocol;
   t: TFunction;
 }) {
+  const endpoints = draft.endpoints;
+  const setEndpoints = draftSetter(draft, patch, "endpoints");
   const { i18n } = useTranslation();
   const locked = ENDPOINTS_LOCKED_PROTOCOLS.has(protocol);
   // CLIENT_TYPES 删除（JSON 派生）：共享 hook（useClientTypeOptions）— useState 空初始

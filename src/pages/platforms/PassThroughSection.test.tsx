@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { render, screen } from "../../test/render";
 import { PASS_THROUGH_HEADER_PRESETS, PassThroughSection } from "./formSections";
 import type { PlatformEndpoint, PassthroughAuth, Protocol } from "../../services/api";
+import { emptyDraft } from "../../domains/platforms/platformDraft";
 
 const t = ((key: string, fallback?: string) => fallback ?? key) as unknown as Parameters<typeof PassThroughSection>[0]["t"];
 
@@ -27,22 +28,17 @@ const EPS: PlatformEndpoint[] = [
 ];
 
 function harness(auth: PassthroughAuth = { auth_header: "", auth_template: "" }) {
-  const setAuth = vi.fn();
-  const setEndpoints = vi.fn();
+  const patch = vi.fn();
   const { container } = render(
     <PassThroughSection
-      endpoints={EPS}
-      setEndpoints={setEndpoints}
-      apiKey=""
-      setApiKey={vi.fn()}
+      draft={{ ...emptyDraft(), endpoints: EPS, passAuth: auth }}
+      patch={patch}
       showKey={false}
       setShowKey={vi.fn()}
-      auth={auth}
-      setAuth={setAuth}
       t={t}
     />,
   );
-  return { setAuth, setEndpoints, container };
+  return { patch, container };
 }
 
 const NEW_PRESETS = [
@@ -76,10 +72,10 @@ describe("PassThroughSection 认证头预设（psfix-03 票 03）", () => {
 
   it.each(NEW_PRESETS)("选中新预设 %s → setAuth 落对应 header+template", async (p) => {
     const user = userEvent.setup();
-    const { setAuth } = harness();
+    const { patch } = harness();
     await user.click(screen.getByRole("combobox"));
     await user.click(screen.getByRole("option", { name: `${p.header}: ${p.template}` }));
-    expect(setAuth).toHaveBeenCalledWith({ auth_header: p.header, auth_template: p.template });
+    expect(patch).toHaveBeenCalledWith({ passAuth: { auth_header: p.header, auth_template: p.template } });
   });
 
   it.each(NEW_PRESETS)("新预设值回显时命中预设（不显示自定义输入框）", (p) => {

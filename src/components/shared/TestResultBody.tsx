@@ -2,7 +2,7 @@
 // 测试响应正文（耗时已由调用方分离展示）的解析渲染：
 //   - 先 JSON.parse，匹配已知结构（error / usage / message / choices）→ 结构化 key-value 视图。
 //   - 解析失败或未知结构 → 回退原始文本（pre-wrap，不崩）。
-// 供 ModelTestPanel / PlatformCard 最近测试详情统一消费，禁页内重复造解析逻辑。
+// 供 ModelTestPanel / PlatformRow 最近测试详情统一消费，禁页内重复造解析逻辑。
 
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -128,7 +128,7 @@ export function TestResultBody({ body }: TestResultBodyProps) {
   const { t } = useTranslation();
   const parsed = parseTestBody(body, t);
   // 萤火虫 reveal: 测试结果详情入场淡入上移 (一次, 进入视口触发)
-  // ponytail: 不加 glass-surface — PlatformCard 调用方已用 glass-surface 包裹 (line 1007), 嵌套玻璃是噪音
+  // ponytail: 不加 glass-surface — PlatformRow 调用方已用 glass-surface 包裹 (line 1007), 嵌套玻璃是噪音
   const { ref, shown } = useReveal<HTMLDivElement>(0);
 
   if (parsed.kind === "raw") {

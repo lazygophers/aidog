@@ -5,24 +5,15 @@
 //
 // 边界（自包含）：仅持有 form 编辑态 + form 业务 handlers；不持有 list state（platforms/drag/quota）。
 //   owner 调用 usePlatformForm(listDeps) 拿 form state + handlers，并入 PlatformsState 返回。
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useReducer } from "react";
 import type { TFunction } from "i18next";
 import {
   platformApi, groupDetailApi, parseSubscriptionStartDate, validSubscriptionStartDate,
-  parseMockConfig, serializeMockConfig,
-  parseDevinConfig, serializeDevinConfig,
-  parseQuotaScriptConfig, serializeQuotaScriptConfig, readRequiresValue,
-  parsePlatformBreaker, serializePlatformBreaker,
-  parseMitmStats, serializeMitmStats,
-  parseRateLimitsBundle, serializeRateLimitsBundle, type RateLimitsBundle,
-  parsePassthroughAuth, serializePassthroughAuth,
-  parseAppbuilderKey, serializeAppbuilderKey, validateClientUaRule, rateLimitRuleError,
-  parseProxyEnabled, serializeProxyEnabled,
-  parseCustomSlots, serializeCustomSlots, parseDisabledSlots, serializeDisabledSlots,
-  DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG, DEFAULT_PASSTHROUGH_AUTH,
+  parseMockConfig, parseDevinConfig, parsePassthroughAuth, readRequiresValue,
+  validateClientUaRule, rateLimitRuleError,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
-  type PlatformUsageStats, type LastTestResult, type MockConfig, type DevinConfig, type PassthroughAuth,
-  type ManualBudget, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
+  type PlatformUsageStats, type LastTestResult,
+  type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
   type FetchModelsError,
 } from "../../services/api";
 import { customSlotsApi, type CustomSlotDef } from "../../services/api/customSlots";
@@ -35,10 +26,14 @@ import {
 } from "../../domains/platforms";
 import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
-import { usePlatformTimeModels } from "./usePlatformTimeModels";
 import { QUOTA_CUSTOM_VARIANT } from "./formSections";
 import { slotsToForm, slotList } from "../../domains/platforms/slotValue";
+import {
+  draftReducer, emptyDraft, draftFromPlatform, draftToPayload,
+  type PlatformDraft,
+} from "../../domains/platforms/platformDraft";
 import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, previewBatchNames, type PlatformPasteCtx } from "./platformPasteApply";
+import { notifyPlatformMembershipChanged } from "./groupsChanged";
 import { getProxyHostConfigured } from "../../domains/platforms/proxyConfig";
 
 /** owner（usePlatformsState）注入的 list 侧依赖。所有 form handler 需要的 list state/setters 走此通道。 */
@@ -53,8 +48,6 @@ export interface PlatformFormListDeps {
   };
   groupDetails: GroupDetail[];
   setGroupDetails: React.Dispatch<React.SetStateAction<GroupDetail[]>>;
-  handleGroupsChanged: () => Promise<void>;
-  groupsReloadRef: React.MutableRefObject<(() => void) | null>;
   /** 全局 toast setter（保存/批量/错误共用）。 */
   setToast: React.Dispatch<React.SetStateAction<{ text: string; ok: boolean } | null>>;
   /** 全局调度+熔断默认（展示「继承默认 N」用），owner effect 异步拉取后 setBreakerDefaults 注入。 */
@@ -92,10 +85,10 @@ export interface PlatformFormState {
   fetchInfo: string;
   saveError: string;
   setSaveError: React.Dispatch<React.SetStateAction<string>>;
-  name: string; setName: React.Dispatch<React.SetStateAction<string>>;
-  protocol: Protocol; setProtocol: React.Dispatch<React.SetStateAction<Protocol>>;
-  codingPlan: boolean; setCodingPlan: React.Dispatch<React.SetStateAction<boolean>>;
-  apiKey: string; setApiKey: React.Dispatch<React.SetStateAction<string>>;
+  // ── 草稿单一入口（票 14 终局）：控件读 draft.xxx、写 patch({xxx})，兼容 setter 层已删 ──
+  draft: PlatformDraft;
+  /** 草稿部分更新（patch 只覆盖给出的键；reducer 纯函数）。 */
+  patch: (p: Partial<PlatformDraft>) => void;
   /** 多 key 预览态：null = 非批量；string[] = 待确认的批量 key 列表（触发 MultiKeyPreview 渲染）。
    *  创建态 + 非 keyOptional + splitApiKeys(apiKey).length>1 时由 handleApiKeyChange 设置；
    *  编辑态 / keyOptional / 单 key 均 null（不触发预览）。 */
@@ -103,60 +96,27 @@ export interface PlatformFormState {
   setBatchPreviewKeys: React.Dispatch<React.SetStateAction<string[] | null>>;
   /** apiKey input onChange 包装：创建态多 key → setBatchPreviewKeys 触发实时预览（D1）。 */
   handleApiKeyChange: (v: string) => void;
-  /** 确认批量创建（MultiKeyPreview 确认按钮）：调 runBatchCreateFromPaste → 成功后 resetForm + 关表单。 */
-  /** 取消批量预览：清 batchPreviewKeys 并把 apiKey 清回单值（用户可重新输入）。 */
   /** 预览 name 列表（batchPreviewKeys 派生，供 MultiKeyPreview 渲染；null 时空数组）。 */
   previewNames: string[];
-  models: Record<ModelSlot, string[]>; setModels: React.Dispatch<React.SetStateAction<Record<ModelSlot, string[]>>>;
-  availableModels: string[]; setAvailableModels: React.Dispatch<React.SetStateAction<string[]>>;
-  endpoints: PlatformEndpoint[]; setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
   activeDropdown: ModelSlot | null; setActiveDropdown: React.Dispatch<React.SetStateAction<ModelSlot | null>>;
-  extra: string; setExtra: React.Dispatch<React.SetStateAction<string>>;
-  mockConfig: MockConfig; setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
   /** 配额查询脚本（quota-scripts T6）：registry 变体列表（protocol 派生异步拉取）。 */
   quotaVariants: QuotaScriptVariant[];
-  /** 选中变体 id（""=缺省回落首条；QUOTA_CUSTOM_VARIANT=自定义伪变体，哨兵见 formSections）。 */
-  quotaVariantId: string; setQuotaVariantId: React.Dispatch<React.SetStateAction<string>>;
-  /** 自定义脚本正文（非空 = 自定义伪变体，序列化时覆盖 id 选择）。 */
-  quotaCustomScript: string; setQuotaCustomScript: React.Dispatch<React.SetStateAction<string>>;
-  /** 配额方式 + 显式切换器（自动落位只发生在 pristine 新建态）。 */
-  quotaSource: "auto" | "manual"; setQuotaSource: (v: "auto" | "manual") => void;
-  /** requires 参数值（key → 输入；含 newapi user_id 附加键）。 */
-  quotaRequires: Record<string, string>; setQuotaRequires: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   /** 变体下拉切换（切回 registry 变体时清自定义正文，保持互斥）。 */
   handleQuotaVariantChange: (v: string) => void;
-  /** Devin 配置（devin_timeout / devin_mode，存 platform.extra.devin 子对象）。
-   *  org_id 编辑已移交配额脚本 requires 表单。 */
-  devinConfig: DevinConfig; setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
-  manualBudgets: ManualBudget[]; setManualBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
-  breakerFailureThreshold: string; setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
-  breakerHalfOpenMax: string; setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
+  /** 配额方式显式切换器：patch quotaSource + 关 pristine（自动落位只发生在 pristine 新建态）。 */
+  setQuotaSourceExplicit: (v: "auto" | "manual") => void;
   breakerDefaults: SchedulingBreakerSettings | null;
-  timemodels: ReturnType<typeof usePlatformTimeModels>;
-  /** mitm_stats 开关（cc-sub-mitm 票 12：Claude Code 订阅平台 MITM 接入形态标记，存 platform.extra.mitm_stats）。 */
-  mitmStats: boolean; setMitmStats: React.Dispatch<React.SetStateAction<boolean>>;
-  /** 使用代理开关（issue #64 T03，存 platform.extra.proxy_enabled；显式 bool）。 */
-  proxyEnabled: boolean; setProxyEnabled: React.Dispatch<React.SetStateAction<boolean>>;
-  /** 限频配置（rate-limit-aware 票 04：extra.rate_limits + extra.quota_windows，弹窗编辑）。 */
-  rateLimits: RateLimitsBundle; setRateLimits: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
-  autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
-  joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
-  expiresAt: number; setExpiresAt: React.Dispatch<React.SetStateAction<number>>;
+  /** windowsTz：时段档展示态（local/utc），只影响表单展示、不写 extra。 */
+  windowsTz: "local" | "utc";
+  setWindowsTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
+  /** 「启用过期」toggle（展示态；expiresAt 在 draft）。 */
   expiryEnabled: boolean; setExpiryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
-  lockedGroupId: number | null; setLockedGroupId: React.Dispatch<React.SetStateAction<number | null>>;
+  /** 全局自定义槽位定义（null = 未加载，此时保存不清孤儿键）。 */
+  customSlotDefs: CustomSlotDef[] | null;
   isMock: boolean;
   isPassthrough: boolean;
   /** 自定义透传协议（passthrough，非 claude_code 订阅透传）：专属编辑器门 + 模型槽/测试全隐藏。 */
   isPassThrough: boolean;
-  /** passthrough 认证配置（extra 顶层 auth_header/auth_template；见 parsePassthroughAuth）。 */
-  passAuth: PassthroughAuth; setPassAuth: React.Dispatch<React.SetStateAction<PassthroughAuth>>;
-  /** qianfan AppBuilder key（独立搜索转发凭据，票 20；持久化 extra 顶层 appbuilder_key，空删键）。 */
-  appbuilderKey: string; setAppbuilderKey: React.Dispatch<React.SetStateAction<string>>;
-  /** 全局自定义槽位定义（null = 未加载，此时保存不清孤儿键）与本平台各槽值（extra.custom_slots）。 */
-  customSlotDefs: CustomSlotDef[] | null;
-  customSlotValues: Record<string, string[]>; setCustomSlotValues: React.Dispatch<React.SetStateAction<Record<string, string[]>>>;
-  /** 关闭的槽位名（extra.disabled_slots，内置 + 自定义）。 */
-  disabledSlots: string[]; setDisabledSlots: React.Dispatch<React.SetStateAction<string[]>>;
   keyOptional: boolean;
   apiKeyMissing: boolean;
   resetForm: () => void;
@@ -177,7 +137,7 @@ export interface PlatformFormState {
 export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormState {
   const {
     t, platforms, setPlatforms, platformsEpochRef, quota,
-    setGroupDetails, handleGroupsChanged, groupsReloadRef,
+    setGroupDetails,
     setToast, breakerDefaults, setUsageMap, setLastTestMap,
     onNavigate, consumedEditPidRef,
   } = listDeps;
@@ -199,48 +159,58 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [showKey, setShowKey] = useState(false);
   const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
-  const [name, setName] = useState("OpenAI");
-  const [protocol, setProtocol] = useState<Protocol>("openai");
-  const [codingPlan, setCodingPlan] = useState(false);
+  // ── 表单纯数据 state：单一 draft + reducer（票 12 形状 B；票 14 终局对外 draft + patch） ──
+  const [draft, dispatch] = useReducer(draftReducer, undefined, emptyDraft);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  /** 草稿部分更新：s.form 对草稿的唯一写入口（patch 只覆盖给出的键）。 */
+  const patch = (p: Partial<PlatformDraft>) => dispatch({ type: "patch", patch: p });
+  // hook 内部 handler 的单字段函数式更新助手（不对外暴露；控件一律走 patch）。
+  const patchOf = <K extends keyof PlatformDraft>(k: K) => (v: React.SetStateAction<PlatformDraft[K]>) =>
+    dispatch({ type: "patch", patch: { [k]: typeof v === "function" ? (v as (prev: PlatformDraft[K]) => PlatformDraft[K])(draftRef.current[k]) : v } });
+  const setName = patchOf("name");
+  const setProtocol = patchOf("protocol");
+  const setCodingPlan = patchOf("codingPlan");
+  const setApiKey = patchOf("apiKey");
+  const setModels = patchOf("models");
+  const setAvailableModels = patchOf("availableModels");
+  const setEndpoints = patchOf("endpoints");
+  const setMockConfig = patchOf("mockConfig");
+  const setDevinConfig = patchOf("devinConfig");
+  const setPassAuth = patchOf("passAuth");
+  const setQuotaVariantId = patchOf("quotaVariantId");
+  const setQuotaCustomScript = patchOf("quotaCustomScript");
+  const setQuotaRequires = patchOf("quotaRequires");
+  const setQuotaSource = patchOf("quotaSource");
+  const setJoinGroupIds = patchOf("joinGroupIds");
+  const setAutoGroup = patchOf("autoGroup");
+  const setLockedGroupId = patchOf("lockedGroupId");
+  const setExpiresAt = patchOf("expiresAt");
+  const setProxyEnabled = patchOf("proxyEnabled");
+  // handler 内读取的草稿值（解构自当前 draft；handler 每轮渲染重建，闭包即最新值）。
+  const {
+    name, protocol, apiKey, models, endpoints, extra,
+    quotaVariantId,
+    proxyEnabled, autoGroup, joinGroupIds, lockedGroupId, expiresAt,
+  } = draft;
   // 协议 label 全表（共享 hook）；首帧 {} 用 key fallback。lang 省略 = 沿用原非本地化
   // 行为（表单挂载即定型，无 locale 重拉）。DEFAULT_NAMES 运行时并入此 map 的 value 集合。
   const protocolLabelMap = useProtocolLabelMap();
-  const [apiKey, setApiKey] = useState("");
   // 多 key 预览态：null = 非批量；string[] = 待确认的批量 key 列表。
   // 创建态 + 非 keyOptional + splitApiKeys.length>1 → setBatchPreviewKeys(keys) 触发 MultiKeyPreview。
   const [batchPreviewKeys, setBatchPreviewKeys] = useState<string[] | null>(null);
-  const [models, setModels] = useState<Record<ModelSlot, string[]>>({
-    default: [], sonnet: [], opus: [], fable: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [],
-  });
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const [endpoints, setEndpoints] = useState<PlatformEndpoint[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<ModelSlot | null>(null);
-  // Mock 平台配置（持久化到 platform.extra 的 mock 子对象）
-  const [extra, setExtra] = useState("");
-  const [mockConfig, setMockConfig] = useState<MockConfig>({ ...DEFAULT_MOCK_CONFIG });
   // 配额查询脚本（quota-scripts T6）：变体列表随 protocol 异步拉取（docPromise 单次 RPC）；
   //   选择 id / 自定义正文 / requires 值序列化见 buildSharedCreateFields。
   const [quotaVariants, setQuotaVariants] = useState<QuotaScriptVariant[]>([]);
-  const [quotaVariantId, setQuotaVariantId] = useState<string>("");
-  const [quotaCustomScript, setQuotaCustomScript] = useState<string>("");
-  /** 配额方式（quota-ia 票 01/03）：''/auto → auto；manual = 手动预算。
-   *  quotaSourcePristine：未被用户显式切换过 → 新建态随协议能力自动落位（有变体→auto，无→manual）。 */
-  const [quotaSource, setQuotaSource] = useState<"auto" | "manual">("auto");
+  /** 配额方式 pristine：未被用户显式切换过 → 新建态随协议能力自动落位（有变体→auto，无→manual）。 */
   const [quotaSourcePristine, setQuotaSourcePristine] = useState(true);
   /** 显式切换（UI tab）：一经用户选择即停止自动落位。 */
   const setQuotaSourceExplicit = (v: "auto" | "manual") => {
-    setQuotaSource(v);
+    dispatch({ type: "patch", patch: { quotaSource: v } });
     setQuotaSourcePristine(false);
   };
-  const [quotaRequires, setQuotaRequires] = useState<Record<string, string>>({});
-  // Devin 平台配置（devin_timeout / devin_mode，持久化 platform.extra.devin）
-  const [devinConfig, setDevinConfig] = useState<DevinConfig>({ ...DEFAULT_DEVIN_CONFIG });
-  // 自定义透传认证配置（passthrough 协议，持久化 platform.extra 顶层 auth_header/auth_template）
-  const [passAuth, setPassAuth] = useState<PassthroughAuth>({ ...DEFAULT_PASSTHROUGH_AUTH });
-  const [appbuilderKey, setAppbuilderKey] = useState("");
   const [customSlotDefs, setCustomSlotDefs] = useState<CustomSlotDef[] | null>(null);
-  const [customSlotValues, setCustomSlotValues] = useState<Record<string, string[]>>({});
-  const [disabledSlots, setDisabledSlots] = useState<string[]>([]);
   // 表单挂载与每次打开（新建 / 编辑）时重读全局定义：设置页增删槽位后平台页随之出现 / 消失。
   useEffect(() => {
     if (!showForm) return;
@@ -248,28 +218,11 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     customSlotsApi.get().then((d) => { if (alive) setCustomSlotDefs(d); }).catch((e) => console.error("custom slots definitions load failed:", e));
     return () => { alive = false; };
   }, [showForm]);
-  // 手动预算限额（仅无上游 quota 自动支持平台可配；编辑表单态）
-  const [manualBudgets, setManualBudgets] = useState<ManualBudget[]>([]);
-  // 熔断阈值覆盖（0/空 = 继承全局默认；编辑表单态）。空字符串表示继承。
-  const [breakerFailureThreshold, setBreakerFailureThreshold] = useState<string>("");
-  const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
-  const timemodels = usePlatformTimeModels();
-  // mitm_stats（订阅透传 MITM 接入形态标记；仅 claude_code 协议表单暴露 UI）
-  const [mitmStats, setMitmStats] = useState<boolean>(false);
-  // 使用代理（issue #64 T03，extra.proxy_enabled）
-  const [proxyEnabled, setProxyEnabled] = useState<boolean>(false);
-  // 限频配置（rate-limit-aware 票 04：编辑弹窗整体读写，无独立子字段 state）
-  const [rateLimits, setRateLimits] = useState<RateLimitsBundle>({});
-  // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
-  const [autoGroup, setAutoGroup] = useState(true);
-  const [joinGroupIds, setJoinGroupIds] = useState<number[]>([]);
-  // 过期时间（毫秒 unix 时间戳，0 = 永不过期）。路由候选排除的独立维度（不改 status 三态）。
-  const [expiresAt, setExpiresAt] = useState(0);
+  // windowsTz：时段档展示态（local/utc），只影响表单展示、不写 extra（不进 draft）。
+  const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
   // 「启用过期」toggle：默认 OFF（隐藏 datetime-local）。仅当用户勾选 toggle 才显示日期选择器；
   // 老平台 expires_at>0 加载时置 ON；粘贴识别填入 expiresAt 但 **保持 toggle OFF**（用户手动启用）。
   const [expiryEnabled, setExpiryEnabled] = useState(false);
-  // 锁定分组：从某分组 ➕ 触发创建平台时，预绑该分组且禁止修改归属。
-  const [lockedGroupId, setLockedGroupId] = useState<number | null>(null);
 
   const isMock = protocol === "mock";
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
@@ -370,22 +323,13 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   };
 
   const resetForm = () => {
-    setName(""); setProtocol("openai"); setCodingPlan(false); setApiKey("");
+    // 数据面：draft 整体复位（= load(emptyDraft())）；windowsTz 是展示态，单独复位。
+    dispatch({ type: "reset" });
+    setWindowsTz("local");
     setBatchPreviewKeys(null);
-    setModels(slotsToForm(undefined));
-    setAvailableModels([]); setEndpoints([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
-    setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
-    setQuotaVariantId(""); setQuotaCustomScript(""); setQuotaRequires({});
-    setQuotaSource("auto"); setQuotaSourcePristine(true);
-    setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
-    setPassAuth({ ...DEFAULT_PASSTHROUGH_AUTH });
-    setAppbuilderKey(""); setCustomSlotValues({}); setDisabledSlots([]);
-    setManualBudgets([]);
-    setBreakerFailureThreshold(""); setBreakerHalfOpenMax("");
-    timemodels.reset(); setMitmStats(false);
-    setProxyEnabled(false);
-    setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setExpiresAt(0); setExpiryEnabled(false);
+    setQuotaSourcePristine(true);
+    setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
     // 平台第二次编辑会被 consumedEditPidRef 短路（initialFilter.platformId 值不变，effect 亦不重跑）。
     consumedEditPidRef.current = null;
@@ -412,55 +356,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     onNavigate?.("logs", { platformId: p.id, platformName: p.name });
   };
 
-  const handleEdit = async (p: Platform) => {
-    setName(p.name); setProtocol(p.platform_type); setApiKey(p.api_key);
-    // 检测 endpoints 中是否有 coding_plan
-    const hasCodingPlan = (p.endpoints || []).some(ep => ep.coding_plan);
-    setCodingPlan(hasCodingPlan);
-    setModels(slotsToForm(p.models));
-    setAvailableModels(p.available_models ?? []);
-    // 透传平台保存侧允许 endpoints 空、只落顶层 base_url；编辑时回填进 endpoints[0]，
-    // 否则表单 Base URL 输入框（绑定 endpoints[0]?.base_url）显示为空（票 02）。
-    // 拷贝一份再改，不动 list state 里的 p.endpoints。
-    const eps = [...(p.endpoints ?? [])];
-    if (p.platform_type === "passthrough" && p.base_url) {
-      if (eps.length === 0) {
-        eps.push({ protocol: "passthrough", base_url: p.base_url, client_type: "default", coding_plan: false });
-      } else if (!eps[0].base_url) {
-        eps[0] = { ...eps[0], base_url: p.base_url };
-      }
-    }
-    setEndpoints(eps);
-    setEditing(p); setShowForm(true); setFetchError(""); setSaveError("");
-    setExtra(p.extra ?? "");
-    setMockConfig(parseMockConfig(p.extra ?? ""));
-    {
-      const qs = parseQuotaScriptConfig(p.extra ?? "");
-      setQuotaVariantId(qs.variantId);
-      setQuotaCustomScript(qs.customScript);
-      setQuotaRequires({});
-    }
-    // 配额方式：存量 '' 读侧当 auto（票 02）；编辑即视为已定位，不再随协议能力漂移。
-    setQuotaSource(p.quota_source === "manual" ? "manual" : "auto");
-    setQuotaSourcePristine(false);
-    setManualBudgets(p.manual_budgets ?? []);
-    // 老平台 expires_at>0 → toggle 默认 ON；=0/未设 → OFF。
-    setExpiresAt(p.expires_at ?? 0);
-    setExpiryEnabled((p.expires_at ?? 0) > 0);
-    // 熔断覆盖现存于 extra.breaker：0 = 继承 → 显示空
-    {
-      const brk = parsePlatformBreaker(p.extra ?? "");
-      setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
-      setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
-    }
-    timemodels.hydrate(p.extra ?? "");
-    setRateLimits(parseRateLimitsBundle(p.extra ?? ""));
-    setMitmStats(parseMitmStats(p.extra ?? ""));
-    setDevinConfig(parseDevinConfig(p.extra ?? ""));
-    setPassAuth(parsePassthroughAuth(p.extra ?? ""));
-    setAppbuilderKey(parseAppbuilderKey(p.extra ?? "")); setCustomSlotValues(parseCustomSlots(p.extra ?? "")); setDisabledSlots(parseDisabledSlots(p.extra ?? ""));
-    setProxyEnabled(parseProxyEnabled(p.extra ?? ""));
-    setLockedGroupId(null);
+  /** 反查平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。 */
+  const loadJoinGroups = async (p: Platform) => {
     try {
       const gds = await groupDetailApi.list();
       setGroupDetails(gds);
@@ -468,58 +365,33 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
         .filter(gd => gd.group.auto_from_platform !== String(p.id)
           && gd.platforms.some(gp => gp.platform.id === p.id))
         .map(gd => gd.group.id);
-      setJoinGroupIds(manualIds);
+      dispatch({ type: "patch", patch: { joinGroupIds: manualIds } });
     } catch {
-      setJoinGroupIds([]);
+      dispatch({ type: "patch", patch: { joinGroupIds: [] } });
     }
+  };
+
+  const handleEdit = async (p: Platform) => {
+    // 三入口水合单一实现 draftFromPlatform（票 12；edit 与 duplicate 字段水合完全一致，
+    // spec 5.1 不变量④；透传 endpoints 回填 / 熔断 / 时段 6 键 / extra 派生字段全部在内）。
+    dispatch({ type: "load", draft: draftFromPlatform(p, "edit") });
+    setEditing(p); setShowForm(true); setFetchError(""); setSaveError("");
+    // 配额方式：编辑即视为已定位，不再随协议能力漂移。
+    setQuotaSourcePristine(false);
+    // 老平台 expires_at>0 → toggle 默认 ON；=0/未设 → OFF。
+    setExpiryEnabled((p.expires_at ?? 0) > 0);
+    await loadJoinGroups(p);
   };
 
   /** 复制平台：复用源平台全部配置灌入表单，但以「新建态」打开（editing=null），保存才新建。
    *  与 handleEdit 唯一差异：setEditing(null)（不绑定源平台 id）。 */
   const handleDuplicate = async (p: Platform) => {
-    setName(p.name); setProtocol(p.platform_type); setApiKey(p.api_key);
-    const hasCodingPlan = (p.endpoints || []).some(ep => ep.coding_plan);
-    setCodingPlan(hasCodingPlan);
-    setModels(slotsToForm(p.models));
-    setAvailableModels(p.available_models ?? []);
-    setEndpoints(p.endpoints ?? []);
+    dispatch({ type: "load", draft: draftFromPlatform(p, "duplicate") });
     setEditing(null); setShowForm(true); setFetchError(""); setSaveError("");
-    setExtra(p.extra ?? "");
-    setMockConfig(parseMockConfig(p.extra ?? ""));
-    {
-      const qs = parseQuotaScriptConfig(p.extra ?? "");
-      setQuotaVariantId(qs.variantId);
-      setQuotaCustomScript(qs.customScript);
-      setQuotaRequires({});
-    }
-    setManualBudgets(p.manual_budgets ?? []);
-    // 老平台 expires_at>0 → toggle 默认 ON；=0/未设 → OFF。
-    setExpiresAt(p.expires_at ?? 0);
+    // 配额方式与 handleEdit 一致（票 03 D2）：取源平台值并停用自动落位。
+    setQuotaSourcePristine(false);
     setExpiryEnabled((p.expires_at ?? 0) > 0);
-    {
-      const brk = parsePlatformBreaker(p.extra ?? "");
-      setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
-      setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
-    }
-    timemodels.hydrate(p.extra ?? "");
-    setRateLimits(parseRateLimitsBundle(p.extra ?? ""));
-    setMitmStats(parseMitmStats(p.extra ?? ""));
-    setDevinConfig(parseDevinConfig(p.extra ?? ""));
-    setPassAuth(parsePassthroughAuth(p.extra ?? ""));
-    setAppbuilderKey(parseAppbuilderKey(p.extra ?? "")); setCustomSlotValues(parseCustomSlots(p.extra ?? "")); setDisabledSlots(parseDisabledSlots(p.extra ?? ""));
-    setProxyEnabled(parseProxyEnabled(p.extra ?? ""));
-    setLockedGroupId(null);
-    // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
-    try {
-      const gds = await groupDetailApi.list();
-      setGroupDetails(gds);
-      setJoinGroupIds(gds
-        .filter(gd => gd.group.auto_from_platform !== String(p.id)
-          && gd.platforms.some(gp => gp.platform.id === p.id))
-        .map(gd => gd.group.id));
-    } catch {
-      setJoinGroupIds([]);
-    }
+    await loadJoinGroups(p);
   };
 
   const handleModelsChange = (slot: ModelSlot, chain: string[]) => {
@@ -634,22 +506,20 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   };
 
   /** 构建 applyPaste/runBatchCreateFromPaste 的 ctx（每次调用刷新引用最新闭包值）。
-   *  ponytail: 字段虽多但全是直传，无逻辑；保持与抽前闭包语义一致。 */
+   *  ponytail: 字段虽多但全是直传，无逻辑；保持与抽前闭包语义一致。
+   *  票 13：fullShare 专用 setter 随 draftFromShare + load 落地删除（44 → 26 字段）。 */
   const buildPasteCtx = (): PlatformPasteCtx => ({
     t,
     buildSharedCreateFields,
     name, protocol, endpoints, lockedGroupId, joinGroupIds, autoGroup, expiresAt,
-    setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
-    setEndpoints, setManualBudgets, setExtra, setMockConfig, setDevinConfig,
-    setQuotaVariantId, setQuotaCustomScript, setQuotaRequires,
-    setBreakerFailureThreshold, setBreakerHalfOpenMax,
-    setEditing, setLockedGroupId, setJoinGroupIds,
-    setFetchError, setSaveError,
-    setShowPaste, setShowForm, setExpiresAt, setExpiryEnabled,
+    setApiKey, setModels, setEndpoints,
+    setEditing, setFetchError, setSaveError,
+    setShowPaste, setShowForm, setExpiresAt, setExpiryEnabled, // setExpiresAt = patchOf("expiresAt") 私有助手
+    dispatch,
     setBatchPreviewKeys,
     handleProtocolChange, resetForm,
     platforms, setPlatforms, platformsEpochRef, quota,
-    handleGroupsChanged, groupsReloadRef, setToast,
+    setToast,
   });
 
   /** apiKey input onChange 包装：创建态 + 非 keyOptional + 多 key → setBatchPreviewKeys 触发实时预览（D1）。
@@ -675,7 +545,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   /** 构建创建 payload 的共享字段（除 name/api_key 外全部）：单平台保存与多 key 批量创建共用，
    *  保证批量创建的每个平台与表单配置完全一致（仅 token 不同），而非各用默认配置。
-   *  update 路径也复用（api_key 由 caller 覆盖；auto_group 仅 create 语义）。 */
+   *  update 路径也复用（api_key 由 caller 覆盖；auto_group 仅 create 语义）。
+   *  序列化单一实现在 platformDraft.draftToPayload（票 12）；此处只保留交互校验
+   *  （unknown 协议）与本地化错误文案预检（draftToPayload 内同校验抛英文串，文案走这里）。 */
   const buildSharedCreateFields = () => {
     if (protocol === "unknown") {
       throw new Error(t("platform.unknownProtocolSave", "Select a valid protocol before saving"));
@@ -683,62 +555,13 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     if (protocol === "qianfan_coding" && !validSubscriptionStartDate(parseSubscriptionStartDate(extra))) {
       throw new Error(t("platform.subscriptionDateInvalid", "Enter a valid date no later than today in Beijing."));
     }
-    const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
-    const availablePayload = availableModels.length > 0 ? availableModels : undefined;
-    const baseUrl = getPrimaryBaseUrl(protocol, endpoints);
-    // mock 平台：把配置写回 extra；其余原样保留
-    let extraPayload = extra;
-    if (isMock) extraPayload = serializeMockConfig(extra, mockConfig);
-    if (protocol === "devin") extraPayload = serializeDevinConfig(extraPayload, devinConfig);
-    // passthrough：认证 header 名 + 值模板写 extra 顶层（共识稿 §2）。
-    if (isPassThrough) extraPayload = serializePassthroughAuth(extraPayload, passAuth);
-    // qianfan AppBuilder key（票 20）：仅 qianfan 协议写；空删键，切走协议不残留。
-    if (protocol === "qianfan") extraPayload = serializeAppbuilderKey(extraPayload, appbuilderKey);
-    // 自定义槽位（extra.custom_slots）：定义未加载时不动，避免误清存量值。
-    if (customSlotDefs) extraPayload = serializeCustomSlots(extraPayload, customSlotValues, customSlotDefs.map(d => d.name));
-    extraPayload = serializeDisabledSlots(extraPayload, disabledSlots);
-    // quota 脚本变体选择 + requires 参数（custom↔id 互斥、requires 顶层+旧嵌套镜像，
-    //   见 serializeQuotaScriptConfig；须在 devin 序列化之后 —— org_id 镜像写 extra.devin）。
-    extraPayload = serializeQuotaScriptConfig(
-      extraPayload,
-      { variantId: quotaVariantId, customScript: quotaCustomScript, requires: quotaRequires },
-      quotaVariants.map(v => ({ id: v.id, requires: (v.requires ?? []).map(r => r.key) })),
-      protocol,
-    );
-    // 熔断覆盖现写入 extra.breaker：空 = 继承（写 0 → 移除 breaker 键）；负值钳为 0。
-    const toBreakerNum = (v: string) => Math.max(0, Math.floor(Number(v) || 0));
-    extraPayload = serializePlatformBreaker(extraPayload, {
-      failure_threshold: toBreakerNum(breakerFailureThreshold),
-      half_open_max: toBreakerNum(breakerHalfOpenMax),
-    });
-    if (timemodels.uaRules.some(r => validateClientUaRule(r))) {
+    if (draft.uaRules.some(r => validateClientUaRule(r))) {
       throw new Error(t("platform.client_ua_rules_invalid", "Invalid UA rule: pattern must not be empty and regex must be valid"));
     }
-    if (rateLimits.rate_limits?.rules?.some(r => rateLimitRuleError(r))) {
+    if (draft.rateLimits.rate_limits?.rules?.some(r => rateLimitRuleError(r))) {
       throw new Error(t("platform.rateLimits.rulesInvalid", "Invalid rate-limit rule: each rule needs at least one model or a time window; wildcard must be a single trailing *"));
     }
-    extraPayload = timemodels.serialize(extraPayload);
-    // mitm_stats：false → 移除键（默认行为）；true → 写入。
-    extraPayload = serializeMitmStats(extraPayload, mitmStats);
-    // 使用代理（issue #64 T03）：显式写 bool（新建预填 / 编辑开关两态都落库）。
-    extraPayload = serializeProxyEnabled(extraPayload, proxyEnabled);
-    // 限频配置（rate-limit-aware 票 04）：空 bundle → 删键（无覆盖）。
-    extraPayload = serializeRateLimitsBundle(extraPayload, rateLimits);
-    const manualBudgetsPayload: ManualBudget[] = isPassthrough || isPassThrough ? [] : manualBudgets;
-    return {
-      platform_type: protocol,
-      // 配额方式显式随保存提交：后端按 source 变化互斥清对侧（票 01/03 保存时清库）。
-      quota_source: quotaSource,
-      base_url: baseUrl,
-      extra: extraPayload ? extraPayload : undefined,
-      models: modelsPayload,
-      available_models: availablePayload,
-      endpoints: endpoints.length > 0 ? endpoints : undefined,
-      manual_budgets: manualBudgetsPayload.length > 0 ? manualBudgetsPayload : undefined,
-      auto_group: autoGroup,
-      join_group_ids: joinGroupIds,
-      expires_at: expiresAt,
-    };
+    return draftToPayload(draft, { quotaVariants, customSlotDefs });
   };
 
   /** 确认批量创建（MultiKeyPreview 确认按钮）：复用 runBatchCreateFromPaste → 成功后 resetForm + 关表单。
@@ -821,16 +644,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
           .then(r => { if (r) setLastTestMap(prev => ({ ...prev, [savedPlatform.id]: r })); })
           .catch(() => {});
       }
-      // 保存可能改变分组归属（join_group_ids / auto_group 建默认组），
-      // 必须刷新 groupDetails 重建 membership，否则已分组平台漏判为未分组、误现于底部未分配区。
-      // platform mutation 三连（见 usePlatformsState.ts 顶部「一致性规则」）：本 handleSave 与
-      //   handleDelete / handlePurgeDisabled / runBatchCreateFromPaste 对齐。
-      handleGroupsChanged();
-      // 已分组平台（join_group_ids / auto_group）只在 <GroupsEmbedded> 的分组卡内渲染，而该组件渲染门控在
-      // 其**自身** platforms state（Groups.tsx 分组卡 platforms.find），父级乐观 setPlatforms 不会注入。
-      // 故与 purge 路径一致，显式调用专用命令式重载入口，确定性重建 GroupsEmbedded 平台态。
-      groupsReloadRef.current?.();
-      window.dispatchEvent(new Event("aidog-groups-changed"));
+      // 保存可能改变分组归属（join_group_ids / auto_group 建默认组）：单一入口广播一次，
+      // 分组页监听端统一重载行 + 重建 membership（票 09，取代旧「三连」）。
+      notifyPlatformMembershipChanged();
     } catch (e: any) {
       const msg = e?.toString() || "Unknown error";
       console.error(msg);
@@ -847,33 +663,17 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     groupFullscreen, setGroupFullscreen, showKey, setShowKey,
     testingPlatform, setTestingPlatform,
     fetching, setFetching, fetchError, setFetchError, fetchInfo, saveError, setSaveError,
-    name, setName, protocol, setProtocol, codingPlan, setCodingPlan,
-    apiKey, setApiKey,
+    // 草稿单一入口（票 14 终局）：控件读 draft.xxx、写 patch({xxx})，兼容 setter 层已删。
+    draft, patch,
     batchPreviewKeys, setBatchPreviewKeys,
     handleApiKeyChange, previewNames,
-    models, setModels, availableModels, setAvailableModels,
-    endpoints, setEndpoints, activeDropdown, setActiveDropdown,
-    extra, setExtra,
-    mockConfig, setMockConfig,
-    quotaVariants, quotaVariantId, setQuotaVariantId,
-    quotaSource, setQuotaSource: setQuotaSourceExplicit,
-    quotaCustomScript, setQuotaCustomScript,
-    quotaRequires, setQuotaRequires,
-    handleQuotaVariantChange,
-    devinConfig, setDevinConfig,
-    manualBudgets, setManualBudgets,
-    breakerFailureThreshold, setBreakerFailureThreshold,
-    breakerHalfOpenMax, setBreakerHalfOpenMax,
+    activeDropdown, setActiveDropdown,
+    quotaVariants, handleQuotaVariantChange, setQuotaSourceExplicit,
     breakerDefaults,
-    timemodels,
-    mitmStats, setMitmStats,
-    proxyEnabled, setProxyEnabled,
-    rateLimits, setRateLimits,
-    autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
-    expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
-    lockedGroupId, setLockedGroupId,
-    isMock, isPassthrough, isPassThrough, passAuth, setPassAuth,
-    appbuilderKey, setAppbuilderKey, customSlotDefs, customSlotValues, setCustomSlotValues, disabledSlots, setDisabledSlots, keyOptional, apiKeyMissing,
+    windowsTz, setWindowsTz,
+    expiryEnabled, setExpiryEnabled,
+    customSlotDefs,
+    isMock, isPassthrough, isPassThrough, keyOptional, apiKeyMissing,
     resetForm, openCreatePlatform, handleEdit, handleDuplicate, handleProtocolChange,
     handleModelsChange, handleFetchModels, handleFillAll, buildModelsPayload,
     handleSave, handleViewLogs, applyPaste, runBatchCreateFromPaste,

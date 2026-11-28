@@ -11,9 +11,9 @@ import { RateLimitRulesList, ruleToDraft, draftToRule, type RateLimitRuleDraft }
 import type { TFunction } from "i18next";
 import { writeText } from "../../services/platform";
 import {
-  type Platform, type Protocol, type PlatformEndpoint,
+  type Platform, type Protocol,
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
-  type DevinConfig, type PassthroughAuth, type SchedulingBreakerSettings, type GroupDetail,
+  type DevinConfig, type SchedulingBreakerSettings, type GroupDetail,
   QUOTA_SCRIPT_SAMPLE, isUserQuotaScript, QUOTA_CUSTOM_VARIANT, resolveQuotaSelection,
   quotaApi, type PlatformQuota,
 } from "../../services/api";
@@ -36,6 +36,16 @@ import {
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import type { PlatformDraft } from "../../domains/platforms/platformDraft";
+
+/** draft 字段 → SetStateAction setter 适配（票 14：控件对草稿只经 draft + patch 一个口；
+ *  section 内部沿用局部 setter 名，函数式 updater 当场以 draft 当前值解析）。
+ *  等价 usePlatformForm 已删的兼容 setter 层——收进各 section 一行，不回 hook。 */
+export function draftSetter<K extends keyof PlatformDraft>(
+  draft: PlatformDraft, patch: (p: Partial<PlatformDraft>) => void, k: K,
+): React.Dispatch<React.SetStateAction<PlatformDraft[K]>> {
+  return (v) => patch({ [k]: typeof v === "function" ? (v as (prev: PlatformDraft[K]) => PlatformDraft[K])(draft[k]) : v });
+}
 
 /** 毫秒时间戳 → datetime-local input 值 "YYYY-MM-DDTHH:MM"（本地时区，无秒）。
  *  datetime-local 不解析 ISO Z 后缀，须手动拼本地时间分量。 */
@@ -433,13 +443,16 @@ export function DevinConfigSection({ config, onChange, t }: {
   );
 }
 
-export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setApiKey, showKey, setShowKey, t }: {
-  endpoints: PlatformEndpoint[];
-  setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
-  apiKey: string; setApiKey: React.Dispatch<React.SetStateAction<string>>;
+export function PassthroughConfigSection({ draft, patch, showKey, setShowKey, t }: {
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
   showKey: boolean; setShowKey: React.Dispatch<React.SetStateAction<boolean>>;
   t: TFunction;
 }) {
+  const endpoints = draft.endpoints;
+  const setEndpoints = draftSetter(draft, patch, "endpoints");
+  const apiKey = draft.apiKey;
+  const setApiKey = draftSetter(draft, patch, "apiKey");
   return (
     <FormSection title={t("platform.sectionPassthrough", "Passthrough Config")}>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -491,16 +504,19 @@ export const PASS_THROUGH_HEADER_PRESETS: { id: string; header: string; template
 const PASS_THROUGH_CUSTOM = "__custom__";
 
 export function PassThroughSection({
-  endpoints, setEndpoints, apiKey, setApiKey, showKey, setShowKey, auth, setAuth, t,
+  draft, patch, showKey, setShowKey, t,
 }: {
-  endpoints: PlatformEndpoint[];
-  setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
-  apiKey: string; setApiKey: React.Dispatch<React.SetStateAction<string>>;
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
   showKey: boolean; setShowKey: React.Dispatch<React.SetStateAction<boolean>>;
-  auth: PassthroughAuth;
-  setAuth: React.Dispatch<React.SetStateAction<PassthroughAuth>>;
   t: TFunction;
 }) {
+  const endpoints = draft.endpoints;
+  const setEndpoints = draftSetter(draft, patch, "endpoints");
+  const apiKey = draft.apiKey;
+  const setApiKey = draftSetter(draft, patch, "apiKey");
+  const auth = draft.passAuth;
+  const setAuth = draftSetter(draft, patch, "passAuth");
   // 预设选中值派生：header+template 精确命中某预设 → 该预设 id；否则自定义。
   const matchedPreset = PASS_THROUGH_HEADER_PRESETS.find(
     p => p.header === auth.auth_header.trim() && p.template === auth.auth_template.trim(),
@@ -619,6 +635,9 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
   selectedTier: PlanQuotaTier | undefined;
   t: TFunction;
 }) {
+  // 键入态（按行 id）：保留用户键入的原始字符串（失焦回落到解析后的持久值），
+  // 避免 `value={b.amount || ""}` 把 "0" 回写成 "" 导致无法键入 0.x（frontend-refactor-tests 渲染期回落禁令）
+  const [amountDraft, setAmountDraft] = useState<Record<string, string>>({});
   return (
     <>
       {/* 实时态条：限额计数（用量扣减数据未回传表单，先展示静态配置态） */}
@@ -696,8 +715,10 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               step="any"
               style={{ width: 100, flexShrink: 0, height: "auto", fontSize: 15, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
               placeholder={t("platform.manualBudgetAmount", "Amount")}
-              value={b.amount || ""}
-              onChange={e => update({ amount: parseFloat(e.target.value) || 0 })}
+              data-testid="manual-budget-amount"
+              value={amountDraft[b.id] ?? (b.amount || "")}
+              onChange={e => { setAmountDraft(m => ({ ...m, [b.id]: e.target.value })); update({ amount: parseFloat(e.target.value) || 0 }); }}
+              onBlur={() => setAmountDraft(m => { const { [b.id]: _drop, ...rest } = m; return rest; })}
             />
             <Select
               value={b.unit}
@@ -777,12 +798,16 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
   );
 }
 
-export function BreakerSection({ defaults, failure, setFailure, halfOpenMax, setHalfOpenMax, t }: {
+export function BreakerSection({ defaults, draft, patch, t }: {
   defaults: SchedulingBreakerSettings | null;
-  failure: string; setFailure: React.Dispatch<React.SetStateAction<string>>;
-  halfOpenMax: string; setHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
   t: TFunction;
 }) {
+  const failure = draft.breakerFailureThreshold;
+  const setFailure = draftSetter(draft, patch, "breakerFailureThreshold");
+  const halfOpenMax = draft.breakerHalfOpenMax;
+  const setHalfOpenMax = draftSetter(draft, patch, "breakerHalfOpenMax");
   return (
     <FormSection
       title={t("platform.breakerTitle", "Circuit breaker")}
@@ -851,18 +876,21 @@ function formatWindowPreview(w: TimeWindow, tzMode: TzMode, t: TFunction): strin
   return `${startStr} - ${endStr} (${tzLabel})${nextDayLabel ? ` (${nextDayLabel})` : ""}`;
 }
 
-export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, platformCalendar, themeMode, t }: {
-  windows: TimeWindow[];
-  setWindows: React.Dispatch<React.SetStateAction<TimeWindow[]>>;
+export function PeakSection({ draft, patch, tzMode, setTzMode, protocol, platformCalendar, themeMode, t }: {
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
+  /** tzMode/setTzMode：展示态（windowsTz），不进 draft。 */
   tzMode: TzMode;
   setTzMode: React.Dispatch<React.SetStateAction<TzMode>>;
-  disableDuringPeak: boolean;
-  setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
   protocol: Protocol;
   platformCalendar?: string;
   themeMode: ThemeMode;
   t: TFunction;
 }) {
+  const windows = draft.peak;
+  const setWindows = draftSetter(draft, patch, "peak");
+  const disableDuringPeak = draft.disableDuringPeak;
+  const setDisableDuringPeak = draftSetter(draft, patch, "disableDuringPeak");
   const [defaultCache, setDefaultCache] = useState<TimeWindow[] | null>(null);
   const windowsRef = useRef(windows);
   const autoImportAttempted = useRef(false);
@@ -1282,14 +1310,18 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   );
 }
 
-export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, t }: {
+export function GroupAssignSection({ editing, groupDetails, draft, patch, t }: {
   editing: Platform | null;
-  lockedGroupId: number | null;
   groupDetails: GroupDetail[];
-  autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
-  joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
   t: TFunction;
 }) {
+  const lockedGroupId = draft.lockedGroupId;
+  const autoGroup = draft.autoGroup;
+  const setAutoGroup = draftSetter(draft, patch, "autoGroup");
+  const joinGroupIds = draft.joinGroupIds;
+  const setJoinGroupIds = draftSetter(draft, patch, "joinGroupIds");
   return (
     <FormSection
       title={t("platform.groupAssignTitle", "Group Assignment")}
@@ -1349,12 +1381,15 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
   );
 }
 
-export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled, themeMode, t }: {
-  expiresAt: number; setExpiresAt: React.Dispatch<React.SetStateAction<number>>;
+export function ExpirySection({ draft, patch, expiryEnabled, setExpiryEnabled, themeMode, t }: {
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
   expiryEnabled: boolean; setExpiryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   themeMode: "light" | "dark";
   t: TFunction;
 }) {
+  const expiresAt = draft.expiresAt;
+  const setExpiresAt = draftSetter(draft, patch, "expiresAt");
   return (
     <FormSection
       title={t("platform.expiresAt", "Expires at")}
@@ -1438,33 +1473,35 @@ import { isImeComposing } from "../../utils/ime";
  *  清空发生在点保存（后端按 quota_source 变化清，见 db/platform.rs）。
  *  位置：模型矩阵正下方（PlatformEditForm 编排）。 */
 export function QuotaSection({
-  quotaSource, onSourceChange,
-  protocol, variants, variantId, onVariantChange, customScript, onCustomScriptChange,
-  requires, onRequiresChange, locale,
+  onSourceChange,
+  protocol, variants, onVariantChange, locale,
   baseUrl, apiKey, platformId,
-  budgets, setBudgets, editing, t,
+  draft, patch, editing, t,
 }: {
-  quotaSource: "auto" | "manual";
   onSourceChange: (v: "auto" | "manual") => void;
   protocol: Protocol;
   variants: QuotaScriptVariant[];
-  variantId: string;
   onVariantChange: (v: string) => void;
-  customScript: string;
-  onCustomScriptChange: (v: string) => void;
-  requires: Record<string, string>;
-  onRequiresChange: (key: string, value: string) => void;
   locale?: string;
   /** 测试按钮用：当前表单主端点 base_url / key 字段 / 编辑中的平台 id（新建 = null）。 */
   baseUrl?: string;
   apiKey?: string;
   platformId?: number | null;
-  budgets: ManualBudget[];
-  setBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
   editing: boolean;
   t: TFunction;
 }) {
   const [confirmTarget, setConfirmTarget] = useState<"auto" | "manual" | null>(null);
+  // 草稿字段视图 + patch 适配（票 14）：原逐字段 props 收进 draft + patch。
+  const quotaSource = draft.quotaSource;
+  const variantId = draft.quotaVariantId;
+  const customScript = draft.quotaCustomScript;
+  const requires = draft.quotaRequires;
+  const budgets = draft.manualBudgets;
+  const setBudgets = draftSetter(draft, patch, "manualBudgets");
+  const onCustomScriptChange = (v: string) => patch({ quotaCustomScript: v });
+  const onRequiresChange = (key: string, value: string) => patch({ quotaRequires: { ...requires, [key]: value } });
 
   // 测试按钮：就地执行一次配额查询并内联展示结果（后端 platform_query_quota 成功时自行 persist）。
   const [testRunning, setTestRunning] = useState(false);
@@ -1730,29 +1767,31 @@ export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
   };
 }
 
-export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, platformCalendar, t }: {
-  bundle: RateLimitsBundle;
-  setBundle: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
+export function RateLimitsSection({ draft, patch, protocol, modelOptions, platformCalendar, t }: {
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
   protocol: Protocol;
   modelOptions: string[];
   platformCalendar?: string;
   t: TFunction;
 }) {
-  const [draft, setDraft] = useState<RateLimitsDraft>(() => bundleToDraft(bundle));
+  const bundle = draft.rateLimits;
+  const setBundle = draftSetter(draft, patch, "rateLimits");
+  const [rl, setRl] = useState<RateLimitsDraft>(() => bundleToDraft(bundle));
   // 自身 commit 的 bundle 回声不回灌编辑态；外部重置（载入平台 / resetForm / 粘贴导入）才重取。
   const lastEmitted = React.useRef<string>("");
   useEffect(() => {
     if (JSON.stringify(draftToBundle(bundleToDraft(bundle))) !== lastEmitted.current) {
-      setDraft(bundleToDraft(bundle));
+      setRl(bundleToDraft(bundle));
     }
   }, [bundle]);
   const commit = (d: RateLimitsDraft) => {
     const b = draftToBundle(d);
     lastEmitted.current = JSON.stringify(b);
-    setDraft(d);
+    setRl(d);
     setBundle(b);
   };
-  const upd = <K extends keyof RateLimitsDraft>(k: K, v: RateLimitsDraft[K]) => commit({ ...draft, [k]: v });
+  const upd = <K extends keyof RateLimitsDraft>(k: K, v: RateLimitsDraft[K]) => commit({ ...rl, [k]: v });
   // 导入 = 覆盖 rate_limits（quota_windows 不动）；不经 lastEmitted，让编辑态随新 bundle 重取。
   const importPolicy = (cfg: RateLimitsConfig) => setBundle({ ...bundle, rate_limits: cfg });
 
@@ -1790,28 +1829,28 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 10 }}>
         <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
           <span style={labelStyle}>{t("platform.rateLimits.concurrency", "Concurrency (in-flight)")}</span>
-          <Input id="rl-concurrency" type="number" min={0} value={draft.concurrency ?? ""} onChange={e => upd("concurrency", e.target.value)}
+          <Input id="rl-concurrency" type="number" min={0} value={rl.concurrency ?? ""} onChange={e => upd("concurrency", e.target.value)}
             className="aidog-bignum"
             style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
             placeholder="—" />
         </label>
         <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
           <span style={labelStyle}>{t("platform.rateLimits.rpm", "RPM (req/min)")}</span>
-          <Input id="rl-rpm" type="number" min={0} value={draft.rpm} onChange={e => upd("rpm", e.target.value)}
+          <Input id="rl-rpm" type="number" min={0} value={rl.rpm} onChange={e => upd("rpm", e.target.value)}
             className="aidog-bignum"
             style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
             placeholder="—" />
         </label>
         <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
           <span style={labelStyle}>{t("platform.rateLimits.rps", "Calls per second (RPS)")}</span>
-          <Input id="rl-rps" type="number" min={1} step={1} value={draft.rps ?? ""} onChange={e => upd("rps", e.target.value)}
+          <Input id="rl-rps" type="number" min={1} step={1} value={rl.rps ?? ""} onChange={e => upd("rps", e.target.value)}
             className="aidog-bignum"
             style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
             placeholder="—" />
         </label>
         <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
           <span style={labelStyle}>{t("platform.rateLimits.tpm", "TPM (tokens/min)")}</span>
-          <Input id="rl-tpm" type="number" min={0} value={draft.tpm} onChange={e => upd("tpm", e.target.value)}
+          <Input id="rl-tpm" type="number" min={0} value={rl.tpm} onChange={e => upd("tpm", e.target.value)}
             className="aidog-bignum"
             style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
             placeholder="—" />
@@ -1821,26 +1860,26 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
       {/* 限频规则：模型 / 时段条件 + 上限；重叠按列表顺序（可拖动） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
         <span style={labelStyle}>{t("platform.rateLimits.rules", "Rate-limit rules")}</span>
-        <RateLimitRulesList rules={draft.rules} onChange={rules => upd("rules", rules)} modelOptions={modelOptions} protocol={protocol} platformCalendar={platformCalendar} t={t} />
+        <RateLimitRulesList rules={rl.rules} onChange={rules => upd("rules", rules)} modelOptions={modelOptions} protocol={protocol} platformCalendar={platformCalendar} t={t} />
       </div>
 
       {/* 额度窗口（2026-10-23 A2 定稿：时长自由数字+单位，预算三选一 token|金额|次数，预设只是快捷填充；
           2026-11-16 执行上线：每窗口启用开关 + 重置方式） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
         <span style={labelStyle}>{t("platform.rateLimits.quotaWindows", "Quota windows (5h=18000 / 7d=604800 sec)")}</span>
-        {draft.windows.map((w, i) => (
+        {rl.windows.map((w, i) => (
           <div key={i} className={C.rowClass} style={{ ...C.row, opacity: w.enabled ? undefined : 0.65 }}>
             <Input
               type="number" min={1} step={1}
               value={w.num}
               aria-label={t("platform.rateLimits.windowLength", "Window length")}
               placeholder="5"
-              onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, num: e.target.value } : x))}
+              onChange={e => upd("windows", rl.windows.map((x, j) => j === i ? { ...x, num: e.target.value } : x))}
               style={{ ...numStyle, width: 64, minWidth: 64, flexShrink: 0 }}
             />
             <Select
               value={w.unit}
-              onValueChange={(v) => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, unit: v } : x))}
+              onValueChange={(v) => upd("windows", rl.windows.map((x, j) => j === i ? { ...x, unit: v } : x))}
             >
               <SelectTrigger className="input" style={{ width: 76, flexShrink: 0, height: 28, fontSize: 14 }}>
                 <SelectValue />
@@ -1853,7 +1892,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
             </Select>
             <Select
               value={w.mode}
-              onValueChange={(v) => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, mode: v as QuotaBudgetMode, amount: "" } : x))}
+              onValueChange={(v) => upd("windows", rl.windows.map((x, j) => j === i ? { ...x, mode: v as QuotaBudgetMode, amount: "" } : x))}
             >
               <SelectTrigger className="input" style={{ width: 96, flexShrink: 0, height: 28, fontSize: 14 }}>
                 <SelectValue />
@@ -1873,7 +1912,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
               aria-invalid={w.amount.trim() !== "" && !(Number(w.amount) > 0) ? true : undefined}
               aria-label={t("platform.rateLimits.budgetAmount", "Budget amount")}
               placeholder={t("platform.manualBudgetAmount", "Amount")}
-              onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
+              onChange={e => upd("windows", rl.windows.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
               style={{ ...numStyle, width: 96, minWidth: 96, flexShrink: 0 }}
             />
             <span style={{ fontSize: 14, color: "var(--text-tertiary)", flexShrink: 0 }}>
@@ -1882,7 +1921,7 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
             {/* 重置方式（额度窗口执行 2026-11-16）：sliding / 自然日 / 自然小时 */}
             <Select
               value={w.resetMode}
-              onValueChange={(v) => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, resetMode: v } : x))}
+              onValueChange={(v) => upd("windows", rl.windows.map((x, j) => j === i ? { ...x, resetMode: v } : x))}
             >
               <SelectTrigger
                 data-testid={`quota-window-reset-${i}`}
@@ -1904,16 +1943,16 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
                 data-testid={`quota-window-enabled-${i}`}
                 aria-label={t("platform.rateLimits.windowEnabled", "Enabled")}
                 checked={w.enabled}
-                onCheckedChange={v => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, enabled: v === true } : x))}
+                onCheckedChange={v => upd("windows", rl.windows.map((x, j) => j === i ? { ...x, enabled: v === true } : x))}
               />
             </span>
-            <Button variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28, marginLeft: "auto" }} onClick={() => upd("windows", draft.windows.filter((_, j) => j !== i))}>×</Button>
+            <Button variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28, marginLeft: "auto" }} onClick={() => upd("windows", rl.windows.filter((_, j) => j !== i))}>×</Button>
           </div>
         ))}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {([["5", "3600", t("platform.quickAdd.hours", "+ {{n}} h", { n: 5 })], ["1", "86400", t("platform.quickAdd.days", "+ {{n}} d", { n: 1 })], ["7", "86400", t("platform.quickAdd.days", "+ {{n}} d", { n: 7 })], ["30", "60", t("platform.quickAdd.minutes", "+ {{n}} min", { n: 30 })]] as const).map(([n, u, label]) => (
             <button key={label} type="button" className={C.addBtnClass}
-              onClick={() => upd("windows", [...draft.windows, { num: n, unit: u, mode: "tokens", amount: "", enabled: true, resetMode: "sliding" }])}>
+              onClick={() => upd("windows", [...rl.windows, { num: n, unit: u, mode: "tokens", amount: "", enabled: true, resetMode: "sliding" }])}>
               {label}
             </button>
           ))}
@@ -1925,13 +1964,15 @@ export function RateLimitsSection({ bundle, setBundle, protocol, modelOptions, p
 
 /** 直通模型（直接模型转发）：平台声明 direct_models，声明即生效不查 registry。
  *  添加走文本输入（聚合站自定义模型名可配），逐条删除；空列表 = 未声明。 */
-export function DirectModelsSection({ models, setModels, availableModels, protocol, t }: {
-  models: string[];
-  setModels: React.Dispatch<React.SetStateAction<string[]>>;
+export function DirectModelsSection({ draft, patch, availableModels, protocol, t }: {
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
   availableModels: string[];
   protocol: Protocol;
   t: TFunction;
 }) {
+  const models = draft.directModels;
+  const setModels = draftSetter(draft, patch, "directModels");
   const [input, setInput] = useState("");
   const source = useModelCandidates(availableModels, protocol);
   const add = (raw: string = input) => {
@@ -1988,14 +2029,16 @@ export function DirectModelsSection({ models, setModels, availableModels, protoc
 
 /** 客户端白名单：extra.allowed_clients。按词表大类分组，勾大类 = 允许其全部变体（子项联动、半选可见），
  *  清空 = 取消白名单（全放行）。路由拦截不在本组件（票 04）。 */
-export function ClientWhitelistSection({ vocab, selected, setSelected, uaRules, setUaRules, t }: {
+export function ClientWhitelistSection({ vocab, draft, patch, t }: {
   vocab: ClientVocabCategory[];
-  selected: string[];
-  setSelected: React.Dispatch<React.SetStateAction<string[]>>;
-  uaRules: ClientUaRule[];
-  setUaRules: React.Dispatch<React.SetStateAction<ClientUaRule[]>>;
+  draft: PlatformDraft;
+  patch: (p: Partial<PlatformDraft>) => void;
   t: TFunction;
 }) {
+  const selected = draft.allowedClients;
+  const setSelected = draftSetter(draft, patch, "allowedClients");
+  const uaRules = draft.uaRules;
+  const setUaRules = draftSetter(draft, patch, "uaRules");
   const restricted = selected.length + uaRules.length;
   const patchRule = (i: number, patch: Partial<ClientUaRule>) =>
     setUaRules(prev => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));

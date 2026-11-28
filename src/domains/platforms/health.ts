@@ -1,4 +1,5 @@
 import type { Platform, PlatformQuota, ManualBudget, ManualBudgetUnit, ManualBudgetKind } from "../../services/api";
+import { parsePlatformTimeWindows } from "../../services/api";
 import { cycleMsForTier, codingTierLevel, type ColorLevel } from "../../components/shared";
 import { MODEL_SLOTS } from "./constants";
 import { slotList, type SlotValue } from "./slotValue";
@@ -16,7 +17,7 @@ export function healthStatus(recentTotal: number, recentFailures: number): Healt
 }
 
 /** 判定平台是否处于「key 失效」状态：auto_disabled 且 last_error 为 HTTP 401/403。
- *  收口 401/403 知识，避免前端 (PlatformCard) / 后端 auto_disable / usePlatformQuota
+ *  收口 401/403 知识，避免前端 (PlatformRow) / 后端 auto_disable / usePlatformQuota
  *  三处各自维护一份 keyInvalid 派生。*/
 export function keyInvalidFromStatus(
   status: Platform["status"],
@@ -34,7 +35,7 @@ export function keyInvalidFromStatus(
  *  入参：
  *  - status / last_error / manual / usage.recent_total / usage.recent_failures
  *
- *  调用方：PlatformCard（替代 L158-172 内联硬编码）；后端 auto_disable / usePlatformQuota
+ *  调用方：PlatformRow（替代 L158-172 内联硬编码）；后端 auto_disable / usePlatformQuota
  *  复用 keyInvalidFromStatus 共享 401/403 真值（cross-layer 一致）。 */
 export function deriveHealth(args: {
   status: Platform["status"];
@@ -72,12 +73,9 @@ export function allModelValues(models: Partial<Record<(typeof MODEL_SLOTS)[numbe
 /** 平台「模型配置」全集：默认模型配置 ∪ 各时段档（extra.time_windows[].models）的模型，展平去重。
  *  汇总计数 / 下拉用它；卡片主模型徽章仍用 allModelValues(p.models) 显示当前生效。 */
 export function allConfiguredModelValues(p: { models: Parameters<typeof allModelValues>[0]; extra?: string }): string[] {
-  let windows: { models?: Parameters<typeof allModelValues>[0]; enabled?: boolean }[] = [];
-  try {
-    const tw = JSON.parse(p.extra || "{}").time_windows;
-    // 关掉的档（enabled:false）视为不存在，与 Rust parse_platform_time_windows 对称
-    if (Array.isArray(tw)) windows = tw.filter(w => w?.enabled !== false);
-  } catch { /* 非法 extra → 只有默认配置 */ }
+  // 读侧统一走 parsePlatformTimeWindows（票 07）：非法 extra → []，窗口经 normalizeWindow；
+  // 关掉的档（enabled:false）视为不存在，与 Rust parse_platform_time_windows 对称。
+  const windows = parsePlatformTimeWindows(p.extra ?? "").filter(w => w.enabled !== false);
   return [...new Set([p.models, ...windows.map(w => w?.models ?? {})].flatMap(allModelValues))];
 }
 
@@ -148,7 +146,7 @@ export function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, p
     return {
       estimated: false,
       // ponytail: ACU (Devin) 无余额端点，balance.remaining 恒 0；改用 used (累计 ACU) 作展示值，
-      //   total=null 抑制进度条，currency="ACU" 让 PlatformCard 标"ACU 用量" label 而非 $ 前缀。
+      //   total=null 抑制进度条，currency="ACU" 让 PlatformRow 标"ACU 用量" label 而非 $ 前缀。
       balanceRemaining: q.balance
         ? (q.balance.currency === "ACU" ? (q.balance.used ?? 0) : usdBalance(q.balance.remaining, q.balance.currency))
         : null,

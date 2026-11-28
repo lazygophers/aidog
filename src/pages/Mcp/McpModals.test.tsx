@@ -1,5 +1,5 @@
 // 票 09：添加弹窗推荐区 + 预填流行为测试（文本/交互断言，禁快照）。
-// 测试 i18n 空 resources → t 返回 key 本身，按 key 断言（同 PlatformCard.test 惯例）。
+// 测试 i18n 空 resources → t 返回 key 本身，按 key 断言（同 PlatformRow.test 惯例）。
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "../../test/render";
 import { McpModals } from "./McpModals";

@@ -90,7 +90,7 @@ type DefaultsDoc = {
     homepage?: string;
     /** simpleicons.org slug（Rust logo_sync 拼 https://cdn.simpleicons.org/<slug>）；空串走 favicon/clearbit fallback。 */
     logo_url?: string;
-    /** 品牌色（hex，用于 PlatformCard / ProtocolLogo 等圆圈 fallback 背景）。
+    /** 品牌色（hex，用于 PlatformRow / ProtocolLogo 等圆圈 fallback 背景）。
      *  派生层 getProtocolColorMap 从此字段派生；absent → 调用方回退 var(--accent)。 */
     color?: string;
     /** 协议搜索关键词（拼音/子串匹配用）；派生层 buildProtocolsFromPresets 透传到 ProtocolOption.keywords。 */
@@ -166,7 +166,7 @@ export type PlanQuotaTier = {
 };
 
 /** 同步索引的单条目（不含脚本文本）：id + requires key 列表 + 是否有可展示能力。
- *  供 usePlatformQuota.platformWantsQuota / PlatformCard.quotaCapable 在渲染路径上
+ *  供 usePlatformQuota.platformWantsQuota / PlatformRow.quotaCapable 在渲染路径上
  *  同步判定（registry 未就绪时调用方回落旧启发式，见 quotaScriptIndexSync）。 */
 export type QuotaScriptIndexEntry = {
   id: string;
@@ -244,7 +244,7 @@ export function quotaScriptIndexSync(protocol: string): { loaded: boolean; varia
 
 /** 该平台是否具备配额查询入口（quota-scripts T6：registry 有变体或带自定义脚本）。
  *  索引未就绪回落旧启发式（mock/claude_code 排除 —— 两协议本就无脚本，回落等价）。
- *  消费点：PlatformCard.quotaCapable（刷新按钮 / 余额区渲染门控）。
+ *  消费点：PlatformRow.quotaCapable（刷新按钮 / 余额区渲染门控）。
  *  manual 配额方式（quota-ia 票 03/07）恒 false：脚本侧整体不生效（刷新按钮隐藏、
  *  余额区不渲染冻结的 est_balance，卡片只走预算块）。 */
 export function platformHasQuotaScript(p: { platform_type: string; extra?: string; quota_source?: string }): boolean {
@@ -458,7 +458,7 @@ export async function getProtocolSourceUrls(protocol: Protocol): Promise<{ docs:
 }
 
 /** 协议是否标记为 coding plan 套餐（数据驱动真值源，非硬编码协议键名）。
- *  PlatformCard「Coding Plan」徽标据此判断；3 协议 glm_coding / bailian_coding /
+ *  PlatformRow「Coding Plan」徽标据此判断；3 协议 glm_coding / bailian_coding /
  *  compshare_coding 的 JSON 条目标 `is_coding_plan: true`，其他 absent = false（向后兼容）。
  *  与 Rust `gateway::coding_plan::default_is_coding_plan` 对称（跨层一致）。 */
 export async function isCodingPlanProtocol(protocol: Protocol): Promise<boolean> {
@@ -565,7 +565,7 @@ export async function buildProtocolsFromPresets(locale?: string): Promise<Protoc
 
 /** 派生协议品牌色映射（替代旧模块级 PROTOCOL_COLORS 硬编码常量）。
  *  loadDoc → 每 key color 字段；absent 不写入（调用方回退 var(--accent)）。
- *  调用方：ProtocolLogo / PlatformCard / PlatformListView / PlatformEditForm。 */
+ *  调用方：ProtocolLogo / PlatformRow / PlatformListView / PlatformEditForm。 */
 export async function getProtocolColorMap(): Promise<Partial<Record<Protocol, string>>> {
   const doc = await loadDoc();
   const out: Partial<Record<Protocol, string>> = {};

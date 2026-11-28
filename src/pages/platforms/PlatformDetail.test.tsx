@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "../../test/render";
 import { PlatformDetail } from "./PlatformDetail";
 import type { Platform } from "../../services/api";
-import type { PlatformCardService } from "../../components/platforms/PlatformCard";
+import type { PlatformCardService } from "../../components/platforms/usePlatformCards";
 
 // Mock Tauri invoke
 vi.mock("@tauri-apps/api/core", () => ({

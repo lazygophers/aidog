@@ -4,8 +4,10 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { fireEvent, act } from "@testing-library/react";
 import { render, screen } from "../../test/render";
 
-vi.mock("../../../domains/platforms/useProtocolMeta", () => ({
-  useProtocolMeta: () => ({ color: "#123", isCpProtocol: false, defaultModels: ["preset-model"], homepage: "", sourceUrls: { docs: "", pricing: "" }, protocolLabel: "", labelMap: {}, peakWindows: [] }),
+const metaCfg = vi.hoisted(() => ({ v: () => ({ color: "#123", isCpProtocol: false, defaultModels: ["preset-model"], homepage: "", sourceUrls: { docs: "", pricing: "" }, protocolLabel: "", labelMap: {}, peakWindows: [] as never }) }));
+vi.mock("../../domains/platforms/useProtocolMeta", async (importOriginal) => ({
+  ...(await importOriginal()),
+  useProtocolMeta: () => metaCfg.v(),
 }));
 
 // 显示币种 store 首次订阅会 refresh 拉 display_currency_get：mock 成 USD（与默认一致，refresh 恒为空操作），
@@ -89,6 +91,12 @@ describe("PlatformRow", () => {
     expect(onDetail).toHaveBeenCalledWith(platform);
   });
 
+  it("coding plan 平台带 usage：不显示 ⚡ 预估（票 01，对齐 5a5304129 意图）", () => {
+    const cp = { ...platform, endpoints: [{ base_url: "https://x/v1", protocol: "openai", coding_plan: true }] } as never as Platform;
+    render(<PlatformRow {...base} platform={cp} />);
+    expect(screen.queryByTestId("row-coding-usage")).toBeNull();
+  });
+
   it("未传 onDetail：不渲染详情按钮", () => {
     render(<PlatformRow {...base} />);
     expect(screen.queryByTestId("row-detail-button")).toBeNull();
@@ -121,6 +129,28 @@ describe("PlatformRow", () => {
     const disabled = { ...platform, status: "auto_disabled" } as never as Platform;
     render(<PlatformRow {...base} platform={disabled} lastTest={undefined} />);
     expect(screen.getByTestId("row-status-dot").getAttribute("title")).toBe("auto_disabled");
+  });
+
+  describe("徽标（票 02 迁入）", () => {
+    it("高峰徽标: 时段来自 preset 默认（用户没自配也要显）", () => {
+      const prev = metaCfg.v;
+      metaCfg.v = () => ({ color: "#123", isCpProtocol: false, defaultModels: [], homepage: "", sourceUrls: { docs: "", pricing: "" }, protocolLabel: "", labelMap: {},
+        // start_hour == end_hour → 退化为全天命中，断言不随运行时刻波动
+        peakWindows: [{ start_hour: 0, end_hour: 0, multiplier: 2 }] } as never);
+      try {
+        render(<PlatformRow {...base} />);
+        // base 的 t 不做插值，fallback 原样返回
+        expect(screen.getByTestId("platform-row").textContent).toContain("Peak ×");
+      } finally { metaCfg.v = prev; }
+    });
+
+    it("订阅徽标: claude_code 协议显示、其它不显示", () => {
+      const { unmount } = render(<PlatformRow {...base} platform={{ ...platform, platform_type: "claude_code" } as never as Platform} />);
+      expect(screen.getByText("Subscription")).toBeTruthy();
+      unmount();
+      render(<PlatformRow {...base} />);
+      expect(screen.queryByText("Subscription")).toBeNull();
+    });
   });
 
   describe("「代理」徽标显隐（开关 × 全局代理地址，issue #64 T03）", () => {
@@ -171,6 +201,26 @@ describe("PlatformRow", () => {
       expect(screen.getByTestId("row-manual-remaining").textContent).toBe("¥42.00"); // (10-4)×7
       expect(row).toContain("¥70.00"); // 总额 10×7
       expect(row).not.toContain("$");
+    });
+  });
+
+  describe("「Peak-disabled」徽标读侧走严格布尔 parse（票 07）", () => {
+    const origMeta = metaCfg.v;
+    const peakMeta = () => ({ ...origMeta(), peakWindows: [{ start_hour: 0, end_hour: 24, multiplier: 2 }] as never });
+    afterEach(() => { metaCfg.v = origMeta; });
+
+    it("disable_during_peak=1（数字）→ 不判为禁用，无徽标", () => {
+      metaCfg.v = peakMeta;
+      const p = { ...platform, extra: JSON.stringify({ disable_during_peak: 1 }) } as never as Platform;
+      render(<PlatformRow {...base} platform={p} />);
+      expect(screen.queryByTestId("row-peak-disabled-badge")).toBeNull();
+    });
+
+    it("disable_during_peak=true + 高峰命中 → 徽标显示", () => {
+      metaCfg.v = peakMeta;
+      const p = { ...platform, extra: JSON.stringify({ disable_during_peak: true }) } as never as Platform;
+      render(<PlatformRow {...base} platform={p} />);
+      expect(screen.getByTestId("row-peak-disabled-badge")).toBeTruthy();
     });
   });
 });

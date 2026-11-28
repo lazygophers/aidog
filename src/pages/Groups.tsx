@@ -6,7 +6,7 @@ import type {
 import { groupApi, groupDetailApi, platformApi } from "../services/api";
 import { setUiExtra } from "../services/api/ui_extra";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
-import type { PlatformCardActions, PlatformCardService } from "../components/platforms/PlatformCard";
+import type { PlatformCardActions, PlatformCardService } from "../components/platforms/usePlatformCards";
 import { usePlatformCards } from "../components/platforms/usePlatformCards";
 import {
   editReducer, EMPTY_EDIT,
@@ -14,6 +14,7 @@ import {
   type GroupRow,
 } from "../domains/groups";
 import { GroupEditPanel } from "./Groups/GroupEditPanel";
+import { useBatchAction } from "./Groups/useBatchAction";
 import { GroupCreateModal } from "./Groups/GroupCreateModal";
 import { GroupListView } from "./Groups/GroupListView";
 import { GroupDetailPage } from "./Groups/GroupDetailPage";
@@ -37,7 +38,7 @@ import { useGroupTest } from "./Groups/useGroupTest";
 import { usePlatformDrag } from "./Groups/usePlatformDrag";
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange, searchQuery }: {
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, onCountChange, searchQuery }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean; detail?: boolean; logId?: string }) => void;
   onGroupsChanged?: () => void;
   /** 平台被删后触发父级（Platforms 页 usePlatformsState.removePlatformsByIds）局部移除 platforms state。
@@ -60,9 +61,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   /** 父级(Platforms)页头「添加分组」按钮经此 ref 触发本组件创建弹窗（按钮已上移到 Platforms 页头）。
    *  结构型 { current: fn | null } 免 import，与 useRef<fn|null> 兼容。 */
   openCreateGroupRef?: { current: (() => void) | null };
-  /** 父级(Platforms)跨组件刷新入口（如全局 purge 删平台后），触发本组件静默刷新分组/平台状态。
-   *  本组件只在 mount 拉一次全量，父级 groupDetails 更新不会自动同步到内部 details/platforms。 */
-  reloadRef?: { current: (() => void) | null };
   /** 渐进加载计数回传：随各组平台逐组流入而递增/校正（{total, active}），供父级页头
    *  「N / M active」徽章增量更新。null = 尚未开始/重置回退父级自身列表。 */
   onCountChange?: (counts: { total: number; active: number } | null) => void;
@@ -112,15 +110,21 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     onViewModeChange?.(fullscreenView);
   }, [fullscreenView, onViewModeChange]);
 
-  // 父级跨组件刷新入口（全局 purge 后触发），绑定本组件静默刷新分组卡内平台状态。
+  // 平台成员变更单一入口（票 09）：写路径广播一次 aidog-groups-changed，本监听端统一执行
+  // 行重载（silentReload）+ groupDetails 重建（onGroupsChanged）；rowsChanged=false（拖入特例）
+  // 平台行不变，跳过行重载。
   useEffect(() => {
-    if (!reloadRef) return;
-    reloadRef.current = () => { silentReload(); onGroupsChanged?.(); };
-    return () => { reloadRef.current = null; };
+    const h = (e: Event) => {
+      const rowsChanged = (e as CustomEvent).detail?.rowsChanged !== false;
+      if (rowsChanged) void silentReload();
+      onGroupsChanged?.();
+    };
+    window.addEventListener("aidog-groups-changed", h);
+    return () => window.removeEventListener("aidog-groups-changed", h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reloadRef, onGroupsChanged]);
+  }, []);
 
-  // ── 分组展开区平台卡片：复用 PlatformCard + usePlatformCards（与 Platforms 主列表同款） ──
+  // ── 分组展开区平台卡片：复用 PlatformRow + usePlatformCards（与 Platforms 主列表同款） ──
   const cards = usePlatformCards({ onNavigate, onEdit: onEditPlatform, setToast: onToast });
   // quota 自动初拉：行式列表无手动刷新入口，挂载后对有 key 且未拉过的平台静默拉一次余额，
   // 否则余额列永远是 est_balance_remaining 回落值（coding 套餐真实余额不上屏）。
@@ -182,7 +186,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     }, 300);
   }, []);
 
-  // 分组内卡（PlatformCard）展开态：默认收起。从 platform.extra._ui_expand_grp 跨会话回灌（仅一次）。
+  // 分组内行（PlatformRow）展开态：默认收起。从 platform.extra._ui_expand_grp 跨会话回灌（仅一次）。
   // ponytail: 键 _ui_expand_grp 独立于 Platforms 页的 _ui_expand_plat（s4）—— 同一 platform 两键并存，
   //   Groups 内卡展开与 Platforms 主列表展开分别持久化。idiom 对齐 collapseInitRef（s3）。
   const expandInitRef = useRef(false);
@@ -272,14 +276,25 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [removeTarget, cards, silentReload, onToast, t, onPlatformDeleted]);
 
-  // ── 批量删除平台（group-batch-ops s3）──
-  // 工具栏「删除」→ 开 BatchDeleteModal（全列可滚 + 跨组警告）→ 确认调 batch_delete_platforms 原子事务。
-  // 跨组成员关系实时拉后端（同 handleGroupRemovePlatform idiom：groupDetailApi.list 走后端缓存，写时 invalidate）。
-  const [batchDeleteTarget, setBatchDeleteTarget] = useState<{
-    platforms: Platform[];
-    groupNamesByPlatform: Record<number, string[]>;
-  } | null>(null);
-  const [batchDeleteBusy, setBatchDeleteBusy] = useState(false);
+  // ── 批量操作四流程（group-batch-ops s3-s5，票 08 收口）──
+  // 共用执行样板收在 useBatchAction（target/busy/toast/刷新）；「开 modal」前置逻辑与
+  // 移组独占校验分支留在下方 handler。JSX 沿用 batchXxxTarget/Batch 名（解构别名）。
+  const batchDelete = useBatchAction<{ platforms: Platform[]; groupNamesByPlatform: Record<number, string[]> }>({ silentReload, onGroupsChanged, onToast });
+  const batchOverride = useBatchAction<{ platforms: Platform[] }>({ silentReload, onGroupsChanged, onToast });
+  const batchSetStatus = useBatchAction<{ platforms: Platform[]; groupEnabledIds: number[] }>({ silentReload, onGroupsChanged, onToast });
+  const batchMoveGroup = useBatchAction<{ platforms: Platform[]; gid: number }>({ silentReload, onGroupsChanged, onToast });
+  const batchDeleteTarget = batchDelete.target;
+  const setBatchDeleteTarget = batchDelete.setTarget;
+  const batchDeleteBusy = batchDelete.busy;
+  const batchOverrideTarget = batchOverride.target;
+  const setBatchOverrideTarget = batchOverride.setTarget;
+  const batchOverrideBusy = batchOverride.busy;
+  const batchSetStatusTarget = batchSetStatus.target;
+  const setBatchSetStatusTarget = batchSetStatus.setTarget;
+  const batchSetStatusBusy = batchSetStatus.busy;
+  const batchMoveGroupTarget = batchMoveGroup.target;
+  const setBatchMoveGroupTarget = batchMoveGroup.setTarget;
+  const batchMoveGroupBusy = batchMoveGroup.busy;
 
   /** 工具栏「删除」按钮：收 selectedIds → 拉 fresh details → 算跨组成员关系 → 开 modal。 */
   const handleBatchDelete = useCallback(async (ids: number[], _gid: number) => {
@@ -314,33 +329,19 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   /** BatchDeleteModal 确认：调 batch_delete_platforms 原子事务 → toast → 刷新 → 关 modal。 */
   const confirmBatchDelete = useCallback(async () => {
     if (!batchDeleteTarget) return;
-    setBatchDeleteBusy(true);
-    try {
-      const ids = batchDeleteTarget.platforms.map(p => p.id);
-      const report = await platformApi.batchDelete(ids);
-      setBatchDeleteTarget(null);
-      silentReload(); onGroupsChanged?.(); onPlatformDeleted?.(ids);
-      onToast?.({
-        text: t("group.batchDeleteDone", "Deleted {{count}} platforms", { count: report.applied }),
-        ok: true,
-      });
-      setTimeout(() => onToast?.(null), 3000);
-    } catch (e) {
-      console.error(e);
-      onToast?.({ text: `${t("group.batchDeleteFailed", "Batch delete failed")}: ${e}`, ok: false });
-      setTimeout(() => onToast?.(null), 3000);
-      setBatchDeleteTarget(null);
-    } finally {
-      setBatchDeleteBusy(false);
-    }
+    const ids = batchDeleteTarget.platforms.map(p => p.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchDeleteTarget, silentReload, onToast, t, onGroupsChanged, onPlatformDeleted]);
+    batchDelete.runBatch({
+      api: () => platformApi.batchDelete(ids),
+      doneText: (n) => t("group.batchDeleteDone", "Deleted {{count}} platforms", { count: n }),
+      failPrefix: t("group.batchDeleteFailed", "Batch delete failed"),
+      onSuccess: () => onPlatformDeleted?.(ids),
+    });
+  }, [batchDeleteTarget, batchDelete, t, onPlatformDeleted]);
 
   // ── 批量覆盖平台模型（group-batch-ops s4）──
   // 工具栏「覆盖模型」→ 开 BatchOverrideModelsModal（三来源 radio + 全 diff）→
   // 确认调 batch_override_models 原子事务（PlatformModels 整体覆盖 5 槽）。
-  const [batchOverrideTarget, setBatchOverrideTarget] = useState<{ platforms: Platform[] } | null>(null);
-  const [batchOverrideBusy, setBatchOverrideBusy] = useState(false);
   // 非删除类批量完成信号（+1 触发 GroupListItem 退出多选；删除类靠平台消失 auto-exit，不走此信号）
   const [batchDoneSignal, setBatchDoneSignal] = useState(0);
 
@@ -357,38 +358,19 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   /** BatchOverrideModelsModal 确认：调 batch_override_models 原子事务 → toast → 刷新 → 关 modal。 */
   const confirmBatchOverrideModels = useCallback(async (models: PlatformModels) => {
     if (!batchOverrideTarget) return;
-    setBatchOverrideBusy(true);
-    try {
-      const ids = batchOverrideTarget.platforms.map(p => p.id);
-      const report = await platformApi.batchOverrideModels(ids, models);
-      setBatchOverrideTarget(null);
-      setBatchDoneSignal(n => n + 1);
-      silentReload(); onGroupsChanged?.();
-      onToast?.({
-        text: t("group.batchOverrideModelsDone", "Overrode models on {{count}} platforms", { count: report.applied }),
-        ok: true,
-      });
-      setTimeout(() => onToast?.(null), 3000);
-    } catch (e) {
-      console.error(e);
-      onToast?.({ text: `${t("group.batchOverrideModelsFailed", "Batch override models failed")}: ${e}`, ok: false });
-      setTimeout(() => onToast?.(null), 3000);
-      setBatchOverrideTarget(null);
-    } finally {
-      setBatchOverrideBusy(false);
-    }
+    const ids = batchOverrideTarget.platforms.map(p => p.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchOverrideTarget, silentReload, onToast, t, onGroupsChanged]);
+    batchOverride.runBatch({
+      api: () => platformApi.batchOverrideModels(ids, models),
+      doneText: (n) => t("group.batchOverrideModelsDone", "Overrode models on {{count}} platforms", { count: n }),
+      failPrefix: t("group.batchOverrideModelsFailed", "Batch override models failed"),
+      onSuccess: () => setBatchDoneSignal(n => n + 1),
+    });
+  }, [batchOverrideTarget, batchOverride, t]);
 
   // ── 批量改状态（group-batch-ops s5）──
   // 工具栏「改状态」→ 开 BatchSetStatusModal（启用/禁用 radio + 无候选警告）→
   // 确认调 batch_set_status 原子事务。
-  const [batchSetStatusTarget, setBatchSetStatusTarget] = useState<{
-    platforms: Platform[];
-    groupEnabledIds: number[];
-  } | null>(null);
-  const [batchSetStatusBusy, setBatchSetStatusBusy] = useState(false);
-
   /** 工具栏「改状态」按钮：收 selectedIds + gid → 解析选中平台 + 当前组 enabled 候选 → 开 modal。 */
   const handleBatchSetStatus = useCallback(async (ids: number[], gid: number) => {
     const selectedPlatforms = ids
@@ -407,38 +389,19 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   /** BatchSetStatusModal 确认：调 batch_set_status → toast → 刷新 → 关 modal → batchDoneSignal。 */
   const confirmBatchSetStatus = useCallback(async (status: "enabled" | "disabled") => {
     if (!batchSetStatusTarget) return;
-    setBatchSetStatusBusy(true);
-    try {
-      const ids = batchSetStatusTarget.platforms.map(p => p.id);
-      const report = await platformApi.batchSetStatus(ids, status);
-      setBatchSetStatusTarget(null);
-      setBatchDoneSignal(n => n + 1);
-      silentReload(); onGroupsChanged?.();
-      onToast?.({
-        text: t("group.batchSetStatusDone", "Changed status of {{count}} platforms", { count: report.applied }),
-        ok: true,
-      });
-      setTimeout(() => onToast?.(null), 3000);
-    } catch (e) {
-      console.error(e);
-      onToast?.({ text: `${t("group.batchSetStatusFailed", "Batch status change failed")}: ${e}`, ok: false });
-      setTimeout(() => onToast?.(null), 3000);
-      setBatchSetStatusTarget(null);
-    } finally {
-      setBatchSetStatusBusy(false);
-    }
+    const ids = batchSetStatusTarget.platforms.map(p => p.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchSetStatusTarget, silentReload, onToast, t, onGroupsChanged]);
+    batchSetStatus.runBatch({
+      api: () => platformApi.batchSetStatus(ids, status),
+      doneText: (n) => t("group.batchSetStatusDone", "Changed status of {{count}} platforms", { count: n }),
+      failPrefix: t("group.batchSetStatusFailed", "Batch status change failed"),
+      onSuccess: () => setBatchDoneSignal(n => n + 1),
+    });
+  }, [batchSetStatusTarget, batchSetStatus, t]);
 
   // ── 批量移组（group-batch-ops s5）──
   // 工具栏「移组」→ 开 BatchMoveGroupModal（目标组下拉 + move/add radio）→
   // 确认调 batch_move_group 原子事务。
-  const [batchMoveGroupTarget, setBatchMoveGroupTarget] = useState<{
-    platforms: Platform[];
-    gid: number;
-  } | null>(null);
-  const [batchMoveGroupBusy, setBatchMoveGroupBusy] = useState(false);
-
   /** 工具栏「移组」按钮：收 selectedIds + gid → 解析选中平台 → 开 modal。 */
   const handleBatchMoveGroup = useCallback(async (ids: number[], gid: number) => {
     const selectedPlatforms = ids
@@ -453,44 +416,32 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
    *  claude_code 订阅独占分组：前端先按目标组合组成拦截（后端 batch_move_group 亦有硬校验兜底）。 */
   const confirmBatchMoveGroup = useCallback(async (targetGroupId: number, mode: "move" | "add") => {
     if (!batchMoveGroupTarget) return;
-    setBatchMoveGroupBusy(true);
-    try {
-      const ids = batchMoveGroupTarget.platforms.map(p => p.id);
-      // 目标组合并组成（move/add 语义下最终成员同集：现有 + 本次进入者）
-      const targetDetail = details.find(d => d.group.id === targetGroupId);
-      const composition = new Set<number>(ids);
-      targetDetail?.platforms.forEach(gp => composition.add(gp.platform.id));
-      const compositionCc = [...composition].some(id => {
-        const p = platforms.find(pp => pp.id === id) ?? batchMoveGroupTarget.platforms.find(pp => pp.id === id);
-        return p?.platform_type === "claude_code";
-      });
-      if (compositionCc && composition.size > 1) {
-        onToast?.({ text: t("group.soloHint", "Claude Code subscription platform must be in a solo group — no other platforms allowed"), ok: false });
-        setTimeout(() => onToast?.(null), 3000);
-        return;
-      }
-      const report = await platformApi.batchMoveGroup(ids, targetGroupId, mode);
-      setBatchMoveGroupTarget(null);
-      setBatchDoneSignal(n => n + 1);
-      silentReload(); onGroupsChanged?.();
-      onToast?.({
-        text: t("group.batchMoveGroupDone", "{{mode}}d {{count}} platforms", {
-          count: report.applied,
-          mode: mode === "move" ? t("group.batchMoveGroupModeMoveShort", "Move") : t("group.batchMoveGroupModeAddShort", "Add"),
-        }),
-        ok: true,
-      });
+    const ids = batchMoveGroupTarget.platforms.map(p => p.id);
+    // 目标组合并组成（move/add 语义下最终成员同集：现有 + 本次进入者）。
+    // claude_code 订阅独占分组：前端先按目标组合成拦截（API 前分支，独占校验不属于执行样板）。
+    const targetDetail = details.find(d => d.group.id === targetGroupId);
+    const composition = new Set<number>(ids);
+    targetDetail?.platforms.forEach(gp => composition.add(gp.platform.id));
+    const compositionCc = [...composition].some(id => {
+      const p = platforms.find(pp => pp.id === id) ?? batchMoveGroupTarget.platforms.find(pp => pp.id === id);
+      return p?.platform_type === "claude_code";
+    });
+    if (compositionCc && composition.size > 1) {
+      onToast?.({ text: t("group.soloHint", "Claude Code subscription platform must be in a solo group — no other platforms allowed"), ok: false });
       setTimeout(() => onToast?.(null), 3000);
-    } catch (e) {
-      console.error(e);
-      onToast?.({ text: `${t("group.batchMoveGroupFailed", "Batch move failed")}: ${e}`, ok: false });
-      setTimeout(() => onToast?.(null), 3000);
-      setBatchMoveGroupTarget(null);
-    } finally {
-      setBatchMoveGroupBusy(false);
+      return;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchMoveGroupTarget, silentReload, onToast, t, onGroupsChanged]);
+    batchMoveGroup.runBatch({
+      api: () => platformApi.batchMoveGroup(ids, targetGroupId, mode),
+      doneText: (n) => t("group.batchMoveGroupDone", "{{mode}}d {{count}} platforms", {
+        count: n,
+        mode: mode === "move" ? t("group.batchMoveGroupModeMoveShort", "Move") : t("group.batchMoveGroupModeAddShort", "Add"),
+      }),
+      failPrefix: t("group.batchMoveGroupFailed", "Batch move failed"),
+      onSuccess: () => setBatchDoneSignal(n => n + 1),
+    });
+  }, [batchMoveGroupTarget, batchMoveGroup, t, onToast]);
 
   // 分组上下文 card actions（按 gid 派生）：onDelete 改为「移除」语义（删 vs 移出二分）。
   // 拖拽 no-op（分组内禁拖拽）。

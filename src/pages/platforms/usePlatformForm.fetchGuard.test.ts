@@ -37,13 +37,13 @@ describe("fetch models guard", () => {
     vi.spyOn(platformApi, "fetchModels").mockResolvedValue(["fetched-a", "fetched-b"]);
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setApiKey("k");
-      result.current.setEndpoints([{ protocol: "openai", base_url: "https://example.test/v1" }] as any);
-      result.current.setModels({ ...BLANK, default: ["hand-written"] });
+      result.current.patch({ apiKey: "k" });
+      result.current.patch({ endpoints: [{ protocol: "openai", base_url: "https://example.test/v1" }] as any });
+      result.current.patch({ models: { ...BLANK, default: ["hand-written"] } });
     });
     await act(() => result.current.handleFetchModels());
-    expect(result.current.models.default).toEqual(["hand-written"]);
-    expect(result.current.availableModels).toEqual(["fetched-a", "fetched-b"]);
+    expect(result.current.draft.models.default).toEqual(["hand-written"]);
+    expect(result.current.draft.availableModels).toEqual(["fetched-a", "fetched-b"]);
     expect(result.current.fetchInfo).not.toBe("");
   });
 
@@ -51,12 +51,12 @@ describe("fetch models guard", () => {
     vi.spyOn(platformApi, "fetchModels").mockResolvedValue(["fetched-a", "fetched-b"]);
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setApiKey("k");
-      result.current.setEndpoints([{ protocol: "openai", base_url: "https://example.test/v1" }] as any);
-      result.current.setModels({ ...BLANK });
+      result.current.patch({ apiKey: "k" });
+      result.current.patch({ endpoints: [{ protocol: "openai", base_url: "https://example.test/v1" }] as any });
+      result.current.patch({ models: { ...BLANK } });
     });
     await act(() => result.current.handleFetchModels());
-    expect(result.current.models.default.length).toBeGreaterThan(0);
+    expect(result.current.draft.models.default.length).toBeGreaterThan(0);
     expect(result.current.fetchInfo).toBe("");
   });
 });

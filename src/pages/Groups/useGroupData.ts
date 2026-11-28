@@ -66,7 +66,7 @@ export interface UseGroupDataArgs {
  *   ① 一次批量 `group_detail_list_paged`（无 JOIN）+ `platform_list`（全量）并行；
  *   ② 先渲分组骨架，触底加载 sentinel 触发下一页；
  *   ③ 统计/余额按已加载组重算。
- * mount 跑 load()；reloadRef / aidog-groups-changed 由调用方按需触发 load()。
+ * mount 跑 load()；aidog-groups-changed 广播由 Groups.tsx 监听端触发 silentReload()（票 09）。
  */
 export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   const [details, setDetails] = useState<GroupDetail[]>([]);
@@ -362,13 +362,7 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   // 请求完成后轻量刷新统计（仅本地 DB 查询，不拉 quota HTTP）
   useEffect(() => onProxyLogUpdated(() => { refreshStats(); }), []);
 
-  // 监听跨组件分组变更（Platforms pointer 拖入分组后通知刷新；HTML5 DnD 跨区域在 WKWebView 失效，改 pointer + window 事件）
-  // 静默刷新：这是被动广播，用户此刻可能正在别处操作，不能清空列表把他的滚动位置抹掉。
-  useEffect(() => {
-    const h = () => { silentReload(); };
-    window.addEventListener("aidog-groups-changed", h);
-    return () => window.removeEventListener("aidog-groups-changed", h);
-  }, []);
+  // aidog-groups-changed 监听已迁 Groups.tsx（票 09：单入口广播 + rowsChanged 分流 + onGroupsChanged 统一）。
 
   // groupApi.reorder 在 handleReorderGroups（保留在主文件）使用 —— 这里 re-export 以便主文件复用；
   // ponytail: 不另起 hooks 文件，groupApi 已在 services/api barrel 暴露

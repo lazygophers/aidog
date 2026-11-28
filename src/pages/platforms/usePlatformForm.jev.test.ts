@@ -37,10 +37,10 @@ describe("protocol changes", () => {
       protocols: { gemini: { endpoints: { default: [] }, models: { default: { default: ["preset"], sonnet: ["preset-sonnet"] } }, model_list: { default: [] } } },
     }) : null);
     const { result } = renderHook(() => useForm());
-    act(() => result.current.setModels({ default: ["custom", "fallback"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] }));
+    act(() => result.current.patch({ models: { default: ["custom", "fallback"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] } }));
     await act(() => result.current.handleProtocolChange("gemini"));
-    expect(result.current.models.default).toEqual(["custom", "fallback"]);
-    expect(result.current.models.sonnet).toEqual(["preset-sonnet"]);
+    expect(result.current.draft.models.default).toEqual(["custom", "fallback"]);
+    expect(result.current.draft.models.sonnet).toEqual(["preset-sonnet"]);
     __resetDefaultsCacheForTests();
   });
 });
@@ -55,7 +55,7 @@ describe("unknown protocol repair", () => {
 
   it("does not submit an unknown protocol", async () => {
     const { result } = renderHook(() => useForm());
-    act(() => result.current.setProtocol("unknown"));
+    act(() => result.current.patch({ protocol: "unknown" }));
     await act(() => result.current.handleSave());
     expect(platformApi.create).not.toHaveBeenCalled();
     expect(platformApi.update).not.toHaveBeenCalled();
@@ -65,7 +65,7 @@ describe("unknown protocol repair", () => {
   it("blocks unknown protocol before batch submission", async () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setProtocol("unknown");
+      result.current.patch({ protocol: "unknown" });
       result.current.setBatchPreviewKeys(["key1", "key2"]);
     });
     await act(() => result.current.handleSave());
@@ -78,18 +78,18 @@ describe("unknown protocol repair", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
       result.current.setEditing({ id: 7, platform_type: "unknown" } as any);
-      result.current.setProtocol("unknown");
-      result.current.setName("My platform");
-      result.current.setEndpoints([{ protocol: "openai", base_url: "https://example.test/v1" }] as any);
-      result.current.setModels({ default: ["custom-model"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
-      result.current.setQuotaCustomScript("custom script");
+      result.current.patch({ protocol: "unknown" });
+      result.current.patch({ name: "My platform" });
+      result.current.patch({ endpoints: [{ protocol: "openai", base_url: "https://example.test/v1" }] as any });
+      result.current.patch({ models: { default: ["custom-model"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] } });
+      result.current.patch({ quotaCustomScript: "custom script" });
     });
     await act(() => result.current.handleProtocolChange("openai"));
     await act(() => result.current.handleProtocolChange("gemini"));
-    expect(result.current.protocol).toBe("gemini");
-    expect(result.current.endpoints[0]?.base_url).toBe("https://example.test/v1");
-    expect(result.current.models.default).toEqual(["custom-model"]);
-    expect(result.current.quotaCustomScript).toBe("custom script");
+    expect(result.current.draft.protocol).toBe("gemini");
+    expect(result.current.draft.endpoints[0]?.base_url).toBe("https://example.test/v1");
+    expect(result.current.draft.models.default).toEqual(["custom-model"]);
+    expect(result.current.draft.quotaCustomScript).toBe("custom script");
     await act(() => result.current.handleSave());
     expect(platformApi.update).toHaveBeenCalledWith(expect.objectContaining({ id: 7, platform_type: "gemini", name: "My platform" }));
   });
@@ -98,43 +98,40 @@ describe("unknown protocol repair", () => {
 describe("timemodel paste and save", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it.each([false, true])("fullShare preserves existing timemodel draft (%s) through save", async (hasDraft) => {
+  it("fullShare hydrates timemodel draft from share extra through save (票 04)", async () => {
     vi.spyOn(platformApi, "create").mockResolvedValue(undefined as any);
     const { result } = renderHook(() => useForm());
-    const peak = [{ start_hour: 1, end_hour: 2, multiplier: 3 }];
-    const rules = [{ windows: [{ start_hour: 3, end_hour: 4, multiplier: 1 }], models: { default: "draft" } }];
-    if (hasDraft) act(() => {
-      result.current.timemodels.setPeak(peak);
-      result.current.timemodels.setDisableDuringPeak(true);
-      result.current.timemodels.setTimeModels(rules);
-      result.current.timemodels.setWindowsTz("utc");
+    // 预置用户草稿：fullShare 以分享串 extra 为准，水合覆盖既有草稿（票 04 前不回填 → 保存丢配置）。
+    act(() => {
+      result.current.patch({ peak: [{ start_hour: 1, end_hour: 2, multiplier: 3 }] });
+      result.current.patch({ disableDuringPeak: false });
+      result.current.patch({ timeModels: [{ windows: [{ start_hour: 3, end_hour: 4, multiplier: 1 }], models: { default: "draft" } }] });
+      result.current.setWindowsTz("utc");
     });
-    // 原 fullShare 路径只写 extra，不回填 peak/time_windows 的独立表单态。
+    const sharedPeak = [{ start_hour: 9, end_hour: 10, multiplier: 2 }];
+    const sharedRules = [{ windows: [{ start_hour: 8, end_hour: 12, multiplier: 1 }], models: { default: "shared" } }];
     await act(() => result.current.applyPaste({
       platform: null, baseUrls: [], apiKeys: [],
       fullShare: {
         name: "Shared", platform_type: "openai", api_key: "key", models: {},
-        extra: JSON.stringify({ keep: "shared", peak: [{ start_hour: 9, end_hour: 10, multiplier: 2 }],
-          disable_during_peak: true,
-          time_windows: [{ windows: [{ start_hour: 8, end_hour: 12, multiplier: 1 }], models: { default: "shared" } }],
-        }),
+        extra: JSON.stringify({ keep: "shared", peak: sharedPeak, disable_during_peak: true, time_windows: sharedRules }),
       } as any,
     }));
-    expect(result.current.timemodels.peak).toEqual(hasDraft ? peak : []);
-    expect(result.current.timemodels.timeModels).toEqual(hasDraft ? rules : []);
-    expect(result.current.timemodels.disableDuringPeak).toBe(hasDraft);
-    expect(result.current.timemodels.windowsTz).toBe(hasDraft ? "utc" : "local");
+    expect(result.current.draft.peak).toEqual(sharedPeak);
+    expect(result.current.draft.timeModels).toEqual(sharedRules);
+    expect(result.current.draft.disableDuringPeak).toBe(true);
     await act(() => result.current.handleSave());
     expect(platformApi.create).toHaveBeenCalledOnce();
     const saved = JSON.parse(vi.mocked(platformApi.create).mock.calls[0][0].extra!);
     expect(saved.keep).toBe("shared");
-    expect(saved.peak).toEqual(hasDraft ? peak : undefined);
-    expect(saved.time_windows).toEqual(hasDraft ? rules : undefined);
-    expect(saved.disable_during_peak).toBe(hasDraft ? true : undefined);
-    expect(result.current.timemodels.peak).toEqual([]);
-    expect(result.current.timemodels.timeModels).toEqual([]);
-    expect(result.current.timemodels.disableDuringPeak).toBe(false);
-    expect(result.current.timemodels.windowsTz).toBe("local");
+    expect(saved.peak).toEqual(sharedPeak);
+    expect(saved.time_windows).toEqual(sharedRules);
+    expect(saved.disable_during_peak).toBe(true);
+    // 保存成功 resetForm 后草稿清空
+    expect(result.current.draft.peak).toEqual([]);
+    expect(result.current.draft.timeModels).toEqual([]);
+    expect(result.current.draft.disableDuringPeak).toBe(false);
+    expect(result.current.windowsTz).toBe("local");
   });
 });
 
@@ -142,7 +139,7 @@ describe("usePlatformForm jev slot", () => {
   it("buildModelsPayload keeps jev, drops blank slots", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: ["jev-latest"], embedding: [], rerank: [], image: [] });
+      result.current.patch({ models: { default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: ["jev-latest"], embedding: [], rerank: [], image: [] } });
     });
     expect(result.current.buildModelsPayload()).toEqual({
       default: undefined, sonnet: undefined, opus: undefined, haiku: undefined, gpt: undefined,
@@ -154,7 +151,7 @@ describe("usePlatformForm jev slot", () => {
   it("buildModelsPayload is an object with no filled slot when every slot (incl. jev) is blank", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
+      result.current.patch({ models: { default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] } });
     });
     const payload = result.current.buildModelsPayload();
     expect(payload).toBeDefined();
@@ -164,10 +161,10 @@ describe("usePlatformForm jev slot", () => {
   it("handleFillAll fills chat slots but not jev", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: ["glm-5"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
+      result.current.patch({ models: { default: ["glm-5"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] } });
     });
     act(() => { result.current.handleFillAll(); });
-    expect(result.current.models).toEqual({
+    expect(result.current.draft.models).toEqual({
       default: ["glm-5"], sonnet: ["glm-5"], opus: ["glm-5"], haiku: ["glm-5"], gpt: ["glm-5"], jev: [],
       embedding: [], rerank: [], image: [],
     });
@@ -178,7 +175,7 @@ describe("usePlatformForm embedding / rerank slots", () => {
   it("buildModelsPayload keeps trimmed embedding / rerank", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: ["text-embedding-v4"], rerank: ["rr"] });
+      result.current.patch({ models: { default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: ["text-embedding-v4"], rerank: ["rr"] } });
     });
     expect(result.current.buildModelsPayload()).toMatchObject({ embedding: ["text-embedding-v4"], rerank: ["rr"] });
   });
@@ -186,11 +183,11 @@ describe("usePlatformForm embedding / rerank slots", () => {
   it("only embedding filled → embedding kept; all blank → still defined, no filled slot", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: ["e"], rerank: [], image: [] });
+      result.current.patch({ models: { default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: ["e"], rerank: [], image: [] } });
     });
     expect(result.current.buildModelsPayload()?.embedding).toEqual(["e"]);
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
+      result.current.patch({ models: { default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] } });
     });
     const blank = result.current.buildModelsPayload();
     expect(blank).toBeDefined();
@@ -200,11 +197,11 @@ describe("usePlatformForm embedding / rerank slots", () => {
   it("handleFillAll does not fill embedding / rerank", () => {
     const { result } = renderHook(() => useForm());
     act(() => {
-      result.current.setModels({ default: ["glm-5"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
+      result.current.patch({ models: { default: ["glm-5"], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] } });
     });
     act(() => { result.current.handleFillAll(); });
-    expect(result.current.models.embedding).toEqual([]);
-    expect(result.current.models.rerank).toEqual([]);
-    expect(result.current.models.gpt).toEqual(["glm-5"]);
+    expect(result.current.draft.models.embedding).toEqual([]);
+    expect(result.current.draft.models.rerank).toEqual([]);
+    expect(result.current.draft.models.gpt).toEqual(["glm-5"]);
   });
 });

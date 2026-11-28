@@ -30,6 +30,10 @@ _Avoid_: 通道、线路
 不识别协议、不转换内容的平台类型：请求原样打到用户指定的 base_url，仅注入用户定义的认证头。usage 尽力解析，费用恒不估算。
 _Avoid_: 直连（那指客户端直连上游）
 
+**平台配置草稿 (Platform Draft)**:
+平台编辑表单的纯数据状态，收在 `src/domains/platforms/platformDraft.ts`：来源转换（`draftFromPlatform` / `draftFromShare`）、payload 序列化（`draftToPayload`）与 reducer（`draftReducer`，`patch` / `load` / `reset` 三个 action）。只含会写库的字段；只影响展示的瞬时态（busy、弹窗开关、windowsTz、quotaSourcePristine）不进草稿。
+_Avoid_: 限频草稿（`rateLimitsDraft`，那是草稿里限频字段的表单态 ↔ 持久形状转换）、表单快照
+
 **分组 (Group)**:
 客户端接入的单元，密钥即分组名；决定请求在哪些平台间路由与重试。
 _Avoid_: 账号

@@ -6,7 +6,7 @@ import { buildStatusOptions, idsForSelection, PLATFORM_STATUS_OPTIONS } from "./
 import { platformApi } from "../../services/api";
 import { formatMoney, formatPercent, formatNumber, successRate as calcSuccessRate } from "../../utils/formatters";
 import { makeRipple } from "../../components/shared";
-import { PlatformCardActions, PlatformCardService } from "../../components/platforms/PlatformCard";
+import type { PlatformCardActions, PlatformCardService } from "../../components/platforms/usePlatformCards";
 import { PlatformRow } from "../platforms/PlatformRow";
 import { GroupLastRequest as GroupLastRequestBadge } from "./GroupLastRequest";
 import type { DragHandleProps } from "../../components/SortableList";
