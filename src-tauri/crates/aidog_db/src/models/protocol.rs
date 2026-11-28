@@ -206,7 +206,9 @@ pub enum Protocol {
     #[serde(rename = "opencode")]
     OpenCode,
     /// OpenCode Zen 免费版（OpenAI 兼容，base_url https://opencode.ai/zen/v1；
-    /// 免费模型靠 catalog 定价 0；api_key 留空时 proxy 注入 $opencode 匿名免费 key）
+    /// 免费模型靠 catalog 定价 0；api_key 留空时 proxy 注入 $opencode 匿名免费 key。
+    /// 官方 /docs/zen/ 专页 2026-11-28 已撤（并入 /docs/console/），成员复核见
+    /// aidog_adapter OpenCodeFamilyAdapter 注释）
     #[serde(rename = "opencode_zen")]
     OpenCodeZen,
     /// TokenRhythm（基元律动，Beijing TokenRhythm Technologies）：OpenAI + Anthropic
