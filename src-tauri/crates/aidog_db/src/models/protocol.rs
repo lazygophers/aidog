@@ -198,6 +198,11 @@ pub enum Protocol {
     LemonData,
     #[serde(rename = "pipellm")]
     PipeLlm,
+    /// OpenCode Go 订阅（OpenAI 兼容，内置 base_url https://opencode.ai/zen/go/v1）；
+    /// 月费订阅、配额内 cost=0。成员核对（issue 145，2026-11-28）：出站 API 面与
+    /// OpenAI 构件一致；usage 附 `cost` 与 `opencode.tokens` / `opencode.allowance`
+    /// （raw 取证见仓库 .tmp/issue-145/原始件.md；官方出处 opencode.ai/docs/console/api/inference
+    /// 与 opencode.ai/docs/console/go）。
     #[serde(rename = "opencode")]
     OpenCode,
     /// OpenCode Zen 免费版（OpenAI 兼容，base_url https://opencode.ai/zen/v1；

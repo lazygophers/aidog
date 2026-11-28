@@ -1812,6 +1812,24 @@ impl PlatformAdapter for MimoFamilyAdapter {
 ///   https://opencode.ai/docs/console/api/inference
 /// - 错误体与 SSE 事件 / 结束标记：成员端点专属格式未证实，保持框架默认处理。
 ///   https://opencode.ai/docs/console/go/ https://opencode.ai/docs/zen/
+/// - `opencode`（OpenCode Go 订阅）成员级核对（issue 145，核对日期 2026-11-28，
+///   依据官方 raw markdown 直取，出处 URL 见段末）：Go / Go Plus / Go Teams 月费
+///   订阅（$10 / $40 / $20 每成员），配额内请求 `cost` 计 0，超额走 Extra Usage；
+///   出站 API 面与家族基座完全一致：OpenAI Chat Completions `POST {base}/chat/completions`、
+///   Bearer 鉴权、`model` 填模型 id（官方模型清单端点 `GET /v1/models`，Go 的完整
+///   base URL 集 https://opencode.ai/docs/console/harnesses#base-urls）；文本模型
+///   可经任一 API 家族访问、由 Console 侧转换，网关按用户配置端点原样透传，无成员
+///   覆写。usage：OpenAI `usage` 之外附 USD `cost` 与 `opencode.tokens`（`input` 排除
+///   缓存读写、`output` 含 `reasoning`，另有 `cache_read` / `cache_write_5m` /
+///   `cache_write_1h`）与 Go 专属 `opencode.allowance`（按美元计的月度配额消耗）；
+///   流式在 `stream_options.include_usage` 末 usage chunk 携带——与基座默认 usage
+///   抽取透传一致，无覆写。订阅配额由 OpenCode 侧按 5 小时滚动 / 周 / 月三窗口计量
+///   （文档明示），无请求面参数。未证实（保持基座默认）：思考参数、工具调用 / 服务端
+///   工具、图片音视频、system prompt、max_tokens 上限、错误体格式与 SSE 结束标记的
+///   成员级差异。
+///   官方出处（raw 取证日期 2026-11-28）：
+///   https://opencode.ai/docs/console/api/inference
+///   https://opencode.ai/docs/console/go
 ///
 /// 目前无可证实的成员共性覆写；成员均继承 OpenAI 协议构件默认实现。
 pub struct OpenCodeFamilyAdapter;
@@ -3274,6 +3292,26 @@ mod opencode_family_tests {
 
         assert!(std::ptr::eq(go, zen));
         assert!(!std::ptr::eq(go, adapter_for("openai")));
+    }
+
+    /// issue 145：opencode（OpenCode Go）零成员覆写，请求构造与 OpenAI 构件基座
+    /// （对照件 newapi）等价；usage 抽取同样走基座默认（成员注释段见
+    /// [`OpenCodeFamilyAdapter`] 文档）。
+    #[test]
+    fn opencode_go_matches_openai_base_defaults() {
+        let go = lookup("opencode").expect("OpenCode Go adapter must be registered");
+        let chat_req: crate::types::ChatRequest = serde_json::from_value(serde_json::json!({
+            "model": "test-model",
+            "max_tokens": 64,
+            "messages": [{ "role": "user", "content": "hi" }]
+        }))
+        .unwrap();
+        let wire = aidog_db::models::Protocol::OpenAI;
+        let platform = aidog_db::models::Protocol::OpenCode;
+        assert_eq!(
+            go.build_request(&chat_req, &wire, &platform),
+            adapter_for("newapi").build_request(&chat_req, &wire, &platform)
+        );
     }
 }
 
