@@ -5548,6 +5548,51 @@ async fn anthropic_member_error_body() {
     assert!(resp.contains("req_149"), "request_id 保留: {resp}");
 }
 
+// ══ issue 139：腾讯云 TokenHub 国际站 `tencent_tokenhub_intl` 护栏 ══
+// 成员复核（2026-11-28，官方 130079 完整页直取：新加坡站 tokenhub-intl.tencentmaas.com/v1，
+// 认证 / 思考 / usage / 错误形状与国内站同一文档）与家族取证（2026-11-23）一致，无成员
+// 覆写（见 aidog_adapter platform::registry `TENCENT` 上方 issue 139 注释）。issue 84 段
+// 已按成员循环覆盖 intl 的请求转换 / 非流式 / 流式 / openai 错误 / 禁思考；本段只补与
+// issue 138 同形的两组缺口：openai 流式末帧 usage 事件与 anthropic 端点错误体透传。
+
+/// 国际站 openai 流式 usage 终块（与 135872 usage 表同形状）→ Usage 事件；cache_read 取
+/// `prompt_tokens_details.cached_tokens`。
+#[test]
+fn tencent_tokenhub_intl_openai_stream_usage_event() {
+    use aidog_adapter::types::ChatStreamEvent;
+    let adapter = aidog_adapter::platform::adapter_for("tencent_tokenhub_intl");
+    let frame = serde_json::json!({
+        "id": "tci_1", "created": 1, "model": "hy4", "choices": [],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 3, "total_tokens": 13,
+                   "prompt_tokens_details": {"cached_tokens": 4}},
+    });
+    let events = adapter.parse_sse_frame(&frame, &Protocol::OpenAI);
+    let Some(ChatStreamEvent::Usage { usage }) = events.iter().find(|e| matches!(e, ChatStreamEvent::Usage { .. })) else {
+        panic!("usage 终块须产出 Usage 事件: {events:?}");
+    };
+    assert_eq!(usage.prompt_tokens, Some(10), "{usage:?}");
+    assert_eq!(usage.completion_tokens, Some(3), "{usage:?}");
+    assert_eq!(usage.cache_read_tokens, Some(4), "{usage:?}");
+}
+
+/// 国际站 anthropic 端点错误透传：上游 400 anthropic 形状错误体原样回客户端，状态码不吞
+/// （错误体形状经基座 anthropic 臂透传，与国内站同链）。
+#[tokio::test]
+async fn tencent_tokenhub_intl_anthropic_endpoint_error_body() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::TencentTokenhubIntl,
+        Protocol::Anthropic,
+        "gk139ae",
+        "/chat/completions",
+        GLM_OPENAI_IN,
+        (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: Field required"}}"#),
+    )
+    .await;
+    assert!(!hits.is_empty());
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("max_tokens: Field required"), "{resp}");
+}
 // ══ issue 140：小米 MiMo（xiaomi_mimo）成员护栏 ══
 // 成员复核（2026-11-28，官方 .md 原文页重抓比对）与家族基座取证一致，无成员覆写（见
 // aidog_adapter platform::registry `MimoFamilyAdapter` 成员节）。issue 85 段已覆盖两端点
