@@ -1220,6 +1220,46 @@ impl PlatformAdapter for QianfanFamilyAdapter {
 ///   协议为 no-op，行为不变。
 /// - 未证实（保持基座默认）：`enable_thinking` 默认值、max_tokens 统一上限、
 ///   `reasoning_effort` 对清单外模型的认受性、错误体在流式帧内的形态。
+/// - 成员差异（siliconflow_en，issue 134，核对日期 2026-11-28）：端点内置默认 anthropic
+///   `https://api.siliconflow.com` / openai `https://api.siliconflow.com/v1`（registry 数据，
+///   与 siliconflow 的 api.siliconflow.cn 不同域）；官方国际文档站直读探针命中
+///   enable_thinking / thinking_budget / reasoning_content / `data: [DONE]`
+///   （https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions），
+///   与家族 2026-11-23 核对一致；reasoning_effort 与 usage cached_tokens 字段未在该页
+///   raw HTML 命中——未证实，保持基座默认；非 coding plan（registry 无 is_coding_plan）；
+///   无成员独有覆写，注册即家族基座单例。
+///
+/// 成员 `siliconflow`（SiliconFlow（硅基流动），api.siliconflow.cn 标准平台；issue 133，
+/// 核对日期 2026-11-28）：与家族基座无已证实的成员级差异，登记为
+/// [`SiliconFlowFamilyAdapter`]（全量开启家族覆写）；逐项核对结论（官方文档原文，
+/// docs.siliconflow.cn 中国站正文由原始 HTML 直读；国际站 docs.siliconflow.com 同一文档
+/// 结构，未逐条复核，成员差异归 siliconflow_en 的 issue）：
+/// - 端点协议：registry 内置默认 openai `https://api.siliconflow.cn/v1` 与 anthropic
+///   `https://api.siliconflow.cn`，与官方一致（chat 页请求示例打
+///   `https://api.siliconflow.cn/v1/chat/completions`，messages 页示例打
+///   `https://api.siliconflow.cn/v1/messages`）；运行时只用用户平台配置的端点。
+///   https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions
+///   https://docs.siliconflow.cn/cn/docs/api/messages-post
+/// - 思考开关 / usage / 流式 / 错误体 / 工具与多模态 / system：同家族基座（openai 端点
+///   顶层布尔 `enable_thinking`、`thinking_budget`（128–32768）、`reasoning_effort` 仅
+///   high/max 且无 none；anthropic 端点 `thinking.type` disabled/enabled（enabled 带
+///   budget_tokens 必填）；usage `prompt_tokens_details.cached_tokens` + DeepSeek 系
+///   `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`；SSE 以 `data: [DONE]` 结束、
+///   思考增量在 `reasoning_content`；错误体顶层 `{"code":20012,"message":"Model does not
+///   exist...","data":null}` 无 error 包裹，504 示例 `{"code":50505,"message":"Model
+///   service overloaded..."}`；工具 / `image_url` / system role 为标准 OpenAI 形状），
+///   不覆盖。
+///   https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions
+///   https://docs.siliconflow.cn/cn/docs/userguide/faqs/error-code
+/// - usage（anthropic 端点）：messages 页响应示例 `usage.input_tokens` / `output_tokens`
+///   （示例无缓存字段；Usage 对象属性页未逐项展开），保持基座 anthropic 臂（有键即抽、
+///   无键按 0），不覆盖。https://docs.siliconflow.cn/cn/docs/api/messages-post
+/// - coding_plan 注入：非编码套餐，基座按平台协议分派对 SiliconFlow 协议为 no-op，
+///   行为不变。
+/// - 未证实（保持基座默认）：`enable_thinking` 默认值、max_tokens 统一上限、anthropic
+///   端点流式事件序列与终止标记（测试按基座 anthropic 事件链构造）、`reasoning_effort`
+///   对清单外模型的认受性、错误体在流式帧内的形态、TypeSafe 端点（registry 未内置该
+///   协议，用户手配时走基座协议构件）。
 pub struct SiliconFlowFamilyAdapter;
 
 impl PlatformAdapter for SiliconFlowFamilyAdapter {
@@ -3455,5 +3495,22 @@ mod deepseek_tests {
             pa.classify_error(429, r#"{"error":{"message":"rate limit"}}"#),
             error::UpstreamErrorClass::Service
         );
+    }
+}
+
+#[cfg(test)]
+mod siliconflow_family_tests {
+    use super::*;
+
+    /// 两成员注册同一家族基座单例（issue 134；参照 sensenova_family_tests 同名护栏）。
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let cn = lookup("siliconflow").expect("SiliconFlow adapter must be registered");
+        let en = lookup("siliconflow_en").expect("SiliconFlow En adapter must be registered");
+
+        assert!(std::ptr::eq(cn, en));
+        assert!(!std::ptr::eq(cn, adapter_for("devin")));
+        assert!(!std::ptr::eq(en, adapter_for("devin")));
+        assert!(!std::ptr::eq(cn, adapter_for("openai")));
     }
 }
