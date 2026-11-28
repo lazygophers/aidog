@@ -2489,7 +2489,13 @@ fn xiaomi_mimo_coding_registry_semantics_and_coding_plan_noop() {
         !std::ptr::eq(coding, official),
         "套餐成员不得复用 xiaomi_mimo 全量覆写实例"
     );
-    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+    // issue #142：国际版成员自身 wire（xiaomi_mimo_coding_en）同样 no-op。
+    for wire in [
+        Protocol::OpenAI,
+        Protocol::Anthropic,
+        Protocol::XiaomiMimoCoding,
+        Protocol::XiaomiMimoCodingEn,
+    ] {
         let mut body = json!({ "model": "mimo-v2.6-pro", "messages": [] });
         let original = body.clone();
         coding.inject_coding_plan(&mut body, &Protocol::XiaomiMimoCoding, &wire);
