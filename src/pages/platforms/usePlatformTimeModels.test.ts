@@ -1,87 +1,70 @@
+// usePlatformTimeModels（票 12）：6 个时段键并入 PlatformDraft 后，本 hook 只剩
+// 「draft 键 + patch 适配 + windowsTz 展示态」。hydrate/serialize/reset 随之删除——
+// 序列化语义由 platformDraft.draftToPayload 锁定（platformDraft.test.ts / 票 05 契约测试）。
 import { describe, expect, it } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import { useReducer } from "react";
 import { usePlatformTimeModels } from "./usePlatformTimeModels";
+import { draftReducer, emptyDraft } from "../../domains/platforms/platformDraft";
 
-const rule = { windows: [{ start_hour: 8, end_hour: 12, multiplier: 1 }], models: { default: "m" } };
-const extra = JSON.stringify({
-  keep: "yes",
-  peak: [{ start_hour: 9, end_hour: 10, multiplier: 2 }],
-  disable_during_peak: true,
-  time_windows: [rule],
-  direct_models: ["m1", "m2"],
-});
+/** 微型 harness：真实 draftReducer 持 draft，hook 经 dispatch patch。 */
+function useHarness() {
+  const [draft, dispatch] = useReducer(draftReducer, undefined, emptyDraft);
+  const timemodels = usePlatformTimeModels(draft, dispatch);
+  return { draft, timemodels };
+}
 
-describe("usePlatformTimeModels", () => {
-  it("hydrates all four persisted fields with their actual values", () => {
-    const { result } = renderHook(() => usePlatformTimeModels());
-    act(() => result.current.hydrate(extra));
-    expect(result.current.peak).toEqual([{ start_hour: 9, end_hour: 10, multiplier: 2 }]);
-    expect(result.current.disableDuringPeak).toBe(true);
-    expect(result.current.timeModels).toEqual([rule]);
-    expect(result.current.directModels).toEqual(["m1", "m2"]);
-  });
-
-  it("serializes all four fields and preserves unrelated extra", () => {
-    const { result } = renderHook(() => usePlatformTimeModels());
+describe("usePlatformTimeModels — draft + patch 适配（票 12）", () => {
+  it("setPeak / setTimeModels patch 进同一份 draft", () => {
+    const { result } = renderHook(() => useHarness());
+    const peak = [{ start_hour: 9, end_hour: 10, multiplier: 2 }];
+    const rules = [{ windows: [{ start_hour: 8, end_hour: 12, multiplier: 1 }], models: { default: "m" } }];
     act(() => {
-      result.current.setPeak([{ start_hour: 1, end_hour: 2, multiplier: 3 }]);
-      result.current.setDisableDuringPeak(true);
-      result.current.setTimeModels([rule]);
-      result.current.setDirectModels(["m1"]);
-      result.current.setWindowsTz("utc");
+      result.current.timemodels.setPeak(peak);
+      result.current.timemodels.setTimeModels(rules);
     });
-    const serialized = JSON.parse(result.current.serialize(JSON.stringify({ keep: "yes" })));
-    expect(serialized.keep).toBe("yes");
-    expect(serialized.peak).toEqual([{ start_hour: 1, end_hour: 2, multiplier: 3 }]);
-    expect(serialized.disable_during_peak).toBe(true);
-    expect(serialized.time_windows).toEqual([rule]);
-    expect(serialized.direct_models).toEqual(["m1"]);
-    expect(result.current.windowsTz).toBe("utc");
+    expect(result.current.timemodels.peak).toEqual(peak);
+    expect(result.current.timemodels.timeModels).toEqual(rules);
+    expect(result.current.draft.peak).toEqual(peak);
+    expect(result.current.draft.timeModels).toEqual(rules);
   });
 
-  it("direct_models empty list is not written into extra", () => {
-    const { result } = renderHook(() => usePlatformTimeModels());
-    act(() => result.current.hydrate(extra));
-    act(() => result.current.setDirectModels([]));
-    const serialized = JSON.parse(result.current.serialize(extra));
-    expect(serialized.direct_models).toBeUndefined();
-    expect(serialized.keep).toBe("yes");
+  it("setter 支持函数式 updater（读当前 draft 键）", () => {
+    const { result } = renderHook(() => useHarness());
+    act(() => result.current.timemodels.setDirectModels(["m1"]));
+    act(() => result.current.timemodels.setDirectModels(prev => [...prev, "m2"]));
+    expect(result.current.timemodels.directModels).toEqual(["m1", "m2"]);
   });
 
-  it("allowed_clients 回显 / 写回 / 清空删键", () => {
-    const { result } = renderHook(() => usePlatformTimeModels());
-    const e = JSON.stringify({ keep: "yes", allowed_clients: ["claude_code", "codex_cli"] });
-    act(() => result.current.hydrate(e));
-    expect(result.current.allowedClients).toEqual(["claude_code", "codex_cli"]);
-    expect(JSON.parse(result.current.serialize(e)).allowed_clients).toEqual(["claude_code", "codex_cli"]);
-    act(() => result.current.setAllowedClients([]));
-    expect(JSON.parse(result.current.serialize(e))).toEqual({ keep: "yes" });
+  it("其余 3 键（disableDuringPeak / allowedClients / uaRules）同 patch 语义", () => {
+    const { result } = renderHook(() => useHarness());
+    act(() => {
+      result.current.timemodels.setDisableDuringPeak(true);
+      result.current.timemodels.setAllowedClients(["claude_code"]);
+      result.current.timemodels.setUaRules([{ kind: "contains", pattern: "x" }]);
+    });
+    expect(result.current.timemodels.disableDuringPeak).toBe(true);
+    expect(result.current.timemodels.allowedClients).toEqual(["claude_code"]);
+    expect(result.current.timemodels.uaRules).toEqual([{ kind: "contains", pattern: "x" }]);
   });
 
-  it("deletes all four persisted keys when cleared", () => {
-    const { result } = renderHook(() => usePlatformTimeModels());
-    act(() => result.current.hydrate(extra));
-    act(() => result.current.reset());
-    const serialized = JSON.parse(result.current.serialize(extra));
-    expect(serialized).toEqual({ keep: "yes" });
-    expect(result.current.windowsTz).toBe("local");
-    expect(result.current.directModels).toEqual([]);
+  it("windowsTz 是本地展示态：切换不进 draft，patch 不碰它", () => {
+    const { result } = renderHook(() => useHarness());
+    expect(result.current.timemodels.windowsTz).toBe("local");
+    act(() => result.current.timemodels.setWindowsTz("utc"));
+    expect(result.current.timemodels.windowsTz).toBe("utc");
+    expect(result.current.draft).not.toHaveProperty("windowsTz");
+    act(() => result.current.timemodels.setPeak([{ start_hour: 1, end_hour: 2, multiplier: 3 }]));
+    expect(result.current.timemodels.windowsTz).toBe("utc");
   });
-});
 
-describe("usePlatformTimeModels — client_ua_rules", () => {
-  it("hydrate 回显 / serialize 写回 / 清空删键，其余键保留", () => {
-    const rules = [{ kind: "contains", pattern: "openviking" }];
-    const ex = JSON.stringify({ keep: "yes", client_ua_rules: rules });
-    const { result } = renderHook(() => usePlatformTimeModels());
-    act(() => result.current.hydrate(ex));
-    expect(result.current.uaRules).toEqual(rules);
-    expect(JSON.parse(result.current.serialize(ex)).client_ua_rules).toEqual(rules);
-    act(() => result.current.setUaRules([]));
-    const cleared = JSON.parse(result.current.serialize(ex));
-    expect(cleared.client_ua_rules).toBeUndefined();
-    expect(cleared.keep).toBe("yes");
-    act(() => result.current.reset());
-    expect(result.current.uaRules).toEqual([]);
+  it("patch 只覆盖给出的键（reducer 纯 patch 语义穿透）", () => {
+    const { result } = renderHook(() => useHarness());
+    act(() => {
+      result.current.timemodels.setAllowedClients(["codex"]);
+      result.current.timemodels.setPeak([{ start_hour: 1, end_hour: 2, multiplier: 1 }]);
+    });
+    expect(result.current.timemodels.allowedClients).toEqual(["codex"]);
+    expect(result.current.timemodels.peak).toHaveLength(1);
   });
 });

@@ -20,6 +20,7 @@ import {
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
 import { notifyPlatformMembershipChanged } from "./groupsChanged";
 import { slotsToForm } from "../../domains/platforms/slotValue";
+import type { SharedCreateFields } from "../../domains/platforms/platformDraft";
 
 /** ctx = applyPaste / runBatchCreateFromPaste 需要的全部 form state + list 依赖。
  *  字段引用 usePlatformForm 调用时刻闭包值（与抽前一致）。 */
@@ -27,7 +28,7 @@ export interface PlatformPasteCtx {
   t: TFunction;
   /** 除 name/api_key 外的全部创建字段（usePlatformForm.buildSharedCreateFields）：
    *  批量创建的每个平台与表单配置完全一致，仅 token 不同。 */
-  buildSharedCreateFields: () => Record<string, unknown>;
+  buildSharedCreateFields: () => SharedCreateFields;
   // form state（读 + 写）
   name: string;
   protocol: Protocol;

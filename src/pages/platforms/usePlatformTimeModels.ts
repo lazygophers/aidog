@@ -1,21 +1,7 @@
 import { useState } from "react";
-import {
-  parsePlatformPeak,
-  parseDisableDuringPeak,
-  parseDirectModels,
-  parseAllowedClients,
-  parseClientUaRules,
-  parsePlatformTimeWindows,
-  serializePlatformPeak,
-  serializeDisableDuringPeak,
-  serializeDirectModels,
-  serializeAllowedClients,
-  serializeClientUaRules,
-  serializePlatformTimeWindows,
-  type TimeModelRule,
-  type ClientUaRule,
-} from "../../services/api";
 import type { TimeWindow } from "../../domains/platforms";
+import type { PlatformDraft, DraftAction } from "../../domains/platforms/platformDraft";
+import type { TimeModelRule, ClientUaRule } from "../../services/api";
 
 export interface PlatformTimeModelsState {
   peak: TimeWindow[];
@@ -34,61 +20,27 @@ export interface PlatformTimeModelsState {
   setAllowedClients: React.Dispatch<React.SetStateAction<string[]>>;
   uaRules: ClientUaRule[];
   setUaRules: React.Dispatch<React.SetStateAction<ClientUaRule[]>>;
-  reset: () => void;
-  hydrate: (extra: string) => void;
-  serialize: (extra: string) => string;
 }
 
-/** 高峰与时段模型表单态，统一通过 extra 读写持久化字段。 */
-export function usePlatformTimeModels(): PlatformTimeModelsState {
-  /** peak：用户覆盖，空数组删除键，空值回落 preset 默认。 */
-  const [peak, setPeak] = useState<TimeWindow[]>([]);
-  /** 时区只影响表单展示；不写入 platform.extra。 */
+/** 高峰与时段模型表单态（票 12）：6 个持久化键并入 PlatformDraft，由 usePlatformForm 持
+ *  useReducer(draftReducer) 持有；本 hook 只提供 draft 键视图 + patch setter 适配 +
+ *  windowsTz（纯展示态，不写 extra）。hydrate/serialize/reset 已删——水合在
+ *  draftFromPlatform / hydrateExtra，序列化在 draftToPayload（platformDraft.ts）。 */
+export function usePlatformTimeModels(
+  draft: PlatformDraft,
+  dispatch: React.Dispatch<DraftAction>,
+): PlatformTimeModelsState {
+  const patchOf = <K extends "peak" | "disableDuringPeak" | "timeModels" | "directModels" | "allowedClients" | "uaRules">(k: K) =>
+    (v: React.SetStateAction<PlatformDraft[K]>) =>
+      dispatch({ type: "patch", patch: { [k]: typeof v === "function" ? (v as (prev: PlatformDraft[K]) => PlatformDraft[K])(draft[k]) : v } });
   const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
-  /** disable_during_peak：false 删除键，true 写入用户覆盖。 */
-  const [disableDuringPeak, setDisableDuringPeak] = useState(false);
-  /** time_windows：空数组删除键，无规则时使用默认模型。 */
-  const [timeModels, setTimeModels] = useState<TimeModelRule[]>([]);
-  /** direct_models：直通模型列表，空数组删除键（未声明 = 走默认链）。 */
-  const [directModels, setDirectModels] = useState<string[]>([]);
-  const [allowedClients, setAllowedClients] = useState<string[]>([]);
-  const [uaRules, setUaRules] = useState<ClientUaRule[]>([]);
-
-  const reset = () => {
-    setPeak([]);
-    setWindowsTz("local");
-    setDisableDuringPeak(false);
-    setTimeModels([]);
-    setDirectModels([]);
-    setAllowedClients([]);
-    setUaRules([]);
-  };
-
-  const hydrate = (extra: string) => {
-    setPeak(parsePlatformPeak(extra));
-    setDisableDuringPeak(parseDisableDuringPeak(extra));
-    setTimeModels(parsePlatformTimeWindows(extra));
-    setDirectModels(parseDirectModels(extra));
-    setAllowedClients(parseAllowedClients(extra));
-    setUaRules(parseClientUaRules(extra));
-  };
-
-  const serialize = (extra: string) => {
-    let next = serializePlatformPeak(extra, peak);
-    next = serializeDisableDuringPeak(next, disableDuringPeak);
-    next = serializeDirectModels(next, directModels);
-    next = serializeAllowedClients(next, allowedClients);
-    next = serializeClientUaRules(next, uaRules);
-    return serializePlatformTimeWindows(next, timeModels);
-  };
-
   return {
-    peak, setPeak, windowsTz, setWindowsTz,
-    disableDuringPeak, setDisableDuringPeak,
-    timeModels, setTimeModels,
-    directModels, setDirectModels,
-    allowedClients, setAllowedClients,
-    uaRules, setUaRules,
-    reset, hydrate, serialize,
+    peak: draft.peak, setPeak: patchOf("peak"),
+    windowsTz, setWindowsTz,
+    disableDuringPeak: draft.disableDuringPeak, setDisableDuringPeak: patchOf("disableDuringPeak"),
+    timeModels: draft.timeModels, setTimeModels: patchOf("timeModels"),
+    directModels: draft.directModels, setDirectModels: patchOf("directModels"),
+    allowedClients: draft.allowedClients, setAllowedClients: patchOf("allowedClients"),
+    uaRules: draft.uaRules, setUaRules: patchOf("uaRules"),
   };
 }
