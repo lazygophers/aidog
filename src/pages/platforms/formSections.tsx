@@ -619,6 +619,9 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
   selectedTier: PlanQuotaTier | undefined;
   t: TFunction;
 }) {
+  // 键入态（按行 id）：保留用户键入的原始字符串（失焦回落到解析后的持久值），
+  // 避免 `value={b.amount || ""}` 把 "0" 回写成 "" 导致无法键入 0.x（frontend-refactor-tests 渲染期回落禁令）
+  const [amountDraft, setAmountDraft] = useState<Record<string, string>>({});
   return (
     <>
       {/* 实时态条：限额计数（用量扣减数据未回传表单，先展示静态配置态） */}
@@ -696,8 +699,10 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               step="any"
               style={{ width: 100, flexShrink: 0, height: "auto", fontSize: 15, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
               placeholder={t("platform.manualBudgetAmount", "Amount")}
-              value={b.amount || ""}
-              onChange={e => update({ amount: parseFloat(e.target.value) || 0 })}
+              data-testid="manual-budget-amount"
+              value={amountDraft[b.id] ?? (b.amount || "")}
+              onChange={e => { setAmountDraft(m => ({ ...m, [b.id]: e.target.value })); update({ amount: parseFloat(e.target.value) || 0 }); }}
+              onBlur={() => setAmountDraft(m => { const { [b.id]: _drop, ...rest } = m; return rest; })}
             />
             <Select
               value={b.unit}

@@ -108,6 +108,17 @@ describe("ManualBudgetsFields — C 方向稿接线", () => {
     // 删除按钮按行渲染，第一行删除后保留第二行；断言「只剩一行且不叫 drop」语义（id 由实现按过滤生成）
     expect(next).toHaveLength(1);
   });
+
+  it("额度输入保留 0 开头键入：键入 0 → 0.5 后输入框仍显示 0.5（渲染期不回落）", () => {
+    const { container, setBudgets } = renderBudgets([budget({ amount: 0 })]);
+    const amt = container.querySelector('[data-testid="manual-budget-amount"]') as HTMLInputElement;
+    expect(amt).not.toBeNull();
+    fireEvent.change(amt, { target: { value: "0" } });
+    fireEvent.change(amt, { target: { value: "0.5" } });
+    expect(amt.value).toBe("0.5");
+    const next = setBudgets.mock.calls.at(-1)![0] as ManualBudget[];
+    expect(next[0].amount).toBe(0.5);
+  });
 });
 
 // ── RateLimitsSection ──────────────────────────────────────────────────────
