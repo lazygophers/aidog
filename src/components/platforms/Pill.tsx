@@ -1,6 +1,6 @@
 // ── Pill ──
 // 行卡徽标 pill（终稿 Linear 精密密度）：语义色 token + color-mix 淡底/描边。
-// 原 PlatformCard 内 9 处重复的内联 pill idiom 收口成组件；fontSize 12（可读性底线 ≥12px）。
+// 原平台卡片内 9 处重复的内联 pill idiom 收口成组件；fontSize 12（可读性底线 ≥12px）。
 // color 传 CSS 变量名（如 "var(--color-success)"），用于 color-mix 派生底/边。
 
 import type { ReactNode } from "react";

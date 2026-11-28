@@ -131,7 +131,7 @@ describe("PlatformRow", () => {
     expect(screen.getByTestId("row-status-dot").getAttribute("title")).toBe("auto_disabled");
   });
 
-  describe("徽标（自 PlatformCard.test.tsx 迁入，票 02）", () => {
+  describe("徽标（票 02 迁入）", () => {
     it("高峰徽标: 时段来自 preset 默认（用户没自配也要显）", () => {
       const prev = metaCfg.v;
       metaCfg.v = () => ({ color: "#123", isCpProtocol: false, defaultModels: [], homepage: "", sourceUrls: { docs: "", pricing: "" }, protocolLabel: "", labelMap: {},

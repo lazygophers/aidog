@@ -83,7 +83,7 @@ export interface PlatformRowProps {
   platform: Platform;
   usage?: PlatformUsageStats;
   quotaRaw?: PlatformQuota;
-  quotaPreferReal?: boolean; // 真查校准标记：命中时配额列优先真实 quota（computeQuotaDisplay 口径，同 PlatformCard）
+  quotaPreferReal?: boolean; // 真查校准标记：命中时配额列优先真实 quota（computeQuotaDisplay 口径）
   lastTest?: LastTestResult;
   manualResult?: "ok" | "fail";
   testing?: boolean;
@@ -140,7 +140,7 @@ export function PlatformRow({
 }: PlatformRowProps) {
   const dispCur = useDisplayCurrency();
   const { isCpProtocol, defaultModels, peakWindows, holidayCalendar } = useProtocolMeta(p.platform_type, p.extra ?? "", lang);
-  // 转发生效模型（PlatformCard 同口径）：显式槽位优先，没配回落 preset 默认。
+  // 转发生效模型：显式槽位优先，没配回落 preset 默认。
   const configuredModels = useMemo(() => {
     const explicit = allConfiguredModelValues(p);
     return explicit.length > 0 ? explicit : defaultModels;
@@ -161,7 +161,7 @@ export function PlatformRow({
   const nowMs = Date.now();
   const inPeak = isCurrentlyPeak(peakWindows, nowMs, "", holidayCalendar);
   const hitWin = inPeak ? peakWindows.find(w => isCurrentlyPeak([w], nowMs, "", holidayCalendar)) : undefined;
-  // 配额列统一口径（同 PlatformCard）：真查校准（quotaPreferReal）→ est 预估 → 无数据。
+  // 配额列统一口径：真查校准（quotaPreferReal）→ est 预估 → 无数据。
   const balCcys = useBalanceCurrencies();
   const quota = useMemo(() => computeQuotaDisplay(p, quotaRaw, !!quotaPreferReal, balCcys[String(p.id)]), [p, quotaRaw, quotaPreferReal, balCcys, dispCur]);
   const mb = useMemo(() => computeManualBudgetDisplay(p.manual_budgets), [p.manual_budgets]);
@@ -315,7 +315,7 @@ export function PlatformRow({
             );
           })()}
         </span>
-        {/* 列 4：余额 / 配额（coding 档位 / 余额条 / 手动预算，口径同 PlatformCard.computeQuotaDisplay） */}
+        {/* 列 4：余额 / 配额（coding 档位 / 余额条 / 手动预算，口径同 computeQuotaDisplay） */}
         <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
           {quota.tiers.length > 0 ? (
             quota.tiers.map((tier, i) => {

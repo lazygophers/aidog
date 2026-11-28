@@ -14,7 +14,7 @@
 //
 // 不发 groups-changed 的路径：handleToggle（status 切换不改归属）/ handleQuickTest（仅测试信号）。
 //
-// 正交信号（不混入三连）: aidog-platform-test-completed（单卡测试完成）/ aidog:platform（deep-link
+// 正交信号（不并入 aidog-groups-changed）: aidog-platform-test-completed（单卡测试完成）/ aidog:platform（deep-link
 //   导入）—各自有独立 lifecycle 与监听者，不与 membership mutation 混。
 // ────────────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";

@@ -24,7 +24,7 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
   onChange: (ids: number[]) => void;
   t: TFunction;
   /** 协议本地化 label 全表（父组件一次性 getProtocolLabelMap 取，sync 渲染避免每 option async）。
-   *  缺省回退 platform_type key（与 PlatformCard 二级回退链同范式）。 */
+   *  缺省回退 platform_type key（与 PlatformRow 二级回退链同范式）。 */
   labelMap?: Record<string, string>;
 }) {
   // claude_code 订阅平台只允许独占分组（与后端 set_group_platforms 校验对称，2026-09-27 拍板写死该协议）

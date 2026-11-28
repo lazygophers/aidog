@@ -124,7 +124,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 分组展开区平台卡片：复用 PlatformCard + usePlatformCards（与 Platforms 主列表同款） ──
+  // ── 分组展开区平台卡片：复用 PlatformRow + usePlatformCards（与 Platforms 主列表同款） ──
   const cards = usePlatformCards({ onNavigate, onEdit: onEditPlatform, setToast: onToast });
   // quota 自动初拉：行式列表无手动刷新入口，挂载后对有 key 且未拉过的平台静默拉一次余额，
   // 否则余额列永远是 est_balance_remaining 回落值（coding 套餐真实余额不上屏）。
@@ -186,7 +186,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     }, 300);
   }, []);
 
-  // 分组内卡（PlatformCard）展开态：默认收起。从 platform.extra._ui_expand_grp 跨会话回灌（仅一次）。
+  // 分组内行（PlatformRow）展开态：默认收起。从 platform.extra._ui_expand_grp 跨会话回灌（仅一次）。
   // ponytail: 键 _ui_expand_grp 独立于 Platforms 页的 _ui_expand_plat（s4）—— 同一 platform 两键并存，
   //   Groups 内卡展开与 Platforms 主列表展开分别持久化。idiom 对齐 collapseInitRef（s3）。
   const expandInitRef = useRef(false);

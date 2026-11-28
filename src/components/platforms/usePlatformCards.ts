@@ -11,7 +11,7 @@ import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 
 // ── Types ──
 
-/** 卡片编排动作（拖拽排序 / 展开 / 刷新额度 / 删除；父级编排，原 PlatformCard 导出） */
+/** 卡片编排动作（拖拽排序 / 展开 / 刷新额度 / 删除；父级编排） */
 export interface PlatformCardActions {
   onPointerDown: (e: React.PointerEvent, index: number) => void;
   onPointerMove: (e: React.PointerEvent) => void;

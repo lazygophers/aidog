@@ -2,7 +2,7 @@
 // ponytail: 阶段 4 二次拆分后的 orchestrator。state/handlers 全在 usePlatformsState（含 usePlatformQuota 子系统），
 //   JSX 分两个区块子组件：PlatformEditForm（编辑/新建态）+ PlatformListView（列表态）。
 //   本文件仅做：① 调 hook 拿 state ② 按 showForm 路由到对应子组件 ③ 构建 cardActions（latest-ref 稳定引用，
-//   保 PlatformCard memo 生效）。
+//   保 PlatformRow memo 生效）。
 //
 // 行为零变更（纯结构重构）：不改业务逻辑 / i18n key / Tauri command 签名。
 // App.tsx import 路径 `./pages/Platforms` 保持不变。
@@ -21,7 +21,7 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   const { list, drag, form, platformMembership } = s;
   const { detailPlatform, handleDetail, closeDetail } = s.detail;
 
-  // 卡片操作集合：用 latest-ref 持有最新闭包，对外暴露稳定引用，保证 PlatformCard memo 生效。
+  // 卡片操作集合：用 latest-ref 持有最新闭包，对外暴露稳定引用，保证 PlatformRow memo 生效。
   // ponytail: 原代码每个回调显式包一层 actionsRef.current.X，迁移后保持完全等价的稳定引用语义。
   const actionsRef = useRef({
     s_handlePlatPointerDown: drag.handlePlatPointerDown,
@@ -57,7 +57,7 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
     s_setFaviconFailed: list.setFaviconFailed,
   };
   // 卡片行为服务（票 12）：只吃 platform 的 7 个回调独立成 service 对象，
-  // 同样走 latest-ref 稳定引用，保 PlatformCard memo 生效。
+  // 同样走 latest-ref 稳定引用，保 PlatformRow memo 生效。
   const cardService = useMemo<PlatformCardService>(() => ({
     onToggleEnabled: (p) => actionsRef.current.s_handleToggle(p),
     onEdit: (p) => actionsRef.current.s_handleEdit(p),

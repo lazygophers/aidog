@@ -176,7 +176,7 @@ export function formatClockTime(ms: number): string {
 /**
  * 数值限制：将 value 限制在 [min, max] 区间内。
  * 例：clamp(15, 1, 10) → 10，clamp(-5, 0, 100) → 0，clamp(50, 0, 100) → 50。
- * 合并自 popover.tsx / usageColor.ts / PlatformCard.tsx 各自的 clamp 实现。
+ * 合并自 popover.tsx / usageColor.ts 各自的 clamp 实现。
  */
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));

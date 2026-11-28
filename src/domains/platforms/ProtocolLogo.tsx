@@ -6,7 +6,7 @@ import { useProtocolColorMap } from "./useProtocolMeta";
 /** Protocol brand logo（缓存命中）+ 首字母圆圈 fallback。
  *
  *  用于 SearchableProtocolSelect 等只需 logo 一层展示的场景。
- *  PlatformCard 内部另含 bundled SVG / favicon 多层 fallback，不使用此组件。
+ *  PlatformRow 内部另含 bundled SVG / favicon 多层 fallback，不使用此组件。
  *
  *  ponytail: 单层缓存 logo + fallback，不引入多层抽象。 */
 export function ProtocolLogo({
