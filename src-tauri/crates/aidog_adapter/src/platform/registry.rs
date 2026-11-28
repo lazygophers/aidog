@@ -1372,6 +1372,16 @@ impl PlatformAdapter for SiliconFlowFamilyAdapter {
 ///   对象认受性（按票面保持框架默认）、错误体在流式帧内的形态、`step_plan` 通道 `max_tokens`
 ///   64K 上限之外的字段约束、非推理模型收到禁思考时是否需要显式参数（官方无关闭形态可写，
 ///   剥净即默认）。
+/// - 成员 stepfun（issue 135）官方复核（核对日期 2026-11-28，原文存 .tmp/issue-135/raw-*.md）：
+///   chat-completion-create.md 复认 `reasoning_format` 默认 `general`、`reasoning_effort`
+///   low/medium/high、`usage.prompt_tokens_details.cached_tokens`（流式帧逐帧携带）；
+///   messages-create.md 复认 `output_config.effort` 三档、`max_tokens` 上限 64K、step_plan
+///   通道 base_url `https://api.stepfun.com/step_plan`；error-codes.md 复认错误码
+///   400/401/402（`insufficient_credit`）/429（含 credit 语义码）。均与 2026-11-23 首核一致，
+///   本平台无新增差异。
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
+///   https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
+///   https://platform.stepfun.com/docs/zh/api-reference/error-codes.md
 pub struct StepFunFamilyAdapter;
 
 /// StepFun 默认 `reasoning_format: general`：思考内容在 `reasoning` 字段（`deepseek-style`
