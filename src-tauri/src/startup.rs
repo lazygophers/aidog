@@ -140,6 +140,7 @@ pub fn run() {
             aidog_core::proxy_cmd::search::search_searx_instances,
             aidog_core::proxy_cmd::search::search_searx_test,
             aidog_core::proxy_cmd::search::search_sources,
+            aidog_core::mcp_tools::mcp_tools_settings_get,
             aidog_core::proxy_cmd::tool_log::tool_log_list,
             aidog_core::proxy_cmd::tool_log::tool_log_get,
             aidog_core::proxy_cmd::tool_log::tool_log_retention_get,

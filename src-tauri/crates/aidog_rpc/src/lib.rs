@@ -171,6 +171,7 @@ rpc_routes! {
     readonly aidog_core::proxy_cmd::search::search_searx_instances,
     readonly aidog_core::proxy_cmd::search::search_searx_test,
     readonly aidog_core::proxy_cmd::search::search_sources,
+    readonly aidog_core::mcp_tools::mcp_tools_settings_get,
     readonly aidog_core::proxy_cmd::tool_log::tool_log_list,
     readonly aidog_core::proxy_cmd::tool_log::tool_log_get,
     readonly aidog_core::proxy_cmd::tool_log::tool_log_retention_get,

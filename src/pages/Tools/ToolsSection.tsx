@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { useTranslation } from "react-i18next";
 import { settingsApi } from "../../services/api/settings";
 import { mcpApi } from "../../services/api/mcp";
-import { searchApi, type SearchSource, type SearxInstance } from "../../services/api/search";
+import { mcpToolsApi, searchApi, type SearchSource, type SearxInstance } from "../../services/api/search";
 import { registerNavGuard } from "../../utils/navGuard";
 import { SortableList } from "../../components/SortableList";
 import { Switch } from "../../components/ui/switch";
@@ -266,7 +266,9 @@ export function ToolsSection() {
 
   const load = useCallback(async () => {
     try {
-      const v = ((await settingsApi.get("mcp_tools", "settings")) ?? {}) as Record<string, unknown>;
+      // 票 57-01：读走 mcp_tools_settings_get——后端读时迁移旧形状，返回永远是新形状；
+      // 旧实现直接 settings_get 原始 blob，旧 provider/keys 不进草稿、保存即丢。
+      const v = (await mcpToolsApi.settings()) ?? ({} as Record<string, unknown>);
       const s = readSearch(v.search);
       const f = (v.fetch ?? {}) as { enabled?: unknown; format?: unknown };
       const fOn = typeof f.enabled === "boolean" ? f.enabled : true;
