@@ -1220,6 +1220,14 @@ impl PlatformAdapter for QianfanFamilyAdapter {
 ///   协议为 no-op，行为不变。
 /// - 未证实（保持基座默认）：`enable_thinking` 默认值、max_tokens 统一上限、
 ///   `reasoning_effort` 对清单外模型的认受性、错误体在流式帧内的形态。
+/// - 成员差异（siliconflow_en，issue 134，核对日期 2026-11-28）：端点内置默认 anthropic
+///   `https://api.siliconflow.com` / openai `https://api.siliconflow.com/v1`（registry 数据，
+///   与 siliconflow 的 api.siliconflow.cn 不同域）；官方国际文档站直读探针命中
+///   enable_thinking / thinking_budget / reasoning_content / `data: [DONE]`
+///   （https://docs.siliconflow.com/en/api-reference/chat-completions/chat-completions），
+///   与家族 2026-11-23 核对一致；reasoning_effort 与 usage cached_tokens 字段未在该页
+///   raw HTML 命中——未证实，保持基座默认；非 coding plan（registry 无 is_coding_plan）；
+///   无成员独有覆写，注册即家族基座单例。
 pub struct SiliconFlowFamilyAdapter;
 
 impl PlatformAdapter for SiliconFlowFamilyAdapter {
@@ -3438,5 +3446,22 @@ mod deepseek_tests {
             pa.classify_error(429, r#"{"error":{"message":"rate limit"}}"#),
             error::UpstreamErrorClass::Service
         );
+    }
+}
+
+#[cfg(test)]
+mod siliconflow_family_tests {
+    use super::*;
+
+    /// 两成员注册同一家族基座单例（issue 134；参照 sensenova_family_tests 同名护栏）。
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let cn = lookup("siliconflow").expect("SiliconFlow adapter must be registered");
+        let en = lookup("siliconflow_en").expect("SiliconFlow En adapter must be registered");
+
+        assert!(std::ptr::eq(cn, en));
+        assert!(!std::ptr::eq(cn, adapter_for("devin")));
+        assert!(!std::ptr::eq(en, adapter_for("devin")));
+        assert!(!std::ptr::eq(cn, adapter_for("openai")));
     }
 }
