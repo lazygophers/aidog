@@ -3322,6 +3322,9 @@ const CLINE_FAMILY: [(Protocol, &str); 2] = [
 ];
 const CLINE_OPENAI_RESP: &str = r#"{"id":"cline_1","model":"anthropic/claude-sonnet-4-6","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":3},"cost":0.00012}}"#;
 const CLINE_OPENAI_SSE: &str = "data: {\"id\":\"cline_1\",\"model\":\"cline-pass/qwen3.7-max\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"hi\"}}]}\n\ndata: {\"id\":\"cline_1\",\"model\":\"cline-pass/qwen3.7-max\",\"choices\":[],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":2,\"prompt_tokens_details\":{\"cached_tokens\":3},\"cost\":0.00012}}\n\ndata: [DONE]\n\n";
+// issue 143：官方错误体为 `error.code`（数字或字符串）+ `message` + 可选 `metadata`；文档列出
+// 400/401/402/403/404/429/500/502/503。https://docs.cline.bot/api/errors
+const CLINE_ERROR: &str = r#"{"error":{"message":"insufficient credits","code":402,"metadata":{"credits_required":1}}}"#;
 
 /// 非流式请求必须发出官方格式头，并覆盖客户端提供的冲突值。
 #[tokio::test]
@@ -3397,6 +3400,26 @@ async fn cline_family_openai_endpoint_non_stream() {
     assert_eq!(response["choices"][0]["message"]["content"], "hi");
     assert_eq!(response["usage"]["prompt_tokens_details"]["cached_tokens"], 3);
     assert_eq!(response["usage"]["cost"], 0.00012);
+}
+
+/// issue 143：错误体原样透传，状态码保留上游值。402 归 Service 类，单平台组在尝试预算
+/// 内重试后末次回上游原错误（次数预算变化时不锁具体次数，只锁非空与路径）。
+#[tokio::test]
+async fn cline_family_openai_endpoint_error_passthrough() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::Cline,
+        Protocol::OpenAI,
+        "gk143error",
+        "/chat/completions",
+        r#"{"model":"anthropic/claude-sonnet-4-6","messages":[{"role":"user","content":"hi"}]}"#,
+        (402, "application/json", CLINE_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::PAYMENT_REQUIRED, "{resp}");
+    assert!(!hits.is_empty(), "{hits:?}");
+    assert!(hits.iter().all(|(u, _)| u == "/chat/completions"), "{hits:?}");
+    assert!(resp.contains("insufficient credits"), "{resp}");
+    assert!(resp.contains("credits_required"), "{resp}");
 }
 
 // issue 94：CrazyRouter 三协议都由用户端点配置驱动，经本地假上游覆盖转换、响应、流、错误与 usage。
