@@ -51,8 +51,8 @@ describe("handleEdit backfills base_url for passthrough platforms", () => {
   it("backfills top-level base_url into endpoints[0] when endpoints empty", async () => {
     const { result } = renderHook(() => useForm());
     await act(() => result.current.handleEdit(passPlatform()));
-    expect(result.current.endpoints[0]?.base_url).toBe("https://relay.example.com");
-    expect(result.current.endpoints[0]?.protocol).toBe("passthrough");
+    expect(result.current.draft.endpoints[0]?.base_url).toBe("https://relay.example.com");
+    expect(result.current.draft.endpoints[0]?.protocol).toBe("passthrough");
   });
 
   it("fills empty endpoints[0].base_url keeping its protocol", async () => {
@@ -60,21 +60,21 @@ describe("handleEdit backfills base_url for passthrough platforms", () => {
     await act(() => result.current.handleEdit(passPlatform({
       endpoints: [{ protocol: "passthrough", base_url: "", client_type: "default", coding_plan: false }],
     })));
-    expect(result.current.endpoints[0]?.base_url).toBe("https://relay.example.com");
-    expect(result.current.endpoints[0]?.protocol).toBe("passthrough");
+    expect(result.current.draft.endpoints[0]?.base_url).toBe("https://relay.example.com");
+    expect(result.current.draft.endpoints[0]?.protocol).toBe("passthrough");
   });
 
   it("leaves non-empty endpoints untouched", async () => {
     const ep = { protocol: "passthrough", base_url: "https://keep.example.com", client_type: "default", coding_plan: false };
     const { result } = renderHook(() => useForm());
     await act(() => result.current.handleEdit(passPlatform({ endpoints: [ep] })));
-    expect(result.current.endpoints).toEqual([ep]);
+    expect(result.current.draft.endpoints).toEqual([ep]);
   });
 
   it("does not backfill for non-passthrough protocols", async () => {
     const { result } = renderHook(() => useForm());
     await act(() => result.current.handleEdit(passPlatform({ platform_type: "openai", endpoints: [] })));
-    expect(result.current.endpoints).toEqual([]);
+    expect(result.current.draft.endpoints).toEqual([]);
   });
 
   it("save round trip: base_url stays equal, single endpoint, no drift", async () => {

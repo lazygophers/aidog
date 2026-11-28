@@ -5,7 +5,7 @@ import type { Platform } from "../../../services/api";
 import { platformApi } from "../../../services/api";
 import { Button } from "@/components/ui/button";
 import { Blk } from "./Blk";
-import type { PlatformCardService } from "../PlatformCard";
+import type { PlatformCardService } from "../usePlatformCards";
 
 export function DetailActions({ platform: p, onRefreshQuota, service }: {
   platform: Platform;

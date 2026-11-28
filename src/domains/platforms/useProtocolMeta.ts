@@ -17,7 +17,7 @@ import { allModelValues } from "./health";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
 import { parsePlatformPeak } from "../../services/api";
 
-/** useProtocolMeta — PlatformCard 协议元数据聚合 hook（替代 5 个独立 async effect）。
+/** useProtocolMeta — PlatformRow 协议元数据聚合 hook（替代 5 个独立 async effect）。
  *
  *  5 个原本各自 await defaults.json RPC 的 effect（colorMap / isCp / models+peak /
  *  homepage / label+labelMap）合并为单 effect + Promise.all 一次性聚合。docPromise
@@ -49,7 +49,7 @@ export interface ProtocolMeta {
   protocolLabel: string;
   labelMap: Record<string, string>;
   /** 生效的高峰时段 = 用户 `extra.peak` 优先 → preset 默认（CLAUDE.md 的混合源口径）。
-   *  此前 PlatformCard 只读用户侧，导致 glm_coding / deepseek 这类自带预设 peak 的
+   *  此前该消费端只读用户侧，导致 glm_coding / deepseek 这类自带预设 peak 的
    *  平台不显高峰徽标。 */
   peakWindows: TimeWindow[];
   holidayCalendar?: string;

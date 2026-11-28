@@ -2,6 +2,7 @@
 // ponytail: 从 Platforms 主组件抽出的纯展示组件。所有 state 经 props 从 usePlatformsState 传入，
 //   不持有自己的 state；表单分区（endpoints/models/budgets/breaker/group/expires）
 //   均为 props 驱动的 JSX，无跨组件 setState。
+// 票 14（issue #58）：控件对草稿只经 s.form 的 draft + patch 一个口（兼容 setter 层已删）。
 import { useEffect, useState } from "react";
 import { getClientVocab, serializePlatformTimeWindows, parsePlatformHolidayCalendar, serializePlatformHolidayCalendar, parseSubscriptionStartDate, serializeSubscriptionStartDate, validSubscriptionStartDate, beijingToday, type ClientVocabCategory } from "../../services/api";
 import { useTranslation } from "react-i18next";
@@ -15,6 +16,7 @@ import { HolidayCalendarSelect } from "./HolidayCalendarSelect";
 import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { useThemeMode } from "../../themes/useThemeMode";
 import type { PlatformsState } from "./usePlatformsState";
+import type { PlatformDraft } from "../../domains/platforms/platformDraft";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
@@ -38,36 +40,31 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   const themeMode = useThemeMode();
 
   // ponytail: slice 化后 form 字段全部从 s.form 读，list/quota slice 本视图不直接消费。
+  // 票 14：草稿 = s.form.draft（PlatformDraft），写经 s.form.patch（UI 瞬时态仍是独立 setter）。
   const {
+    draft, patch,
     editing, showPaste, pasteInitialText, setShowPaste, setPasteInitialText,
-    name, setName, protocol, codingPlan, handleProtocolChange, extra, setExtra,
     isMock, isPassthrough, isPassThrough, keyOptional, apiKeyMissing,
-    passAuth, setPassAuth,
-  appbuilderKey = "", setAppbuilderKey,
-    customSlotDefs, customSlotValues = {}, setCustomSlotValues,
-    disabledSlots = [], setDisabledSlots,
-    mockConfig, setMockConfig,
-    apiKey, setApiKey, showKey, setShowKey,
+    showKey, setShowKey,
     batchPreviewKeys, handleApiKeyChange, previewNames,
-    quotaVariants, quotaVariantId, handleQuotaVariantChange, quotaSource, setQuotaSource,
-    quotaCustomScript, setQuotaCustomScript,
-    quotaRequires, setQuotaRequires,
-    devinConfig, setDevinConfig,
-    endpoints, setEndpoints,
-    models, handleModelsChange, activeDropdown, setActiveDropdown,
-    availableModels, protocol: proto, fetching, fetchError, fetchInfo, handleFetchModels, handleFillAll,
-    manualBudgets, setManualBudgets,
-    breakerDefaults, breakerFailureThreshold, setBreakerFailureThreshold,
-    breakerHalfOpenMax, setBreakerHalfOpenMax,
-    timemodels,
-    rateLimits, setRateLimits,
-    mitmStats, setMitmStats,
-    proxyEnabled, setProxyEnabled,
-    autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
-    expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
+    quotaVariants, handleQuotaVariantChange, setQuotaSourceExplicit,
+    breakerDefaults, windowsTz, setWindowsTz,
+    expiryEnabled, setExpiryEnabled,
+    customSlotDefs,
+    activeDropdown, setActiveDropdown,
+    fetching, fetchError, fetchInfo, handleFetchModels, handleFillAll,
     saveError,
-    handleSave, resetForm, applyPaste,
+    handleSave, resetForm, applyPaste, handleModelsChange, handleProtocolChange,
   } = s.form;
+
+  const {
+    name, protocol, codingPlan, apiKey, models, availableModels, endpoints, extra,
+    appbuilderKey, customSlotValues, disabledSlots,
+    mitmStats, proxyEnabled,
+  } = draft;
+  // 草稿单字段 SetStateAction setter（ModelsMatrixSection props 适配；其余 section 直接收 draft + patch）。
+  const patchOf = <K extends keyof PlatformDraft>(k: K) => (v: React.SetStateAction<PlatformDraft[K]>) =>
+    patch({ [k]: typeof v === "function" ? (v as (prev: PlatformDraft[K]) => PlatformDraft[K])(draft[k]) : v });
   // groupDetails 在 list slice（list 态字段，经 listDeps 注入 form hook 但 owner 是 list）。
   const { groupDetails } = s.list;
   const { getPrimaryBaseUrl } = s;
@@ -176,7 +173,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* 基础信息：名称 + 协议 */}
         <FormSection title={t("platform.sectionBasic", "Basic Info")}>
           <Input className="input" placeholder={t("platform.name")} value={name}
-            onChange={(e) => setName(e.target.value)} />
+            onChange={(e) => patch({ name: e.target.value })} />
           {/* 协议可改（2026-10-27 用户拍板）：编辑态与创建态同款选择器；unknown 修复/正常切换共用 handleProtocolChange */}
           <SearchableProtocolSelect
             value={protocol}
@@ -186,7 +183,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           <HolidayCalendarSelect
             value={parsePlatformHolidayCalendar(extra)}
             inheritedValue={defaultHolidayCalendar}
-            onChange={calendar => setExtra(current => serializePlatformHolidayCalendar(current, calendar))}
+            onChange={calendar => patch({ extra: serializePlatformHolidayCalendar(extra, calendar) })}
             t={t}
           />
           {protocol === "qianfan_coding" && (
@@ -195,10 +192,10 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
               <Input type="date" max={beijingToday()} data-testid="subscription-start-date" value={parseSubscriptionStartDate(extra)}
                 onChange={e => {
                   const date = e.target.value;
-                  setExtra(current => serializeSubscriptionStartDate(current, date));
+                  patch({ extra: serializeSubscriptionStartDate(extra, date) });
                 }} />
               {!parseSubscriptionStartDate(extra) && <span>{t("platform.subscriptionDateMissing", "Set a start date to estimate the monthly quota.")}</span>}
-              {!validSubscriptionStartDate(parseSubscriptionStartDate(extra)) && <span role="alert">{t("platform.subscriptionDateInvalid", "Enter a valid date no later than today in Beijing.")} <button type="button" data-testid="subscription-date-clear" onClick={() => setExtra(current => serializeSubscriptionStartDate(current, ""))}>{t("action.clear", "Clear")}</button></span>}
+              {!validSubscriptionStartDate(parseSubscriptionStartDate(extra)) && <span role="alert">{t("platform.subscriptionDateInvalid", "Enter a valid date no later than today in Beijing.")} <button type="button" data-testid="subscription-date-clear" onClick={() => patch({ extra: serializeSubscriptionStartDate(extra, "") })}>{t("action.clear", "Clear")}</button></span>}
             </label>
           )}
           {usageWarning && (
@@ -212,21 +209,20 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* Mock 平台配置编辑器（仅 mock 平台显示，替代 endpoints / API Key / 模型） */}
         {isMock && (
           <FormSection title={t("platform.sectionSpecial", "Special Config")}>
-            <MockConfigEditor config={mockConfig} onChange={setMockConfig} />
+            <MockConfigEditor config={draft.mockConfig} onChange={(c) => patch({ mockConfig: c })} />
           </FormSection>
         )}
 
 
         {/* Devin 平台配置（可选 timeout/mode，仅 devin 协议显示；org_id 走上方 requires 表单） */}
         {protocol === "devin" && (
-          <DevinConfigSection config={devinConfig} onChange={setDevinConfig} t={t} />
+          <DevinConfigSection config={draft.devinConfig} onChange={patchOf("devinConfig")} t={t} />
         )}
 
         {/* Claude Code 订阅（透传）配置：仅 base_url（host 根）+ 可空 api_key */}
         {isPassthrough && (
           <PassthroughConfigSection
-            endpoints={endpoints} setEndpoints={setEndpoints}
-            apiKey={apiKey} setApiKey={setApiKey}
+            draft={draft} patch={patch}
             showKey={showKey} setShowKey={setShowKey}
             t={t}
           />
@@ -235,10 +231,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* 自定义透传（passthrough）配置：base_url + apikey + 认证 header 预设（共识稿 §2） */}
         {isPassThrough && (
           <PassThroughSection
-            endpoints={endpoints} setEndpoints={setEndpoints}
-            apiKey={apiKey} setApiKey={setApiKey}
+            draft={draft} patch={patch}
             showKey={showKey} setShowKey={setShowKey}
-            auth={passAuth} setAuth={setPassAuth}
             t={t}
           />
         )}
@@ -247,7 +241,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {isPassthrough && (
           <CcMitmAccessSection
             enabled={mitmStats}
-            onToggle={setMitmStats}
+            onToggle={(v) => patch({ mitmStats: v })}
             groupName={
               editing
                 ? groupDetails.find(g => g.platforms.some(gp => gp.platform.id === editing.id))?.group.name
@@ -259,7 +253,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* Protocol Endpoints（mock / 透传平台隐藏，无可编辑上游） */}
         {!isMock && !isPassthrough && !isPassThrough && (
         <>
-        <EndpointsSection endpoints={endpoints} setEndpoints={setEndpoints} protocol={protocol} t={t} />
+        <EndpointsSection draft={draft} patch={patch} protocol={protocol} t={t} />
 
         {/* Token（创建态多行 = 每行一个，批量创建；编辑态单行单平台） */}
         <FormSection title={t("platform.sectionAuth", "Authentication")}>
@@ -288,16 +282,16 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         <ModelsMatrixSection
           models={models} onModelsChange={handleModelsChange}
           activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
-          availableModels={availableModels} protocol={proto}
+          availableModels={availableModels} protocol={protocol}
           fetchError={fetchError} fetchInfo={fetchInfo} fetching={fetching}
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length} endpoints={endpoints}
-          rules={timemodels.timeModels} setRules={timemodels.setTimeModels} peak={timemodels.peak}
-          tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
+          rules={draft.timeModels} setRules={patchOf("timeModels")} peak={draft.peak}
+          tzMode={windowsTz} setTzMode={setWindowsTz}
           customSlotDefs={customSlotDefs ?? []} customSlotValues={customSlotValues}
-          onCustomSlotChange={(name, chain) => setCustomSlotValues?.((prev) => ({ ...prev, [name]: chain }))}
+          onCustomSlotChange={(slotName, chain) => patch({ customSlotValues: { ...customSlotValues, [slotName]: chain } })}
           disabledSlots={disabledSlots}
-          onSlotEnabledChange={(slot, enabled) => setDisabledSlots?.((prev) => (enabled ? prev.filter((x) => x !== slot) : [...new Set([...prev, slot])]))}
+          onSlotEnabledChange={(slot, enabled) => patch({ disabledSlots: enabled ? disabledSlots.filter((x) => x !== slot) : [...new Set([...disabledSlots, slot])] })}
           t={t}
         />
         </>
@@ -307,7 +301,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {!isMock && (
           <ProxyEnabledSection
             enabled={proxyEnabled}
-            onChange={setProxyEnabled}
+            onChange={(v) => patch({ proxyEnabled: v })}
             t={t}
           />
         )}
@@ -320,20 +314,14 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             表单内切换只弹确认 + 记忆目标，清空在保存时由后端执行。mock / 透传无上游配额，整块不渲染。 */}
         {!isMock && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "quota") && (
           <QuotaSection
-            quotaSource={quotaSource} onSourceChange={setQuotaSource}
+            onSourceChange={setQuotaSourceExplicit}
             protocol={protocol}
             variants={quotaVariants}
-            variantId={quotaVariantId}
             onVariantChange={handleQuotaVariantChange}
-            customScript={quotaCustomScript}
-            onCustomScriptChange={setQuotaCustomScript}
-            requires={quotaRequires}
-            onRequiresChange={(k, v) => setQuotaRequires(prev => ({ ...prev, [k]: v }))}
             baseUrl={getPrimaryBaseUrl(protocol, endpoints)}
             apiKey={apiKey}
             platformId={editing?.id ?? null}
-            locale={i18n.language}
-            budgets={manualBudgets} setBudgets={setManualBudgets}
+            draft={draft} patch={patch}
             editing={!!editing}
             t={t}
           />
@@ -342,9 +330,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* 高峰时段倍率（2026-10-20 从计费 tab 拆出；仅编辑态可配；空数组 = 用 preset 默认 / 1.0） */}
         {!isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "peak") && (
           <PeakSection
-            windows={timemodels.peak} setWindows={timemodels.setPeak}
-            tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
-            disableDuringPeak={timemodels.disableDuringPeak} setDisableDuringPeak={timemodels.setDisableDuringPeak}
+            draft={draft} patch={patch}
+            tzMode={windowsTz} setTzMode={setWindowsTz}
             protocol={protocol}
             platformCalendar={platformCalendar}
             themeMode={themeMode}
@@ -355,8 +342,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* 直通模型（直接模型转发）：extra.direct_models；仅编辑态可配（声明即生效），mock 无路由不渲染 */}
         {!isMock && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "direct") && (
           <DirectModelsSection
-            models={timemodels.directModels} setModels={timemodels.setDirectModels}
-            availableModels={availableModels} protocol={proto}
+            draft={draft} patch={patch}
+            availableModels={availableModels} protocol={protocol}
             t={t}
           />
         )}
@@ -364,7 +351,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* qianfan AppBuilder 凭据（独立搜索转发，票 20）：extra.appbuilder_key，仅 qianfan 平台展示 */}
         {protocol === "qianfan" && (advTabs.length === 1 || activeAdvTab === "appbuilder") && (
           <AppbuilderKeySection
-            value={appbuilderKey} onChange={setAppbuilderKey}
+            value={appbuilderKey} onChange={(v) => patch({ appbuilderKey: v })}
             t={t}
           />
         )}
@@ -377,12 +364,12 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           titleOverride={t("platform.time_windows_section_title", "Time-based models")}
           models={models} onModelsChange={handleModelsChange}
           activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
-          availableModels={availableModels} protocol={proto}
+          availableModels={availableModels} protocol={protocol}
           fetchError={fetchError} fetchInfo={fetchInfo} fetching={fetching}
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}
-          rules={timemodels.timeModels} setRules={timemodels.setTimeModels} peak={timemodels.peak}
-          tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
+          rules={draft.timeModels} setRules={patchOf("timeModels")} peak={draft.peak}
+          tzMode={windowsTz} setTzMode={setWindowsTz}
           disabledSlots={disabledSlots}
           platformCalendar={platformCalendar}
           t={t}
@@ -391,15 +378,14 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
         {/* 限频（2026-10-20 从稳定性 tab 拆出；rate-limit-aware 票 04：extra.rate_limits / extra.quota_windows） */}
         {!isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "ratelimits") && (
-          <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} protocol={protocol} modelOptions={allConfiguredModelValues({ models, extra: serializePlatformTimeWindows("", timemodels.timeModels) })} platformCalendar={platformCalendar} t={t} />
+          <RateLimitsSection draft={draft} patch={patch} protocol={protocol} modelOptions={allConfiguredModelValues({ models, extra: serializePlatformTimeWindows("", draft.timeModels) })} platformCalendar={platformCalendar} t={t} />
         )}
 
         {/* 熔断（2026-10-20 从稳定性 tab 拆出）：Circuit Breaker 覆盖（仅编辑态可配；空 = 继承全局默认） */}
         {!isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "breaker") && (
           <BreakerSection
             defaults={breakerDefaults}
-            failure={breakerFailureThreshold} setFailure={setBreakerFailureThreshold}
-            halfOpenMax={breakerHalfOpenMax} setHalfOpenMax={setBreakerHalfOpenMax}
+            draft={draft} patch={patch}
             t={t}
           />
         )}
@@ -408,8 +394,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {!isMock && (advTabs.length === 1 || activeAdvTab === "clients") && (
           <ClientWhitelistSection
             vocab={clientVocab}
-            selected={timemodels.allowedClients} setSelected={timemodels.setAllowedClients}
-            uaRules={timemodels.uaRules} setUaRules={timemodels.setUaRules}
+            draft={draft} patch={patch}
             t={t}
           />
         )}
@@ -417,7 +402,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* 过期时间（2026-10-20 从生命周期 tab 拆出；可选） */}
         {(advTabs.length === 1 || activeAdvTab === "expiry") && (
           <ExpirySection
-            expiresAt={expiresAt} setExpiresAt={setExpiresAt}
+            draft={draft} patch={patch}
             expiryEnabled={expiryEnabled} setExpiryEnabled={setExpiryEnabled}
             themeMode={themeMode}
             t={t}
@@ -427,9 +412,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* 分组归属（2026-10-20 从生命周期 tab 拆出；透传平台隐藏） */}
         {!isPassthrough && (advTabs.length === 1 || activeAdvTab === "group") && (
           <GroupAssignSection
-            editing={editing} lockedGroupId={lockedGroupId} groupDetails={groupDetails}
-            autoGroup={autoGroup} setAutoGroup={setAutoGroup}
-            joinGroupIds={joinGroupIds} setJoinGroupIds={setJoinGroupIds}
+            editing={editing} groupDetails={groupDetails}
+            draft={draft} patch={patch}
             t={t}
           />
         )}

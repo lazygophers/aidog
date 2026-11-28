@@ -38,9 +38,9 @@ describe("custom slots in save payload", () => {
 
   const prepare = (result: { current: ReturnType<typeof useForm> }) => {
     result.current.setEditing({ id: 7, platform_type: "openai" } as any);
-    result.current.setProtocol("openai");
-    result.current.setName("P");
-    result.current.setEndpoints([{ protocol: "openai", base_url: "https://example.test/v1" }] as any);
+    result.current.patch({ protocol: "openai" });
+    result.current.patch({ name: "P" });
+    result.current.patch({ endpoints: [{ protocol: "openai", base_url: "https://example.test/v1" }] as any });
   };
 
   it("writes defined slots, drops orphan keys, omits empty chains", async () => {
@@ -51,7 +51,7 @@ describe("custom slots in save payload", () => {
     const { result } = renderHook(() => useForm());
     act(() => { prepare(result); result.current.setShowForm(true); });
     await waitFor(() => expect(result.current.customSlotDefs).not.toBeNull());
-    act(() => result.current.setCustomSlotValues({ fast: ["f1", "f2"], bg: [], gone: ["x"] }));
+    act(() => result.current.patch({ customSlotValues: { fast: ["f1", "f2"], bg: [], gone: ["x"] } }));
     await act(() => result.current.handleSave());
     const arg = (platformApi.update as any).mock.calls[0][0];
     expect(JSON.parse(arg.extra).custom_slots).toEqual({ fast: ["f1", "f2"] });
@@ -60,7 +60,7 @@ describe("custom slots in save payload", () => {
   it("definitions load failure is logged, not swallowed, and does not touch extra.custom_slots", async () => {
     vi.spyOn(customSlotsApi, "get").mockRejectedValue("boom");
     const { result } = renderHook(() => useForm());
-    act(() => { prepare(result); result.current.setExtra('{"custom_slots":{"fast":["keep"]}}'); result.current.setShowForm(true); });
+    act(() => { prepare(result); result.current.patch({ extra: '{"custom_slots":{"fast":["keep"]}}' }); result.current.setShowForm(true); });
     await waitFor(() => expect(console.error).toHaveBeenCalledWith(expect.stringContaining("custom slots"), "boom"));
     expect(result.current.customSlotDefs).toBeNull();
     await act(() => result.current.handleSave());
@@ -78,8 +78,8 @@ describe("custom slots in save payload", () => {
     });
     await waitFor(() => expect(result.current.customSlotDefs).not.toBeNull());
     act(() => {
-      result.current.setModels({ default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] });
-      result.current.setCustomSlotValues({ fast: ["f1"] });
+      result.current.patch({ models: { default: [], sonnet: [], opus: [], haiku: [], gpt: [], jev: [], embedding: [], rerank: [], image: [] } });
+      result.current.patch({ customSlotValues: { fast: ["f1"] } });
     });
     await act(() => result.current.handleSave());
     const arg = (platformApi.update as any).mock.calls[0][0];

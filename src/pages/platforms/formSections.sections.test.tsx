@@ -6,9 +6,12 @@ import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent, waitFor } from "../../test/render";
 import { useState } from "react";
 import { ManualBudgetsFields, RateLimitsSection, PeakSection, DirectModelsSection, AppbuilderKeySection, ClientWhitelistSection } from "./formSections";
-import type { ManualBudget, RateLimitsBundle, TimeWindow } from "../domains/platforms/defaults";
+import type { ManualBudget, RateLimitsBundle, TimeWindow, ClientUaRule } from "../../services/api";
 import type { PlanQuotaTier } from "../domains/platforms/defaults";
 import { getDefaultModelList, getDefaultPeak } from "../../domains/platforms";
+import { emptyDraft, type PlatformDraft } from "../../domains/platforms/platformDraft";
+
+const d = (over: Partial<PlatformDraft> = {}): PlatformDraft => ({ ...emptyDraft(), ...over });
 
 vi.mock("../../domains/platforms", async (importOriginal) => {
   const orig = await importOriginal<typeof import("../../domains/platforms")>();
@@ -108,6 +111,17 @@ describe("ManualBudgetsFields — C 方向稿接线", () => {
     // 删除按钮按行渲染，第一行删除后保留第二行；断言「只剩一行且不叫 drop」语义（id 由实现按过滤生成）
     expect(next).toHaveLength(1);
   });
+
+  it("额度输入保留 0 开头键入：键入 0 → 0.5 后输入框仍显示 0.5（渲染期不回落）", () => {
+    const { container, setBudgets } = renderBudgets([budget({ amount: 0 })]);
+    const amt = container.querySelector('[data-testid="manual-budget-amount"]') as HTMLInputElement;
+    expect(amt).not.toBeNull();
+    fireEvent.change(amt, { target: { value: "0" } });
+    fireEvent.change(amt, { target: { value: "0.5" } });
+    expect(amt.value).toBe("0.5");
+    const next = setBudgets.mock.calls.at(-1)![0] as ManualBudget[];
+    expect(next[0].amount).toBe(0.5);
+  });
 });
 
 // ── RateLimitsSection ──────────────────────────────────────────────────────
@@ -120,9 +134,9 @@ const bundle: RateLimitsBundle = {
 };
 
 function renderRateLimits(b: RateLimitsBundle) {
-  const setBundle = vi.fn();
-  const { container } = render(<RateLimitsSection bundle={b} setBundle={setBundle} protocol="glm" modelOptions={[]} t={t} />);
-  return { container, setBundle };
+  const patch = vi.fn();
+  const { container } = render(<RateLimitsSection draft={d({ rateLimits: b })} patch={patch} protocol="glm" modelOptions={[]} t={t} />);
+  return { container, patch };
 }
 
 describe("RateLimitsSection — C 方向稿接线", () => {
@@ -134,14 +148,14 @@ describe("RateLimitsSection — C 方向稿接线", () => {
   });
 
   it("+5 小时芯片 → 编辑态加一行；commit 净化丢空预算行（预算空不落 bundle）", () => {
-    const { container, setBundle } = renderRateLimits(bundle);
+    const { container, patch } = renderRateLimits(bundle);
     const before = container.querySelectorAll(".aidog-rowcard").length;
     const btn = Array.from(container.querySelectorAll("button")).find(b => b.textContent.trim() === "+ 5 h")!;
     fireEvent.click(btn);
     // 编辑态：行卡 +1（draft.windows 追加）
     expect(container.querySelectorAll(".aidog-rowcard")).toHaveLength(before + 1);
     // commit：新行预算空 → draftToBundle 净化丢弃，bundle 仍 1 窗口
-    const next = setBundle.mock.calls[0][0] as RateLimitsBundle;
+    const next = patch.mock.calls[0][0].rateLimits as RateLimitsBundle;
     expect(next.quota_windows).toHaveLength(1);
   });
 
@@ -152,33 +166,33 @@ describe("RateLimitsSection — C 方向稿接线", () => {
   });
 
   it("时长自由输入接线：5h 行键入 2 → commit window=7200（num×单位秒因子）", () => {
-    const { container, setBundle } = renderRateLimits(bundle);
+    const { container, patch } = renderRateLimits(bundle);
     const dur = container.querySelector('input[aria-label="Window length"]') as HTMLInputElement;
     expect((dur as HTMLInputElement).value).toBe("5");
     fireEvent.change(dur, { target: { value: "2" } });
     // commit 传普通对象（draftToBundle 已算好），非函数式 updater
-    const next = setBundle.mock.calls[0][0] as RateLimitsBundle;
+    const next = patch.mock.calls[0][0].rateLimits as RateLimitsBundle;
     expect(next.quota_windows?.[0]).toMatchObject({ window: 7200, budget_tokens: 120000 });
   });
 });
 
 describe("RateLimitsSection — 并发 / 时段窗口 / 策略库", () => {
   const byId = (id: string) => document.getElementById(id) as HTMLInputElement;
-  const last = (fn: ReturnType<typeof vi.fn>) => fn.mock.calls.at(-1)![0] as RateLimitsBundle;
+  const last = (p: ReturnType<typeof vi.fn>) => p.mock.calls.at(-1)![0].rateLimits as RateLimitsBundle;
 
   it("并发往返：平台级 + 规则级", () => {
-    const { container, setBundle } = renderRateLimits({ rate_limits: { concurrency: 8, rules: [{ models: ["m1"], concurrency: 2 }] } });
+    const { container, patch } = renderRateLimits({ rate_limits: { concurrency: 8, rules: [{ models: ["m1"], concurrency: 2 }] } });
     const q = (id: string) => container.querySelector(`[data-testid="${id}"]`) as HTMLInputElement;
     expect(byId("rl-concurrency").value).toBe("8");
     expect(q("rl-rule-0-concurrency").value).toBe("2");
     fireEvent.change(byId("rl-concurrency"), { target: { value: "12" } });
-    expect(last(setBundle).rate_limits).toMatchObject({ concurrency: 12, rules: [{ models: ["m1"], concurrency: 2 }] });
+    expect(last(patch).rate_limits).toMatchObject({ concurrency: 12, rules: [{ models: ["m1"], concurrency: 2 }] });
     fireEvent.change(q("rl-rule-0-concurrency"), { target: { value: "3" } });
-    expect(last(setBundle).rate_limits?.rules?.[0]).toMatchObject({ models: ["m1"], concurrency: 3 });
+    expect(last(patch).rate_limits?.rules?.[0]).toMatchObject({ models: ["m1"], concurrency: 3 });
   });
 
   it("时段规则：加 → 编辑小时 / 星期 / 上限 → 落 bundle；存量时段规则读回", () => {
-    const { container, setBundle } = renderRateLimits({
+    const { container, patch } = renderRateLimits({
       rate_limits: { rpm: 10, rules: [{ start_hour: 22, end_hour: 6, timezone: "Asia/Shanghai", rpm: 50 }] },
     });
     const q = (id: string) => container.querySelector(`[data-testid="${id}"]`) as HTMLInputElement;
@@ -190,31 +204,31 @@ describe("RateLimitsSection — 并发 / 时段窗口 / 策略库", () => {
     fireEvent.change(q("rl-rule-1-end"), { target: { value: "18" } });
     fireEvent.change(q("rl-rule-1-concurrency"), { target: { value: "4" } });
     fireEvent.click(q("rl-rule-1-day-1"));
-    const w = last(setBundle).rate_limits?.rules;
+    const w = last(patch).rate_limits?.rules;
     expect(w).toHaveLength(2);
     expect(w![0]).toMatchObject({ start_hour: 22, end_hour: 6, timezone: "Asia/Shanghai", rpm: 50 });
     expect(w![1]).toMatchObject({ start_hour: 9, end_hour: 18, concurrency: 4, days_of_week: [1] });
   });
 
   it("策略库导入：覆盖 rate_limits、保留 quota_windows、记来源", async () => {
-    const { setBundle } = renderRateLimits({ rate_limits: { rpm: 1 }, quota_windows: [{ window: 18000, budget_tokens: 5 }] });
+    const { patch } = renderRateLimits({ rate_limits: { rpm: 1 }, quota_windows: [{ window: 18000, budget_tokens: 5 }] });
     await waitFor(() => expect(byId("rl-policy-header")).not.toBeNull());
     fireEvent.click(byId("rl-policy-header").querySelector("button")!);
     await waitFor(() => expect(byId("rl-policy-import-v1")).not.toBeNull());
     fireEvent.click(byId("rl-policy-import-v1"));
     await waitFor(() => expect(byId("rl-import-confirm-ok")).not.toBeNull());
     fireEvent.click(byId("rl-import-confirm-ok"));
-    expect(last(setBundle)).toMatchObject({
+    expect(last(patch)).toMatchObject({
       rate_limits: { concurrency: 20, rpm: 100, source_policy_id: "v1", source_last_updated: 500 },
       quota_windows: [{ window: 18000, budget_tokens: 5 }],
     });
-    expect(last(setBundle).rate_limits?.tpm).toBeUndefined();
+    expect(last(patch).rate_limits?.tpm).toBeUndefined();
   });
 
   it("编辑保留来源标记：导入后改 RPM 仍带 source_*", () => {
-    const { setBundle } = renderRateLimits({ rate_limits: { rpm: 1, source_policy_id: "v1", source_last_updated: 100 } });
+    const { patch } = renderRateLimits({ rate_limits: { rpm: 1, source_policy_id: "v1", source_last_updated: 100 } });
     fireEvent.change(byId("rl-rpm"), { target: { value: "7" } });
-    expect(last(setBundle).rate_limits).toMatchObject({ rpm: 7, source_policy_id: "v1", source_last_updated: 100 });
+    expect(last(patch).rate_limits).toMatchObject({ rpm: 7, source_policy_id: "v1", source_last_updated: 100 });
   });
 
   it("已导入且内置更新（500 > 100）→ 提示 stale", async () => {
@@ -226,16 +240,15 @@ describe("RateLimitsSection — 并发 / 时段窗口 / 策略库", () => {
 
 // ── PeakSection ────────────────────────────────────────────────────────────
 function renderPeak(windows: TimeWindow[]) {
-  const setWindows = vi.fn();
+  const patch = vi.fn();
   const { container } = render(
     <PeakSection
-      windows={windows} setWindows={setWindows}
+      draft={d({ peak: windows })} patch={patch}
       tzMode="utc" setTzMode={vi.fn()}
-      disableDuringPeak={false} setDisableDuringPeak={vi.fn()}
       protocol="anthropic" themeMode="dark" t={t}
     />
   );
-  return { container, setWindows };
+  return { container, patch };
 }
 
 describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
@@ -247,9 +260,9 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
     vi.mocked(getDefaultPeak).mockResolvedValueOnce([
       { start_hour: 0, end_hour: 24, multiplier: 2 },
     ]);
-    const { container, setWindows } = renderPeak([]);
-    await waitFor(() => expect(setWindows).toHaveBeenCalledTimes(1));
-    const imported = setWindows.mock.calls[0][0] as TimeWindow[];
+    const { container, patch } = renderPeak([]);
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+    const imported = patch.mock.calls[0][0].peak as TimeWindow[];
     const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     expect(imported[0].timezone).toBe(localTimezone);
   });
@@ -259,35 +272,35 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
       { start_hour: 0, end_hour: 24, multiplier: 2 },
       { start_hour: 9, end_hour: 18, multiplier: 3, timezone: "Asia/Tokyo" },
     ]);
-    const { container, setWindows } = renderPeak([]);
+    const { container, patch } = renderPeak([]);
     await waitFor(() => expect(Array.from(container.querySelectorAll("button")).some(b => b.textContent.includes("Import default"))).toBe(true));
     fireEvent.click(Array.from(container.querySelectorAll("button")).find(b => b.textContent.includes("Import default"))!);
     await waitFor(() => expect(Array.from(document.body.querySelectorAll("button")).some(b => b.textContent === "Confirm")).toBe(true));
     fireEvent.click(Array.from(document.body.querySelectorAll("button")).find(b => b.textContent === "Confirm")!);
-    const imported = setWindows.mock.calls[0][0] as TimeWindow[];
+    const imported = patch.mock.calls[0][0].peak as TimeWindow[];
     expect(imported[0].timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
     expect(imported[1].timezone).toBe("Asia/Tokyo");
   });
 
   it("新增倍率窗口 → 写入浏览器本地 IANA 时区", () => {
-    const { container, setWindows } = renderPeak([]);
+    const { container, patch } = renderPeak([]);
     const add = Array.from(container.querySelectorAll("button")).find(b => b.textContent.includes("Add window"))!;
     fireEvent.click(add);
-    const updater = setWindows.mock.calls[0][0] as (prev: TimeWindow[]) => TimeWindow[];
-    expect(updater([])[0].timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    const next = patch.mock.calls[0][0].peak as TimeWindow[];
+    expect(next[0].timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
   });
 
   it("编辑缺失时区的倍率窗口 → 补入本地时区，保留已有自定义时区", () => {
     const legacy = { start_hour: 0, end_hour: 24, multiplier: 1 };
     const custom = { ...legacy, timezone: "Asia/Tokyo" };
-    const { container, setWindows } = renderPeak([legacy, custom]);
+    const { container, patch } = renderPeak([legacy, custom]);
     const multipliers = container.querySelectorAll('input[type="number"]');
     fireEvent.change(multipliers[0], { target: { value: "2" } });
     fireEvent.change(multipliers[1], { target: { value: "4" } });
-    const legacyUpdate = setWindows.mock.calls[0][0] as (prev: TimeWindow[]) => TimeWindow[];
-    const customUpdate = setWindows.mock.calls[1][0] as (prev: TimeWindow[]) => TimeWindow[];
-    expect(legacyUpdate([legacy, custom])[0].timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
-    expect(customUpdate([legacy, custom])[1].timezone).toBe("Asia/Tokyo");
+    const legacyNext = patch.mock.calls[0][0].peak as TimeWindow[];
+    const customNext = patch.mock.calls[1][0].peak as TimeWindow[];
+    expect(legacyNext[0].timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    expect(customNext[1].timezone).toBe("Asia/Tokyo");
   });
 
   it("全天 ×2 窗口：pill 显示 高峰中 ×2 + 1 个窗口；spark 24 段全亮", () => {
@@ -309,15 +322,14 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
   });
 
   it("起/止时间选择器接线：键入 937 → setWindows 提交 09:37（utc 直存）", () => {
-    const { container, setWindows } = renderPeak([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
+    const { container, patch } = renderPeak([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
     // aria-label = TimePicker suffix（t stub → fallback「Start」），限定本 render container
     const startInput = container.querySelector('input[aria-label="Start"]') as HTMLInputElement;
     fireEvent.change(startInput, { target: { value: "937" } });
     fireEvent.blur(startInput);
-    expect(setWindows).toHaveBeenCalled();
+    expect(patch).toHaveBeenCalled();
     // update 走函数式 setState：把上一态喂进去取结果（与组件内 cur => 映射同构）
-    const updater = setWindows.mock.calls[0][0] as (prev: TimeWindow[]) => TimeWindow[];
-    const next = updater([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
+    const next = patch.mock.calls[0][0].peak as TimeWindow[];
     expect(next[0]).toMatchObject({ start_hour: 9, start_minute: 37 });
   });
   it("受影响模型的 datalist 不含该窗口已选模型", async () => {
@@ -338,13 +350,12 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
     const startSec = Math.floor(new Date(2026, 0, 2, 3, 0).getTime() / 1000);
     const endSec = Math.floor(new Date(2026, 5, 30, 15, 0).getTime() / 1000);
     const w0 = { start_hour: 0, end_hour: 24, multiplier: 1, start_at: startSec, end_at: endSec };
-    const { container, setWindows } = renderPeak([w0]);
+    const { container, patch } = renderPeak([w0]);
     expect((container.querySelector("#peak-start-0") as HTMLInputElement).value).toBe("2026-01-02T03:00");
     // 清空起始 → start_at undefined，end_at 保留
     fireEvent.change(container.querySelector("#peak-start-0")!, { target: { value: "" } });
-    expect(setWindows).toHaveBeenCalled();
-    const updater = setWindows.mock.calls[0][0] as (prev: TimeWindow[]) => TimeWindow[];
-    const next = updater([w0]);
+    expect(patch).toHaveBeenCalled();
+    const next = patch.mock.calls[0][0].peak as TimeWindow[];
     expect(next[0].start_at).toBeUndefined();
     expect(next[0].end_at).toBe(endSec);
   });
@@ -352,44 +363,44 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
 
 // ── DirectModelsSection（直通模型，票 02）───────────────────────────────────
 function renderDirect(models: string[], availableModels: string[] = []) {
-  const setModels = vi.fn();
+  const patch = vi.fn();
   const { container } = render(
-    <DirectModelsSection models={models} setModels={setModels} availableModels={availableModels} protocol="openai" t={t} />,
+    <DirectModelsSection draft={d({ directModels: models })} patch={patch} availableModels={availableModels} protocol="openai" t={t} />,
   );
-  return { container, setModels };
+  return { container, patch };
 }
 
 describe("DirectModelsSection — 直通模型（票 02）", () => {
   it("添加：输入模型 id → setModels 追加；重复/空白不追加", () => {
-    const { container, setModels } = renderDirect(["m1"]);
+    const { container, patch } = renderDirect(["m1"]);
     const input = container.querySelector('[data-testid="direct-model-input"]') as HTMLInputElement;
     const add = container.querySelector('[data-testid="direct-model-add"]')!;
     fireEvent.change(input, { target: { value: "  m2  " } });
     fireEvent.click(add);
-    const updater = setModels.mock.calls[0][0] as (prev: string[]) => string[];
-    expect(updater(["m1"])).toEqual(["m1", "m2"]);
+    const next = patch.mock.calls[0][0].directModels as string[];
+    expect(next).toEqual(["m1", "m2"]);
 
     fireEvent.change(input, { target: { value: "m1" } });
     fireEvent.click(add);
     fireEvent.change(input, { target: { value: "   " } });
     fireEvent.click(add);
-    expect(setModels).toHaveBeenCalledTimes(1);
+    expect(patch).toHaveBeenCalledTimes(1);
   });
 
   it("下拉：聚焦输入出候选，点选候选 → setModels 追加该 id", () => {
-    const { container, setModels } = renderDirect(["m1"], ["gpt-a", "gpt-b"]);
+    const { container, patch } = renderDirect(["m1"], ["gpt-a", "gpt-b"]);
     const input = container.querySelector('[data-testid="direct-model-input"]') as HTMLInputElement;
     fireEvent.focus(input);
     const opt = document.body.querySelector('[data-testid="model-option-gpt-b"]')!;
     fireEvent.mouseDown(opt);
-    const updater = setModels.mock.calls[0][0] as (prev: string[]) => string[];
-    expect(updater(["m1"])).toEqual(["m1", "gpt-b"]);
+    const next = patch.mock.calls[0][0].directModels as string[];
+    expect(next).toEqual(["m1", "gpt-b"]);
   });
 
   it("已选模型不出现在下拉；删除后重新出现", async () => {
     function Host() {
-      const [models, setModels] = useState(["gpt-a"]);
-      return <DirectModelsSection models={models} setModels={setModels} availableModels={["gpt-a", "gpt-b"]} protocol="openai" t={t} />;
+      const [dd, setDd] = useState(() => d({ directModels: ["gpt-a"] }));
+      return <DirectModelsSection draft={dd} patch={(p) => setDd((prev) => ({ ...prev, ...p }))} availableModels={["gpt-a", "gpt-b"]} protocol="openai" t={t} />;
     }
     const { container } = render(<Host />);
     const input = container.querySelector('[data-testid="direct-model-input"]') as HTMLInputElement;
@@ -401,20 +412,20 @@ describe("DirectModelsSection — 直通模型（票 02）", () => {
   });
 
   it("直接输入不在候选里的 id：Enter 追加原值", () => {
-    const { container, setModels } = renderDirect([], ["gpt-a"]);
+    const { container, patch } = renderDirect([], ["gpt-a"]);
     const input = container.querySelector('[data-testid="direct-model-input"]') as HTMLInputElement;
     fireEvent.change(input, { target: { value: "custom-x" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    const updater = setModels.mock.calls[0][0] as (prev: string[]) => string[];
-    expect(updater([])).toEqual(["custom-x"]);
+    const next = patch.mock.calls[0][0].directModels as string[];
+    expect(next).toEqual(["custom-x"]);
   });
 
   it("删除：按 testid 点删 → setModels 过滤掉该条", () => {
-    const { container, setModels } = renderDirect(["m1", "m2", "m3"]);
+    const { container, patch } = renderDirect(["m1", "m2", "m3"]);
     expect(container.querySelectorAll('[data-testid^="direct-model-remove-"]')).toHaveLength(3);
     fireEvent.click(container.querySelector('[data-testid="direct-model-remove-1"]')!);
-    const updater = setModels.mock.calls[0][0] as (prev: string[]) => string[];
-    expect(updater(["m1", "m2", "m3"])).toEqual(["m1", "m3"]);
+    const next = patch.mock.calls[0][0].directModels as string[];
+    expect(next).toEqual(["m1", "m3"]);
   });
 
   it("行输入只读回显模型 id；空列表无行、无删除按钮", () => {
@@ -461,11 +472,10 @@ function renderWl(initial: string[], initialRules: { kind: "contains" | "prefix"
   let latest: string[] = initial;
   let latestRules = initialRules;
   function Host() {
-    const [sel, setSel] = useState<string[]>(initial);
-    const [rules, setRules] = useState(initialRules);
-    latest = sel;
-    latestRules = rules;
-    return <ClientWhitelistSection vocab={VOCAB} selected={sel} setSelected={setSel} uaRules={rules} setUaRules={setRules} t={t} />;
+    const [dd, setDd] = useState(() => d({ allowedClients: initial, uaRules: initialRules as ClientUaRule[] }));
+    latest = dd.allowedClients;
+    latestRules = dd.uaRules;
+    return <ClientWhitelistSection vocab={VOCAB} draft={dd} patch={(p) => setDd((prev) => ({ ...prev, ...p }))} t={t} />;
   }
   const { container } = render(<Host />);
   const q = (id: string) => container.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
@@ -570,22 +580,22 @@ describe("额度窗口 执行字段（enabled / reset_mode）", () => {
   });
 
   it("关闭开关 → commit 携带 enabled:false，预算与窗口时长不变", () => {
-    const { container, setBundle } = renderRateLimits(bundle);
+    const { container, patch } = renderRateLimits(bundle);
     const sw = container.querySelector(`[data-testid="${ENABLE_TESTID}"]`) as HTMLElement;
     fireEvent.click(sw);
-    const next = setBundle.mock.calls.at(-1)![0] as RateLimitsBundle;
+    const next = patch.mock.calls.at(-1)![0].rateLimits as RateLimitsBundle;
     expect(next.quota_windows?.[0].enabled).toBe(false);
     expect(next.quota_windows?.[0].window).toBe(18000);
     expect(next.quota_windows?.[0].budget_tokens).toBe(120000);
   });
 
   it("预算 <=0：输入标 aria-invalid；序列化丢弃非法预算行（复核④）", () => {
-    const { container, setBundle } = renderRateLimits(bundle);
+    const { container, patch } = renderRateLimits(bundle);
     const q = () => container.querySelector('[data-testid="quota-window-amount-0"]') as HTMLInputElement;
     expect(q(), "预算输入渲染").toBeTruthy();
     fireEvent.change(q(), { target: { value: "0" } });
     expect(q().getAttribute("aria-invalid")).toBe("true");
-    const next = setBundle.mock.calls.at(-1)![0] as RateLimitsBundle;
+    const next = patch.mock.calls.at(-1)![0].rateLimits as RateLimitsBundle;
     expect(next.quota_windows, "预算 0 的行不落 bundle").toBeUndefined();
   });
 });

@@ -6,6 +6,7 @@ import { render } from "../../test/render";
 import { QuotaSection } from "./formSections";
 import type { QuotaScriptVariant } from "../../domains/platforms";
 import type { PlatformQuota } from "../../services/api";
+import { emptyDraft } from "../../domains/platforms/platformDraft";
 
 const { quotaQueryMock } = vi.hoisted(() => ({ quotaQueryMock: vi.fn() }));
 vi.mock("../../services/api", async (importOriginal) => {
@@ -45,20 +46,19 @@ function renderSection(opts: {
   const onSourceChange = vi.fn();
   const { container, getByText } = render(
     <QuotaSection
-      quotaSource={opts.quotaSource ?? "auto"}
       onSourceChange={onSourceChange}
       protocol="deepseek"
       variants={opts.variants ?? [VARIANT]}
-      variantId=""
       onVariantChange={vi.fn()}
-      customScript={opts.customScript ?? ""}
-      onCustomScriptChange={vi.fn()}
-      requires={opts.requires ?? {}}
-      onRequiresChange={vi.fn()}
       baseUrl={opts.baseUrl ?? "https://x.test"}
       apiKey={opts.apiKey ?? "k-123"}
-      budgets={(opts.budgets ?? []) as never}
-      setBudgets={vi.fn()}
+      draft={{ ...emptyDraft(),
+        quotaSource: opts.quotaSource ?? "auto",
+        quotaCustomScript: opts.customScript ?? "",
+        quotaRequires: opts.requires ?? {},
+        manualBudgets: (opts.budgets ?? []) as never,
+      }}
+      patch={vi.fn()}
       editing
       t={t}
     />

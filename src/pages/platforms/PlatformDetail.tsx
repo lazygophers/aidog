@@ -4,7 +4,7 @@
 // 见 .scratch/平台-详情/实现说明.md）在 <div data-testid="detail-t3-mount"> 处挂载。
 // 导航：无 react-router，由 Platforms.tsx 本地 state 切换；返回回平台列表，列表状态不丢。
 import type { Platform } from "../../services/api";
-import type { PlatformCardService } from "../../components/platforms/PlatformCard";
+import type { PlatformCardService } from "../../components/platforms/usePlatformCards";
 import { DetailHeader } from "../../components/platforms/detail/DetailHeader";
 import { DetailConfig } from "../../components/platforms/detail/DetailConfig";
 import { DetailActions } from "../../components/platforms/detail/DetailActions";

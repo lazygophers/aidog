@@ -11,6 +11,34 @@ import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 
 // ── Types ──
 
+/** 卡片编排动作（拖拽排序 / 展开 / 刷新额度 / 删除；父级编排） */
+export interface PlatformCardActions {
+  onPointerDown: (e: React.PointerEvent, index: number) => void;
+  onPointerMove: (e: React.PointerEvent) => void;
+  onPointerUp: () => void;
+  onToggleExpanded: (id: number, next: boolean) => void;
+  onRefreshQuota: (p: Platform) => void;
+  onDelete: (id: number) => void;
+  onFaviconFailed: (id: number) => void;
+}
+
+/**
+ * 卡片行为服务（票 12 / 契约 #7）：只吃 platform 一个参数的 7 个回调。
+ * 页级注入一次、与 gid 无关；quota 刷新因 Platforms 侧 IntersectionObserver
+ * 批量调度留在 actions（父级编排），不进本服务。
+ */
+export interface PlatformCardService {
+  onToggleEnabled: (p: Platform) => void;
+  onEdit: (p: Platform) => void;
+  onShare: (p: Platform) => void;
+  onDuplicate: (p: Platform) => void;
+  onViewLogs: (p: Platform) => void;
+  onQuickTest: (p: Platform) => void;
+  onCustomTest: (p: Platform) => void;
+  /** 详情全页入口（T2）：卡片操作排「详情」按钮。 */
+  onDetail: (p: Platform) => void;
+}
+
 interface UsePlatformCardsOptions {
   /** 导航回调（跳转编辑/日志） */
   onNavigate?: (id: string, context?: { platformId?: number; platformName?: string }) => void;

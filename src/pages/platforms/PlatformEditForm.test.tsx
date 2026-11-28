@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { PlatformsState } from "./usePlatformsState";
 import { PlatformEditForm } from "./PlatformEditForm";
+import { emptyDraft } from "../../domains/platforms/platformDraft";
 
 vi.mock("../../domains/platforms", () => ({
   SearchableProtocolSelect: ({ value }: { value: string }) => <select aria-label="protocol" value={value} onChange={() => {}}><option value={value}>{value}</option></select>,
@@ -43,12 +44,27 @@ function state(original: "unknown" | "openai", protocol: string = original): Pla
   return {
     form: {
       editing: { name: "Existing", platform_type: original, endpoints: [] },
-      name: "Existing", protocol, endpoints: [{ protocol: "openai", base_url: "https://example.test" }],
-      apiKey: "key", quotaVariants: [], models: {}, availableModels: [],
-      manualBudgets: [], timemodels: {
-        peak: [], setPeak: vi.fn(), windowsTz: "local", setWindowsTz: vi.fn(),
-        disableDuringPeak: false, setDisableDuringPeak: vi.fn(), timeModels: [], setTimeModels: vi.fn(),
-      }, joinGroupIds: [], rateLimits: {},
+      // 票 14：控件读 draft、写 patch（stub 用 emptyDraft 真形状 + patch spy）。
+      draft: {
+        ...emptyDraft(),
+        name: "Existing", protocol,
+        apiKey: "key",
+        endpoints: [{ protocol: "openai", base_url: "https://example.test" }],
+      },
+      patch: vi.fn(),
+      showPaste: false, pasteInitialText: undefined, setShowPaste: vi.fn(), setPasteInitialText: vi.fn(),
+      isMock: false, isPassthrough: false, isPassThrough: false, keyOptional: false, apiKeyMissing: false,
+      showKey: false, setShowKey: vi.fn(),
+      batchPreviewKeys: null, handleApiKeyChange: vi.fn(), previewNames: [],
+      activeDropdown: null, setActiveDropdown: vi.fn(),
+      quotaVariants: [], handleQuotaVariantChange: vi.fn(), setQuotaSourceExplicit: vi.fn(),
+      breakerDefaults: null, windowsTz: "local", setWindowsTz: vi.fn(),
+      expiryEnabled: false, setExpiryEnabled: vi.fn(),
+      customSlotDefs: null,
+      fetching: false, fetchError: "", fetchInfo: "", handleFetchModels: vi.fn(), handleFillAll: vi.fn(),
+      saveError: "",
+      handleSave: vi.fn(), resetForm: vi.fn(), applyPaste: vi.fn(),
+      handleModelsChange: vi.fn(), handleProtocolChange: vi.fn(),
     },
     list: { groupDetails: [] },
     getPrimaryBaseUrl: () => "",
@@ -58,27 +74,31 @@ function state(original: "unknown" | "openai", protocol: string = original): Pla
 describe("subscription date", () => {
   it("blocks an invalid imported date and allows clearing it", () => {
     const s = state("openai", "qianfan_coding");
-    const setExtra = vi.fn();
-    Object.assign(s.form, { extra: '{"other":1,"subscription_start_date":"9999-01-01"}', setExtra });
+    const patch = vi.fn();
+    Object.assign(s.form, {
+      draft: { ...emptyDraft(), protocol: "qianfan_coding", extra: '{"other":1,"subscription_start_date":"9999-01-01"}' },
+      patch,
+    });
     render(<PlatformEditForm s={s} />);
     expect(screen.getByRole("button", { name: "action.save" })).toBeDisabled();
     expect(screen.getByRole("alert")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("subscription-date-clear"));
-    expect(JSON.parse(setExtra.mock.calls[0][0]('{"other":1,"subscription_start_date":"9999-01-01"}'))).toEqual({ other: 1 });
+    // patch({ extra: serializeSubscriptionStartDate(draft.extra, "") }) —— 值已按 draft 解析
+    expect(JSON.parse(patch.mock.calls[0][0].extra)).toEqual({ other: 1 });
   });
 
   it("shows only for qianfan coding and writes a clearable date", () => {
     const s = state("openai", "qianfan_coding");
-    const setExtra = vi.fn();
-    Object.assign(s.form, { extra: '{"other":1}', setExtra });
+    const patch = vi.fn();
+    Object.assign(s.form, { draft: { ...emptyDraft(), protocol: "qianfan_coding", extra: '{"other":1}' }, patch });
     const view = render(<PlatformEditForm s={s} />);
     const input = screen.getByTestId("subscription-start-date");
     fireEvent.change(input, { target: { value: "2026-01-31" } });
-    expect(JSON.parse(setExtra.mock.calls[0][0]('{"other":1}'))).toEqual({ other: 1, subscription_start_date: "2026-01-31" });
-    Object.assign(s.form, { extra: '{"other":1,"subscription_start_date":"2026-01-31"}' });
+    expect(JSON.parse(patch.mock.calls[0][0].extra)).toEqual({ other: 1, subscription_start_date: "2026-01-31" });
+    Object.assign(s.form, { draft: { ...emptyDraft(), protocol: "qianfan_coding", extra: '{"other":1,"subscription_start_date":"2026-01-31"}' } });
     view.rerender(<PlatformEditForm s={s} />);
     fireEvent.change(input, { target: { value: "" } });
-    expect(JSON.parse(setExtra.mock.calls[1][0]('{"other":1,"subscription_start_date":"2026-01-31"}'))).toEqual({ other: 1 });
+    expect(JSON.parse(patch.mock.calls[1][0].extra)).toEqual({ other: 1 });
     view.rerender(<PlatformEditForm s={state("openai")} />);
     expect(screen.queryByTestId("subscription-start-date")).not.toBeInTheDocument();
   });

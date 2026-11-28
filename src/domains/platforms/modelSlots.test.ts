@@ -59,4 +59,9 @@ describe("allConfiguredModelValues", () => {
     expect(allConfiguredModelValues({ models: { default: "a" } })).toEqual(["a"]);
     expect(allConfiguredModelValues({ models: { default: "a" }, extra: "{bad" })).toEqual(["a"]);
   });
+  it("读侧走 parsePlatformTimeWindows（票 07）：分数小时窗口不丢模型，非数组 time_windows 忽略", () => {
+    const frac = JSON.stringify({ time_windows: [{ windows: [{ start_hour: 8.5, end_hour: 12 }], models: { default: "w1" } }] });
+    expect(allConfiguredModelValues({ models: { default: "a" }, extra: frac })).toEqual(["a", "w1"]);
+    expect(allConfiguredModelValues({ models: { default: "a" }, extra: JSON.stringify({ time_windows: null }) })).toEqual(["a"]);
+  });
 });

@@ -4,6 +4,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "../test/render";
 
 const plat = { id: 11, name: "P11", platform_type: "openai", base_url: "https://example.test", status: "enabled", enabled: true, models: {}, extra: "{}" };
+// 批量操作四流程（票 08）+ 平台列表刷新计数的可控 mock。
+const listMock = vi.hoisted(() => vi.fn(async () => [plat, plat2]));
+const batchMocks = vi.hoisted(() => ({
+  batchDelete: vi.fn(),
+  batchOverrideModels: vi.fn(),
+  batchSetStatus: vi.fn(),
+  batchMoveGroup: vi.fn(),
+}));
 const plat2 = { ...plat, id: 12, name: "P12" };
 const g1 = {
   group: { id: 1, name: "First", group_key: "k1", routing_mode: "failover", is_default: false },
@@ -33,13 +41,25 @@ vi.mock("../services/api", async () => {
       reorderPlatforms: vi.fn(async () => {}),
     },
     groupApi: { ...actual.groupApi, reorder: vi.fn(async () => {}) },
-    platformApi: { ...actual.platformApi, list: vi.fn(async () => [plat, plat2]) },
+    platformApi: { ...actual.platformApi, list: listMock, ...batchMocks },
     groupUsageApi: { ...actual.groupUsageApi, statsAll: vi.fn(async () => ({})) },
     proxyApi: { ...actual.proxyApi, getSettings: vi.fn(async () => ({ port: 9890 })) },
     groupFlowApi: { ...actual.groupFlowApi, daily: vi.fn(async () => []), flow: vi.fn(async () => []), latestRouting: vi.fn(async () => null) },
     onProxyLogUpdated: vi.fn(() => () => {}),
   };
 });
+// Radix Select 在 jsdom 无法开面板：换原生 select 壳（LogSettingsSection.test 同款）。
+// 供「批量移组」目标组下拉用；不触碰本文件其它非 Select 交互。
+vi.mock("@/components/ui/select", () => ({
+  Select: ({ value, onValueChange, children }: { value: string; onValueChange: (v: string) => void; children: unknown }) => (
+    <select data-testid="native-select" value={value} onChange={(e) => onValueChange(e.target.value)}>{children}</select>
+  ),
+  SelectTrigger: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  SelectValue: () => null,
+  SelectContent: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+  SelectItem: ({ value, children }: { value: string; children?: React.ReactNode }) => <option value={value}>{children}</option>,
+}));
+
 // 协议搜索词挂载拉取走 defaults docPromise（tauri IPC，jsdom 不可用）→ 空表 mock。
 vi.mock("../domains/platforms/defaults", async () => {
   const actual = await vi.importActual<typeof import("../domains/platforms/defaults")>("../domains/platforms/defaults");
@@ -149,5 +169,124 @@ describe("GroupsEmbedded — 列表→详情全链", () => {
     fireEvent.click(await screen.findByText(/selectAll|全选|Select all/i));
     fireEvent.click(await screen.findByText(/batchSetStatus$|改状态|Set status/i));
     expect(await screen.findByText(/batchSetStatusTitle|批量改状态|Batch set status/i)).toBeTruthy();
+  });
+});
+
+// ── 批量操作四流程行为锁定（票 08）：成功 → target 清 / 刷新 / 成功 toast；失败 → target 清 / 失败 toast / 不刷新。
+describe("批量操作四流程行为锁定（票 08）", () => {
+  beforeAll(() => {
+    Element.prototype.hasPointerCapture ??= () => false;
+    Element.prototype.setPointerCapture ??= () => {};
+    Element.prototype.releasePointerCapture ??= () => {};
+    Element.prototype.scrollIntoView ??= () => {};
+  });
+
+  async function openBatchBar() {
+    const onToast = vi.fn();
+    render(<GroupsEmbedded onToast={onToast} />);
+    await waitFor(() => expect(screen.getAllByTestId("group-section-detail").length).toBe(12));
+    fireEvent.click(await screen.findByTestId("group-batch-start"));
+    fireEvent.click(await screen.findByText(/selectAll|全选|Select all/i));
+    return onToast;
+  }
+
+  it.each([
+    ["删除", "group.batchDelete", "group.batchDeleteTitle"],
+    ["覆盖模型", "group.batchOverrideModels", "group.batchOverrideModelsTitle"],
+    ["改状态", "group.batchSetStatus", "group.batchSetStatusTitle"],
+  ] as [string, string, string][])("%s：成功 → toast ok / modal 关 / 触发刷新", async (_name, toolText, titleKey) => {
+    const onToast = await openBatchBar();
+    fireEvent.click(await screen.findByText(toolText));
+    expect(await screen.findByText(titleKey)).toBeTruthy();
+    if (toolText === "group.batchOverrideModels") {
+      fireEvent.change(await screen.findByTestId("batch-slot-default"), { target: { value: "m1" } });
+    }
+    const reloads = listMock.mock.calls.length;
+    if (toolText === "group.batchDelete") batchMocks.batchDelete.mockResolvedValueOnce({ applied: 2 });
+    if (toolText === "group.batchOverrideModels") batchMocks.batchOverrideModels.mockResolvedValueOnce({ applied: 2 });
+    if (toolText === "group.batchSetStatus") batchMocks.batchSetStatus.mockResolvedValueOnce({ applied: 2 });
+    fireEvent.click(await screen.findByText(/Confirm|确定/));
+    await waitFor(() => expect(onToast).toHaveBeenLastCalledWith(expect.objectContaining({ ok: true })));
+    expect(screen.queryByText(titleKey)).toBeNull();
+    expect(listMock.mock.calls.length).toBeGreaterThan(reloads);
+  });
+
+  it.each([
+    ["删除", "group.batchDelete", "group.batchDeleteTitle", "group.batchDeleteFailed", batchMocks.batchDelete],
+    ["覆盖模型", "group.batchOverrideModels", "group.batchOverrideModelsTitle", "group.batchOverrideModelsFailed", batchMocks.batchOverrideModels],
+    ["改状态", "group.batchSetStatus", "group.batchSetStatusTitle", "group.batchSetStatusFailed", batchMocks.batchSetStatus],
+  ] as [string, string, string, string, ReturnType<typeof vi.fn>][])("%s：失败 → toast fail / modal 关 / 不刷新", async (_name, toolText, titleKey, failKey, mockFn) => {
+    const onToast = await openBatchBar();
+    fireEvent.click(await screen.findByText(toolText));
+    expect(await screen.findByText(titleKey)).toBeTruthy();
+    if (toolText === "group.batchOverrideModels") {
+      fireEvent.change(await screen.findByTestId("batch-slot-default"), { target: { value: "m1" } });
+    }
+    const reloads = listMock.mock.calls.length;
+    mockFn.mockRejectedValueOnce(new Error("boom"));
+    fireEvent.click(await screen.findByText(/Confirm|确定/));
+    await waitFor(() => expect(onToast).toHaveBeenLastCalledWith(expect.objectContaining({ ok: false })));
+    expect(onToast.mock.lastCall![0].text).toContain(failKey);
+    expect(screen.queryByText(titleKey)).toBeNull();
+    expect(listMock.mock.calls.length).toBe(reloads);
+  });
+
+  /** 移组弹窗的目标组下拉：页面有多个原生 select 壳，按 option 值域（组 id）定位。 */
+  const moveGroupSelect = () =>
+    screen.getAllByTestId("native-select").find(s => Array.from((s as HTMLSelectElement).options).some(o => o.value === "2"))!;
+
+  it("移组：选目标组 → 成功 → toast ok / modal 关 / 触发刷新", async () => {
+    const onToast = await openBatchBar();
+    fireEvent.click(await screen.findByText("group.batchMoveGroup"));
+    expect(await screen.findByText("group.batchMoveGroupTitle")).toBeTruthy();
+    fireEvent.change(moveGroupSelect(), { target: { value: "2" } });
+    const reloads = listMock.mock.calls.length;
+    batchMocks.batchMoveGroup.mockResolvedValueOnce({ applied: 2 });
+    fireEvent.click(await screen.findByText(/batchMoveGroupConfirm/));
+    await waitFor(() => expect(onToast).toHaveBeenLastCalledWith(expect.objectContaining({ ok: true })));
+    expect(screen.queryByText("group.batchMoveGroupTitle")).toBeNull();
+    expect(listMock.mock.calls.length).toBeGreaterThan(reloads);
+  });
+
+  it("移组：失败 → toast fail / modal 关 / 不刷新", async () => {
+    const onToast = await openBatchBar();
+    fireEvent.click(await screen.findByText("group.batchMoveGroup"));
+    expect(await screen.findByText("group.batchMoveGroupTitle")).toBeTruthy();
+    fireEvent.change(moveGroupSelect(), { target: { value: "2" } });
+    const reloads = listMock.mock.calls.length;
+    batchMocks.batchMoveGroup.mockRejectedValueOnce(new Error("boom"));
+    fireEvent.click(await screen.findByText(/batchMoveGroupConfirm/));
+    await waitFor(() => expect(onToast).toHaveBeenLastCalledWith(expect.objectContaining({ ok: false })));
+    expect(onToast.mock.lastCall![0].text).toContain("group.batchMoveGroupFailed");
+    expect(screen.queryByText("group.batchMoveGroupTitle")).toBeNull();
+    expect(listMock.mock.calls.length).toBe(reloads);
+  });
+});
+
+// ── 分组页刷新去重（票 09）：写路径广播恰好一次行重载 + 一次 groupDetails 刷新；拖入特例不重载行。
+describe("分组页刷新去重（票 09）", () => {
+  it("写路径广播：分组页恰好一次刷新", async () => {
+    const onGroupsChanged = vi.fn();
+    const ref: { current: (() => void) | null } = { current: null };
+    render(<GroupsEmbedded onToast={() => {}} onGroupsChanged={onGroupsChanged} reloadRef={ref} />);
+    await waitFor(() => expect(screen.getAllByTestId("group-section-detail").length).toBe(12));
+    const before = listMock.mock.calls.length;
+    // 现行写路径（save/delete/purge/批量创建）原样广播：reloadRef + 无 detail 事件。
+    ref.current?.();
+    window.dispatchEvent(new Event("aidog-groups-changed"));
+    await waitFor(() => expect(listMock.mock.calls.length).toBeGreaterThan(before));
+    expect(listMock.mock.calls.length - before).toBe(1);
+    expect(onGroupsChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("拖入特例（rowsChanged:false）：不触发整页行重载", async () => {
+    const onGroupsChanged = vi.fn();
+    render(<GroupsEmbedded onToast={() => {}} onGroupsChanged={onGroupsChanged} />);
+    await waitFor(() => expect(screen.getAllByTestId("group-section-detail").length).toBe(12));
+    const before = listMock.mock.calls.length;
+    window.dispatchEvent(new CustomEvent("aidog-groups-changed", { detail: { rowsChanged: false } }));
+    await new Promise(r => setTimeout(r, 50));
+    expect(listMock.mock.calls.length).toBe(before);
+    expect(onGroupsChanged).toHaveBeenCalledTimes(1);
   });
 });

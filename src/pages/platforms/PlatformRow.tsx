@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Platform, PlatformUsageStats, PlatformQuota, LastTestResult } from "../../services/api";
-import { parseRateLimitsBundle, parseProxyEnabled } from "../../services/api";
+import { parseRateLimitsBundle, parseProxyEnabled, parseDisableDuringPeak } from "../../services/api";
 import { useProxyConfigured } from "../../domains/platforms/proxyConfig";
 import { formatNumber, formatMoney, formatAmount, formatPercent, formatDurationMs, formatRelativeTime, successRate as calcSuccessRate } from "../../utils/formatters";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
@@ -83,7 +83,7 @@ export interface PlatformRowProps {
   platform: Platform;
   usage?: PlatformUsageStats;
   quotaRaw?: PlatformQuota;
-  quotaPreferReal?: boolean; // 真查校准标记：命中时配额列优先真实 quota（computeQuotaDisplay 口径，同 PlatformCard）
+  quotaPreferReal?: boolean; // 真查校准标记：命中时配额列优先真实 quota（computeQuotaDisplay 口径）
   lastTest?: LastTestResult;
   manualResult?: "ok" | "fail";
   testing?: boolean;
@@ -140,7 +140,7 @@ export function PlatformRow({
 }: PlatformRowProps) {
   const dispCur = useDisplayCurrency();
   const { isCpProtocol, defaultModels, peakWindows, holidayCalendar } = useProtocolMeta(p.platform_type, p.extra ?? "", lang);
-  // 转发生效模型（PlatformCard 同口径）：显式槽位优先，没配回落 preset 默认。
+  // 转发生效模型：显式槽位优先，没配回落 preset 默认。
   const configuredModels = useMemo(() => {
     const explicit = allConfiguredModelValues(p);
     return explicit.length > 0 ? explicit : defaultModels;
@@ -151,9 +151,7 @@ export function PlatformRow({
   const rlConfigured = !!(rlBase && ((rlBase.rpm ?? 0) > 0 || (rlBase.rps ?? 0) > 0 || (rlBase.tpm ?? 0) > 0 || !!rlBase.rules?.some(r => r.enabled !== false)));
   const qwCount = rateLimitsBundle.quota_windows?.length ?? 0;
   const rlCount = (rlConfigured ? 1 : 0) + qwCount;
-  const disableDuringPeak = useMemo(() => {
-    try { return !!JSON.parse(p.extra || "{}").disable_during_peak; } catch { return false; }
-  }, [p.extra]);
+  const disableDuringPeak = useMemo(() => parseDisableDuringPeak(p.extra ?? ""), [p.extra]);
   // 「代理」徽标（issue #64 T03）：平台开关开 且 全局代理地址非空才显示（地址空 = 实际直连）。
   const proxyConfigured = useProxyConfigured();
   const showProxyBadge = useMemo(
@@ -163,7 +161,7 @@ export function PlatformRow({
   const nowMs = Date.now();
   const inPeak = isCurrentlyPeak(peakWindows, nowMs, "", holidayCalendar);
   const hitWin = inPeak ? peakWindows.find(w => isCurrentlyPeak([w], nowMs, "", holidayCalendar)) : undefined;
-  // 配额列统一口径（同 PlatformCard）：真查校准（quotaPreferReal）→ est 预估 → 无数据。
+  // 配额列统一口径：真查校准（quotaPreferReal）→ est 预估 → 无数据。
   const balCcys = useBalanceCurrencies();
   const quota = useMemo(() => computeQuotaDisplay(p, quotaRaw, !!quotaPreferReal, balCcys[String(p.id)]), [p, quotaRaw, quotaPreferReal, balCcys, dispCur]);
   const mb = useMemo(() => computeManualBudgetDisplay(p.manual_budgets), [p.manual_budgets]);
@@ -276,7 +274,7 @@ export function PlatformRow({
               </span>
             )}
             {disableDuringPeak && inPeak && (
-              <span style={badgeStyle("var(--color-warning)", "color-mix(in srgb, var(--color-warning) 12%, transparent)", "color-mix(in srgb, var(--color-warning) 35%, transparent)")}>
+              <span data-testid="row-peak-disabled-badge" style={badgeStyle("var(--color-warning)", "color-mix(in srgb, var(--color-warning) 12%, transparent)", "color-mix(in srgb, var(--color-warning) 35%, transparent)")}>
                 {t("platform.peak_disabled_badge", "Peak-disabled")}
               </span>
             )}
@@ -317,7 +315,7 @@ export function PlatformRow({
             );
           })()}
         </span>
-        {/* 列 4：余额 / 配额（coding 档位 / 余额条 / 手动预算，口径同 PlatformCard.computeQuotaDisplay） */}
+        {/* 列 4：余额 / 配额（coding 档位 / 余额条 / 手动预算，口径同 computeQuotaDisplay） */}
         <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
           {quota.tiers.length > 0 ? (
             quota.tiers.map((tier, i) => {
@@ -386,13 +384,6 @@ export function PlatformRow({
             })()
           ) : (
             <span style={{ fontSize: 14, color: "var(--text-tertiary)" }}>—</span>
-          )}
-          {/* Coding plan 使用情况（对齐 PlatformCard：累计 tokens + 预估金额） */}
-          {(isCpProtocol || hasCodingEndpoint) && u && (
-            <span data-testid="row-coding-usage" title={t("platform.codingUsedHint", "Cumulative tokens used and estimated cost for this platform (based on actual requests)")}
-              style={{ fontSize: 14, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap" }}>
-              ⚡ {formatNumber(u.total_input_tokens + u.total_output_tokens)} · {formatMoney(u.total_cost)}
-            </span>
           )}
         </span>
         {/* 列 5-8：今日 / 成功率 / 延迟 / 模型 */}
