@@ -1228,6 +1228,38 @@ impl PlatformAdapter for QianfanFamilyAdapter {
 ///   与家族 2026-11-23 核对一致；reasoning_effort 与 usage cached_tokens 字段未在该页
 ///   raw HTML 命中——未证实，保持基座默认；非 coding plan（registry 无 is_coding_plan）；
 ///   无成员独有覆写，注册即家族基座单例。
+///
+/// 成员 `siliconflow`（SiliconFlow（硅基流动），api.siliconflow.cn 标准平台；issue 133，
+/// 核对日期 2026-11-28）：与家族基座无已证实的成员级差异，登记为
+/// [`SiliconFlowFamilyAdapter`]（全量开启家族覆写）；逐项核对结论（官方文档原文，
+/// docs.siliconflow.cn 中国站正文由原始 HTML 直读；国际站 docs.siliconflow.com 同一文档
+/// 结构，未逐条复核，成员差异归 siliconflow_en 的 issue）：
+/// - 端点协议：registry 内置默认 openai `https://api.siliconflow.cn/v1` 与 anthropic
+///   `https://api.siliconflow.cn`，与官方一致（chat 页请求示例打
+///   `https://api.siliconflow.cn/v1/chat/completions`，messages 页示例打
+///   `https://api.siliconflow.cn/v1/messages`）；运行时只用用户平台配置的端点。
+///   https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions
+///   https://docs.siliconflow.cn/cn/docs/api/messages-post
+/// - 思考开关 / usage / 流式 / 错误体 / 工具与多模态 / system：同家族基座（openai 端点
+///   顶层布尔 `enable_thinking`、`thinking_budget`（128–32768）、`reasoning_effort` 仅
+///   high/max 且无 none；anthropic 端点 `thinking.type` disabled/enabled（enabled 带
+///   budget_tokens 必填）；usage `prompt_tokens_details.cached_tokens` + DeepSeek 系
+///   `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`；SSE 以 `data: [DONE]` 结束、
+///   思考增量在 `reasoning_content`；错误体顶层 `{"code":20012,"message":"Model does not
+///   exist...","data":null}` 无 error 包裹，504 示例 `{"code":50505,"message":"Model
+///   service overloaded..."}`；工具 / `image_url` / system role 为标准 OpenAI 形状），
+///   不覆盖。
+///   https://docs.siliconflow.cn/cn/api-reference/chat-completions/chat-completions
+///   https://docs.siliconflow.cn/cn/docs/userguide/faqs/error-code
+/// - usage（anthropic 端点）：messages 页响应示例 `usage.input_tokens` / `output_tokens`
+///   （示例无缓存字段；Usage 对象属性页未逐项展开），保持基座 anthropic 臂（有键即抽、
+///   无键按 0），不覆盖。https://docs.siliconflow.cn/cn/docs/api/messages-post
+/// - coding_plan 注入：非编码套餐，基座按平台协议分派对 SiliconFlow 协议为 no-op，
+///   行为不变。
+/// - 未证实（保持基座默认）：`enable_thinking` 默认值、max_tokens 统一上限、anthropic
+///   端点流式事件序列与终止标记（测试按基座 anthropic 事件链构造）、`reasoning_effort`
+///   对清单外模型的认受性、错误体在流式帧内的形态、TypeSafe 端点（registry 未内置该
+///   协议，用户手配时走基座协议构件）。
 pub struct SiliconFlowFamilyAdapter;
 
 impl PlatformAdapter for SiliconFlowFamilyAdapter {
@@ -2813,9 +2845,16 @@ static OPENROUTER: OpenrouterAdapter = OpenrouterAdapter;
 /// true 才在 `data: [DONE]` 前发独立的 usage 终块（choices 为空数组）。错误体：
 /// 标准 `{error: {message, type, code, param}}`；402 扩展带 `error.balance` 与
 /// `error.actions`，语义码 `insufficient_credits`；404 `model_not_found` 带
-/// did_you_mean/suggestions/docs/trace_id。错误码：400/401/402/404/429/500/502/503。
+/// did_you_mean/suggestions/docs/trace_id；同 404 在 `/v1/messages` 用 Anthropic 形状
+/// （`error.type: "not_found_error"`，建议名单进 `error.message` 与 `error.suggestions`）。
+/// 错误码：400/401/402/404/429/500/502/503。参数页只列标准 OpenAI 参数
+/// （temperature/top_p/max_tokens/frequency·presence_penalty/stop/seed），无思考参数。
+/// 网关层：限频响应头 `X-RateLimit-*`，请求体上限 1 MB（超限 400）。
 /// https://therouter.ai/docs/api/reference/streaming/
 /// https://therouter.ai/docs/api/reference/errors-and-debugging/
+/// 复核日期 2026-11-28（parameters / limits 页同轮核对），上述结论与 2026-11-25 首核一致。
+/// https://therouter.ai/docs/api/reference/parameters/
+/// https://therouter.ai/docs/api/reference/limits/
 /// 未证实：usage 缓存 token 字段、思考开关/档位、工具与媒体细节、max_tokens 上限、
 /// Anthropic/Responses 端点的完整事件与错误形状；保持协议构件默认行为。官方未列其他
 /// wire 协议端点；对用户配置其他协议仅做合成假上游兼容性测试，不表示 TheRouter 官方支持。

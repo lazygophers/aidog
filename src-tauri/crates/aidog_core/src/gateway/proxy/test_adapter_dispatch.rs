@@ -4844,6 +4844,230 @@ fn newapi_injection_is_noop() {
     }
 }
 
+// ══ issue 109：TheRouter ══
+
+/// usage 抽取按官方形状：标准 `{message, type, code, param}` 错误外的 usage 沿 openai
+/// chat completions 形状（`prompt_tokens_details.cached_tokens` 缓存臂扣减）。
+#[test]
+fn therouter_usage_extraction_follows_official_shape() {
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    let body = r#"{"usage":{"prompt_tokens":19,"completion_tokens":10,"total_tokens":29,"prompt_tokens_details":{"cached_tokens":6}}}"#;
+    let (input, output, cache_read, cache_write, cache_write_1h, _) = adapter.extract_usage(body);
+    assert_eq!((input, output, cache_read, cache_write, cache_write_1h), (13, 10, 6, 0, 0), "cached_tokens 在 prompt_tokens 内须扣减");
+}
+
+/// 流式 usage 终块（官方 SSE Event Flow：`choices: []` 的独立 usage 块在 `data: [DONE]` 前），
+/// 经 `parse_sse_frame` 产出 Usage 事件（含 cached_tokens 缓存读）。
+#[test]
+fn therouter_stream_usage_terminal_chunk() {
+    use aidog_adapter::types::ChatStreamEvent;
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    let frame = serde_json::json!({
+        "id": "req_123", "object": "chat.completion.chunk", "choices": [],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12,
+                   "prompt_tokens_details": {"cached_tokens": 4}},
+    });
+    let events = adapter.parse_sse_frame(&frame, &Protocol::OpenAI);
+    let Some(ChatStreamEvent::Usage { usage }) = events.iter().find(|e| matches!(e, ChatStreamEvent::Usage { .. })) else {
+        panic!("usage 终块须产出 Usage 事件: {events:?}");
+    };
+    assert_eq!(usage.prompt_tokens, Some(10), "{usage:?}");
+    assert_eq!(usage.completion_tokens, Some(2), "{usage:?}");
+    assert_eq!(usage.cache_read_tokens, Some(4), "{usage:?}");
+}
+
+/// 402 扩展错误体（`error.balance` / `error.actions`，语义码 `insufficient_credits`）
+/// 按余额类归服务类分类，透传给客户端。
+#[test]
+fn therouter_402_insufficient_credits_classified_service() {
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    let body = r#"{"error":{"type":"insufficient_credits","message":"Insufficient balance — top up to continue","code":"insufficient_credits","balance":{"current":250,"current_usd":2.5,"threshold":0,"currency":"cr"},"actions":{"top_up_url":"/v1/customer/credits/packages","support_url":"/support"}}}"#;
+    assert!(matches!(
+        adapter.classify_error(402, body),
+        aidog_adapter::platform::error::UpstreamErrorClass::Service
+    ));
+}
+
+/// 注入不透传：therouter 无 coding plan（非编码套餐平台），`inject_coding_plan` 对各 wire 不改请求体。
+#[test]
+fn therouter_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("therouter");
+    for wire in [Protocol::OpenAI, Protocol::OpenAIResponses, Protocol::Anthropic, Protocol::Gemini] {
+        let mut body = serde_json::json!({"model": "tr-test", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::TheRouter, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
+// ══ issue 132：商汤国际版成员 `sensenova_en` 逐端点协议护栏（本地假上游）══
+// 形态与 #131 对称：与 cn 成员共用 SenseNovaFamilyAdapter 基座，官方文档 SPA 抓不到，
+// 可证实差异仅内置默认端点域名（token.sensenova.ai，见 platform.sensenova.ai）；
+// 其余请求字段 / 流式事件 / 错误体 / usage 语义均未证实，继承基座默认——
+// 本组测试锁的是「en 成员经 adapter_for 正确派发到家族基座、两 wire 端点协议转换不回落」，
+// fixture 复用 #131 的 SENSENOVA_* 常量。
+
+/// 注入不透传：sensenova_en 非 coding plan 成员，`inject_coding_plan` 对两种 wire 均不改请求体。
+#[test]
+fn sensenova_en_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("sensenova_en");
+    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+        let mut body = serde_json::json!({"model": "sensenova-6.8-flash-lite", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::SenseNovaEn, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic（usage 10/3 全额计）；
+/// 流式上游 `[DONE]` 不漏进 anthropic 输出、末帧 usage 转换；401 原状态透传。
+#[tokio::test]
+async fn sensenova_en_openai_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::SenseNovaEn, Protocol::OpenAI, "gk132oa", "/v1/messages", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", SENSENOVA_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "sensenova-6.8-flash-lite", "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi");
+    assert_eq!(response["usage"]["input_tokens"], 10, "{response}");
+    assert_eq!(response["usage"]["output_tokens"], 3, "{response}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNovaEn, Protocol::OpenAI, "gk132oas", "/v1/messages", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", SENSENOVA_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    assert!(!resp.contains("[DONE]"), "OpenAI upstream terminator must not leak into Anthropic output: {resp}");
+    assert!(resp.contains("\"input_tokens\":10") && resp.contains("\"output_tokens\":3"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNovaEn, Protocol::OpenAI, "gk132oae", "/v1/messages", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (401, "application/json", r#"{"error":{"message":"Invalid API key provided","type":"invalid_request_error"}}"#)).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{resp}");
+    assert!(resp.contains("Invalid API key"), "{resp}");
+}
+
+/// anthropic 端点（registry 内置第二端点）：出站打 `/v1/messages`；非流式回 openai 形状；
+/// 流式透传标准事件链；400 错误体原样透传；usage 按基座 anthropic 臂（input 6 − cache 0）。
+#[tokio::test]
+async fn sensenova_en_anthropic_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::SenseNovaEn, Protocol::Anthropic, "gk132an", "/chat/completions", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", SENSENOVA_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "sensenova-6.8-flash-lite", "{req}");
+    assert_eq!(req["messages"][0]["content"], "hi", "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    assert_eq!(response["usage"]["prompt_tokens"], 6, "{response}");
+    assert_eq!(response["usage"]["completion_tokens"], 3, "{response}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNovaEn, Protocol::Anthropic, "gk132ans", "/chat/completions", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"stream":true,"stream_options":{"include_usage":true},"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", SENSENOVA_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    assert!(resp.contains("\"prompt_tokens\":6") && resp.contains("\"completion_tokens\":3"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::SenseNovaEn, Protocol::Anthropic, "gk132ane", "/chat/completions", r#"{"model":"sensenova-6.8-flash-lite","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"model is empty"}}"#)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("model is empty"), "{resp}");
+}
+
+// ══ issue 133：SiliconFlow（硅基流动）成员 `siliconflow` 逐端点协议护栏（本地假上游）══
+// 成员级核对与未证实项（官方文档 https://docs.siliconflow.cn，核对日期 2026-11-28）见
+// SiliconFlowFamilyAdapter 文档注释（aidog_adapter/src/platform/registry.rs）。
+
+/// 官方错误体：顶层 `{code,message,data}`（无 error 包裹；20012 模型不存在）。
+const SILICONFLOW_ERROR: &str = r#"{"code":20012,"message":"Model does not exist. Please check it carefully.","data":null}"#;
+
+
+/// openai 兼容端点非流式响应（通用 chat.completion 形状）。
+const SILICONFLOW_OPENAI_RESP: &str = r#"{"id":"019bdaa55225ef854b320e9b838f77ce","object":"chat.completion","created":1768899826,"model":"deepseek-ai/DeepSeek-V3.2","choices":[{"index":0,"message":{"role":"assistant","content":"hi","reasoning_content":"think"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3,"total_tokens":13,"completion_tokens_details":{"reasoning_tokens":2},"prompt_tokens_details":{"cached_tokens":6},"prompt_cache_hit_tokens":6,"prompt_cache_miss_tokens":4}}"#;
+/// openai 兼容流式：末帧带 usage，`data: [DONE]` 结束。
+const SILICONFLOW_OPENAI_SSE: &str = concat!(
+    "data: {\"id\":\"sf1\",\"object\":\"chat.completion.chunk\",\"model\":\"deepseek-ai/DeepSeek-V3.2\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning_content\":\"think\"}}]}\n\n",
+    "data: {\"id\":\"sf1\",\"object\":\"chat.completion.chunk\",\"model\":\"deepseek-ai/DeepSeek-V3.2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+    "data: {\"id\":\"sf1\",\"object\":\"chat.completion.chunk\",\"model\":\"deepseek-ai/DeepSeek-V3.2\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":3,\"total_tokens\":13,\"prompt_tokens_details\":{\"cached_tokens\":6}}}\n\n",
+    "data: [DONE]\n\n",
+);
+/// Anthropic 兼容端点非流式响应。
+const SILICONFLOW_ANTHROPIC_RESP: &str = r#"{"id":"msg_sf1","type":"message","role":"assistant","model":"deepseek-ai/DeepSeek-V3.2","content":[{"type":"thinking","thinking":"think","signature":"sig_sf"},{"type":"text","text":"hi"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":6,"output_tokens":3}}"#;
+const SILICONFLOW_ANTHROPIC_SSE: &str = concat!(
+    "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_sf1\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"deepseek-ai/DeepSeek-V3.2\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0}}}\n\n",
+    "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+    "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}\n\n",
+    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+);
+
+/// 注入不透传：siliconflow 非 coding plan 成员，`inject_coding_plan` 对两种 wire 均不改请求体。
+#[test]
+fn siliconflow_injection_is_noop() {
+    let adapter = aidog_adapter::platform::adapter_for("siliconflow");
+    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+        let mut body = serde_json::json!({"model": "deepseek-ai/DeepSeek-V3.2", "messages": [{"role": "user", "content": "hi"}]});
+        let before = body.clone();
+        adapter.inject_coding_plan(&mut body, &Protocol::SiliconFlow, &wire);
+        assert_eq!(body, before, "{wire:?}");
+    }
+}
+
+/// openai 端点：出站打 `/chat/completions`；非流式回 anthropic（usage 10/3，cached_tokens 6 计 cache_read）；
+/// 流式上游 `[DONE]` 不漏进 anthropic 输出、末帧 usage 转换；400 官方顶层错误体
+/// （code 20012）原状态透传；usage 抽取 input 扣缓存命中（10−6=4）。
+#[tokio::test]
+async fn siliconflow_openai_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::SiliconFlow, Protocol::OpenAI, "gk133oa", "/v1/messages", r#"{"model":"deepseek-ai/DeepSeek-V3.2","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", SILICONFLOW_OPENAI_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "deepseek-ai/DeepSeek-V3.2", "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    // 上游 message.reasoning_content 转 anthropic 后 thinking 块在前（content[0]），text 块在 content[1]。
+    assert_eq!(response["content"][0]["type"], "thinking");
+    assert_eq!(response["content"][1]["text"], "hi");
+    assert_eq!(response["usage"]["input_tokens"], 10, "{response}");
+    assert_eq!(response["usage"]["output_tokens"], 3, "{response}");
+    assert_eq!(response["usage"]["cache_read_input_tokens"], 6, "{response}");
+    let (status, resp, _) = glm_member_call(Protocol::SiliconFlow, Protocol::OpenAI, "gk133oas", "/v1/messages", r#"{"model":"deepseek-ai/DeepSeek-V3.2","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", SILICONFLOW_OPENAI_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi") && resp.contains("message_stop"), "{resp}");
+    assert!(!resp.contains("[DONE]"), "OpenAI upstream terminator must not leak into Anthropic output: {resp}");
+    assert!(resp.contains("\"input_tokens\":10") && resp.contains("\"output_tokens\":3"), "{resp}");
+    assert_eq!(aidog_adapter::platform::adapter_for("siliconflow").extract_usage(SILICONFLOW_OPENAI_RESP).0, 4, "input 扣缓存命中 10−6=4");
+    assert_eq!(aidog_adapter::platform::adapter_for("siliconflow").extract_usage(SILICONFLOW_OPENAI_RESP).2, 6);
+    let (status, resp, _) = glm_member_call(Protocol::SiliconFlow, Protocol::OpenAI, "gk133oae", "/v1/messages", r#"{"model":"deepseek-ai/DeepSeek-V3.2","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", SILICONFLOW_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("Model does not exist"), "{resp}");
+}
+
+/// anthropic 端点（registry 内置第二端点）：出站打 `/v1/messages`；非流式回 openai 形状；
+/// 流式透传标准事件链；400 错误体原样透传；usage 按基座 anthropic 臂（input 6 − cache 0）。
+#[tokio::test]
+async fn siliconflow_anthropic_endpoint_dispatch() {
+    let (status, resp, hits) = glm_member_call(Protocol::SiliconFlow, Protocol::Anthropic, "gk133an", "/chat/completions", r#"{"model":"deepseek-ai/DeepSeek-V3.2","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (200, "application/json", SILICONFLOW_ANTHROPIC_RESP)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "deepseek-ai/DeepSeek-V3.2", "{req}");
+    assert_eq!(req["messages"][0]["content"], "hi", "{req}");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    assert_eq!(response["usage"]["prompt_tokens"], 6, "{response}");
+    assert_eq!(response["usage"]["completion_tokens"], 3, "{response}");
+    let (status, resp, _) = glm_member_call(Protocol::SiliconFlow, Protocol::Anthropic, "gk133ans", "/chat/completions", r#"{"model":"deepseek-ai/DeepSeek-V3.2","max_tokens":32,"stream":true,"stream_options":{"include_usage":true},"messages":[{"role":"user","content":"hi"}]}"#, (200, "text/event-stream", SILICONFLOW_ANTHROPIC_SSE)).await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert!(resp.contains("hi") && resp.contains("[DONE]"), "{resp}");
+    assert!(resp.contains("\"prompt_tokens\":6") && resp.contains("\"completion_tokens\":3"), "{resp}");
+    let (status, resp, _) = glm_member_call(Protocol::SiliconFlow, Protocol::Anthropic, "gk133ane", "/chat/completions", r#"{"model":"deepseek-ai/DeepSeek-V3.2","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#, (400, "application/json", SILICONFLOW_ERROR)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("Model does not exist"), "{resp}");
+}
+
+
+/// 禁思考写官方参数并到达出站（本地假上游）：openai wire 顶层 `enable_thinking: false`
+/// （官方无 thinking 对象 / chat_template_kwargs）；anthropic wire `thinking.type = disabled`。
+#[tokio::test]
+async fn siliconflow_disable_thinking_writes_official_parameter_to_upstream() {
+    let body = glm_outbound_body(Protocol::SiliconFlow, Protocol::OpenAI, "gk133dt").await;
+    assert_eq!(body["enable_thinking"], serde_json::json!(false), "{body}");
+    assert!(body.get("thinking").is_none(), "{body}");
+    assert!(body.get("disable_thinking").is_none(), "{body}");
+    let ant = glm_outbound_body(Protocol::SiliconFlow, Protocol::Anthropic, "gk133dta").await;
+    assert_eq!(ant["thinking"]["type"], "disabled", "{ant}");
+    assert!(ant.get("disable_thinking").is_none(), "{ant}");
+}
+
 // ══ issue 134：SiliconFlow 国际版 `siliconflow_en` 逐端点协议护栏（本地假上游）══
 // 成员差异核对（官方国际站直读探针 2026-11-28）与家族共性见 SiliconFlowFamilyAdapter
 // 文档注释（aidog_adapter/src/platform/registry.rs）。adapter 零成员独有覆写（#132
