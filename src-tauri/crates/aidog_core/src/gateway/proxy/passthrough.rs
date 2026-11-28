@@ -645,6 +645,9 @@ pub(crate) fn passthrough_base_url(platform: &super::models::Platform) -> String
 /// 仅认证头按平台配置重写（剥入站认证头 + 注入 `extra.auth_header: auth_template({key})`）。
 /// 不识别协议不转换（wire 未知 → 不合成 message_stop / 不插 anthropic ping）；
 /// usage 尽力解析（复用 relay 的 extract_usage / feed_sse_usage），解析不出 tokens=0 落库。
+/// 透传不是上游协议，没有统一的官方契约：字段、默认值、思考、工具、多媒体、system、
+/// max_tokens 上限、usage（含缓存）、错误及流结束标记均取决于用户选择的上游，未证实。
+/// 请求与响应不做协议转换；usage 提取仅用于日志，不改写响应（ADR 0008，2026-11-28 核对）。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn handle_passthrough_platform(
     state: &Arc<ProxyState>,

@@ -1631,6 +1631,15 @@
       "returns": "serde_json::Value"
     },
     {
+      "name": "mcp_tools_settings_get",
+      "category": "mcp_tools",
+      "kind": "readonly",
+      "exportsSecret": false,
+      "desktopOnly": false,
+      "params": [],
+      "returns": "McpToolsSettings"
+    },
+    {
       "name": "mcp_update",
       "category": "ai_tools",
       "kind": "mutating",

@@ -5,9 +5,9 @@
 //! 内核都从这里取表（ADR 0010），不再各抄一份。
 //!
 //! 路由路径里的命令名不手写，由 [`rpc_last_seg`] 从路径末段 `stringify!` 出来 —— 路径写错
-//! 编译不过，所以路径对了名字就一定对。漂移护栏（少写/多写一条）：
-//! `node scripts/t08-rpc-names.mjs` 抽本文件的命令名集合，与 `scripts/t06-handler-names.mjs`
-//! 抽的注册表逐行比对，必须零差集。
+//! 编译不过，所以路径对了名字就一定对。漂移护栏（少写/多写一条）：`yarn check:rpc`
+//! （`scripts/check-frontend-rpc-coverage.mjs`，已进 `make lint`）核对前端 invoke ⊆ 本表、
+//! 桌面 `generate_handler!`（借 `scripts/t06-handler-names.mjs` 抽取）与本表零差集。
 //!
 //! 本表挂在代理端口的 `/api/` 前缀下，由 `aidog_core::gateway::proxy::management` 负责
 //! 本机限制 / 开关 / 凭据，再把去掉 `/api` 的请求交给 [`management_router`]。
@@ -171,6 +171,7 @@ rpc_routes! {
     readonly aidog_core::proxy_cmd::search::search_searx_instances,
     readonly aidog_core::proxy_cmd::search::search_searx_test,
     readonly aidog_core::proxy_cmd::search::search_sources,
+    readonly aidog_core::mcp_tools::mcp_tools_settings_get,
     readonly aidog_core::proxy_cmd::tool_log::tool_log_list,
     readonly aidog_core::proxy_cmd::tool_log::tool_log_get,
     readonly aidog_core::proxy_cmd::tool_log::tool_log_retention_get,

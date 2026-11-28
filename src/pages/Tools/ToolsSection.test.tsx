@@ -8,11 +8,15 @@ import { act, fireEvent, render, screen, waitFor } from "../../test/render";
 const h = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn() }));
 const m = vi.hoisted(() => ({ selfInstall: vi.fn() }));
 const sx = vi.hoisted(() => ({ searxInstances: vi.fn(), searxTest: vi.fn(), sources: vi.fn() }));
+const mt = vi.hoisted(() => ({ settings: vi.fn() }));
 const dnd = vi.hoisted(() => ({ onDragEnd: null as null | ((e: unknown) => void) }));
 
 vi.mock("../../services/transport", () => ({ invoke: vi.fn(), listen: vi.fn(async () => () => {}) }));
 vi.mock("../../services/api/settings", () => ({ settingsApi: { get: h.get, set: h.set } }));
-vi.mock("../../services/api/search", () => ({ searchApi: { sources: sx.sources, searxInstances: sx.searxInstances, searxTest: sx.searxTest } }));
+vi.mock("../../services/api/search", () => ({
+  searchApi: { sources: sx.sources, searxInstances: sx.searxInstances, searxTest: sx.searxTest },
+  mcpToolsApi: { settings: mt.settings },
+}));
 vi.mock("../../services/api/mcp", () => ({ mcpApi: { selfInstall: m.selfInstall } }));
 
 vi.mock("@dnd-kit/core", async () => {
@@ -50,6 +54,35 @@ beforeEach(() => {
   sx.searxInstances.mockReset();
   sx.searxTest.mockReset();
   sx.sources.mockResolvedValue(SOURCE_LIST);
+  mt.settings.mockResolvedValue(null);
+});
+
+/** 载入与保存重取喂同一 blob：load 走 mcpToolsApi.settings（迁移视图），保存走 settingsApi.get。 */
+const seed = (v: unknown) => {
+  mt.settings.mockResolvedValue(v);
+  h.get.mockResolvedValue(v);
+};
+
+describe("票57-01 旧形状迁移", () => {
+  it("旧形状 search blob（provider/keys，无 sources）经迁移视图打开保存后不丢 key", async () => {
+    // 命令返回迁移后类型化视图（迁移本身是后端职责，Rust 测试锁定；这里喂后端会返回的形状）。
+    mt.settings.mockResolvedValue({
+      search: { enabled: true, sources: [], mode: "sequential", services: { brave: { keys: ["k1"] } }, searxng_base_urls: [] },
+      fetch: { enabled: true, format: "markdown" },
+    });
+    // 库里仍是旧形状 blob：保存重新 get / 读-改-写看到的原值（不经 seed，load 走迁移视图）。
+    h.get.mockResolvedValue({ search: { provider: "brave", keys: ["k1"] } });
+    render(<ToolsSection />);
+    await waitFor(() => expect(statusOf("web_search")).toBe("unconfigured"));
+    fireEvent.click(screen.getByTestId("mcp-tools-save"));
+    await waitFor(() => {
+      const next = h.set.mock.calls[0][2] as any;
+      expect(next.search.services.brave?.keys ?? []).toEqual(["k1"]);
+      // 迁移视图写回后已是新形状：sources 键在、provider 键不再出现
+      expect(next.search.sources).toEqual([]);
+      expect(next.search.provider).toBeUndefined();
+    });
+  });
 });
 
 describe("toolStatus 纯函数", () => {
@@ -76,7 +109,7 @@ describe("toolStatus 纯函数", () => {
 
 describe("ToolsSection 总控台", () => {
   it("rail 三态：搜索已配置（sources 有引擎）/ 抓网页已停用；生图卡已移除（票 08）", async () => {
-    h.get.mockResolvedValue({
+    seed({
       search: { enabled: true, sources: ["ddg"], mode: "parallel", services: {}, searxng_base_urls: [] },
       fetch: { enabled: false },
     });
@@ -88,7 +121,7 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("执行路径图随模式与停用切换（草稿即时生效）；rail 状态按已存值，保存后才翻转", async () => {
-    h.get.mockResolvedValue({
+    seed({
       search: { enabled: true, sources: ["ddg", "google"], mode: "sequential", services: {}, searxng_base_urls: [] },
     });
     render(<ToolsSection />);
@@ -106,14 +139,15 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("每卡独立保存：搜索卡保存走读-改-写，保留最新 fetch / image；写出的 sources 保持拖动后顺序", async () => {
-    h.get.mockResolvedValue({
+    seed({
       search: { enabled: true, sources: ["ddg", "google"], mode: "sequential", services: {}, searxng_base_urls: [] },
       fetch: { enabled: true },
       image: { base_url: "https://p/v1", api_key: "k", model: "m" },
     });
-    // 保存前他卡被另一会话更新：重新 get 返回新值，读-改-写必须带上它而不是旧快照。
+    // 保存前他卡被另一会话更新：重新 get（settingsApi.get，load 不再走它）返回新值，
+    // 读-改-写必须带上它而不是旧快照。
     h.get.mockImplementation(async () => {
-      if (h.get.mock.calls.length > 1) {
+      if (h.get.mock.calls.length > 0) {
         return {
           search: { enabled: true, sources: ["ddg", "google"], mode: "sequential", services: {}, searxng_base_urls: [] },
           fetch: { enabled: false },
@@ -144,7 +178,7 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("抓网页卡只写 fetch 段：保存保留 search / image 原值", async () => {
-    h.get.mockResolvedValue({
+    seed({
       search: { enabled: true, sources: ["ddg"], mode: "parallel", services: { tavily: { keys: ["***"] } }, searxng_base_urls: ["http://s"] },
       image: { base_url: "https://p/v1", api_key: "k", model: "m" },
     });
@@ -163,7 +197,7 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("抓网页卡返回格式选择器：加载已存格式、改选后保存写出 format", async () => {
-    h.get.mockResolvedValue({
+    seed({
       fetch: { enabled: true, format: "text" },
     });
     render(<ToolsSection />);
@@ -182,7 +216,7 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("key 服务行内密码框默认隐藏、可显隐、可增删；空行保存时剔除；*** 原样保留", async () => {
-    h.get.mockResolvedValue({
+    seed({
       search: { enabled: true, sources: ["tavily"], mode: "sequential", services: { tavily: { keys: ["***"] } }, searxng_base_urls: [] },
     });
     render(<ToolsSection />);
@@ -213,7 +247,7 @@ describe("ToolsSection 总控台", () => {
 
   it("未保存离开：dirty 时经 registerNavGuard 拦截，确认后放行并还原草稿", async () => {
     const { requestNavigation } = await import("../../utils/navGuard");
-    h.get.mockResolvedValue({ search: { enabled: true, sources: ["ddg"], mode: "parallel", services: {}, searxng_base_urls: [] } });
+    seed({ search: { enabled: true, sources: ["ddg"], mode: "parallel", services: {}, searxng_base_urls: [] } });
     render(<ToolsSection />);
     await waitFor(() => expect(statusOf("web_search")).toBe("configured"));
     // dirty banner 未出现
@@ -234,7 +268,7 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("未保存离开 Dialog：取消留在本页，导航不发生", async () => {
-    h.get.mockResolvedValue({ search: { enabled: true, sources: ["ddg"], mode: "parallel", services: {}, searxng_base_urls: [] } });
+    seed({ search: { enabled: true, sources: ["ddg"], mode: "parallel", services: {}, searxng_base_urls: [] } });
     render(<ToolsSection />);
     await waitFor(() => expect(statusOf("web_search")).toBe("configured"));
     fireEvent.click(screen.getByTestId("tools-mode-sequential"));
@@ -264,7 +298,7 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("SearXNG 行式列表：已知 URL 合并去重渲染行，只在点击刷新时拉一次公共实例，勾选行写入并随保存持久化", async () => {
-    h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://mine"] } });
+    seed({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://mine"] } });
     sx.searxInstances.mockResolvedValue([{ url: "https://a.example/", seconds: 0.3 }]);
     render(<ToolsSection />);
     await waitFor(() => expect(screen.getByTestId("tools-searx-row-0")).toBeTruthy());
@@ -284,7 +318,7 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("SearXNG 批量按钮：全选 / 反选 / 全不选 / 选择所有可用（只勾本会话测速通过的，未测不算）", async () => {
-    h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1", "http://2", "http://3"] } });
+    seed({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1", "http://2", "http://3"] } });
     sx.searxTest.mockImplementation(async (url: string) => {
       if (url === "http://2") throw new Error("connect timeout");
       return url === "http://1" ? 0.12 : 0.2;
@@ -317,7 +351,7 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("SearXNG 一键测试：对全部已知行逐个测速，结果写回行内缓存，单条失败不中断，结束后按钮恢复", async () => {
-    h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1", "http://2", "http://3"] } });
+    seed({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1", "http://2", "http://3"] } });
     sx.searxTest.mockImplementation(async (url: string) => {
       if (url === "http://2") throw new Error("connect timeout");
       return url === "http://1" ? 0.5 : 0.7;
@@ -341,7 +375,7 @@ describe("ToolsSection 总控台", () => {
     sx.searxTest.mockImplementation(() => new Promise<number>((resolve) => {
       pending.push(() => resolve(0.5));
     }));
-    h.get.mockResolvedValue({ search: { sources: ["searxng"], searxng_base_urls: urls } });
+    seed({ search: { sources: ["searxng"], searxng_base_urls: urls } });
     render(<ToolsSection />);
     await waitFor(() => expect(screen.getByTestId("tools-searx-row-6")).toBeTruthy());
     const button = screen.getByTestId("tools-searx-test-all");
@@ -362,7 +396,7 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("SearXNG 行内添加与删除：trim 添加即启用并去重，删行移出启用集，保存持久化", async () => {
-    h.get.mockResolvedValue({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1"] } });
+    seed({ search: { enabled: true, sources: ["searxng"], mode: "parallel", services: {}, searxng_base_urls: ["http://1"] } });
     render(<ToolsSection />);
     await waitFor(() => expect(screen.getByTestId("tools-searx-row-0")).toBeTruthy());
     fireEvent.change(screen.getByTestId("tools-searx-add"), { target: { value: "  http://new  " } });
@@ -395,7 +429,7 @@ describe("ToolsSection 总控台", () => {
   });
 
   it("加载失败展示原文", async () => {
-    h.get.mockRejectedValue("db locked");
+    mt.settings.mockRejectedValue("db locked");
     render(<ToolsSection />);
     expect(await screen.findByTestId("mcp-tools-load-error")).toHaveTextContent("db locked");
   });

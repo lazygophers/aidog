@@ -88,6 +88,8 @@ lint-run:
 	@printf "$(CYAN)▶ API catalog check...$(RESET)\n"
 	yarn check:api-catalog
 	yarn test:api-catalog
+	@printf "$(CYAN)▶ RPC coverage check...$(RESET)\n"
+	yarn check:rpc
 	yarn check:serde-ts
 	yarn test:serde-ts
 	@printf "$(CYAN)▶ Money format check...$(RESET)\n"

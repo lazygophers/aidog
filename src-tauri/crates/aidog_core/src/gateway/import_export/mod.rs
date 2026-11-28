@@ -1,14 +1,18 @@
 //! 导入导出子系统。
 //!
-//! 把 aidog 的可配置数据（platform / group / setting / codex / claude-code
-//! settings / skills）序列化为加密单文件 `.aidogx`，
+//! 把 aidog 的可配置数据（platform / group / group_platform / setting / codex / claude-code
+//! settings / skills / mcp / middleware / model_price）序列化为加密单文件 `.aidogx`，
 //! 供用户跨机器迁移。文件密钥经字节混淆隐藏在头部，程序可重组、人眼无法分辨。
+//! `SCOPE_MODEL_PRICE`：collect 只导已同步进 DB 的裸行（collect.rs 票 13-K 注），apply
+//! 兼容旧备份的 model_price 行静默迁移（apply/mod.rs 旧备份注）。
 //!
 //! 模块：
 //! - [`container`]：`.aidogx` 二进制格式加解密。
 //! - [`collect`]：导出 — 从 db + 文件系统收集各 scope 数据 → payload。
 //! - [`apply`]：导入 — payload → db 写入 + 文件回写 + 冲突检测。
 //! - [`skills_sync`]：skills 自动化（npx add/enable/disable）。
+//! - [`ccswitch`]：cc-switch 本地配置（SQLite / 旧 JSON）异源导入 → [`CcProvider`] 中间表示。
+//! - [`sub2api`]：sub2api 管理后台导出 JSON 异源导入 → [`Sub2ApiAccount`] DTO。
 
 pub mod apply;
 pub mod ccswitch;
