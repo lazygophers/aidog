@@ -2753,6 +2753,12 @@ static STEPFUN: StepFunFamilyAdapter = StepFunFamilyAdapter;
 /// 价格页 130055 无缓存 token 计费明细，未证实项不落成员差异。
 /// https://cloud.tencent.com/document/product/1823/130079
 /// https://cloud.tencent.com/document/product/1823/130055
+///
+/// issue 139（tencent_tokenhub_intl，国际站）复核（2026-11-28，130079 完整页直取）：
+/// 官方同一文档列新加坡站 `https://tokenhub-intl.tencentmaas.com/v1`（认证方式、思考、
+/// usage、错误形状与国内站完全共用；401002 节明言广州 / 新加坡 API Key 不互通，属用户
+/// 配置维度的站点隔离，适配器无涉），与家族取证一致，**无成员覆写**。
+/// https://cloud.tencent.com/document/product/1823/130079
 static TENCENT: TencentFamilyAdapter = TencentFamilyAdapter {
     official_openai_thinking: true,
 };
@@ -3159,6 +3165,26 @@ mod compshare_family_tests {
             body["generationConfig"]["thinkingConfig"],
             serde_json::json!({"thinkingBudget": 0})
         );
+    }
+}
+
+#[cfg(test)]
+mod tencent_family_tests {
+    use super::*;
+
+    /// 三成员注册同一家族基座单例（issue 84 基座 + 137/138/139 成员复核），不再回落
+    /// 通用适配（GENERIC 与 openai 等平台共享，对照件用 devin）。
+    #[test]
+    fn members_share_registered_family_adapter() {
+        let coding = lookup("tencent_coding").expect("Tencent Coding adapter must be registered");
+        let tokenhub = lookup("tencent_tokenhub").expect("Tencent TokenHub adapter must be registered");
+        let intl = lookup("tencent_tokenhub_intl").expect("Tencent TokenHub Intl adapter must be registered");
+
+        assert!(std::ptr::eq(tokenhub, intl));
+        // Coding Plan 是同族独立单例（思考默认不同），不复用 tokenhub 指针。
+        assert!(!std::ptr::eq(tokenhub, coding));
+        assert!(!std::ptr::eq(tokenhub, adapter_for("devin")));
+        assert!(!std::ptr::eq(intl, adapter_for("openai")));
     }
 }
 
