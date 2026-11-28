@@ -1382,6 +1382,11 @@ impl PlatformAdapter for SiliconFlowFamilyAdapter {
 ///   https://platform.stepfun.com/docs/zh/api-reference/chat/chat-completion-create.md
 ///   https://platform.stepfun.com/docs/zh/api-reference/chat/messages-create.md
 ///   https://platform.stepfun.com/docs/zh/api-reference/error-codes.md
+/// - 成员 stepfun_en（issue 136）官方复核（核对日期 2026-11-28，原文存 .tmp/issue-136/）：
+///   国际站 chat-completion-create.md 的 usage 为顶层扁平 `cached_tokens`（非流式与流式
+///   usage 块同形状，可选字段），基座 `usage_cache_arms` 增设扁平臂，扣减口径同 openai
+///   嵌套臂（prompt_tokens 含缓存）；其余契约与国内站家族基座一致，无覆写。
+///   https://platform.stepfun.ai/docs/en/api-reference/chat/chat-completion-create.md
 pub struct StepFunFamilyAdapter;
 
 /// StepFun 默认 `reasoning_format: general`：思考内容在 `reasoning` 字段（`deepseek-style`

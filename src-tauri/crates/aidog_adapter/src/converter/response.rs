@@ -139,7 +139,9 @@ fn wire_usage(data: &Value, wire_protocol: &Protocol) -> Option<Usage> {
                 usage.get("total_tokens"),
                 usage
                     .get("prompt_tokens_details")
-                    .and_then(|d| d.get("cached_tokens")),
+                    .and_then(|d| d.get("cached_tokens"))
+                    // StepFun 国际站扁平 usage.cached_tokens（issue 136）。
+                    .or_else(|| usage.get("cached_tokens")),
                 None,
             )
         }
