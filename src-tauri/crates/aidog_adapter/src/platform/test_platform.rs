@@ -313,7 +313,7 @@ fn kimi_coding_openai_tool_history_carries_reasoning_content() {
 /// 基座默认实现与协议构件逐字节等价（issue 68：初始映射与现状等价的单元面）。
 #[test]
 fn generic_adapter_delegates_to_protocol_components() {
-    // 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+    // 对照件用 devin（issue 153 起为专属单例但零覆写，行为仍与 GENERIC 等价）。
     let pa = super::adapter_for("devin");
     let chat_req: ChatRequest = serde_json::from_value(json!({
         "model": "deepseek-v4",
