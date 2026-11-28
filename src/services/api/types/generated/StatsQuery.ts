@@ -7,6 +7,10 @@ export type StatsQuery = { start?: number | null, end?: number | null, granulari
  */
 filter_coding_plan?: boolean, 
 /**
+ * 客户端码过滤（issue #66）：列表空 / None = 全部客户端。
+ */
+filter_clients?: Array<string>, 
+/**
  * 交叉聚合维度（chart-engine D1 / #32）：值 = `platform` / `model` / `group`。
  * Some → `series` 按该维度拆分返回；None / 未识别值 → `series` 空数组（向后兼容）。
  * 字段名与既有 `group_by` / `filter_*` 一致走 snake_case（前端 StatsQuery 同名）。

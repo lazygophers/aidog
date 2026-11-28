@@ -42,6 +42,7 @@ async fn cache_rate_never_exceeds_100() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };

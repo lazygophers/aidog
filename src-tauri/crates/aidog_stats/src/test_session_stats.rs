@@ -56,7 +56,7 @@ async fn aggregates_by_session_excluding_empty_key() {
     // 空 session_key：不参与聚合（spec D4）
     insert_row(&db, "s_e1", "", "", now - 10, 999, 9.99).await;
 
-    let stats = get_session_stats(&db, None).await.unwrap();
+    let stats = get_session_stats(&db, None, None).await.unwrap();
     assert_eq!(stats.len(), 2, "空 session_key 不产生聚合行，实际：{stats:?}");
 
     let a = stats.iter().find(|s| s.session_key == "sess-aaa").expect("sess-aaa row");
@@ -85,12 +85,12 @@ async fn days_window_filters_old_rows() {
     insert_row(&db, "s_new", "sess-in", "", now - day_ms, 1, 0.0).await;
     insert_row(&db, "s_old", "sess-in", "", now - 8 * day_ms, 1, 0.0).await;
 
-    let stats = get_session_stats(&db, Some(7)).await.unwrap();
+    let stats = get_session_stats(&db, Some(7), None).await.unwrap();
     assert_eq!(stats.len(), 1);
     assert_eq!(stats[0].session_key, "sess-in");
     assert_eq!(stats[0].requests, 1, "7 天窗口外的行不计入");
 
-    let all = get_session_stats(&db, Some(30)).await.unwrap();
+    let all = get_session_stats(&db, Some(30), None).await.unwrap();
     assert_eq!(all[0].requests, 2, "30 天窗口两条都计入");
 }
 
@@ -105,7 +105,7 @@ async fn aggregates_latest_row_group_client_session_id() {
     // sess-plain：单条，无 client / session_id
     insert_row_full(&db, RowSpec { id: "p1", session_key: "sess-plain", request_body: "", created_at: now - 10, input_tokens: 1, est_cost: 0.0, group_key: "gk_p", client: "", session_id: "" }).await;
 
-    let stats = get_session_stats(&db, None).await.unwrap();
+    let stats = get_session_stats(&db, None, None).await.unwrap();
     let m = stats.iter().find(|s| s.session_key == "sess-multi").expect("sess-multi");
     assert_eq!(m.group_key, "gk_new", "同会话跨分组取末条请求的 group_key");
     assert_eq!(m.client, "codex_tui");
@@ -121,7 +121,38 @@ async fn aggregates_latest_row_group_client_session_id() {
 async fn days_defaults_and_clamps() {
     let (db, _dir) = three_file_db().await;
     // 不落任何行：只验证 None / 0 / 超界不报错（clamp 1..=90）
-    assert!(get_session_stats(&db, None).await.unwrap().is_empty());
-    assert!(get_session_stats(&db, Some(0)).await.unwrap().is_empty());
-    assert!(get_session_stats(&db, Some(10_000)).await.unwrap().is_empty());
+    assert!(get_session_stats(&db, None, None).await.unwrap().is_empty());
+    assert!(get_session_stats(&db, Some(0), None).await.unwrap().is_empty());
+    assert!(get_session_stats(&db, Some(10_000), None).await.unwrap().is_empty());
+}
+
+/// issue #66：会话 client = 请求数最多的客户端（并列取末条请求的客户端），
+/// session_id 跟随 dominant client 的最新非空值；clients 过滤只统计命中客户端的行。
+#[tokio::test]
+async fn dominant_client_and_clients_filter() {
+    let (db, _dir) = three_file_db().await;
+    let now = aidog_db::now();
+    // sess-dom：claude_code ×3（1 条带 sid-c1）+ codex ×1 → dominant = claude_code
+    insert_row_full(&db, RowSpec { id: "d1", session_key: "sess-dom", request_body: "第一条正文", created_at: now - 400, input_tokens: 1, est_cost: 0.0, group_key: "gk", client: "claude_code", session_id: "sid-c1" }).await;
+    insert_row_full(&db, RowSpec { id: "d2", session_key: "sess-dom", request_body: "", created_at: now - 300, input_tokens: 1, est_cost: 0.0, group_key: "gk", client: "claude_code", session_id: "" }).await;
+    insert_row_full(&db, RowSpec { id: "d3", session_key: "sess-dom", request_body: "", created_at: now - 200, input_tokens: 1, est_cost: 0.0, group_key: "gk", client: "claude_code", session_id: "" }).await;
+    insert_row_full(&db, RowSpec { id: "d4", session_key: "sess-dom", request_body: "", created_at: now - 100, input_tokens: 1, est_cost: 0.0, group_key: "gk", client: "codex", session_id: "sid-x" }).await;
+    // sess-only-codex：纯 codex 会话，用于过滤后仍可见
+    insert_row_full(&db, RowSpec { id: "o1", session_key: "sess-codex-only", request_body: "", created_at: now - 90, input_tokens: 2, est_cost: 0.0, group_key: "gk", client: "codex", session_id: "sid-o" }).await;
+
+    let stats = get_session_stats(&db, None, None).await.unwrap();
+    let d = stats.iter().find(|s| s.session_key == "sess-dom").expect("sess-dom");
+    assert_eq!(d.client, "claude_code", "请求数最多者胜出（3 vs 1）");
+    assert_eq!(d.session_id, "sid-c1", "session_id 跟随 dominant client");
+    assert_eq!(d.requests, 4);
+    let o = stats.iter().find(|s| s.session_key == "sess-codex-only").expect("sess-codex-only");
+    assert_eq!(o.client, "codex");
+
+    // clients 过滤 codex：sess-dom 只剩 1 行（client=codex / sid-x），纯 codex 会话保留
+    let f = get_session_stats(&db, None, Some(vec!["codex".into()])).await.unwrap();
+    let fd = f.iter().find(|s| s.session_key == "sess-dom").expect("filtered sess-dom");
+    assert_eq!(fd.requests, 1);
+    assert_eq!(fd.client, "codex");
+    assert_eq!(fd.session_id, "sid-x");
+    assert!(f.iter().any(|s| s.session_key == "sess-codex-only"));
 }

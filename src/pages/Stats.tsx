@@ -25,6 +25,7 @@ import { formatNumber, formatMoney, formatPercent, successRate } from "../utils/
 import { buildResumeCommand } from "../domains/groups";
 import { F } from "../domains/shared/tokens";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
+import { ClientFilterSelect } from "../components/stats/ClientFilterSelect";
 import {
   successRateLevel,
   costLevel,
@@ -308,7 +309,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
     setPreset(p);
     setGranularity(p === "today" ? "hourly" : "daily");
   };
-  const [groupBy, setGroupBy] = useState<"platform" | "model" | "group">("platform");
+  const [groupBy, setGroupBy] = useState<"platform" | "model" | "group" | "client">("platform");
   // 时间序列拆分维度：独立于全页 groupBy（占比/排行/热力仍跟 groupBy）；「总计」不传 series_by，
   // 后端返空 series → buildTrendChartData 回落 buckets 总量单线。默认总计，不持久化（2026-09-27 拍板）。
   const [trendBy, setTrendBy] = useState<"total" | "platform" | "model" | "group">("total");
@@ -318,6 +319,8 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
   const [filterPlatform, setFilterPlatform] = useState(initialFilter?.platformId ? String(initialFilter.platformId) : "");
   // 仅 Coding Plan 平台筛选（spec B3）：true → 后端 filter_coding_plan=true
   const [filterCodingPlan, setFilterCodingPlan] = useState(false);
+  // 客户端筛选（issue #66）：多选，空数组 = 全部；选项来自后端窗口内实际出现的客户端码
+  const [filterClients, setFilterClients] = useState<string[]>([]);
   const [groups, setGroups] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   // 协议搜索词（registry name 全 locale + keywords）：平台筛选下拉跨语言搜索用
@@ -353,11 +356,11 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
     if (activeTab !== "sessions") return;
     let cancelled = false;
     statsApi
-      .sessionStats(sessionDays)
+      .sessionStats(sessionDays, filterClients)
       .then((rows) => { if (!cancelled) setSessions(rows); })
       .catch(console.error);
     return () => { cancelled = true; };
-  }, [activeTab, sessionDays]);
+  }, [activeTab, sessionDays, filterClients]);
 
   // 统一 WS 通道 sessions topic（2026-11-21 日志统计-会话列表）：转发终态事件累积
   // 会话 token 流，活跃会话行内画实时 token 速度流图。WS 不可用（down）时降级不画。
@@ -414,8 +417,9 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
       filter_model: filterModel || undefined,
       filter_platform: filterPlatform || undefined,
       filter_coding_plan: filterCodingPlan || undefined,
+      filter_clients: filterClients.length ? filterClients : undefined,
     }),
-    [granularity, groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan],
+    [granularity, groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan, filterClients],
   );
 
   // silent=true：后台刷新（代理事件触发），不掀 loading。掀了就会把整页内容换成「加载中...」，
@@ -525,7 +529,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
   // 让一次代理事件触发两轮重查（票 11 病灶 B）。列表变更走用户编辑路径，挂载时拉一次即可。
 
   // 维度 / 筛选变化时重置分页
-  useEffect(() => { setPage(0); }, [groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan, preset]);
+  useEffect(() => { setPage(0); }, [groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan, filterClients, preset]);
 
   // 模型筛选项来自实际 proxy_log 记录（后端 available_models），非配置列表
   const allModels = useMemo(
@@ -651,8 +655,16 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
             <SelectItem value="platform">{t("stats.byPlatform", "By Platform")}</SelectItem>
             <SelectItem value="model">{t("stats.byModel", "By Model")}</SelectItem>
             <SelectItem value="group">{t("stats.byGroup", "By Group")}</SelectItem>
+            <SelectItem value="client">{t("stats.byClient", "By Client")}</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Filter: client（多选，issue #66）：趋势/占比/密度/会话 tab 共享；选项来自窗口内实际客户端码 */}
+        <ClientFilterSelect
+          clients={data?.available_clients ?? []}
+          selected={filterClients}
+          onChange={setFilterClients}
+        />
 
         {/* Filter: group（带搜索） */}
         <FilterDropdown
@@ -991,6 +1003,11 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
               <div>
                 <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 8 }}>
                   {t("stats.quotaPeakNote", "Ratio = current balance / peak balance within the window")}
+                  {filterClients.length > 0 && (
+                    <span style={{ marginLeft: 8 }}>
+                      {t("stats.quotaClientNote", "Quota is platform-level; the client filter does not apply to this tab")}
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   {gauges.map((g) => (
@@ -1069,7 +1086,7 @@ export function Stats({ initialFilter, onNavigate }: { initialFilter?: { platfor
                           key={s.session_key}
                           data-testid="session-row"
                           style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
-                          onClick={() => onNavigate?.("logs", { sessionKey: s.session_key })}
+                          onClick={() => onNavigate?.("logs", { sessionKey: s.session_key, clients: filterClients.length ? filterClients : undefined })}
                         >
                           <TableCell
                             data-testid="session-title"

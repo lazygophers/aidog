@@ -478,6 +478,7 @@ async fn flow_breakdown_window_edges() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
