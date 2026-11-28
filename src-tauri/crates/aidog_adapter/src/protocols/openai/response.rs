@@ -80,6 +80,8 @@ pub fn parse_openai_response(
     let cache_read_tokens = usage
         .and_then(|u| u.get("prompt_tokens_details"))
         .and_then(|d| d.get("cached_tokens"))
+        // StepFun 国际站扁平 usage.cached_tokens（issue 136）。
+        .or_else(|| usage.and_then(|u| u.get("cached_tokens")))
         .and_then(|v| v.as_i64())
         .unwrap_or(0);
 

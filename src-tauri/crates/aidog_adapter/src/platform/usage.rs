@@ -39,7 +39,7 @@ pub fn usage_cache_arms(
             .and_then(|v| v.as_i64())
     };
     let plain = |k: &str| usage.get(k).and_then(|v| v.as_i64());
-    // 读侧优先级：anthropic → openai chat completions → responses → 裸 cache_tokens → deepseek
+    // 读侧优先级：anthropic → openai chat completions → responses → 扁平 cached_tokens（issue 136）→ 裸 cache_tokens → deepseek
     // B3：anthropic `cache_creation.ephemeral_5m/1h_input_tokens` 优先拆桶；
     // 扁平 `cache_creation_input_tokens` 回落全记 5m 桶。
     // arm 进入条件是任一 anthropic 缓存字段在场（不能只认 cache_read——上游可能
@@ -68,6 +68,11 @@ pub fn usage_cache_arms(
         let cache_write = detail("input_tokens_details", "cache_write_tokens");
         let in_input = c + cache_write.unwrap_or(0);
         return (Some(c), cache_write, None, in_input);
+    }
+    // StepFun 国际站（issue 136，官方 chat-completion-create.md 2026-11-28 复核）：usage 顶层
+    // 扁平 `cached_tokens`，语义同 openai 嵌套臂（prompt_tokens 含缓存），读取时扣减。
+    if let Some(c) = plain("cached_tokens") {
+        return (Some(c), None, None, c);
     }
     if let Some(c) = plain("cache_tokens") {
         return (Some(c), None, None, 0);
@@ -99,7 +104,8 @@ pub fn extract_usage(body: &str) -> (i32, i32, i32, i32, i32, Vec<(String, i64)>
     }
     // Cache tokens（arm 绑定见 usage_cache_arms）：Anthropic (cache_read_input_tokens),
     // OpenAI (prompt_tokens_details.cached_tokens), responses (input_tokens_details.*),
-    // DeepSeek (prompt_cache_hit_tokens), generic (cache_tokens)
+    // DeepSeek (prompt_cache_hit_tokens), generic (cache_tokens),
+    // StepFun intl (flat cached_tokens)
     let (cache, cache_write, cache_write_1h, in_input) = usage_cache_arms(usage);
     let input = (usage
         .get("input_tokens")

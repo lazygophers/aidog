@@ -5255,3 +5255,93 @@ async fn tencent_coding_anthropic_endpoint_error_body() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
     assert!(resp.contains("invalid request"), "{resp}");
 }
+
+// ══ issue 136：StepFun 国际站 `stepfun_en`（官方复核 2026-11-28，本地假上游）══
+// 国际站 chat-completion-create.md usage 为顶层扁平 `cached_tokens`（非流式与流式
+// usage 终块同形状），基座 usage_cache_arms 增设扁平臂（扣减口径同 openai 嵌套臂）；
+// 旧嵌套 `prompt_tokens_details.cached_tokens` 兼容不变。
+
+#[test]
+fn stepfun_en_flat_usage_extraction_follows_official_shape() {
+    let adapter = aidog_adapter::platform::adapter_for("stepfun_en");
+    let body = r#"{"usage":{"prompt_tokens":19,"cached_tokens":6,"completion_tokens":10,"total_tokens":29}}"#;
+    let (input, output, cache_read, cache_write, cache_write_1h, _) = adapter.extract_usage(body);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (13, 10, 6, 0, 0),
+        "cached_tokens 在 prompt_tokens 内须扣减"
+    );
+}
+
+#[test]
+fn stepfun_en_nested_cached_usage_compat() {
+    let adapter = aidog_adapter::platform::adapter_for("stepfun_en");
+    let body = r#"{"usage":{"prompt_tokens":19,"completion_tokens":10,"total_tokens":29,"prompt_tokens_details":{"cached_tokens":6}}}"#;
+    let (input, output, cache_read, _, _, _) = adapter.extract_usage(body);
+    assert_eq!((input, output, cache_read), (13, 10, 6), "旧嵌套 cached_tokens 形状兼容不变");
+}
+
+/// 流式 usage 终块：国际站扁平 `cached_tokens` 经 openai wire `parse_sse_frame`
+/// 产出 Usage 事件（缓存读生效）。
+#[test]
+fn stepfun_en_stream_usage_terminal_chunk_flat_cached() {
+    use aidog_adapter::types::ChatStreamEvent;
+    let adapter = aidog_adapter::platform::adapter_for("stepfun_en");
+    let frame = serde_json::json!({
+        "id": "chatcmpl-step1", "object": "chat.completion.chunk", "choices": [],
+        "usage": {"prompt_tokens": 10, "cached_tokens": 4, "completion_tokens": 2, "total_tokens": 12},
+    });
+    let events = adapter.parse_sse_frame(&frame, &Protocol::OpenAI);
+    let Some(ChatStreamEvent::Usage { usage }) = events.iter().find(|e| matches!(e, ChatStreamEvent::Usage { .. })) else {
+        panic!("usage 终块须产出 Usage 事件: {events:?}");
+    };
+    assert_eq!(usage.prompt_tokens, Some(10), "{usage:?}");
+    assert_eq!(usage.completion_tokens, Some(2), "{usage:?}");
+    assert_eq!(usage.cache_read_tokens, Some(4), "{usage:?}");
+}
+
+/// 国际站非流式端到端（本地假上游）：入站 anthropic 转 openai 出站，扁平
+/// `cached_tokens` 经转换回 anthropic `cache_read_input_tokens`。
+#[tokio::test]
+async fn stepfun_en_openai_endpoint_non_stream_flat_cached_usage() {
+    let upstream = r#"{"id":"chatcmpl-step1","object":"chat.completion","model":"step-2-mini","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi","reasoning":"think"}}],"usage":{"prompt_tokens":90,"cached_tokens":40,"completion_tokens":24,"total_tokens":114}}"#;
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFunEn,
+        Protocol::OpenAI,
+        "gk136on",
+        "/v1/messages",
+        STEPFUN_ANTHROPIC_IN,
+        (200, "application/json", upstream),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(v["usage"]["cache_read_input_tokens"], 40, "{v}");
+    assert_eq!(v["usage"]["output_tokens"], 24, "{v}");
+}
+
+/// 国际站流式端到端（本地假上游）：usage 终块为扁平 `cached_tokens`，思考帧、
+/// 正文帧与 `[DONE]` 收尾行为同国内站（家族基座）。
+#[tokio::test]
+async fn stepfun_en_openai_endpoint_stream_flat_cached_usage() {
+    let upstream = "data: {\"id\":\"chatcmpl-step1\",\"object\":\"chat.completion.chunk\",\"model\":\"step-2-mini\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning\":\"think\"}}]}\n\n\
+data: {\"id\":\"chatcmpl-step1\",\"object\":\"chat.completion.chunk\",\"model\":\"step-2-mini\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n\
+data: {\"id\":\"chatcmpl-step1\",\"object\":\"chat.completion.chunk\",\"model\":\"step-2-mini\",\"choices\":[{\"index\":0,\"finish_reason\":\"stop\",\"delta\":{}}],\"usage\":{\"prompt_tokens\":90,\"cached_tokens\":40,\"completion_tokens\":24,\"total_tokens\":114}}\n\n\
+data: [DONE]\n\n";
+    let (status, resp, hits) = glm_member_call(
+        Protocol::StepFunEn,
+        Protocol::OpenAI,
+        "gk136os",
+        "/v1/messages",
+        STEPFUN_ANTHROPIC_IN_STREAM,
+        (200, "text/event-stream", upstream),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    assert!(resp.contains("thinking_delta") && resp.contains("think"), "{resp}");
+    assert!(resp.contains("text_delta") && resp.contains("hi"), "{resp}");
+    assert!(resp.contains("message_stop"), "{resp}");
+    assert!(resp.contains("cache_read_input_tokens"), "流式 usage 缓存读须透出: {resp}");
+}
