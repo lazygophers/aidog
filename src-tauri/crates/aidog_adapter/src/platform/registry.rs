@@ -1814,6 +1814,27 @@ impl PlatformAdapter for MimoFamilyAdapter {
 ///   https://opencode.ai/docs/console/go/ https://opencode.ai/docs/zen/
 ///
 /// 目前无可证实的成员共性覆写；成员均继承 OpenAI 协议构件默认实现。
+///
+/// issue 146 成员复核（opencode_zen，2026-11-28；官方 raw 落盘会话 `.tmp/issue-146/`，
+/// 本机 PII 钩子会脱敏显示层名字，以盘上 raw 为准）：
+/// - Zen 独立文档页已撤：`/docs/zen/` 308 → `/docs/console/models`，docs sitemap 已无 zen 页；
+///   `/zen/v1` 端点仍存活（GET `/zen/v1/models` 200 返回 catalog，catalog 内模型的
+///   `api.chat-completions.base_url` 已指向 `/inference/openai/v1`）。registry 内置默认
+///   base_url `https://opencode.ai/zen/v1` 仅作新建表单预填，出站一律用户配置端点。
+///   https://opencode.ai/docs/console/api/inference
+/// - 免费档与 usage：官方 inference 文档明示免费 chat 模型仅限 OpenCode 内部使用，外部客户端
+///   带 API key 也收 HTTP 403；usage 除标准字段外带 `cost`（免费为 0）与 `opencode` 扩展
+///   （`billing_source` / `list_cost` / `tokens{input,output,reasoning,cache_read,
+///   cache_write_5m,cache_write_1h}`），流式在末 usage chunk 报告。扩展字段随响应透传不解析，
+///   标准 usage 按基座构件抽取。
+///   https://opencode.ai/docs/console/api/inference
+/// - `$opencode` 匿名 key 兜底（`endpoint.rs::resolve_opencode_zen_key`，用户 key 优先）：
+///   先前实测被服务端接受；2026-11-28 复测 POST `/zen/v1/chat/completions` 得 401、后续探针
+///   超时，现值是否仍被接受未证实，行为保持不变。
+///   https://opencode.ai/docs/console/api/inference
+/// - 思考参数、工具调用、图片/音视频、system 提示、max_tokens 上限、错误体与 SSE 事件细节：
+///   Zen 专页撤除后无成员级文档，未证实，保持家族基座默认。
+///   https://opencode.ai/docs/console/api/inference
 pub struct OpenCodeFamilyAdapter;
 
 impl PlatformAdapter for OpenCodeFamilyAdapter {}

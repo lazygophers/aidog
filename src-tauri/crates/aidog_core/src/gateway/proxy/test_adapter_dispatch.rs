@@ -3560,6 +3560,170 @@ async fn cline_pass_openai_endpoint_non_stream_and_error() {
     assert!(resp.contains("model not found"), "{resp}");
 }
 
+// ── issue 146：OpenCode Zen（opencode_zen，免费）──
+// 官方取证见 aidog_adapter platform::registry::OpenCodeFamilyAdapter 成员注释（2026-11-28）。
+// 出站 API 面与家族基座一致（OpenAI Chat Completions 构件默认）；成员差异仅一处：
+// api_key 留空时出站注入 `$opencode` 匿名 key（endpoint.rs::resolve_opencode_zen_key，
+// 决策核单测 test_endpoint.rs::opencode_zen_fallback_*）。下列 gateway 测试把用户
+// base_url 指向本地假上游，不访问外网。
+const ZEN_OPENAI_RESP: &str = r#"{"id":"zen_1","object":"chat.completion","model":"big-pickle","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":12,"completion_tokens":3,"total_tokens":15,"prompt_tokens_details":{"cached_tokens":4},"cost":0,"opencode":{"billing_source":"free","list_cost":0,"tokens":{"input":8,"output":3,"reasoning":1,"cache_read":4,"cache_write_5m":0,"cache_write_1h":0}}}}"#;
+const ZEN_OPENAI_SSE: &str = "data: {\"id\":\"zen_1\",\"model\":\"big-pickle\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: {\"id\":\"zen_1\",\"model\":\"big-pickle\",\"choices\":[],\"usage\":{\"prompt_tokens\":12,\"completion_tokens\":3,\"prompt_tokens_details\":{\"cached_tokens\":4},\"cost\":0}}\n\ndata: [DONE]\n\n";
+// 官方 inference 文档：免费档 chat 仅限 OpenCode 内部，外部客户端带 key 也 HTTP 403
+// （raw 见 .tmp/issue-146/console-api-inference.md L18-20）。
+const ZEN_ERROR: &str = r#"{"error":{"message":"free-tier chat is only available from within OpenCode","type":"forbidden","code":"forbidden"}}"#;
+
+/// issue 146 成员护栏：非流式响应/usage 透传 + 400 错误体透传 + 流式 `[DONE]` 收官
+/// （header 注入另见 key 兜底测试；流式 chunk / 错误形状均走家族基座 OpenAI 构件默认）。
+#[tokio::test]
+async fn opencode_zen_openai_endpoint_non_stream_stream_and_error() {
+    use aidog_adapter::platform::adapter_for;
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::OpenCodeZen,
+        Protocol::OpenAI,
+        "gk146zen",
+        "/chat/completions",
+        r#"{"model":"big-pickle","messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", ZEN_OPENAI_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["choices"][0]["message"]["content"], "hi");
+    assert_eq!(response["usage"]["cost"], 0);
+    assert_eq!(response["usage"]["opencode"]["tokens"]["cache_read"], 4);
+    // 基座口径：input 扣缓存 token（prompt 12 − cached 4 = 8；官方 opencode.tokens.input
+    // 同语义「excludes cache reads and writes」）。
+    let (input, output, cache_read, cache_write, cache_write_1h, _) =
+        adapter_for("opencode_zen").extract_usage(ZEN_OPENAI_RESP);
+    assert_eq!(
+        (input, output, cache_read, cache_write, cache_write_1h),
+        (8, 3, 4, 0, 0)
+    );
+
+    let (status, resp, hits) = glm_member_call(
+        Protocol::OpenCodeZen,
+        Protocol::OpenAI,
+        "gk146zens",
+        "/chat/completions",
+        r#"{"model":"big-pickle","stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", ZEN_OPENAI_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/chat/completions");
+    assert!(resp.contains("hi"), "{resp}");
+    assert!(resp.contains("data: [DONE]"), "{resp}");
+
+    let (status, resp, _) = glm_member_call(
+        Protocol::OpenCodeZen,
+        Protocol::OpenAI,
+        "gk146zene",
+        "/chat/completions",
+        r#"{"model":"gone","messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", ZEN_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("free-tier chat is only available"), "{resp}");
+}
+
+/// issue 146 成员护栏（key 兜底端到端）：api_key 留空 → 出站 Authorization 注入
+/// `Bearer $opencode`；用户填了 key → 原样透传不覆盖。路径/请求体由
+/// opencode_zen_openai_endpoint_non_stream_stream_and_error 覆盖。
+#[tokio::test]
+async fn opencode_zen_openai_endpoint_key_fallback() {
+    let seen: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let sink = seen.clone();
+    let app = axum::Router::new().fallback(
+        move |headers: axum::http::HeaderMap, _body: String| async move {
+            sink.lock().unwrap().push(
+                headers
+                    .get(axum::http::header::AUTHORIZATION)
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or_default()
+                    .to_string(),
+            );
+            ([("content-type", "application/json")], ZEN_OPENAI_RESP)
+        },
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+    let state = make_state(test_db().await).await;
+    // 两个 zen 平台（空 key / 用户 key），各挂独立分组，共用同一假上游记录 Authorization。
+    for (name, api_key, gk) in [
+        ("zen-empty", "", "gk146zenkey"),
+        ("zen-user", "sk-user", "gk146userkey"),
+    ] {
+        let pid = aidog_db::create_platform(
+            &state.db,
+            CreatePlatform {
+                name: name.into(),
+                platform_type: Protocol::OpenCodeZen,
+                base_url: base.clone(),
+                api_key: api_key.into(),
+                extra: String::new(),
+                models: None,
+                available_models: None,
+                endpoints: Some(vec![PlatformEndpoint {
+                    protocol: Protocol::OpenAI,
+                    base_url: base.clone(),
+                    client_type: "default".to_string(),
+                    coding_plan: false,
+                }]),
+                manual_budgets: None,
+                auto_group: None,
+                join_group_ids: None,
+                expires_at: None,
+                quota_source: None,
+            },
+        )
+        .await
+        .unwrap()
+        .id;
+        let group = aidog_db::create_group(
+            &state.db,
+            aidog_db::test_support::sample_group(gk, vec![]),
+        )
+        .await
+        .unwrap();
+        aidog_db::set_group_platforms(
+            &state.db,
+            group.id,
+            &[GroupPlatformInput {
+                platform_id: pid,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(0),
+            }],
+        )
+        .await
+        .unwrap();
+        let req = HttpRequest::builder()
+            .method("POST")
+            .uri("/chat/completions")
+            .header("authorization", format!("Bearer {gk}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"model":"big-pickle","messages":[{"role":"user","content":"hi"}]}"#,
+            ))
+            .unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), req).await;
+        let status = resp.status();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let resp = String::from_utf8_lossy(&bytes).into_owned();
+        assert_eq!(status, StatusCode::OK, "{gk}: {resp}");
+    }
+    flush_log_queue(&state).await;
+    let auth = seen.lock().unwrap();
+    assert_eq!(auth.len(), 2, "{auth:?}");
+    assert_eq!(auth[0], "Bearer $opencode", "空 key 必须注入 $opencode 匿名 key");
+    assert_eq!(auth[1], "Bearer sk-user", "用户 key 原样透传，不被兜底覆盖");
+}
+
 // ══ issue 93：Command Code（commandcode）Provider API 四端点协议 ══
 // Official docs checked 2026-11-24: https://commandcode.ai/docs/provider
 // 三 chat 协议「request and response bodies follow the」官方 schema（基座构件即官方形状）；
