@@ -2282,8 +2282,60 @@ impl PlatformAdapter for LiteLlmAdapter {
     }
 }
 
+/// newapi 聚合网关适配器（issue 154；官方文档核对日期 2026-11-28）。
+///
+/// new-api 是自建聚合网关（上游渠道可为任意协议），网关层按 wire 协议原样中转，
+/// 平台级无字段改写。官方 API 参考（https://docs.newapi.pro/en/docs/api，核对 2026-11-28）：
+/// - 端点（AI Model API 节，用户可配端点协议与官方页面一一对应；registry 无内置默认
+///   端点，运行时一律用用户配置 (protocol, base_url)）：openai `POST /v1/chat/completions`
+///   （「Compatible with OpenAI Chat Completions API」）、openai_responses（Responses
+///   Format POST）、anthropic `POST /v1/messages`（Native Claude Format POST，要求
+///   `anthropic-version` 头）、gemini（Gemini Text/Media Chat POST）、openai_completions
+///   `POST /v1/completions`（Native OpenAI Format）。
+/// - 请求字段与默认值（ChatCompletions 页 Request Body）：model + messages 必填；
+///   temperature / top_p 默认 1、n 默认 1、stream 默认 false；max_tokens /
+///   max_completion_tokens / stop / tools / tool_choice / response_format /
+///   reasoning_effort(low|medium|high) 均 OpenAI 标准形——协议构件默认即官方形状。
+/// - usage（ChatCompletions 页 Response Body）：prompt_tokens / completion_tokens /
+///   total_tokens + prompt_tokens_details.cached_tokens（缓存读）+
+///   completion_tokens_details.reasoning_tokens，基座 extract_usage 缓存臂覆盖；
+///   Native Claude Format 页 usage 同 Anthropic 官方形（input/output_tokens +
+///   cache_creation/cache_read_input_tokens）。
+/// - 错误体：各 AI Model API 页统一 `{"error":{"message","type","param","code"}}`
+///   （4xx/429/5xx 响应示例），按状态码分类——基座 classify_upstream_error 覆盖。
+/// - 流式：ChatCompletions 页声明支持流式，帧与结束标记按各 wire 标准形
+///   （openai 系 `data: [DONE]`；anthropic / gemini 各自标准事件）——基座 parse_sse 覆盖。
+/// - 未证实（网关层无平台级差异文档，保持基座协议构件默认）：思考开关/档位是否按上游
+///   渠道透传改写、max_tokens 网关级上限、工具与服务端工具的中转裁剪、图片音视频覆盖面、
+///   system 提示改写。这些由所配上游渠道决定，官方文档只承诺原样中转。
+///
+/// 结论：五协议均按标准协议形状处理；专属适配器只承担显式注册语义
+/// （与 InternInkstoneAdapter / CrazyRouterAdapter 同形）。
+/// https://docs.newapi.pro/en/docs/api
+struct NewApiAdapter;
+
+impl PlatformAdapter for NewApiAdapter {}
+
 static LITELLM: LiteLlmAdapter = LiteLlmAdapter;
+static NEWAPI: NewApiAdapter = NewApiAdapter;
 static GENERIC: GenericAdapter = GenericAdapter;
+
+/// Devin（Cognition）适配器（issue 153）。
+///
+/// Devin 接入协议是 **stateful session API v3**（非 chat wire）：chat 流量在
+/// `aidog_core` 的 `gateway/proxy/devin.rs::handle_devin`（handler.rs
+/// Protocol::Devin 分支）被拦截，不经 forward_attempt / 本 trait——session 生命
+/// 周期、伪流式、ACU 记账全部在该 handler 内实现（官方契约逐项核对见
+/// [`crate::devin`] 模块注释，核对日 2026-11-28）。
+///
+/// 因此本适配器零覆写、行为与家族基座逐字节等价（既有测试以 devin 为基座
+/// 对照件即依赖这一点）；注册为专属单例是为了「平台 code → 专属适配器」注册
+/// 面的完整性（devin 不再与 newapi / passthrough 共享 GENERIC）。
+struct DevinAdapter;
+
+impl PlatformAdapter for DevinAdapter {}
+
+static DEVIN: DevinAdapter = DevinAdapter;
 
 /// Gemini adapter; official GenerateContent thinking guide checked 2026-11-25:
 /// - `generationConfig.thinkingConfig.thinkingLevel` is used by Gemini 3/4;
@@ -2806,7 +2858,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("compshare_coding", &COMPSHARE),
     ("crazyrouter", &CRAZYROUTER),
     ("deepseek", &DEEPSEEK),
-    ("devin", &GENERIC),
+    ("devin", &DEVIN),
     ("doubao", &ARK),
     ("gemini", &GEMINI),
     ("glm", &GLM),
@@ -2826,7 +2878,7 @@ static REGISTRY: &[(&str, &dyn PlatformAdapter)] = &[
     ("minimax_en", &MINIMAX_EN),
     ("mistral", &MISTRAL),
     ("modelscope", &MODELSCOPE),
-    ("newapi", &GENERIC),
+    ("newapi", &NEWAPI),
     ("novita", &NOVITA),
     ("nvidia", &NVIDIA),
     ("openai", &OPENAI),
@@ -3025,10 +3077,38 @@ mod sensenova_family_tests {
 
         assert!(std::ptr::eq(cn, en));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        // 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+        // 对照件用 devin（issue 153 起为专属单例但零覆写，行为仍与 GENERIC 等价）。
         assert!(!std::ptr::eq(cn, adapter_for("devin")));
         assert!(!std::ptr::eq(en, adapter_for("devin")));
         assert!(!std::ptr::eq(cn, adapter_for("openai")));
+    }
+}
+
+#[cfg(test)]
+mod devin_adapter_tests {
+    use super::*;
+
+    /// issue 153：devin 注册为专属单例，不再与 newapi / passthrough 共享 GENERIC；
+    /// 零覆写，行为与家族基座逐字节等价（chat 流量实际走 handle_devin，见
+    /// [`crate::devin`] 模块注释）。
+    #[test]
+    fn devin_uses_dedicated_adapter_with_base_defaults() {
+        let devin = lookup("devin").expect("Devin adapter must be registered");
+        assert!(!std::ptr::eq(devin, adapter_for("newapi")));
+        assert!(!std::ptr::eq(devin, adapter_for("passthrough")));
+        // 零覆写 = 关键钩子与基座（GENERIC 对照件 newapi）同结果。
+        let chat_req: crate::types::ChatRequest = serde_json::from_value(serde_json::json!({
+            "model": "devin-normal",
+            "max_tokens": 64,
+            "messages": [{ "role": "user", "content": "hi" }]
+        }))
+        .unwrap();
+        let wire = aidog_db::models::Protocol::OpenAI;
+        let platform = aidog_db::models::Protocol::Devin;
+        assert_eq!(
+            devin.build_request(&chat_req, &wire, &platform),
+            adapter_for("newapi").build_request(&chat_req, &wire, &platform)
+        );
     }
 }
 
@@ -3056,7 +3136,7 @@ mod openai_family_tests {
         let codex = lookup("codex").expect("Codex adapter must be registered");
         assert!(std::ptr::eq(openai, codex));
         // GENERIC 也是显式注册项（lookup 对它同样 Some），须断言成员不再回落通用适配。
-        // 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+        // 对照件用 devin（issue 153 起为专属单例但零覆写，行为仍与 GENERIC 等价）。
         assert!(!std::ptr::eq(openai, adapter_for("devin")));
         assert!(!std::ptr::eq(codex, adapter_for("devin")));
         assert!(!std::ptr::eq(openai, adapter_for("anthropic")));
@@ -3101,7 +3181,7 @@ mod aihubmix_tests {
     use super::*;
 
     /// issue 91：aihubmix 必须走专属适配器（显式注册），不再回落通用适配。
-    /// 对照件用 devin（GENERIC 注册项；openrouter 自 issue 106 起为专属适配器）。
+    /// 对照件用 devin（issue 153 起为专属单例但零覆写，行为仍与 GENERIC 等价）。
     #[test]
     fn aihubmix_uses_registered_adapter() {
         let a = adapter_for("aihubmix");
@@ -3138,6 +3218,54 @@ mod aihubmix_tests {
         assert_eq!(
             a.extract_usage(gemini),
             (5, 2, 0, 0, 0, Vec::<(String, i64)>::new())
+        );
+    }
+}
+
+#[cfg(test)]
+mod newapi_tests {
+    use super::*;
+
+    /// issue 154：newapi 必须走专属适配器（显式注册），不再回落通用适配。
+    /// 对照件用 devin（GENERIC 注册项；passthrough 同为 GENERIC）。
+    #[test]
+    fn newapi_uses_registered_adapter() {
+        let a = adapter_for("newapi");
+        assert!(!std::ptr::eq(a, adapter_for("devin")));
+        assert!(!std::ptr::eq(a, adapter_for("passthrough")));
+    }
+
+    /// usage 抽取两 arm 按官方 Response Body 形状（ChatCompletions / Native Claude
+    /// Format 页，核对 2026-11-28）：openai 系 cached_tokens 在 input 内须扣；
+    /// anthropic 形缓存读/写单列不扣 input。
+    #[test]
+    fn newapi_usage_extraction_follows_wire_shapes() {
+        let a = adapter_for("newapi");
+        let openai = r#"{"usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":4},"completion_tokens_details":{"reasoning_tokens":1}}}"#;
+        assert_eq!(
+            a.extract_usage(openai),
+            (6, 2, 4, 0, 0, Vec::<(String, i64)>::new())
+        );
+        let anthropic = r#"{"usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":2,"cache_creation_input_tokens":4}}"#;
+        assert_eq!(
+            a.extract_usage(anthropic),
+            (7, 3, 2, 4, 0, Vec::<(String, i64)>::new())
+        );
+    }
+
+    /// 错误体官方形 `error{message,type,param,code}`（各 AI Model API 页响应示例），
+    /// 分类与基座一致（401 鉴权归服务类；message 特征判模型类）。
+    #[test]
+    fn newapi_error_classification_tracks_base() {
+        let a = adapter_for("newapi");
+        let body = r#"{"error":{"message":"model not found","type":"invalid_request_error","param":"","code":"model_not_found"}}"#;
+        assert_eq!(
+            a.classify_error(400, body),
+            error::classify_upstream_error(400, body)
+        );
+        assert_eq!(
+            a.classify_error(401, r#"{"error":{"message":"无效的令牌","type":"new_api_error","code":"invalid_api_key"}}"#),
+            error::UpstreamErrorClass::Service
         );
     }
 }
