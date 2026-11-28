@@ -5390,3 +5390,160 @@ async fn tencent_tokenhub_anthropic_endpoint_error_body() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
     assert!(resp.contains("max_tokens: Field required"), "{resp}");
 }
+
+// ══ issue 149：Anthropic 官方平台 `anthropic` 端点护栏（本地假上游）══
+// 成员级核对见 AnthropicFamilyAdapter 文档注释（aidog_adapter/src/platform/registry.rs，
+// 成员复核日期 2026-11-28；官方 raw markdown 直取 messages / errors / overview 三页）。
+// 平台 code `anthropic` 非透传（仅 ClaudeCode 走透传拦截），完整走 adapter_for("anthropic")
+// → AnthropicFamilyAdapter 转换链。
+
+/// 官方非流式响应形状（Messages API 文档示例；usage 含缓存读/写 token，input 为官方
+/// 明示「input_tokens + cache_creation + cache_read 三者之和」口径的分项）。
+const ANTHROPIC_MEMBER_RESP: &str = r#"{"id":"msg_149","type":"message","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":6,"output_tokens":4,"cache_creation_input_tokens":1,"cache_read_input_tokens":2,"server_tool_use":{"web_search_requests":0}}}"#;
+/// 官方流式事件链（message_start / content_block_delta / message_delta 带 usage / message_stop，
+/// 不发 `data: [DONE]`）。
+const ANTHROPIC_MEMBER_SSE: &str = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_149s\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude-sonnet-4-5\",\"content\":[],\"usage\":{\"input_tokens\":6,\"output_tokens\":0,\"cache_read_input_tokens\":2}}}\n\n\
+event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n\
+event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n\
+event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n\
+event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":4}}\n\n\
+event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+/// 官方错误体（errors 页：顶层 type=error + error{type,message} + request_id）。
+const ANTHROPIC_MEMBER_ERROR: &str = r#"{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: Field required"},"request_id":"req_149"}"#;
+
+/// 同 `glm_member_call`，另回 state 以便查 proxy_log（usage 落库断言用）。
+async fn anthropic_member_call_with_state(
+    pt: Protocol,
+    ep: Protocol,
+    gk: &str,
+    inbound_path: &str,
+    inbound_body: &'static str,
+    upstream: (u16, &'static str, &'static str),
+) -> (StatusCode, String, Vec<(String, String)>, Arc<ProxyState>) {
+    let (base, hits) = spawn_glm_upstream(upstream.0, upstream.1, upstream.2).await;
+    let state = make_state(test_db().await).await;
+    let pid = aidog_db::test_support::create_platform_at_fake_upstream(
+        &state.db,
+        pt,
+        &base,
+        std::slice::from_ref(&ep),
+    )
+    .await;
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: pid,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri(inbound_path)
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json")
+        .body(Body::from(inbound_body))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let status = resp.status();
+    let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+    flush_log_queue(&state).await;
+    let hits = hits.lock().unwrap().clone();
+    (status, String::from_utf8_lossy(&bytes).into_owned(), hits, state)
+}
+
+/// issue 149：非流式——anthropic 入站打用户配置端点 `/v1/messages`；请求体保 model /
+/// max_tokens / messages 官方必填形状、私有字段剥除、不写 thinking；响应回 anthropic，
+/// usage 落 proxy_log（input 不含缓存口径 + est_cost 走 registry 官方价）。
+#[tokio::test]
+async fn anthropic_member_non_stream_request_response_usage() {
+    let (status, resp, hits, state) = anthropic_member_call_with_state(
+        Protocol::Anthropic,
+        Protocol::Anthropic,
+        "gk149",
+        "/v1/messages",
+        r#"{"model":"claude-sonnet-4-5","max_tokens":32,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "application/json", ANTHROPIC_MEMBER_RESP),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages", "{hits:?}");
+    let req: serde_json::Value = serde_json::from_str(&hits[0].1).unwrap();
+    assert_eq!(req["model"], "claude-sonnet-4-5", "{req}");
+    assert_eq!(req["max_tokens"], 32, "{req}");
+    assert_eq!(req["messages"][0]["content"], "hi", "{req}");
+    assert!(req.get("disable_thinking").is_none(), "私有字段应剥除: {req}");
+    // 入站 disable_thinking:true → 官方参数 thinking.type=disabled（thinking_toggleable 链）。
+    assert_eq!(
+        req.get("thinking"),
+        Some(&serde_json::json!({"type": "disabled"})),
+        "anthropic wire 写官方 thinking 参数: {req}"
+    );
+    let response: serde_json::Value = serde_json::from_str(&resp).unwrap();
+    assert_eq!(response["content"][0]["text"], "hi", "{response}");
+    assert_eq!(response["usage"]["input_tokens"], 6, "{response}");
+    assert_eq!(response["usage"]["cache_read_input_tokens"], 2, "{response}");
+    let rows: (i32, i32, f64) = state
+        .db
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |c| {
+            c.query_row(
+                "SELECT input_tokens, output_tokens, est_cost FROM proxy_log WHERE group_key = 'gk149'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+        })
+        .await
+        .unwrap();
+    assert_eq!(rows.0, 6, "input_tokens 落 proxy_log（anthropic 口径不含缓存）");
+    assert_eq!(rows.1, 4, "output_tokens 落 proxy_log");
+    assert!(rows.2 > 0.0, "est_cost 非零（registry claude-sonnet-4-5 官方价）: {}", rows.2);
+}
+
+/// issue 149：流式——官方事件链原样透出，message_stop 结束、不发 `[DONE]`，
+/// message_delta 的 usage（含缓存读）透出。
+#[tokio::test]
+async fn anthropic_member_stream() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::Anthropic,
+        Protocol::Anthropic,
+        "gk149s",
+        "/v1/messages",
+        r#"{"model":"claude-sonnet-4-5","max_tokens":32,"stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+        (200, "text/event-stream", ANTHROPIC_MEMBER_SSE),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages", "{hits:?}");
+    assert!(resp.contains("message_start") && resp.contains("text_delta"), "{resp}");
+    assert!(resp.contains("\"text\":\"hi\""), "{resp}");
+    assert!(resp.contains("message_delta") && resp.contains("message_stop"), "{resp}");
+    assert!(resp.contains("cache_read_input_tokens"), "流式 usage 缓存读须透出: {resp}");
+    assert!(!resp.contains("[DONE]"), "anthropic wire 不发 [DONE]: {resp}");
+}
+
+/// issue 149：错误——官方错误体（顶层 type=error + error{type,message} + request_id）
+/// 原状态码 400 透传，type / message 保留。
+#[tokio::test]
+async fn anthropic_member_error_body() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::Anthropic,
+        Protocol::Anthropic,
+        "gk149e",
+        "/v1/messages",
+        r#"{"model":"claude-sonnet-4-5","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}"#,
+        (400, "application/json", ANTHROPIC_MEMBER_ERROR),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert_eq!(hits[0].0, "/v1/messages", "{hits:?}");
+    assert!(resp.contains("invalid_request_error"), "{resp}");
+    assert!(resp.contains("max_tokens: Field required"), "{resp}");
+    assert!(resp.contains("req_149"), "request_id 保留: {resp}");
+}

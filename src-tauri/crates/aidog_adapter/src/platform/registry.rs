@@ -1974,6 +1974,24 @@ impl PlatformAdapter for ClineFamilyAdapter {
 ///   https://docs.anthropic.com/en/docs/claude-code/overview
 ///   未证实（保持基座默认，不改行为）：订阅侧配额 / 计费专用请求头与响应字段、
 ///   OAuth token 刷新语义（客户端自理，透传不触碰）。
+/// - `anthropic`（Anthropic 官方 API）成员级核对（issue 149，核对日期 2026-11-28，
+///   依据官方文档 raw markdown 直取，出处 URL 见段末）：API 平台（非透传，仅
+///   `Protocol::ClaudeCode` 走透传拦截），请求完整经过 PlatformAdapter 转换链，
+///   `adapter_for("anthropic")` 指向本基座（与 `claude_code` 成员指针相同），
+///   零成员级覆写。复核与基座 anthropic 臂逐项一致：协议与端点（`POST /v1/messages`，
+///   model / messages / max_tokens 必填）；思考（`{"type":"adaptive"}` / `{"type":"enabled"}`
+///   带 `budget_tokens`——现行官方文案下限「at least 1,024」）/ `{"type":"disabled"}`）；
+///   认证 x-api-key 为主，官方另列 `Authorization: Bearer <token>`（Workload Identity
+///   Federation 短时令牌）为备选——网关 build_upstream_headers 名单已带两类头，不改；
+///   usage（input_tokens + cache_creation_input_tokens + cache_read_input_tokens，
+///   官方明示 input 总量为三者之和）；错误体顶层 `{"type":"error","error":{"type","message"}}`
+///   外加 `request_id` 与可选 `details.error_code`（429 spend-cap 等）——框架
+///   classify_upstream_error 只读 error.type / error.message，字段扩展不影响分类；
+///   流式事件集与 message_stop 结束、system / 工具 / 图片同基座核对（2026-11-23）。
+///   官方出处（raw 取证日期 2026-11-28）：
+///   https://docs.anthropic.com/en/api/messages
+///   https://docs.anthropic.com/en/api/errors
+///   https://docs.anthropic.com/en/api/overview
 ///
 /// 结论：官方行为与框架协议构件默认实现一致，无可证实的家族级覆写；两成员均继承
 /// trait 默认（与 OpenCodeFamilyAdapter 同形）。
