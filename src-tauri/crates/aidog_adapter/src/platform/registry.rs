@@ -3119,6 +3119,14 @@ pub fn adapter_for(code: &str) -> &'static dyn PlatformAdapter {
 /// - 套餐成员 `compshare_coding`（`https://cp.compshare.cn`，anthropic wire，官方文档
 ///   https://www.compshare.cn/docs/modelverse/models/quick-start 未给 API 参数差异；
 ///   cp.compshare.cn 文档站不可达 HTTP 404）：成员差异未证实，继承家族基座。
+///   成员级复核（issue 148，核对日期 2026-11-29）：quick-start 与 claude_compatible 两页
+///   raw 直取均 HTTP 200，内容只覆盖标准 Modelverse 网关（`api.modelverse.cn` 系 Base URL，
+///   claude_compatible 页请求参数 = Anthropic 标准形状、`stop_reason` 词表
+///   `end_turn` / `max_tokens` / `stop_sequence` / `tool_use`、usage 仅列
+///   `input_tokens` / `output_tokens`，缓存 token 字段官方未记载）；无
+///   `cp.compshare.cn` 编码套餐 API 参数差异，cp.compshare.cn 根路径复测仍 HTTP 404——
+///   思考参数 / 工具调用 / system / max_tokens 上限 / usage 缓存 token / 错误体 /
+///   流式事件成员级证据缺位，均标未证实，继承家族基座（零成员覆写）。
 /// - 标准成员 `compshare` 成员级复核（issue 147，核对日期 2026-11-28；五页官方文档
 ///   raw 直取全部 HTTP 200，2026-11-23 基座审计事实未漂移）：三协议端点、认证
 ///   （anthropic 端点 `x-api-key` 或 Bearer）、思考词表与证实模型清单逐字一致；

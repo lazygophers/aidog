@@ -13086,8 +13086,9 @@ async fn compshare_family_anthropic_and_gemini_wires_forward_with_usage() {
     }
 }
 
-/// 上游 400 错误原样透传客户端：openai wire 两成员 + anthropic / gemini wire 标准成员
-/// （issue 147 补全三协议错误半边）：状态码、错误体、到达上游、proxy_log 终态记账
+/// 上游 400 错误原样透传客户端：openai wire 两成员 + anthropic wire 两成员（coding ×
+/// anthropic 为 issue 148 补全，coding 成员 registry 默认端点即 anthropic wire）+
+/// gemini wire 标准成员：状态码、错误体、到达上游、proxy_log 终态记账
 /// （本地假上游，禁真实外呼）。
 #[tokio::test]
 async fn compshare_family_forwards_upstream_errors_to_client() {
@@ -13114,6 +13115,14 @@ async fn compshare_family_forwards_upstream_errors_to_client() {
         (
             "anthropic",
             Protocol::Compshare,
+            Protocol::Anthropic,
+            "/v1/messages",
+            r#"{"model":"claude-3","max_tokens":8,"messages":[{"role":"user","content":"family error"}]}"#,
+            "/messages",
+        ),
+        (
+            "coding-anthropic",
+            Protocol::CompshareCoding,
             Protocol::Anthropic,
             "/v1/messages",
             r#"{"model":"claude-3","max_tokens":8,"messages":[{"role":"user","content":"family error"}]}"#,
