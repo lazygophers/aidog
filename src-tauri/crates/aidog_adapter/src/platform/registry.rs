@@ -2720,6 +2720,16 @@ static ARK: ArkFamilyAdapter = ArkFamilyAdapter;
 static QIANFAN: QianfanFamilyAdapter = QianfanFamilyAdapter;
 static SILICONFLOW: SiliconFlowFamilyAdapter = SiliconFlowFamilyAdapter;
 static STEPFUN: StepFunFamilyAdapter = StepFunFamilyAdapter;
+/// 腾讯云 TokenHub（issue 138）：成员复核（官方 130079，最近更新 2026-11-25；复核日期
+/// 2026-11-28）与家族取证（2026-11-23）一致，**无成员覆写**，直接共用家族基座：统一
+/// 入口鉴权 + 协议路径切换、思考 openai 端 `thinking` 对象标准写法（openai 臂剥开启型
+/// 参数写 disabled）、思考内容 `reasoning_content`（openai）/ `thinking` 块（anthropic）、
+/// usage 缓存字段官方明言「以实际返回为准」→ 维持基座只读
+/// `prompt_tokens_details.cached_tokens`（顶层 `cache_read_tokens` 与 prompt_tokens 的
+/// 包含关系未证实）、6 位业务码前三位对应 HTTP 状态、流中 SSE 错误帧（基座不覆盖）。
+/// 价格页 130055 无缓存 token 计费明细，未证实项不落成员差异。
+/// https://cloud.tencent.com/document/product/1823/130079
+/// https://cloud.tencent.com/document/product/1823/130055
 static TENCENT: TencentFamilyAdapter = TencentFamilyAdapter {
     official_openai_thinking: true,
 };

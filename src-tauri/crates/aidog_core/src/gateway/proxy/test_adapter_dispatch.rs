@@ -5255,3 +5255,48 @@ async fn tencent_coding_anthropic_endpoint_error_body() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
     assert!(resp.contains("invalid request"), "{resp}");
 }
+
+// ── issue 138：腾讯云 TokenHub（tencent_tokenhub）──
+// 成员复核（2026-11-28，130079 / 130055）与家族基座取证一致，无成员覆写（见
+// aidog_adapter platform::registry `TENCENT` 上方 issue 138 注释）。本段只补 issue 84
+// 段的两组缺口：openai 流式末帧 usage 事件（含 cached_tokens 缓存读）与 anthropic
+// 端点错误体透传（84 段明示「Anthropic 专属错误形状未证实」的缺口）。
+
+/// TokenHub openai 流式 usage 终块（135872 usage 表形状）→ Usage 事件；cache_read 取
+/// `prompt_tokens_details.cached_tokens`（顶层 cache_read_tokens 包含关系未证实，不在断言内）。
+#[test]
+fn tencent_tokenhub_openai_stream_usage_event() {
+    use aidog_adapter::types::ChatStreamEvent;
+    let adapter = aidog_adapter::platform::adapter_for("tencent_tokenhub");
+    let frame = serde_json::json!({
+        "id": "tc_1", "created": 1, "model": "hy4", "choices": [],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 3, "total_tokens": 13,
+                   "prompt_tokens_details": {"cached_tokens": 4}},
+    });
+    let events = adapter.parse_sse_frame(&frame, &Protocol::OpenAI);
+    let Some(ChatStreamEvent::Usage { usage }) = events.iter().find(|e| matches!(e, ChatStreamEvent::Usage { .. })) else {
+        panic!("usage 终块须产出 Usage 事件: {events:?}");
+    };
+    assert_eq!(usage.prompt_tokens, Some(10), "{usage:?}");
+    assert_eq!(usage.completion_tokens, Some(3), "{usage:?}");
+    assert_eq!(usage.cache_read_tokens, Some(4), "{usage:?}");
+}
+
+/// TokenHub anthropic 端点错误透传：上游 400 anthropic 形状错误体原样回客户端，状态码不吞
+/// （130079 错误处理节：6 位业务码前三位对应 HTTP 状态；错误体形状经基座 anthropic 臂透传）。
+#[tokio::test]
+async fn tencent_tokenhub_anthropic_endpoint_error_body() {
+    let (status, resp, hits) = glm_member_call(
+        Protocol::TencentTokenhub,
+        Protocol::Anthropic,
+        "gk138ae",
+        "/chat/completions",
+        GLM_OPENAI_IN,
+        (400, "application/json", r#"{"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: Field required"}}"#),
+    )
+    .await;
+    assert!(!hits.is_empty());
+    assert_eq!(hits[0].0, "/v1/messages");
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{resp}");
+    assert!(resp.contains("max_tokens: Field required"), "{resp}");
+}
