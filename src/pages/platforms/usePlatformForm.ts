@@ -653,7 +653,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     name, protocol, endpoints, lockedGroupId, joinGroupIds, autoGroup, expiresAt,
     setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
     setEndpoints, setManualBudgets, setExtra, setMockConfig, setDevinConfig,
-    setQuotaVariantId, setQuotaCustomScript, setQuotaRequires,
+    setQuotaVariantId, setQuotaCustomScript, setQuotaRequires, setQuotaSource,
     setBreakerFailureThreshold, setBreakerHalfOpenMax,
     setRateLimits, setMitmStats, setPassAuth, setAppbuilderKey,
     setCustomSlotValues, setDisabledSlots, setProxyEnabled, timemodels,

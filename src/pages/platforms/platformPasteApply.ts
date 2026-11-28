@@ -50,6 +50,8 @@ export interface PlatformPasteCtx {
   setQuotaVariantId: React.Dispatch<React.SetStateAction<string>>;
   setQuotaCustomScript: React.Dispatch<React.SetStateAction<string>>;
   setQuotaRequires: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  /** fullShare 推导 quota_source（manual_budgets 非空 → manual）：显式包装（同时关 pristine）。 */
+  setQuotaSource: (v: "auto" | "manual") => void;
   setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
   setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
   setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
@@ -111,8 +113,21 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     setCodingPlan((s.endpoints || []).some(ep => ep.coding_plan));
     setModels(slotsToForm(s.models));
     setAvailableModels(s.available_models ?? []);
-    setEndpoints(s.endpoints ?? []);
+    // 透传回填与 handleEdit / handleDuplicate 同款（票 05 契约测试暴露的 03/04 漏修）：
+    // 分享串与存量平台同形（endpoints 空、仅顶层 base_url），不回填则 Base URL 输入框为空、保存丢 base_url。
+    const eps = [...(s.endpoints ?? [])];
+    if (s.platform_type === "passthrough" && s.base_url) {
+      if (eps.length === 0) {
+        eps.push({ protocol: "passthrough", base_url: s.base_url, client_type: "default", coding_plan: false });
+      } else if (!eps[0].base_url) {
+        eps[0] = { ...eps[0], base_url: s.base_url };
+      }
+    }
+    setEndpoints(eps);
     setManualBudgets(s.manual_budgets ?? []);
+    // 配额方式推导（D2 同类漏修）：SharePlatform 不携带 quota_source；manual_budgets 非空是 manual 的
+    // 唯一信号（Rust 保存侧 source=auto 会清 manual_budgets），不推导则导入保存即丢预算。
+    if ((s.manual_budgets ?? []).length > 0) ctx.setQuotaSource("manual");
     const ex = s.extra ?? "";
     setExtra(ex);
     setMockConfig(parseMockConfig(ex));
