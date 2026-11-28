@@ -261,3 +261,41 @@ async fn long_transcript_path_resolves_name() {
     let v = vars(&[("session", "s9"), ("transcript_path", p.to_str().unwrap())]);
     assert_eq!(resolve_in(&db, &v, d.path()).await, "自动标题");
 }
+
+/// issue #66：resolve_cached 统计页会话标题——缓存优先；未命中按需读一次来源并回写缓存；
+/// 失败静默回落空串；未知客户端返回空。
+#[tokio::test]
+async fn resolve_cached_prefers_cache_then_reads_source_once() {
+    let (db, _dir): (Db, _) = aidog_db::test_support::three_file_db().await;
+    let d = tempfile::tempdir().unwrap();
+    // Claude：transcript 在 <root>/proj/<sid>.jsonl
+    let proj = d.path().join("proj");
+    std::fs::create_dir_all(&proj).unwrap();
+    let p = proj.join("s9.jsonl");
+    write(&p, &[AI]);
+    assert_eq!(
+        resolve_cached_in(&db, "claude_code", "s9", d.path(), d.path()).await,
+        "自动标题",
+        "未命中缓存 → 按需读 transcript"
+    );
+    assert!(
+        aidog_db::get_session_name_cache(&db, "claude_code", "s9").await.unwrap().is_some(),
+        "读取结果回写缓存"
+    );
+    // transcript 已删：缓存命中仍返回名字
+    std::fs::remove_file(&p).unwrap();
+    assert_eq!(resolve_cached_in(&db, "claude_code", "s9", d.path(), d.path()).await, "自动标题");
+
+    // Codex：session_index.jsonl（home 根）线程名
+    write(&d.path().join("session_index.jsonl"), &[r#"{"id":"t1","thread_name":"线程名"}"#]);
+    assert_eq!(
+        resolve_cached_in(&db, "codex", "t1", d.path(), d.path()).await,
+        "线程名"
+    );
+
+    // 未知客户端 / 空 session_id → 空串（静默回落）
+    assert_eq!(resolve_cached_in(&db, "other", "s9", d.path(), d.path()).await, "");
+    assert_eq!(resolve_cached_in(&db, "claude_code", "  ", d.path(), d.path()).await, "");
+    // 找不到 transcript 文件 → 空
+    assert_eq!(resolve_cached_in(&db, "claude_code", "nope", d.path(), d.path()).await, "");
+}

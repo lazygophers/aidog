@@ -964,6 +964,10 @@ pub struct ProxyLogFilter {
     #[serde(default)]
     #[ts(optional)]
     pub session_id: Option<String>,
+    /// 客户端码过滤（issue #66）：Some(non-empty) = client IN (...)；空 / None = 全部
+    #[serde(default)]
+    #[ts(optional)]
+    pub clients: Option<Vec<String>>,
 }
 
 /// 手动「立即清理」前的只读预估（三个数）。

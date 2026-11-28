@@ -584,11 +584,21 @@ pub async fn group_latest_routing(
 
 crate::tauri_command! {
 /// 会话归组聚合（magpie 票 08）：近 `days` 天（缺省 7，clamp 1..=90）按
-/// proxy_log.session_key 聚合请求数 / token / est_cost；标题 = 会话首条有
-/// request_body 的请求前 60 字符；空 session_key 不参与聚合。
+/// proxy_log.session_key 聚合请求数 / token / est_cost；标题 = 客户端会话名
+/// （issue #66：会话名缓存 → 首条请求正文前 60 字 → 空）；空 session_key 不参与聚合。
+/// `clients`（issue #66）：客户端码过滤，空 / None = 全部。
 pub async fn session_stats(
-    days: Option<u32>) -> Result<Vec<gateway::models::SessionStats>, String> {
+    days: Option<u32>,
+    clients: Option<Vec<String>>) -> Result<Vec<gateway::models::SessionStats>, String> {
     let db = aidog_ctx::db();
-    aidog_stats::get_session_stats(db, days).await
+    let mut rows = aidog_stats::get_session_stats(db, days, clients).await?;
+    // 标题回落链（issue #66）：客户端会话名缓存 → 首条正文（聚合内已取）→ 未命名。
+    // 会话名读取复用通知模块 Claude / Codex 逻辑：缓存未命中按需读一次，失败静默回落。
+    for s in rows.iter_mut() {
+        if s.title.is_empty() && !s.client.is_empty() && !s.session_id.is_empty() {
+            s.title = aidog_notification::session_name::resolve_cached(db, &s.client, &s.session_id).await;
+        }
+    }
+    Ok(rows)
 }
 }

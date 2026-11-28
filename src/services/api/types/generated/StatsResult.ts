@@ -14,4 +14,9 @@ available_models: Array<string>,
  * 交叉聚合序列（chart-engine D1 / #32）：`series_by` 有值时按维度拆分的逐桶序列；
  * 未传 → 空数组（向后兼容）。serde default 容忍旧 JSON 无该键。
  */
-series: Array<StatsSeries>, };
+series: Array<StatsSeries>, 
+/**
+ * 窗口内实际出现的客户端码（issue #66）：受时间 / 分组 / 平台过滤、不受客户端过滤，
+ * 供前端客户端筛选下拉（与 available_models 同口径）。serde default 容忍旧 JSON。
+ */
+available_clients: Array<string>, };

@@ -94,6 +94,7 @@ fn q(start: i64, end: i64) -> ScatterHistogramQuery {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
     }
 }
 
@@ -186,6 +187,40 @@ async fn scatter_histogram_filters_apply() {
     let mut qm = q(now - 3_600_000, now + 3_600_000);
     qm.filter_model = Some("glm-4-plus".into());
     let h = scatter_histogram(&db, &qm).await.unwrap();
+    let total: u64 = h.counts.iter().flat_map(|r| r.iter()).sum();
+    assert_eq!(total, 2);
+}
+
+/// 客户端过滤（issue #66）：filter_clients 只留命中客户端的行。
+#[tokio::test]
+async fn scatter_histogram_client_filter_applies() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut a = sample_log("cfa", "g1", now);
+    a.client = "claude_code".into();
+    a.duration_ms = 100;
+    a.est_cost = 0.01;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    let mut b = sample_log("cfb", "g1", now);
+    b.client = "codex".into();
+    b.duration_ms = 200;
+    b.est_cost = 0.02;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
+
+    let mut qc = q(now - 3_600_000, now + 3_600_000);
+    qc.filter_clients = Some(vec!["codex".into()]);
+    let h = scatter_histogram(&db, &qc).await.unwrap();
+    let total: u64 = h.counts.iter().flat_map(|r| r.iter()).sum();
+    assert_eq!(total, 1, "client 过滤后只余 codex 一条");
+
+    // 空列表 = 不过滤
+    let mut qe = q(now - 3_600_000, now + 3_600_000);
+    qe.filter_clients = Some(vec![]);
+    let h = scatter_histogram(&db, &qe).await.unwrap();
     let total: u64 = h.counts.iter().flat_map(|r| r.iter()).sum();
     assert_eq!(total, 2);
 }
