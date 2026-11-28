@@ -232,7 +232,6 @@
     "enableWorkflows": true,
     "wheelScrollAccelerationEnabled": true,
     "ultracode": false,
-    "teammateMode": "in-process",
     "terminalProgressBarEnabled": true,
     "terminalTitleFromRename": true,
     "syntaxHighlightingDisabled": false,
@@ -248,6 +247,7 @@
     "axScreenReader": false,
     "alwaysThinkingEnabled": true,
     "fastMode": false,
+      "teammateMode": "auto",
     "skillListingMaxDescChars": 1024,
     "feedbackSurveyRate": 0,
     "feedbackDrafts": "off",
@@ -415,7 +415,8 @@
             "Edit(**/*.pdb)",
             "Edit(**/*.wasm)",
             "Bash(sleep:*)",
-            "Bash(cd:*)"
+            "Bash(cd:*)",
+            "Bash(pushd:*)"
         ],
         "allow": [
             "SendMessage",
@@ -559,6 +560,15 @@
                 ]
             },
             {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 -c 'import json,sys,re\nc=json.load(sys.stdin).get(\"tool_input\",{}).get(\"command\",\"\")\nhit=False\nfor s in re.split(r\"[;()|&\\n]\",c):\n    t=s.split()\n    i=0\n    while i<len(t) and (re.match(r\"[A-Za-z_]\\w*=\",t[i]) or t[i] in (\"sudo\",\"nohup\",\"command\",\"builtin\",\"time\",\"nice\") or t[i].startswith(\"-\")):\n        i+=1\n    if i<len(t) and t[i].split(\"/\")[-1] in (\"cd\",\"pushd\"): hit=True\nprint(json.dumps({\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"目录切换（cd/pushd）已被阻止，请在当前目录用绝对路径操作\"}}) if hit else \"\",end=\"\")'"
+                    }
+                ]
+            },
+            {
                 "matcher": "Grep|Glob|Bash",
                 "hooks": [
                     {
@@ -637,7 +647,8 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "printf '{\"systemMessage\":\"会话ID: %s\"}\\n' \"$CLAUDE_CODE_SESSION_ID\""
+                        "command": "printf '{\"systemMessage\":\"会话ID: %s\"}\\n' \"$CLAUDE_CODE_SESSION_ID\"",
+                        "async": true
                     }
                 ]
             },
@@ -754,7 +765,6 @@
         "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80",
         "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
         "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
-        "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
         "NO_PROXY": "localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,*.cn",
         "FORCE_AUTOUPDATE_PLUGINS": "1",
         "DO_NOT_TRACK": "1",
