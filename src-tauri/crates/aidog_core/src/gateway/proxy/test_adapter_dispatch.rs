@@ -5547,3 +5547,71 @@ async fn anthropic_member_error_body() {
     assert!(resp.contains("max_tokens: Field required"), "{resp}");
     assert!(resp.contains("req_149"), "request_id 保留: {resp}");
 }
+
+// ══ issue 140：小米 MiMo（xiaomi_mimo）成员护栏 ══
+// 成员复核（2026-11-28，官方 .md 原文页重抓比对）与家族基座取证一致，无成员覆写（见
+// aidog_adapter platform::registry `MimoFamilyAdapter` 成员节）。issue 85 段已覆盖两端点
+// 非流式 / 流式 / 错误 / thinking 逐成员作用域 / reasoning_content 多轮历史；本段只补
+// 85 段缺口：两端点流式 usage 帧（含缓存读）产出 Usage 事件。
+
+/// MiMo openai 流式末帧（choices 空 + 顶层 usage，`prompt_tokens_details.cached_tokens`
+/// 缓存读；官方 openai-api-post 响应示例形状）→ Usage 事件。
+#[test]
+fn xiaomi_mimo_openai_stream_usage_event() {
+    use aidog_adapter::types::ChatStreamEvent;
+    let adapter = aidog_adapter::platform::adapter_for("xiaomi_mimo");
+    let frame = serde_json::json!({
+        "id": "mm_140", "created": 1, "model": "mimo-v2.6-pro", "choices": [],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 3, "total_tokens": 13,
+                   "prompt_tokens_details": {"cached_tokens": 4}},
+    });
+    let events = adapter.parse_sse_frame(&frame, &Protocol::OpenAI);
+    let Some(ChatStreamEvent::Usage { usage }) =
+        events.iter().find(|e| matches!(e, ChatStreamEvent::Usage { .. }))
+    else {
+        panic!("usage 终帧须产出 Usage 事件: {events:?}");
+    };
+    assert_eq!(usage.prompt_tokens, Some(10), "{usage:?}");
+    assert_eq!(usage.completion_tokens, Some(3), "{usage:?}");
+    assert_eq!(usage.total_tokens, Some(13), "{usage:?}");
+    assert_eq!(usage.cache_read_tokens, Some(4), "缓存读取 cached_tokens: {usage:?}");
+}
+
+/// MiMo anthropic 流式 message_delta（usage 只带 output_tokens 的部分帧；prompt / 缓存
+/// 由 message_start 帧携带、经 Usage::merge_partial 跨帧合并）→ Usage 事件。
+#[test]
+fn xiaomi_mimo_anthropic_stream_message_delta_usage_event() {
+    use aidog_adapter::types::ChatStreamEvent;
+    let adapter = aidog_adapter::platform::adapter_for("xiaomi_mimo");
+    let start = serde_json::json!({
+        "type": "message_start",
+        "message": {"id": "msg_140", "type": "message", "role": "assistant",
+                     "model": "mimo-v2.6-pro", "content": [],
+                     "usage": {"input_tokens": 6, "output_tokens": 0, "cache_read_input_tokens": 4}},
+    });
+    let delta = serde_json::json!({
+        "type": "message_delta",
+        "delta": {"stop_reason": "end_turn", "stop_sequence": null},
+        "usage": {"output_tokens": 3},
+    });
+    let start_events = adapter.parse_sse_frame(&start, &Protocol::Anthropic);
+    let delta_events = adapter.parse_sse_frame(&delta, &Protocol::Anthropic);
+    for (name, events) in [("message_start", &start_events), ("message_delta", &delta_events)] {
+        assert!(
+            events.iter().any(|e| matches!(e, ChatStreamEvent::Usage { .. })),
+            "{name} 帧须产出 Usage 事件: {events:?}"
+        );
+    }
+    // 跨帧合并：start 帧输入 + 缓存读，delta 帧输出覆盖。
+    let mut merged = aidog_adapter::types::Usage::default();
+    for events in [&start_events, &delta_events] {
+        for e in events.iter() {
+            if let ChatStreamEvent::Usage { usage } = e {
+                merged.merge_partial(usage);
+            }
+        }
+    }
+    assert_eq!(merged.prompt_tokens, Some(6), "{merged:?}");
+    assert_eq!(merged.completion_tokens, Some(3), "{merged:?}");
+    assert_eq!(merged.cache_read_tokens, Some(4), "{merged:?}");
+}
