@@ -2470,3 +2470,29 @@ fn openai_member_registration_usage_injection_and_error_class() {
     adapter.inject_coding_plan(&mut body, &Protocol::OpenAI, &Protocol::OpenAI);
     assert_eq!(body, json!({"model":"gpt-5.6-terra"}));
 }
+
+// ── issue 141：xiaomi_mimo_coding 成员（套餐）——官方订阅页/快速接入页核对 2026-11-28
+// （URL 见 registry `MimoFamilyAdapter` 成员注释），未列成员级差异，行为保持家族基座默认。
+
+/// registry 语义与 coding_plan 注入：套餐成员共用基座默认实例（区别于 `xiaomi_mimo`
+/// 全量覆写实例）；官方仅发套餐 Key + Base URL、无必填注入字段，两 wire 注入均 no-op。
+#[test]
+fn xiaomi_mimo_coding_registry_semantics_and_coding_plan_noop() {
+    let coding = super::adapter_for("xiaomi_mimo_coding");
+    let coding_en = super::adapter_for("xiaomi_mimo_coding_en");
+    let official = super::adapter_for("xiaomi_mimo");
+    assert!(
+        std::ptr::eq(coding, coding_en),
+        "套餐成员必须共用基座默认实例"
+    );
+    assert!(
+        !std::ptr::eq(coding, official),
+        "套餐成员不得复用 xiaomi_mimo 全量覆写实例"
+    );
+    for wire in [Protocol::OpenAI, Protocol::Anthropic] {
+        let mut body = json!({ "model": "mimo-v2.6-pro", "messages": [] });
+        let original = body.clone();
+        coding.inject_coding_plan(&mut body, &Protocol::XiaomiMimoCoding, &wire);
+        assert_eq!(body, original, "{wire:?} coding_plan 注入必须 no-op");
+    }
+}
