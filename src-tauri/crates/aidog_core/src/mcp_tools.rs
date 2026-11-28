@@ -81,6 +81,16 @@ pub(crate) async fn save_mcp_tools_settings(db: &Db, s: &McpToolsSettings) -> Re
     .await
 }
 
+crate::tauri_command! {
+    /// Tools 页设置读取（票 57-01）：与 MCP 工具调用同走 [`load_mcp_tools_settings`]——
+    /// 读时迁移旧形状并回写，返回值永远是新形状（无记录 → 默认值，不报错）。
+    /// 写路径仍走通用 `settings_set` 读-改-写；key 字段经管理接口由 `secret_fields`
+    /// 按 `keys` 后缀脱敏，桌面 IPC 不脱敏（与 `settings_get` 同口径）。
+    pub async fn mcp_tools_settings_get() -> McpToolsSettings {
+        load_mcp_tools_settings(aidog_ctx::db()).await
+    }
+}
+
 #[cfg(test)]
 mod test_mcp_tools {
     use super::*;
@@ -164,5 +174,23 @@ mod test_mcp_tools {
         assert_eq!(load_mcp_tools_settings(&db).await, McpToolsSettings::default());
         put(&db, json!({"search": "garbage"})).await;
         assert_eq!(load_mcp_tools_settings(&db).await, McpToolsSettings::default());
+    }
+
+    #[tokio::test]
+    async fn settings_get_view_for_tools_page_migrates_legacy_keys_and_is_idempotent() {
+        // 票 57-01：`mcp_tools_settings_get` 命令体 = 本函数。Tools 页打开旧形状后保存，
+        // 旧 key 必须经迁移视图保留；再次读取不改库（幂等）。
+        let (db, _d) = aidog_db::test_support::three_file_db().await;
+        put(&db, json!({"search": {"provider": "brave", "keys": ["k1"]}})).await;
+        let view = load_mcp_tools_settings(&db).await;
+        assert_eq!(view.search.services["brave"].keys, vec!["k1".to_string()], "旧 key 迁入 services");
+        let stored = db::get_setting(&db, "mcp_tools", "settings").await.unwrap().unwrap();
+        let again = load_mcp_tools_settings(&db).await;
+        assert_eq!(view, again, "命令返回值幂等");
+        assert_eq!(
+            stored,
+            db::get_setting(&db, "mcp_tools", "settings").await.unwrap().unwrap(),
+            "第二次读不再写库"
+        );
     }
 }
