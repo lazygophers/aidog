@@ -9,4 +9,8 @@ export type ScatterHistogramQuery = { start?: number | null, end?: number | null
 /**
  * 仅统计 coding plan 平台（语义同 `StatsQuery.filter_coding_plan`）。
  */
-filter_coding_plan?: boolean, };
+filter_coding_plan?: boolean, 
+/**
+ * 客户端码过滤（issue #66）：列表空 / None = 全部客户端。
+ */
+filter_clients?: Array<string>, };

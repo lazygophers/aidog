@@ -15,7 +15,7 @@ import { timePresetToRange, NO_GROUP_SENTINEL, type TimePreset } from "./types";
  * platformMap/groupName（platform/group 展示名映射，list 与 detail 两侧共用）。
  * 自 useLogsData 拆出（c8 三段切分），行为不变。
  */
-export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?: string; sessionKey?: string }) {
+export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?: string; sessionKey?: string; clients?: string[] }) {
   const { t } = useTranslation();
 
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -24,6 +24,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
   const [filterGroup, setFilterGroup] = useState<string>(initialFilter?.groupKey ?? "");
   // 会话归组键（magpie 票 09 会话统计下钻）：仅导航入口带入，无独立下拉
   const [filterSession, setFilterSession] = useState<string>(initialFilter?.sessionKey ?? "");
+  // 客户端码（issue #66 统计页下钻）：仅导航入口带入，无独立下拉
+  const [filterClients, setFilterClients] = useState<string[]>(initialFilter?.clients ?? []);
   const [filterPromptId, setFilterPromptId] = useState<string>("");
   const [filterSessionId, setFilterSessionId] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
@@ -60,10 +62,11 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     if (filterSession.trim()) f.session_key = filterSession.trim();
     if (filterPromptId.trim()) f.prompt_id = filterPromptId.trim();
     if (filterSessionId.trim()) f.session_id = filterSessionId.trim();
+    if (filterClients.length) f.clients = filterClients;
     return f;
-  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession, filterPromptId, filterSessionId]);
+  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModel, filterActualModel, filterPath, filterObserved, filterType, filterSession, filterPromptId, filterSessionId, filterClients]);
 
-  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModel.trim() || filterActualModel.trim() || filterPath.trim() || filterObserved || filterType || filterSession.trim() || filterPromptId.trim() || filterSessionId.trim());
+  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModel.trim() || filterActualModel.trim() || filterPath.trim() || filterObserved || filterType || filterSession.trim() || filterPromptId.trim() || filterSessionId.trim() || filterClients.length);
 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [actualModelOptions, setActualModelOptions] = useState<string[]>([]);
@@ -87,6 +90,7 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     setFilterSession("");
     setFilterPromptId("");
     setFilterSessionId("");
+    setFilterClients([]);
   };
 
   const platformMap = useMemo(() => {

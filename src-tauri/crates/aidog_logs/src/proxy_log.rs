@@ -834,6 +834,16 @@ fn build_filter_where(
             }
         }
     }
+    // 客户端码过滤（issue #66）：Some(non-empty) = client IN (...)；空 / None = 全部
+    if let Some(cl) = filter.clients.as_ref().filter(|c| !c.is_empty()) {
+        let placeholders: Vec<String> =
+            (0..cl.len()).map(|i| format!("?{}", idx + i as u32)).collect();
+        parts.push(format!("AND client IN ({})", placeholders.join(", ")));
+        for c in cl {
+            p.push(Box::new(c.clone()));
+        }
+        idx += cl.len() as u32;
+    }
     let _ = idx;
 
     let where_sql = if parts.is_empty() {
@@ -1088,7 +1098,7 @@ mod tests {
                 id TEXT, platform_id INTEGER, group_key TEXT, status_code INTEGER,
                 created_at INTEGER, model TEXT, actual_model TEXT, request_url TEXT,
                 deleted_at INTEGER DEFAULT 0,
-                source_protocol TEXT, blocked_reason TEXT
+                source_protocol TEXT, blocked_reason TEXT, client TEXT
             );",
             )
             .unwrap();
@@ -1141,6 +1151,19 @@ mod tests {
             // sources IN (?, ?)：占位符随 vec 长度递增。
             assert_binds_ok(&ProxyLogFilter {
                 sources: Some(vec!["test".into(), "quota".into()]),
+                ..Default::default()
+            });
+        }
+
+        #[test]
+        fn clients_in_binds_ok() {
+            // clients IN (?, ?)（issue #66）：占位符随 vec 长度递增；空 = 无谓词。
+            assert_binds_ok(&ProxyLogFilter {
+                clients: Some(vec!["claude_code".into(), "codex".into()]),
+                ..Default::default()
+            });
+            assert_binds_ok(&ProxyLogFilter {
+                clients: Some(vec![]),
                 ..Default::default()
             });
         }

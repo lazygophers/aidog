@@ -179,6 +179,8 @@ export interface NavContext {
   logId?: string;
   /** 进入日志页后按 session_key 过滤（magpie 票 09 会话统计下钻）。 */
   sessionKey?: string;
+  /** 进入日志页后按客户端码过滤（issue #66 统计页会话下钻）。 */
+  clients?: string[];
   /** 经导航进入平台页时以「复制」（新建态）而非「编辑」打开目标平台。 */
   duplicate?: boolean;
   /** 经导航进入平台页时打开详情全页（分组页卡片「详情」入口，T2）。 */

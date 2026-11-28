@@ -86,6 +86,14 @@ fn scatter_hist_inner(
         let idx = 3 + query.filter_group.is_some() as usize;
         where_parts.push(format!("(model = ?{idx} OR actual_model = ?{idx})"));
     }
+    // 客户端过滤（issue #66）：client 是普通列，直接 SQL IN 下推。
+    // 占位下标 = start/end(2) + group/model 各 1 + 1 起。
+    if let Some(cl) = query.filter_clients.as_ref().filter(|c| !c.is_empty()) {
+        let base = 3 + query.filter_group.is_some() as usize + query.filter_model.is_some() as usize;
+        let placeholders: Vec<String> =
+            (0..cl.len()).map(|i| format!("?{}", base + i)).collect();
+        where_parts.push(format!("client IN ({})", placeholders.join(",")));
+    }
     let where_sql = where_parts.join(" AND ");
     let mut binds: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(start), Box::new(end)];
     if let Some(ref g) = query.filter_group {
@@ -93,6 +101,11 @@ fn scatter_hist_inner(
     }
     if let Some(ref m) = query.filter_model {
         binds.push(Box::new(m.clone()));
+    }
+    if let Some(cl) = query.filter_clients.as_ref().filter(|c| !c.is_empty()) {
+        for c in cl {
+            binds.push(Box::new(c.clone()));
+        }
     }
     let refs: Vec<&dyn rusqlite::types::ToSql> = binds.iter().map(|b| b.as_ref()).collect();
 

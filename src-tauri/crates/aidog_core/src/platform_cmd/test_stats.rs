@@ -17,6 +17,7 @@ async fn query_and_batch() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        filter_clients: None,
         series_by: None,
         limit: None,
     };
