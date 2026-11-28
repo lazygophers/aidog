@@ -3098,6 +3098,19 @@ pub fn adapter_for(code: &str) -> &'static dyn PlatformAdapter {
 /// - 套餐成员 `compshare_coding`（`https://cp.compshare.cn`，anthropic wire，官方文档
 ///   https://www.compshare.cn/docs/modelverse/models/quick-start 未给 API 参数差异；
 ///   cp.compshare.cn 文档站不可达 HTTP 404）：成员差异未证实，继承家族基座。
+/// - 标准成员 `compshare` 成员级复核（issue 147，核对日期 2026-11-28；五页官方文档
+///   raw 直取全部 HTTP 200，2026-11-23 基座审计事实未漂移）：三协议端点、认证
+///   （anthropic 端点 `x-api-key` 或 Bearer）、思考词表与证实模型清单逐字一致；
+///   api-expand 页（更新于 2026-10-28）新增自定义扩展字段 `web_search`（`enable` +
+///   `vendor`，默认关）与 `thinking_enabled`（bool，默认关），仅显式提交才被 ModelVerse
+///   识别的 opt-in 附加字段，不改默认请求行为，不覆写；
+///   https://www.compshare.cn/docs/modelverse/models/text_api/api-expand ；
+///   model-competi 页为模型级备注（gpt-5.1 系不收 `max_tokens` 须用
+///   `max_completion_tokens`、Claude 系 `temperature` ∈ [0,1) 且与 `top_p` 互斥），
+///   属模型侧行为非网关适配差异，不改写；
+///   https://www.compshare.cn/docs/modelverse/models/text_api/model-competi ；
+///   claude_compatible 页 usage 仅列 `input_tokens` / `output_tokens`，缓存 token
+///   字段未证实，保持基座。零成员覆写。
 ///
 /// 家族级覆写只有 openai 端点禁思考的模型级门控（见 impl 注释）；其余接口继承协议构件
 /// 默认实现。
