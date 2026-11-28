@@ -2,7 +2,7 @@
 
 /**
  * 平台「最近一次测试结果」（来自 proxy_log 中 source_protocol='test' 的最新一条）。
- * 供 PlatformRow 常驻徽章消费：ok/fail + 耗时 + 时间。
+ * 供 PlatformCard 常驻徽章消费：ok/fail + 耗时 + 时间。
  */
 export type LastTestResult = { 
 /**
