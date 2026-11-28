@@ -203,4 +203,24 @@ describe("PlatformRow", () => {
       expect(row).not.toContain("$");
     });
   });
+
+  describe("「Peak-disabled」徽标读侧走严格布尔 parse（票 07）", () => {
+    const origMeta = metaCfg.v;
+    const peakMeta = () => ({ ...origMeta(), peakWindows: [{ start_hour: 0, end_hour: 24, multiplier: 2 }] as never });
+    afterEach(() => { metaCfg.v = origMeta; });
+
+    it("disable_during_peak=1（数字）→ 不判为禁用，无徽标", () => {
+      metaCfg.v = peakMeta;
+      const p = { ...platform, extra: JSON.stringify({ disable_during_peak: 1 }) } as never as Platform;
+      render(<PlatformRow {...base} platform={p} />);
+      expect(screen.queryByTestId("row-peak-disabled-badge")).toBeNull();
+    });
+
+    it("disable_during_peak=true + 高峰命中 → 徽标显示", () => {
+      metaCfg.v = peakMeta;
+      const p = { ...platform, extra: JSON.stringify({ disable_during_peak: true }) } as never as Platform;
+      render(<PlatformRow {...base} platform={p} />);
+      expect(screen.getByTestId("row-peak-disabled-badge")).toBeTruthy();
+    });
+  });
 });

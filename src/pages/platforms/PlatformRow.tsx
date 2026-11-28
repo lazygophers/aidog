@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Platform, PlatformUsageStats, PlatformQuota, LastTestResult } from "../../services/api";
-import { parseRateLimitsBundle, parseProxyEnabled } from "../../services/api";
+import { parseRateLimitsBundle, parseProxyEnabled, parseDisableDuringPeak } from "../../services/api";
 import { useProxyConfigured } from "../../domains/platforms/proxyConfig";
 import { formatNumber, formatMoney, formatAmount, formatPercent, formatDurationMs, formatRelativeTime, successRate as calcSuccessRate } from "../../utils/formatters";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
@@ -151,9 +151,7 @@ export function PlatformRow({
   const rlConfigured = !!(rlBase && ((rlBase.rpm ?? 0) > 0 || (rlBase.rps ?? 0) > 0 || (rlBase.tpm ?? 0) > 0 || !!rlBase.rules?.some(r => r.enabled !== false)));
   const qwCount = rateLimitsBundle.quota_windows?.length ?? 0;
   const rlCount = (rlConfigured ? 1 : 0) + qwCount;
-  const disableDuringPeak = useMemo(() => {
-    try { return !!JSON.parse(p.extra || "{}").disable_during_peak; } catch { return false; }
-  }, [p.extra]);
+  const disableDuringPeak = useMemo(() => parseDisableDuringPeak(p.extra ?? ""), [p.extra]);
   // 「代理」徽标（issue #64 T03）：平台开关开 且 全局代理地址非空才显示（地址空 = 实际直连）。
   const proxyConfigured = useProxyConfigured();
   const showProxyBadge = useMemo(
@@ -276,7 +274,7 @@ export function PlatformRow({
               </span>
             )}
             {disableDuringPeak && inPeak && (
-              <span style={badgeStyle("var(--color-warning)", "color-mix(in srgb, var(--color-warning) 12%, transparent)", "color-mix(in srgb, var(--color-warning) 35%, transparent)")}>
+              <span data-testid="row-peak-disabled-badge" style={badgeStyle("var(--color-warning)", "color-mix(in srgb, var(--color-warning) 12%, transparent)", "color-mix(in srgb, var(--color-warning) 35%, transparent)")}>
                 {t("platform.peak_disabled_badge", "Peak-disabled")}
               </span>
             )}
